@@ -1,4 +1,4 @@
-import { sql } from 'drizzle-orm'
+import { relations, sql } from 'drizzle-orm'
 import {
   boolean,
   index,
@@ -182,3 +182,19 @@ export type NewTransaction = typeof transactions.$inferInsert
 export type BalanceSnapshot = typeof balanceSnapshots.$inferSelect
 export type CategorizationRule = typeof categorizationRules.$inferSelect
 export type NewCategorizationRule = typeof categorizationRules.$inferInsert
+
+// ============ Relations ============
+export const accountsRelations = relations(accounts, ({ many }) => ({
+  transactions: many(transactions),
+}))
+
+export const transactionsRelations = relations(transactions, ({ one }) => ({
+  account: one(accounts, {
+    fields: [transactions.accountId],
+    references: [accounts.id],
+  }),
+  category: one(categories, {
+    fields: [transactions.categoryId],
+    references: [categories.id],
+  }),
+}))
