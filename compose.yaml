@@ -1,0 +1,22 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: florin-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: florin
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      POSTGRES_DB: florin
+    ports:
+      - "5432:5432"
+    volumes:
+      - florin-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U florin -d florin"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  florin-db-data:
+    name: florin-db-data
