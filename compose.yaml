@@ -8,7 +8,9 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
       POSTGRES_DB: florin
     ports:
-      - "5432:5432"
+      # Mapped to 5433 on the host to avoid conflict with a system Postgres on 5432.
+      # Inside the compose network (and from inside the container), Postgres still listens on 5432.
+      - "127.0.0.1:5433:5432"
     volumes:
       - florin-db-data:/var/lib/postgresql/data
     healthcheck:
