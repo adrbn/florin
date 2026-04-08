@@ -15,6 +15,24 @@ const envSchema = z.object({
     .transform((v) => (v === '' ? undefined : v)),
   APP_BASE_URL: z.url().default('http://localhost:3000'),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
+  // ============ Enable Banking (PSD2 Open Banking) ============
+  // All optional — Florin runs without bank linking until these are set.
+  // Treat empty strings the same as missing so that bare .env templates do
+  // not break the schema.
+  ENABLE_BANKING_APP_ID: z
+    .string()
+    .optional()
+    .transform((v) => (v === '' ? undefined : v)),
+  ENABLE_BANKING_PRIVATE_KEY_PATH: z
+    .string()
+    .optional()
+    .transform((v) => (v === '' ? undefined : v)),
+  ENABLE_BANKING_REDIRECT_URL: z
+    .union([z.url(), z.literal('')])
+    .optional()
+    .transform((v) =>
+      v === '' || v === undefined ? 'https://localhost:3000/api/banking/callback' : v,
+    ),
 })
 
 export type Env = z.infer<typeof envSchema>

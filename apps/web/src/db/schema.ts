@@ -51,6 +51,40 @@ export const users = pgTable('users', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
+// ============ bank_connections ============
+// One row per Enable Banking consent session. A single session links one or
+// more accounts at one ASPSP (bank). PSD2 caps consent at ~90 days so each
+// session has a `validUntil` — the UI surfaces "needs re-auth" once expired.
+export const bankConnections = pgTable('bank_connections', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  provider: text('provider').notNull().default('enable_banking'),
+  /** Enable Banking session UUID (returned by POST /sessions). */
+  sessionId: text('session_id').notNull().unique(),
+  /** ASPSP (bank) identifier as Enable Banking returns it, e.g. "La Banque Postale". */
+  aspspName: text('aspsp_name').notNull(),
+  /** ISO country of the ASPSP, e.g. "FR". */
+  aspspCountry: text('aspsp_country').notNull(),
+  /** 'active' while consent is valid, 'expired' past validUntil, 'revoked' if user revoked. */
+  status: text('status').notNull().default('active'),
+  /** When the consent expires — PSD2 caps at ~90–180 days depending on bank. */
+  validUntil: timestamp('valid_until', { withTimezone: true }).notNull(),
+  /**
+   * Lower bound for transaction sync. Never fetch transactions dated before
+   * this. Defaults to the connection creation date so the first sync doesn't
+   * pull history that might overlap with legacy XLSX imports. User can move
+   * this earlier (down to 90 days ago) or later as needed.
+   */
+  syncStartDate: timestamp('sync_start_date', { withTimezone: false, mode: 'date' })
+    .notNull()
+    .defaultNow(),
+  /** Last successful sync across all accounts in this connection. */
+  lastSyncedAt: timestamp('last_synced_at', { withTimezone: true }),
+  /** Human-readable error from the last failed sync (for display in /accounts). */
+  lastSyncError: text('last_sync_error'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
 // ============ accounts ============
 export const accounts = pgTable('accounts', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -66,6 +100,10 @@ export const accounts = pgTable('accounts', {
   lastSyncedAt: timestamp('last_synced_at', { withTimezone: true }),
   syncProvider: syncProviderEnum('sync_provider').notNull().default('manual'),
   syncExternalId: text('sync_external_id'),
+  /** FK to bank_connections when syncProvider = 'enable_banking'. Null for manual/legacy. */
+  bankConnectionId: uuid('bank_connection_id').references(() => bankConnections.id, {
+    onDelete: 'set null',
+  }),
   displayColor: text('display_color'),
   displayIcon: text('display_icon'),
   displayOrder: integer('display_order').notNull().default(0),
@@ -121,6 +159,12 @@ export const transactions = pgTable(
     externalId: text('external_id'),
     legacyId: text('legacy_id'),
     isPending: boolean('is_pending').notNull().default(false),
+    /**
+     * YNAB-style review flag. Set to true when a transaction is auto-imported
+     * from a bank API so the user has a chance to confirm the payee/category
+     * before it counts as "approved". Manual entries land already approved.
+     */
+    needsReview: boolean('needs_review').notNull().default(false),
     transferPairId: uuid('transfer_pair_id'),
     rawData: text('raw_data'),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
@@ -135,6 +179,7 @@ export const transactions = pgTable(
       .where(sql`${t.externalId} IS NOT NULL`),
     uniqueIndex('transactions_legacy_unique').on(t.legacyId).where(sql`${t.legacyId} IS NOT NULL`),
     index('transactions_not_deleted_idx').on(t.occurredAt).where(sql`${t.deletedAt} IS NULL`),
+    index('transactions_needs_review_idx').on(t.needsReview).where(sql`${t.needsReview} = true`),
   ],
 )
 
@@ -175,6 +220,8 @@ export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
 export type Account = typeof accounts.$inferSelect
 export type NewAccount = typeof accounts.$inferInsert
+export type BankConnection = typeof bankConnections.$inferSelect
+export type NewBankConnection = typeof bankConnections.$inferInsert
 export type CategoryGroup = typeof categoryGroups.$inferSelect
 export type Category = typeof categories.$inferSelect
 export type Transaction = typeof transactions.$inferSelect
@@ -184,8 +231,16 @@ export type CategorizationRule = typeof categorizationRules.$inferSelect
 export type NewCategorizationRule = typeof categorizationRules.$inferInsert
 
 // ============ Relations ============
-export const accountsRelations = relations(accounts, ({ many }) => ({
+export const accountsRelations = relations(accounts, ({ many, one }) => ({
   transactions: many(transactions),
+  bankConnection: one(bankConnections, {
+    fields: [accounts.bankConnectionId],
+    references: [bankConnections.id],
+  }),
+}))
+
+export const bankConnectionsRelations = relations(bankConnections, ({ many }) => ({
+  accounts: many(accounts),
 }))
 
 export const transactionsRelations = relations(transactions, ({ one }) => ({

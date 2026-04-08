@@ -15,6 +15,27 @@
       "when": 1775576499918,
       "tag": "0001_skinny_scarecrow",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1775635450915,
+      "tag": "0002_ancient_agent_zero",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1775639858115,
+      "tag": "0003_third_cargill",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1775642652195,
+      "tag": "0004_cute_james_howlett",
+      "breakpoints": true
     }
   ]
 }

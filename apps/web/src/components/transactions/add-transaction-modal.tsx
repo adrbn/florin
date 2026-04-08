@@ -28,9 +28,18 @@ interface CategoryOption {
 interface AddTransactionModalProps {
   accounts: ReadonlyArray<AccountOption>
   categories: ReadonlyArray<CategoryOption>
+  /** Pre-select an account in the dropdown — used by the account detail page. */
+  defaultAccountId?: string
+  /** Optional override for the trigger button label. */
+  triggerLabel?: string
 }
 
-export function AddTransactionModal({ accounts, categories }: AddTransactionModalProps) {
+export function AddTransactionModal({
+  accounts,
+  categories,
+  defaultAccountId,
+  triggerLabel = 'Add transaction',
+}: AddTransactionModalProps) {
   const [open, setOpen] = useState(false)
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -65,7 +74,7 @@ export function AddTransactionModal({ accounts, categories }: AddTransactionModa
       <DialogTrigger
         render={
           <Button>
-            <span>Add transaction</span>
+            <span>{triggerLabel}</span>
           </Button>
         }
       />
@@ -82,6 +91,7 @@ export function AddTransactionModal({ accounts, categories }: AddTransactionModa
               id="accountId"
               name="accountId"
               required
+              defaultValue={defaultAccountId ?? accounts[0]?.id ?? ''}
               className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               {accounts.map((a) => (

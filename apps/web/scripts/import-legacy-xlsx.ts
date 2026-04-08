@@ -26,11 +26,11 @@ import {
 } from '../src/db/schema'
 import { normalizePayee } from '../src/lib/categorization/normalize-payee'
 import {
+  type ParsedAccount,
+  type ParsedTransaction,
   parseActifsSheet,
   parseSuiviSoldeSheet,
   parseTransactionsSheet,
-  type ParsedAccount,
-  type ParsedTransaction,
 } from '../src/lib/legacy/parse-xlsx'
 
 const SHEET_HISTORIQUE = 'HISTORIQUE TRANSACTIONS'
@@ -49,56 +49,147 @@ function readSheetRows(workbook: XLSX.WorkBook, name: string): unknown[][] {
   })
 }
 
+/**
+ * Normalize an account name for matching across the ACTIFS and HISTORIQUE
+ * sheets. The legacy spreadsheet has casing and accent inconsistencies between
+ * the two sheets — e.g. "Cash" vs "CASH", "Livret A" vs "LIVRET A", and
+ * "Prêt étudiant" vs "PRET ETUD". We strip diacritics, lowercase, and collapse
+ * whitespace so all variants collide on the same key.
+ */
+function normalizeAccountKey(name: string): string {
+  return name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/**
+ * Map a few hand-curated aliases that don't survive diacritic-stripping alone
+ * (different spellings, abbreviations). Keys and values are pre-normalized.
+ */
+const ACCOUNT_ALIASES: Readonly<Record<string, string>> = {
+  'pret etudiant': 'pret etud',
+  'pret etud.': 'pret etud',
+  'pret etud': 'pret etud',
+}
+
+function resolveAccountKey(name: string): string {
+  const base = normalizeAccountKey(name)
+  return ACCOUNT_ALIASES[base] ?? base
+}
+
+interface UpsertResult {
+  byName: Map<string, string>
+  authoritativeIds: Set<string>
+}
+
 async function upsertAccounts(
   parsed: ReadonlyArray<ParsedAccount>,
   usedAccountNames: ReadonlyArray<string>,
-): Promise<Map<string, string>> {
-  // Collect all account names that either exist in ACTIFS or appear in transactions.
-  const allNames = new Set<string>()
+): Promise<UpsertResult> {
+  // ACTIFS sheet defines the user's "real" accounts and their authoritative
+  // current balances. Anything appearing only in HISTORIQUE column 0 is treated
+  // as a historical / secondary bucket — we still create it so the legacy
+  // transactions remain queryable, but we mark it excluded from net worth so
+  // it doesn't double-count or pollute the headline number.
+  const parsedByKey = new Map<string, ParsedAccount>()
   for (const a of parsed) {
-    allNames.add(a.name)
-  }
-  for (const n of usedAccountNames) {
-    allNames.add(n)
+    parsedByKey.set(resolveAccountKey(a.name), a)
   }
 
-  // Fetch existing accounts by name
   const existing = await db.select().from(accountsTable)
   const byName = new Map<string, string>()
+  const kindById = new Map<string, string>()
+  const includedById = new Map<string, boolean>()
   for (const row of existing) {
-    byName.set(row.name.toLowerCase(), row.id)
+    byName.set(resolveAccountKey(row.name), row.id)
+    kindById.set(row.id, row.kind)
+    includedById.set(row.id, row.isIncludedInNetWorth)
   }
 
-  const parsedByLowerName = new Map<string, ParsedAccount>()
-  for (const a of parsed) {
-    parsedByLowerName.set(a.name.toLowerCase(), a)
-  }
-
-  for (const name of allNames) {
-    const key = name.toLowerCase()
-    if (byName.has(key)) {
+  // 1. Upsert ACTIFS-defined accounts first. These get their authoritative
+  //    balance, kind, and is_included_in_net_worth=true from ACTIFS.
+  for (const account of parsed) {
+    const key = resolveAccountKey(account.name)
+    const existingId = byName.get(key)
+    if (existingId) {
+      await db
+        .update(accountsTable)
+        .set({
+          kind: account.kind,
+          currentBalance: account.initialBalance.toFixed(2),
+          isIncludedInNetWorth: true,
+          updatedAt: new Date(),
+        })
+        .where(eq(accountsTable.id, existingId))
       continue
     }
-    const parsedAccount = parsedByLowerName.get(key)
-    const kind = parsedAccount?.kind ?? 'other'
-    const initial = parsedAccount?.initialBalance ?? 0
-
     const [row] = await db
       .insert(accountsTable)
       .values({
-        name,
-        kind,
-        currentBalance: initial.toFixed(2),
+        name: account.name,
+        kind: account.kind,
+        currentBalance: account.initialBalance.toFixed(2),
         syncProvider: 'legacy',
+        isIncludedInNetWorth: true,
       })
       .returning({ id: accountsTable.id })
-
     if (row) {
       byName.set(key, row.id)
     }
   }
 
-  return byName
+  // 2. For account names that appear only in transactions, create a
+  //    secondary bucket excluded from net worth.
+  for (const rawName of usedAccountNames) {
+    const key = resolveAccountKey(rawName)
+    if (parsedByKey.has(key)) {
+      continue // covered by ACTIFS step above
+    }
+    if (byName.has(key)) {
+      continue
+    }
+    const [row] = await db
+      .insert(accountsTable)
+      .values({
+        name: rawName,
+        kind: 'other',
+        currentBalance: '0.00',
+        syncProvider: 'legacy',
+        isIncludedInNetWorth: false,
+      })
+      .returning({ id: accountsTable.id })
+    if (row) {
+      byName.set(key, row.id)
+    }
+  }
+
+  const authoritativeIds = new Set<string>()
+  for (const account of parsed) {
+    const id = byName.get(resolveAccountKey(account.name))
+    if (id) {
+      authoritativeIds.add(id)
+    }
+  }
+
+  return { byName, authoritativeIds }
+}
+
+/**
+ * Build a lookup keyed by a normalized form of the category name. The legacy
+ * XLSX stores categories like "🛒 Food / Courses" while the seeded catalog
+ * stores them as "Food / Courses" — we strip leading emoji + whitespace and
+ * lowercase on both sides so they collide on the same key.
+ */
+function normalizeCategoryKey(name: string): string {
+  // Drop any leading run of non-letter, non-digit characters (emoji, spaces, punctuation)
+  // then lowercase. \p{L}/\p{N} are Unicode letter/number categories.
+  return name
+    .replace(/^[^\p{L}\p{N}]+/u, '')
+    .toLowerCase()
+    .trim()
 }
 
 async function buildCategoryLookup(): Promise<Map<string, string>> {
@@ -112,11 +203,16 @@ async function buildCategoryLookup(): Promise<Map<string, string>> {
   const map = new Map<string, string>()
   for (const c of cats) {
     const groupName = groupById.get(c.groupId) ?? ''
-    // Strip any leading emoji+whitespace from the stored name for loose matching
-    const nameKey = c.name.toLowerCase().trim()
-    const fullKey = `${groupName}:${nameKey}`.toLowerCase()
+    const nameKey = normalizeCategoryKey(c.name)
+    if (!nameKey) {
+      continue
+    }
+    const fullKey = `${normalizeCategoryKey(groupName)}:${nameKey}`
     map.set(fullKey, c.id)
-    map.set(nameKey, c.id)
+    // Don't overwrite a more specific (group:name) match with a bare-name fallback.
+    if (!map.has(nameKey)) {
+      map.set(nameKey, c.id)
+    }
   }
   return map
 }
@@ -129,15 +225,72 @@ function lookupCategory(
   if (!name) {
     return null
   }
-  const nameKey = name.toLowerCase().trim()
+  const nameKey = normalizeCategoryKey(name)
+  if (!nameKey) {
+    return null
+  }
   if (group) {
-    const full = `${group.toLowerCase()}:${nameKey}`
+    const full = `${normalizeCategoryKey(group)}:${nameKey}`
     const hit = map.get(full)
     if (hit) {
       return hit
     }
   }
   return map.get(nameKey) ?? null
+}
+
+/**
+ * Re-categorize legacy rows whose categoryId is NULL but whose XLSX category
+ * column does match a known category. Lets us repair earlier imports that ran
+ * before the category-key normalization fix without re-running the whole
+ * import (which would skip the rows by legacyId anyway).
+ */
+async function backfillCategories(
+  txns: ReadonlyArray<ParsedTransaction>,
+  categoryLookup: Map<string, string>,
+): Promise<number> {
+  // Index parsed rows by legacyId for fast lookup
+  const byLegacyId = new Map<string, ParsedTransaction>()
+  for (const t of txns) {
+    if (t.legacyId) {
+      byLegacyId.set(t.legacyId, t)
+    }
+  }
+
+  const uncategorized = await db
+    .select({
+      id: transactionsTable.id,
+      legacyId: transactionsTable.legacyId,
+    })
+    .from(transactionsTable)
+    .where(
+      and(
+        eq(transactionsTable.source, 'legacy_xlsx'),
+        isNull(transactionsTable.categoryId),
+        isNull(transactionsTable.deletedAt),
+      ),
+    )
+
+  let updated = 0
+  for (const row of uncategorized) {
+    if (!row.legacyId) {
+      continue
+    }
+    const parsed = byLegacyId.get(row.legacyId)
+    if (!parsed) {
+      continue
+    }
+    const categoryId = lookupCategory(categoryLookup, parsed.categoryGroup, parsed.categoryName)
+    if (!categoryId) {
+      continue
+    }
+    await db
+      .update(transactionsTable)
+      .set({ categoryId, updatedAt: new Date() })
+      .where(eq(transactionsTable.id, row.id))
+    updated++
+  }
+  return updated
 }
 
 async function importTransactions(
@@ -174,7 +327,7 @@ async function importTransactions(
       skipped++
       continue
     }
-    const accountId = accountByName.get(t.accountName.toLowerCase())
+    const accountId = accountByName.get(resolveAccountKey(t.accountName))
     if (!accountId) {
       skipped++
       continue
@@ -210,7 +363,9 @@ async function importSnapshots(
     .from(balanceSnapshots)
     .where(isNull(balanceSnapshots.accountId))
   const existingDates = new Set<string>(
-    existing.map((r) => (r.date instanceof Date ? r.date.toISOString().slice(0, 10) : String(r.date))),
+    existing.map((r) =>
+      r.date instanceof Date ? r.date.toISOString().slice(0, 10) : String(r.date),
+    ),
   )
 
   let inserted = 0
@@ -236,14 +391,30 @@ async function importSnapshots(
   return { inserted, skipped }
 }
 
-async function recomputeBalances(accountByName: Map<string, string>): Promise<void> {
-  for (const accountId of accountByName.values()) {
+/**
+ * Recompute current_balance from transactions for SECONDARY accounts only.
+ *
+ * For accounts defined in ACTIFS we trust SOLDE_ACTIF as the authoritative
+ * current balance — the legacy HISTORIQUE TRANSACTIONS sheet doesn't include
+ * account-opening rows for every account, so summing transactions for, say,
+ * LIVRET A produces a nonsense negative number.
+ *
+ * For auto-created secondary accounts (Caution Rome, PayPal 4x, …) summing
+ * transactions is the best estimate we have, and they're excluded from net
+ * worth anyway, so the value is informational only.
+ */
+async function recomputeSecondaryBalances(
+  byName: Map<string, string>,
+  authoritativeIds: ReadonlySet<string>,
+): Promise<void> {
+  for (const accountId of byName.values()) {
+    if (authoritativeIds.has(accountId)) {
+      continue
+    }
     const rows = await db
       .select({ amount: transactionsTable.amount })
       .from(transactionsTable)
-      .where(
-        and(eq(transactionsTable.accountId, accountId), isNull(transactionsTable.deletedAt)),
-      )
+      .where(and(eq(transactionsTable.accountId, accountId), isNull(transactionsTable.deletedAt)))
     let sum = 0
     for (const r of rows) {
       sum += Number(r.amount)
@@ -278,8 +449,13 @@ async function main(): Promise<void> {
   )
 
   const usedAccountNames = Array.from(new Set(parsedTransactions.map((t) => t.accountName)))
-  const accountByName = await upsertAccounts(parsedAccounts, usedAccountNames)
-  process.stdout.write(`Accounts upserted: ${accountByName.size}\n`)
+  const { byName: accountByName, authoritativeIds } = await upsertAccounts(
+    parsedAccounts,
+    usedAccountNames,
+  )
+  process.stdout.write(
+    `Accounts upserted: ${accountByName.size} (${authoritativeIds.size} from ACTIFS, ${accountByName.size - authoritativeIds.size} secondary)\n`,
+  )
 
   const categoryLookup = await buildCategoryLookup()
   process.stdout.write(`Category lookup entries: ${categoryLookup.size}\n`)
@@ -289,13 +465,16 @@ async function main(): Promise<void> {
     `Transactions: ${txnResult.inserted} inserted, ${txnResult.skipped} skipped\n`,
   )
 
+  const recategorized = await backfillCategories(parsedTransactions, categoryLookup)
+  process.stdout.write(`Re-categorized previously imported rows: ${recategorized}\n`)
+
   const snapResult = await importSnapshots(parsedSnapshots)
   process.stdout.write(
     `Snapshots: ${snapResult.inserted} inserted, ${snapResult.skipped} skipped\n`,
   )
 
-  process.stdout.write('Recomputing account balances...\n')
-  await recomputeBalances(accountByName)
+  process.stdout.write('Recomputing secondary account balances...\n')
+  await recomputeSecondaryBalances(accountByName, authoritativeIds)
   process.stdout.write('Done.\n')
 }
 
