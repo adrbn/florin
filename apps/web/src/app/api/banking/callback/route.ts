@@ -15,9 +15,16 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { completeBankConnection } from '@/server/actions/banking'
 import { decodeAuthState } from '@/server/banking/state'
+import { env } from '@/server/env'
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
-  const { searchParams, origin } = new URL(request.url)
+  // Prefer the configured public base URL over `new URL(request.url).origin`.
+  // Behind a reverse proxy (e.g. Tailscale Serve) Next.js sees its internal
+  // bind address (0.0.0.0:3000) in request.url, so using it here sends the
+  // user to a dead host after a successful bank link. APP_BASE_URL is the
+  // canonical external origin and is always correct when set.
+  const { searchParams } = new URL(request.url)
+  const origin = env.APP_BASE_URL
   const code = searchParams.get('code')
   const state = searchParams.get('state')
   const error = searchParams.get('error')
