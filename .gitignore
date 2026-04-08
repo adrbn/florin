@@ -37,3 +37,9 @@ apps/web/drizzle/meta/_journal.json.bak
 # Local data
 data/
 backups/
+
+# Secrets — private keys, certs, API credentials (must never leave the machine)
+secrets/
+apps/*/secrets/
+*.pem
+*.key

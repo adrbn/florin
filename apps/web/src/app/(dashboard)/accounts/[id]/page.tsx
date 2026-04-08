@@ -1,0 +1,231 @@
+import { asc, eq } from 'drizzle-orm'
+import Link from 'next/link'
+import { notFound } from 'next/navigation'
+import { AccountCardActions } from '@/components/accounts/account-card-actions'
+import { AddTransactionModal } from '@/components/transactions/add-transaction-modal'
+import { DeleteTransactionButton } from '@/components/transactions/delete-transaction-button'
+import { TransactionCategoryCell } from '@/components/transactions/transaction-category-cell'
+import { Badge } from '@/components/ui/badge'
+import { buttonVariants } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { db } from '@/db/client'
+import { categories, categoryGroups } from '@/db/schema'
+import { formatCurrency, formatCurrencySigned } from '@/lib/format/currency'
+import { getAccountById, listAccounts } from '@/server/actions/accounts'
+import { listTransactionsForAccount } from '@/server/actions/transactions'
+
+const dateFormatter = new Intl.DateTimeFormat('fr-FR', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+})
+
+interface AccountDetailPageProps {
+  params: Promise<{ id: string }>
+}
+
+export default async function AccountDetailPage({ params }: AccountDetailPageProps) {
+  const { id } = await params
+  const account = await getAccountById(id)
+  if (!account) notFound()
+
+  const [transactionList, allAccounts, categoryList] = await Promise.all([
+    listTransactionsForAccount(account.id, 500),
+    listAccounts({ includeArchived: false }),
+    db
+      .select({
+        id: categories.id,
+        name: categories.name,
+        emoji: categories.emoji,
+        groupName: categoryGroups.name,
+      })
+      .from(categories)
+      .innerJoin(categoryGroups, eq(categories.groupId, categoryGroups.id))
+      .orderBy(asc(categoryGroups.name), asc(categories.name)),
+  ])
+
+  // Quick stats derived from the in-memory transaction list — cheap because
+  // we cap at 500 rows and the page is per-account.
+  const inflow = transactionList
+    .filter((t) => Number(t.amount) > 0)
+    .reduce((acc, t) => acc + Number(t.amount), 0)
+  const outflow = transactionList
+    .filter((t) => Number(t.amount) < 0)
+    .reduce((acc, t) => acc + Math.abs(Number(t.amount)), 0)
+
+  const accountOptions = allAccounts.map((a) => ({ id: a.id, name: a.name }))
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <Link
+            href="/accounts"
+            className="text-xs uppercase tracking-wide text-muted-foreground hover:text-foreground"
+          >
+            ← Accounts
+          </Link>
+          <h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight">
+            {account.displayIcon && <span aria-hidden>{account.displayIcon}</span>}
+            {account.name}
+          </h1>
+          <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <Badge variant="secondary">{account.kind}</Badge>
+            {account.institution && <span>{account.institution}</span>}
+            {account.iban && <span className="font-mono">{account.iban}</span>}
+            {account.isArchived && (
+              <span className="rounded-full border border-muted-foreground/30 bg-muted/30 px-2 py-0.5 text-[10px] font-medium uppercase">
+                Archived
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <AddTransactionModal
+            accounts={accountOptions}
+            categories={categoryList}
+            defaultAccountId={account.id}
+            triggerLabel="+ Add transaction"
+          />
+          <Link
+            href={`/accounts/${account.id}/edit`}
+            className={buttonVariants({ variant: 'outline', size: 'sm' })}
+          >
+            Edit
+          </Link>
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
+              Current balance
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">{formatCurrency(account.currentBalance)}</p>
+            {account.lastSyncedAt && (
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Last synced {new Date(account.lastSyncedAt).toLocaleString('fr-FR')}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
+              Inflow (last {transactionList.length} tx)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold text-emerald-600">{formatCurrency(inflow)}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
+              Outflow (last {transactionList.length} tx)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold text-destructive">{formatCurrency(outflow)}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Transactions</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {transactionList.length === 0 ? (
+            <p className="px-4 py-12 text-center text-sm text-muted-foreground">
+              No transactions yet. Click "+ Add transaction" above to record one.
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-28">Date</TableHead>
+                  <TableHead>Payee</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead className="w-12" aria-label="Actions" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {transactionList.map((t) => {
+                  const amount = Number(t.amount)
+                  const isNegative = amount < 0
+                  return (
+                    <TableRow key={t.id}>
+                      <TableCell className="font-mono text-xs text-muted-foreground">
+                        {dateFormatter.format(t.occurredAt)}
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {t.payee || '(no payee)'}
+                        {t.needsReview && (
+                          <span
+                            className="ml-2 rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-amber-700 dark:text-amber-300"
+                            title="Pending review on /review"
+                          >
+                            Review
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <TransactionCategoryCell
+                          transactionId={t.id}
+                          currentCategoryId={t.category?.id ?? null}
+                          currentCategoryName={t.category?.name ?? null}
+                          currentCategoryEmoji={t.category?.emoji ?? null}
+                          options={categoryList}
+                        />
+                      </TableCell>
+                      <TableCell
+                        className={`text-right font-mono tabular-nums ${
+                          isNegative ? 'text-destructive' : 'text-emerald-600'
+                        }`}
+                      >
+                        {formatCurrencySigned(amount)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <DeleteTransactionButton
+                          transactionId={t.id}
+                          payee={t.payee || '(no payee)'}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Manage</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <AccountCardActions
+            accountId={account.id}
+            accountName={account.name}
+            isArchived={account.isArchived}
+            hasBankSync={account.syncProvider === 'enable_banking'}
+          />
+        </CardContent>
+      </Card>
+    </div>
+  )
+}

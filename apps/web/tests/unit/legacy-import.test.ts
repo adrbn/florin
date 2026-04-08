@@ -70,7 +70,19 @@ describe('parseTransactionsSheet', () => {
         'Cleared',
       ],
       ['CCP', 45717, 12.5, 0, 'Carrefour', 'Needs: Food', 'lunch', 'Needs', 'Food', null, 'uuid-1'],
-      ['CCP', 45718, 0, 1500, 'Salaire', 'Revenus: Salaires', null, 'Revenus', 'Salaires', null, 'uuid-2'],
+      [
+        'CCP',
+        45718,
+        0,
+        1500,
+        'Salaire',
+        'Revenus: Salaires',
+        null,
+        'Revenus',
+        'Salaires',
+        null,
+        'uuid-2',
+      ],
       [null, null, null, null, null, null, null, null, null, null, ''],
     ]
     const txns = parseTransactionsSheet(rows)

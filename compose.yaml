@@ -3,6 +3,14 @@ services:
     image: postgres:16-alpine
     container_name: florin-db
     restart: unless-stopped
+    # Bump max_connections above the default of 100 — Next.js dev mode reloads
+    # leak postgres-js pools until the singleton in src/db/client.ts kicks in,
+    # and any browser tab keeping multiple Suspense boundaries warm holds a
+    # handful of connections each. 200 gives plenty of headroom for dev.
+    command:
+      - "postgres"
+      - "-c"
+      - "max_connections=200"
     environment:
       POSTGRES_USER: florin
       POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}

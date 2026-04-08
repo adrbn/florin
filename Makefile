@@ -49,4 +49,4 @@ seed:
 	cd apps/web && pnpm tsx src/db/seed.ts
 
 import-legacy:
-	cd apps/web && pnpm tsx ../../scripts/import-legacy-xlsx.ts $(FILE)
+	cd apps/web && node --env-file=.env --import tsx scripts/import-legacy-xlsx.ts $(FILE)

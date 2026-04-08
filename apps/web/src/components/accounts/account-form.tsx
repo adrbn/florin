@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useId, useState, useTransition } from 'react'
+import { IconPicker } from '@/components/accounts/icon-picker'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { type CreateAccountInput, createAccount } from '@/server/actions/accounts'
+import { type CreateAccountInput, createAccount, updateAccount } from '@/server/actions/accounts'
 
 const KINDS: ReadonlyArray<{ value: CreateAccountInput['kind']; label: string }> = [
   { value: 'checking', label: 'Checking' },
@@ -16,17 +17,31 @@ const KINDS: ReadonlyArray<{ value: CreateAccountInput['kind']; label: string }>
   { value: 'other', label: 'Other' },
 ]
 
+export interface AccountFormInitial {
+  id: string
+  name: string
+  kind: CreateAccountInput['kind']
+  institution: string | null
+  currentBalance: string | number
+  displayIcon: string | null
+  displayColor: string | null
+  isIncludedInNetWorth: boolean
+}
+
 interface AccountFormProps {
+  initial?: AccountFormInitial
   onSuccess?: () => void
 }
 
-export function AccountForm({ onSuccess }: AccountFormProps) {
+export function AccountForm({ initial, onSuccess }: AccountFormProps) {
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const formId = useId()
+  const isEdit = Boolean(initial)
 
   const onSubmit = (formData: FormData) => {
     setError(null)
-    const input: CreateAccountInput = {
+    const base: CreateAccountInput = {
       name: String(formData.get('name') ?? ''),
       kind: formData.get('kind') as CreateAccountInput['kind'],
       institution: String(formData.get('institution') ?? '') || null,
@@ -36,31 +51,45 @@ export function AccountForm({ onSuccess }: AccountFormProps) {
     }
 
     startTransition(async () => {
-      const result = await createAccount(input)
+      const result = initial
+        ? await updateAccount({
+            ...base,
+            id: initial.id,
+            isIncludedInNetWorth: formData.get('isIncludedInNetWorth') === 'on',
+          })
+        : await createAccount(base)
       if (!result.success) {
         setError(result.error ?? 'Unknown error')
         return
       }
       onSuccess?.()
-      const form = document.getElementById('account-form') as HTMLFormElement | null
-      form?.reset()
+      if (!isEdit) {
+        const form = document.getElementById(formId) as HTMLFormElement | null
+        form?.reset()
+      }
     })
   }
 
   return (
-    <form id="account-form" action={onSubmit} className="space-y-4">
+    <form id={formId} action={onSubmit} className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="name">Name</Label>
-        <Input id="name" name="name" required maxLength={100} />
+        <Label htmlFor={`${formId}-name`}>Name</Label>
+        <Input
+          id={`${formId}-name`}
+          name="name"
+          required
+          maxLength={100}
+          defaultValue={initial?.name ?? ''}
+        />
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="kind">Kind</Label>
+        <Label htmlFor={`${formId}-kind`}>Kind</Label>
         <select
-          id="kind"
+          id={`${formId}-kind`}
           name="kind"
           required
-          defaultValue="checking"
+          defaultValue={initial?.kind ?? 'checking'}
           className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           {KINDS.map((k) => (
@@ -72,37 +101,56 @@ export function AccountForm({ onSuccess }: AccountFormProps) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="institution">Institution</Label>
-        <Input id="institution" name="institution" maxLength={100} />
+        <Label htmlFor={`${formId}-institution`}>Institution</Label>
+        <Input
+          id={`${formId}-institution`}
+          name="institution"
+          maxLength={100}
+          defaultValue={initial?.institution ?? ''}
+          placeholder="e.g. La Banque Postale"
+        />
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="currentBalance">Starting balance (EUR)</Label>
+        <Label htmlFor={`${formId}-currentBalance`}>
+          {isEdit ? 'Current balance (EUR)' : 'Starting balance (EUR)'}
+        </Label>
         <Input
-          id="currentBalance"
+          id={`${formId}-currentBalance`}
           name="currentBalance"
           type="number"
           step="0.01"
-          defaultValue="0"
+          defaultValue={initial?.currentBalance ?? '0'}
           required
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="displayIcon">Icon (emoji)</Label>
-          <Input id="displayIcon" name="displayIcon" maxLength={4} placeholder="🏦" />
+      <IconPicker
+        iconName="displayIcon"
+        iconValue={initial?.displayIcon ?? null}
+        colorName="displayColor"
+        colorValue={initial?.displayColor ?? null}
+      />
+
+      {isEdit && (
+        <div className="flex items-center gap-2">
+          <input
+            id={`${formId}-included`}
+            type="checkbox"
+            name="isIncludedInNetWorth"
+            defaultChecked={initial?.isIncludedInNetWorth ?? true}
+            className="h-4 w-4 rounded border-input"
+          />
+          <Label htmlFor={`${formId}-included`} className="font-normal">
+            Include in net worth
+          </Label>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="displayColor">Color (hex)</Label>
-          <Input id="displayColor" name="displayColor" maxLength={16} placeholder="#3b82f6" />
-        </div>
-      </div>
+      )}
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       <Button type="submit" disabled={pending} className="w-full">
-        {pending ? 'Creating…' : 'Create account'}
+        {pending ? (isEdit ? 'Saving…' : 'Creating…') : isEdit ? 'Save changes' : 'Create account'}
       </Button>
     </form>
   )
