@@ -4,7 +4,7 @@ import { asc, eq, inArray, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { db } from '@/db/client'
-import { accounts } from '@/db/schema'
+import { accounts, transactions } from '@/db/schema'
 
 const accountKindEnum = z.enum([
   'checking',
@@ -200,6 +200,97 @@ export async function reorderAccounts(
     return { success: true }
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to reorder accounts'
+    return { success: false, error: message }
+  }
+}
+
+/**
+ * Merge `sourceId` into `targetId`: re-parents every transaction onto the
+ * target, moves the bank-sync identity (provider, external id, connection,
+ * iban, institution, last-synced, current balance) from source to target,
+ * then drops the now-empty source account. Atomic — either the whole merge
+ * commits or none of it does.
+ *
+ * Use case: legacy CCP (xlsx history) + newly Enable-Banking-synced "La
+ * Banque Postale ·3546" (same real-world account). Merging puts all
+ * history on CCP and moves the live sync onto CCP so future pushes from
+ * the bank API land on the single long-lived account.
+ *
+ * Cosmetic fields (name, kind, currency, display color/icon/order,
+ * archive/net-worth flags) are left as the target had them — the user
+ * chose that account as the keeper, so we don't overwrite its identity.
+ */
+const mergeSchema = z
+  .object({
+    sourceId: z.uuid(),
+    targetId: z.uuid(),
+  })
+  .refine((d) => d.sourceId !== d.targetId, {
+    message: 'Source and target must be different accounts',
+  })
+
+export async function mergeAccount(
+  input: z.infer<typeof mergeSchema>,
+): Promise<ActionResult> {
+  const parsed = mergeSchema.safeParse(input)
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues.map((i) => i.message).join(', ') }
+  }
+  const { sourceId, targetId } = parsed.data
+
+  try {
+    await db.transaction(async (tx) => {
+      const [src] = await tx.select().from(accounts).where(eq(accounts.id, sourceId))
+      const [tgt] = await tx.select().from(accounts).where(eq(accounts.id, targetId))
+      if (!src) throw new Error('Source account not found')
+      if (!tgt) throw new Error('Target account not found')
+
+      // 1. Re-parent every transaction. Unique indexes on (source, externalId)
+      //    and legacyId are preserved — we're only touching accountId.
+      await tx
+        .update(transactions)
+        .set({ accountId: targetId, updatedAt: new Date() })
+        .where(eq(transactions.accountId, sourceId))
+
+      // 2. Move the live bank-sync identity onto the target so future syncs
+      //    land on the keeper. Fill null fields from source; leave cosmetic
+      //    fields (name, kind, etc.) alone.
+      await tx
+        .update(accounts)
+        .set({
+          syncProvider: src.syncProvider,
+          syncExternalId: src.syncExternalId,
+          bankConnectionId: src.bankConnectionId,
+          iban: tgt.iban ?? src.iban,
+          institution: tgt.institution ?? src.institution,
+          lastSyncedAt: src.lastSyncedAt,
+          // Source is the bank-authoritative balance — use it so the
+          // headline number matches reality post-merge.
+          currentBalance: src.currentBalance,
+          updatedAt: new Date(),
+        })
+        .where(eq(accounts.id, targetId))
+
+      // 3. Clear source's sync identity before deleting so there's no stale
+      //    pointer on the bank connection, then drop the now-empty row.
+      await tx
+        .update(accounts)
+        .set({
+          bankConnectionId: null,
+          syncExternalId: null,
+          syncProvider: 'manual',
+          updatedAt: new Date(),
+        })
+        .where(eq(accounts.id, sourceId))
+      await tx.delete(accounts).where(eq(accounts.id, sourceId))
+    })
+
+    revalidatePath('/accounts')
+    revalidatePath('/transactions')
+    revalidatePath('/')
+    return { success: true }
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to merge accounts'
     return { success: false, error: message }
   }
 }

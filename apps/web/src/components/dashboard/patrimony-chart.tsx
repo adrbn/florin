@@ -36,60 +36,31 @@ interface RegressionFit {
 }
 
 /**
- * Linear-regression fit for a series of y values indexed by position
- * (0, 1, 2, …). Used only for the forecast portion, where we extrapolate
- * forward from the last EWMA point using the slope of the most recent
- * history window. The per-index slope is treated as a per-day slope since
- * snapshots land on consecutive days.
+ * Ordinary least-squares fit for a series of (x, y) pairs. Used to draw a
+ * single straight trend line through the whole patrimony history — "une
+ * droite lissée" — that continues into the forecast range with the same
+ * slope. We parametrise x in days so a forecast timestamp can be plugged
+ * directly into the same `y = slope·x + intercept` formula regardless of
+ * whether the chart data is daily, weekly, or monthly.
  */
-function fitLinear(values: ReadonlyArray<number>): RegressionFit | null {
-  const n = values.length
+function fitLinear(points: ReadonlyArray<{ x: number; y: number }>): RegressionFit | null {
+  const n = points.length
   if (n < 2) return null
   let sumX = 0
   let sumY = 0
   let sumXY = 0
   let sumXX = 0
-  for (let i = 0; i < n; i++) {
-    const value = values[i] ?? 0
-    sumX += i
-    sumY += value
-    sumXY += i * value
-    sumXX += i * i
+  for (const p of points) {
+    sumX += p.x
+    sumY += p.y
+    sumXY += p.x * p.y
+    sumXX += p.x * p.x
   }
   const denom = n * sumXX - sumX * sumX
   if (denom === 0) return null
   const slope = (n * sumXY - sumX * sumY) / denom
   const intercept = (sumY - slope * sumX) / n
   return { slope, intercept }
-}
-
-/**
- * Exponentially-weighted moving average of `values`. alpha ≈ 0.12 gives
- * ~16-point effective window — strong enough to kill day-to-day jitter,
- * loose enough that the curve still tracks real shifts in balance
- * (salary, big outflows) rather than lagging comically behind them.
- * The first sample is seeded with the raw value so the curve starts on
- * the data instead of at zero.
- */
-function ewma(values: ReadonlyArray<number>, alpha = 0.12): number[] {
-  const out: number[] = []
-  let s = values[0] ?? 0
-  for (let i = 0; i < values.length; i++) {
-    const v = values[i] ?? 0
-    s = i === 0 ? v : alpha * v + (1 - alpha) * s
-    out.push(s)
-  }
-  return out
-}
-
-/** Slope (per index) of the last `lookback` history points — used to project
- *  the smoothed trend into the forecast range without baking in noise from
- *  old months that no longer reflect the current trajectory. */
-function recentSlope(values: ReadonlyArray<number>, lookback = 60): number {
-  if (values.length < 2) return 0
-  const slice = values.slice(-Math.min(lookback, values.length))
-  const fit = fitLinear(slice)
-  return fit?.slope ?? 0
 }
 
 interface ChartPoint {
@@ -110,22 +81,22 @@ interface ChartPoint {
 function buildSeries(data: ReadonlyArray<PatrimonyPoint>, forecast: boolean): ChartPoint[] {
   if (data.length === 0) return []
 
-  // Smoothed history trend: EWMA of the balance series, so the curve
-  // tracks the actual evolution of the patrimony instead of flattening
-  // it into a single regression line. Forecast continues linearly from
-  // the last EWMA value using the slope of the last ~60 days so it
-  // reflects the user's current trajectory, not the average of the
-  // whole year.
-  const rawValues = data.map((d) => d.balance)
-  const smoothed = ewma(rawValues)
-  const slope = recentSlope(rawValues)
-  const lastSmoothed = smoothed[smoothed.length - 1] ?? 0
-
-  const out: ChartPoint[] = data.map((point, i) => ({
-    ts: new Date(point.date).getTime(),
-    balance: point.balance,
-    trend: smoothed[i] ?? point.balance,
+  // Linear-regression fit over the entire history → a single straight
+  // line (in day space) that we then evaluate at every history and
+  // forecast point. The "trend" series therefore renders as one clean
+  // line across both ranges, exactly what the user asked for.
+  const firstTs = new Date(data[0]?.date ?? '').getTime()
+  const points = data.map((d) => ({
+    x: (new Date(d.date).getTime() - firstTs) / DAY_MS,
+    y: d.balance,
   }))
+  const fit = fitLinear(points) ?? { slope: 0, intercept: data[0]?.balance ?? 0 }
+  const trendAt = (ts: number) => fit.intercept + fit.slope * ((ts - firstTs) / DAY_MS)
+
+  const out: ChartPoint[] = data.map((point) => {
+    const ts = new Date(point.date).getTime()
+    return { ts, balance: point.balance, trend: trendAt(ts) }
+  })
 
   if (!forecast) return out
 
@@ -135,22 +106,12 @@ function buildSeries(data: ReadonlyArray<PatrimonyPoint>, forecast: boolean): Ch
   const last = data[data.length - 1]
   if (!last) return out
   const lastDate = new Date(last.date)
-  const spanDays = Math.max(
-    1,
-    (new Date(last.date).getTime() - new Date(data[0]?.date ?? last.date).getTime()) / DAY_MS,
-  )
-  const indexPerDay = (data.length - 1) / spanDays
   for (let m = 1; m <= FORECAST_MONTHS; m++) {
     const future = new Date(
       Date.UTC(lastDate.getUTCFullYear(), lastDate.getUTCMonth() + m, lastDate.getUTCDate()),
     )
-    const daysAhead = (future.getTime() - new Date(last.date).getTime()) / DAY_MS
-    const indicesAhead = daysAhead * indexPerDay
-    out.push({
-      ts: future.getTime(),
-      balance: null,
-      trend: lastSmoothed + slope * indicesAhead,
-    })
+    const ts = future.getTime()
+    out.push({ ts, balance: null, trend: trendAt(ts) })
   }
   return out
 }
@@ -281,7 +242,7 @@ export function PatrimonyChart({ data }: { data: PatrimonyPoint[] }) {
                   dot={false}
                 />
                 <Line
-                  type="monotone"
+                  type="linear"
                   dataKey="trend"
                   stroke="var(--chart-3)"
                   strokeWidth={1.5}

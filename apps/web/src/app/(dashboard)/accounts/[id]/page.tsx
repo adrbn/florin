@@ -62,6 +62,10 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
     .reduce((acc, t) => acc + Math.abs(Number(t.amount)), 0)
 
   const accountOptions = allAccounts.map((a) => ({ id: a.id, name: a.name }))
+  // Every *other* non-archived account — the merge picker needs them.
+  const mergeTargets = allAccounts
+    .filter((a) => a.id !== account.id)
+    .map((a) => ({ id: a.id, name: a.name }))
 
   return (
     <div className="space-y-6">
@@ -223,6 +227,7 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
             accountName={account.name}
             isArchived={account.isArchived}
             hasBankSync={account.syncProvider === 'enable_banking'}
+            mergeTargets={mergeTargets}
           />
         </CardContent>
       </Card>
