@@ -59,6 +59,27 @@ export interface BurnOptions {
   fixedOnly?: boolean
 }
 
+/**
+ * Burn-side amount expression: negative spend counts as burn, positive
+ * refunds on expense categories net against it, and income-kind rows (salary)
+ * are excluded entirely so a payday doesn't "cancel" the metric.
+ *
+ *   amount < 0 AND kind != 'income'         → counted as-is (outflow)
+ *   amount > 0 AND kind  = 'expense'        → counted as-is (refund, reduces burn)
+ *   anything else                           → ignored
+ *
+ * The fix here is the refund branch. The previous query hard-filtered
+ * `amount < 0`, so a 50 € return on a 50 € purchase left the burn at 50
+ * instead of 0, which made the KPI read ~20 % high some months. Uncategorized
+ * negatives still count (conservative: treat unknown spend as spend);
+ * uncategorized positives still do not (we can't prove they're refunds).
+ */
+const burnAmountSql = sql<string>`COALESCE(SUM(CASE
+  WHEN ${transactions.amount} < 0 AND (${categoryGroups.kind} IS NULL OR ${categoryGroups.kind} <> 'income') THEN ${transactions.amount}
+  WHEN ${transactions.amount} > 0 AND ${categoryGroups.kind} = 'expense' THEN ${transactions.amount}
+  ELSE 0
+END), 0)`
+
 export async function getMonthBurn(opts: BurnOptions = {}): Promise<number> {
   const start = startOfMonth(new Date())
   const end = endOfMonth(new Date())
@@ -66,7 +87,6 @@ export async function getMonthBurn(opts: BurnOptions = {}): Promise<number> {
     isNull(transactions.deletedAt),
     gte(transactions.occurredAt, start),
     lte(transactions.occurredAt, end),
-    sql`${transactions.amount} < 0`,
     sql`${transactions.transferPairId} IS NULL`,
     eq(accounts.isArchived, false),
   ]
@@ -74,37 +94,41 @@ export async function getMonthBurn(opts: BurnOptions = {}): Promise<number> {
     conds.push(eq(categories.isFixed, true))
   }
   const rows = await db
-    .select({
-      total: sql<string>`COALESCE(SUM(${transactions.amount}), 0)`,
-    })
+    .select({ total: burnAmountSql })
     .from(transactions)
     .innerJoin(accounts, eq(transactions.accountId, accounts.id))
     .leftJoin(categories, eq(transactions.categoryId, categories.id))
+    .leftJoin(categoryGroups, eq(categories.groupId, categoryGroups.id))
     .where(and(...conds))
-  return Math.abs(Number(rows[0]?.total ?? '0'))
+  // CASE sums to a non-positive number (outflow), so |total| is the burn.
+  // If refunds somehow exceed expenses (rare — big return month) we clamp
+  // at 0 because a "negative burn" would mean "you earned money" which is
+  // not what this KPI represents.
+  const total = Number(rows[0]?.total ?? '0')
+  return total >= 0 ? 0 : Math.abs(total)
 }
 
 export async function getAvgMonthlyBurn(months = 6): Promise<number> {
   const end = endOfMonth(new Date())
   const start = startOfMonth(addMonths(new Date(), -months + 1))
   const rows = await db
-    .select({
-      total: sql<string>`COALESCE(SUM(${transactions.amount}), 0)`,
-    })
+    .select({ total: burnAmountSql })
     .from(transactions)
     .innerJoin(accounts, eq(transactions.accountId, accounts.id))
+    .leftJoin(categories, eq(transactions.categoryId, categories.id))
+    .leftJoin(categoryGroups, eq(categories.groupId, categoryGroups.id))
     .where(
       and(
         isNull(transactions.deletedAt),
         gte(transactions.occurredAt, start),
         lte(transactions.occurredAt, end),
-        sql`${transactions.amount} < 0`,
         sql`${transactions.transferPairId} IS NULL`,
         eq(accounts.isArchived, false),
       ),
     )
-  const total = Math.abs(Number(rows[0]?.total ?? '0'))
-  return total / months
+  const total = Number(rows[0]?.total ?? '0')
+  const burn = total >= 0 ? 0 : Math.abs(total)
+  return burn / months
 }
 
 export interface PatrimonyPoint {
