@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Area,
   CartesianGrid,
@@ -92,40 +92,47 @@ interface ChartPoint {
 }
 
 /**
+ * Filter raw history to only the last {@link trendWindowDays} days. When
+ * the window is null (= "All") we return the full series unchanged. This
+ * is applied BEFORE {@link buildSeries} so the trend picker both narrows
+ * the visible x-axis range and restricts regression/forecast inputs — the
+ * user sees "zoom in on last 30d" instead of "show full history with a
+ * trend line fit on the last 30d only".
+ *
+ * Falls back to the full series when filtering would leave fewer than 2
+ * points — OLS needs at least two rows to compute a slope and Recharts
+ * needs at least two points to draw the area.
+ */
+function filterVisibleData(
+  data: ReadonlyArray<PatrimonyPoint>,
+  trendWindowDays: number | null,
+): ReadonlyArray<PatrimonyPoint> {
+  if (trendWindowDays === null || data.length === 0) return data
+  const lastHistoryTs = new Date(data[data.length - 1]?.date ?? '').getTime()
+  const windowStartTs = lastHistoryTs - trendWindowDays * DAY_MS
+  const filtered = data.filter((d) => new Date(d.date).getTime() >= windowStartTs)
+  return filtered.length >= 2 ? filtered : data
+}
+
+/**
  * Build the series Recharts will render. The X-axis is a continuous time
  * scale (numeric Unix ms), so we get proportional spacing automatically:
  * daily history points sit close together and the 12-month forecast uses
  * its actual calendar share of the axis — no more "12 forecast points
  * compressed next to 100 history points" glitch.
  *
- * `trendWindowDays` caps which historical points the linear regression is
- * fit on. The resulting slope is still projected across the entire chart
- * width, so the dashed trend line shows "what if your last N days had been
- * the whole story" at every point in history as well as the future.
+ * Input `data` is already filtered to the visible window (see
+ * {@link filterVisibleData}), so regression is fit on exactly what the
+ * user sees and the forecast extends from the last visible point.
  */
-function buildSeries(
-  data: ReadonlyArray<PatrimonyPoint>,
-  forecast: boolean,
-  trendWindowDays: number | null,
-): ChartPoint[] {
+function buildSeries(data: ReadonlyArray<PatrimonyPoint>, forecast: boolean): ChartPoint[] {
   if (data.length === 0) return []
 
-  // Pick the window of points we'll fit the regression on. When a window is
-  // set, we keep only points with occurredAt >= (lastHistoryDate - windowDays).
-  // Falling back to the full series when the window is null or smaller than
-  // two points — OLS needs at least two rows to have a meaningful slope.
-  const lastHistoryTs = new Date(data[data.length - 1]?.date ?? '').getTime()
-  const windowStartTs =
-    trendWindowDays === null ? Number.NEGATIVE_INFINITY : lastHistoryTs - trendWindowDays * DAY_MS
-  const windowData = data.filter((d) => new Date(d.date).getTime() >= windowStartTs)
-  const fitData = windowData.length >= 2 ? windowData : data
-
-  // Linear-regression fit over the window → a single straight line (in day
-  // space) that we then evaluate at every history and forecast point. The
-  // "trend" series therefore renders as one clean line across both ranges,
-  // exactly what the user asked for.
+  // Linear-regression fit over the visible window → a single straight line
+  // (in day space) that we then evaluate at every history and forecast
+  // point. Rendered as one clean line across both ranges.
   const firstTs = new Date(data[0]?.date ?? '').getTime()
-  const points = fitData.map((d) => ({
+  const points = data.map((d) => ({
     x: (new Date(d.date).getTime() - firstTs) / DAY_MS,
     y: d.balance,
   }))
@@ -161,16 +168,26 @@ export function PatrimonyChart({ data }: { data: PatrimonyPoint[] }) {
     TREND_WINDOWS.findIndex((w) => w.days === null),
   )
   const trendWindow = TREND_WINDOWS[trendWindowIdx] ?? TREND_WINDOWS[TREND_WINDOWS.length - 1]
-  const series = buildSeries(data, forecast, trendWindow?.days ?? null)
-  const lastRealTs = data.length > 0 ? new Date(data[data.length - 1]?.date ?? '').getTime() : null
+  // Filter the raw history to the picked trend window BEFORE building the
+  // series so both the visible area and the regression fit reflect the
+  // same range. "All" returns data unchanged.
+  const visibleData = useMemo(
+    () => filterVisibleData(data, trendWindow?.days ?? null),
+    [data, trendWindow?.days],
+  )
+  const series = useMemo(() => buildSeries(visibleData, forecast), [visibleData, forecast])
+  const lastRealTs =
+    visibleData.length > 0
+      ? new Date(visibleData[visibleData.length - 1]?.date ?? '').getTime()
+      : null
 
-  // Y-axis domain — start at the historical minimum (with a little headroom)
+  // Y-axis domain — start at the visible minimum (with a little headroom)
   // instead of 0. The default Recharts `[0, dataMax]` visually crushes the
   // variation: when balances hover around 14k€, a floor at 0 wastes the
   // bottom 60% of the plot area. Padding = 8% of the range (min 500€) so
   // the series never touches the top or bottom edge, then rounded to the
   // nearest 500€ so tick labels land on clean numbers.
-  const balanceValues = data.map((d) => d.balance)
+  const balanceValues = visibleData.map((d) => d.balance)
   const trendValues = series.map((p) => p.trend)
   const allValues = [...balanceValues, ...trendValues]
   const rawMin = allValues.length > 0 ? Math.min(...allValues) : 0
@@ -186,11 +203,8 @@ export function PatrimonyChart({ data }: { data: PatrimonyPoint[] }) {
         <div className="min-w-0">
           <CardTitle className="text-sm font-medium">Patrimony</CardTitle>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            Last 12 months
+            {trendWindow && trendWindow.days !== null ? `Last ${trendWindow.days}d` : 'All history'}
             {forecast ? ' · +12 months projected' : ''}
-            {trendWindow && trendWindow.days !== null
-              ? ` · trend from last ${trendWindow.days}d`
-              : ' · trend from all history'}
           </p>
         </div>
         {data.length >= 2 && (

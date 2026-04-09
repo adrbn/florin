@@ -20,6 +20,7 @@ import {
 import { db } from '@/db/client'
 import { categories, categoryGroups } from '@/db/schema'
 import { formatCurrency, formatCurrencySigned } from '@/lib/format/currency'
+import { computeTermMonths, type LoanInputs, simulateSchedule } from '@/lib/loan/amortization'
 import { getAccountById, listAccounts } from '@/server/actions/accounts'
 import { listCategoriesFlat } from '@/server/actions/categories'
 import {
@@ -75,16 +76,33 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
   // living on an origin account like checking) that's categorized under a
   // category linked to this loan. Manual adjustments living on the loan row
   // itself are excluded — they're balance corrections, not payments.
-  // `remainingDebt` = originalPrincipal - totalPaid. Displayed as the main
-  // "Encours actuel" tile instead of `account.currentBalance`, which sums
-  // mirrors + adjustments and doesn't match the user's mental model.
-  const loanTotalPaid = isLoan
-    ? transactionList
-        .filter((t) => t.accountId !== account.id)
-        .reduce((acc, t) => acc + Math.abs(Number(t.amount)), 0)
-    : 0
+  const loanOriginPayments = isLoan ? transactionList.filter((t) => t.accountId !== account.id) : []
+  const loanTotalPaid = loanOriginPayments.reduce((acc, t) => acc + Math.abs(Number(t.amount)), 0)
   const loanPrincipal = Number(account.loanOriginalPrincipal ?? 0)
-  const loanRemainingDebt = isLoan ? Math.max(0, loanPrincipal - loanTotalPaid) : 0
+
+  // `remainingDebt` = balance from the amortization schedule after
+  // `paymentsMade` mensualités. This matches what the bank reports (capital
+  // restant dû) and correctly accounts for interest accrual instead of the
+  // naive `principal − totalPaid` subtraction. We also split totalPaid
+  // into principal + interest so the UI can show a real breakdown.
+  //
+  // Falls back to the naive formula when the loan parameters aren't
+  // complete enough to build a schedule — keeps the detail page useful
+  // during initial setup before the user has filled in rate/term/start.
+  const loanBreakdown = isLoan
+    ? computeLoanBreakdown({
+        principal: loanPrincipal,
+        annualRate: Number(account.loanInterestRate ?? 0),
+        termMonths: account.loanTermMonths,
+        monthlyPayment: Number(account.loanMonthlyPayment ?? 0),
+        startDate: account.loanStartDate,
+        paymentsMade: loanOriginPayments.length,
+        totalPaidFallback: loanTotalPaid,
+      })
+    : null
+  const loanRemainingDebt = loanBreakdown?.remainingDebt ?? 0
+  const loanPrincipalPaid = loanBreakdown?.principalPaid ?? 0
+  const loanInterestPaid = loanBreakdown?.interestPaid ?? 0
 
   const accountOptions = allAccounts.map((a) => ({ id: a.id, name: a.name }))
   // Every *other* non-archived account — the merge picker needs them.
@@ -159,8 +177,14 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
             <CardContent>
               <p className="text-3xl font-bold text-emerald-600">{formatCurrency(loanTotalPaid)}</p>
               <p className="mt-1 text-[11px] text-muted-foreground">
-                {transactionList.filter((t) => t.accountId !== account.id).length} paiement(s) appliqué(s)
+                {loanOriginPayments.length} paiement(s) appliqué(s)
               </p>
+              {(loanPrincipalPaid > 0 || loanInterestPaid > 0) && (
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  {formatCurrency(loanPrincipalPaid)} capital + {formatCurrency(loanInterestPaid)}{' '}
+                  intérêts
+                </p>
+              )}
             </CardContent>
           </Card>
           <Card>
@@ -235,6 +259,9 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
           categories={categoriesFlat}
           totalPaid={loanTotalPaid}
           remainingDebt={loanRemainingDebt}
+          principalPaid={loanPrincipalPaid}
+          interestPaid={loanInterestPaid}
+          paymentsMade={loanOriginPayments.length}
         />
       )}
 
@@ -335,4 +362,109 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
       </Card>
     </div>
   )
+}
+
+interface LoanBreakdownInput {
+  principal: number
+  annualRate: number
+  termMonths: number | null
+  monthlyPayment: number
+  startDate: Date | string | null
+  paymentsMade: number
+  totalPaidFallback: number
+}
+
+interface LoanBreakdown {
+  remainingDebt: number
+  principalPaid: number
+  interestPaid: number
+}
+
+/**
+ * Compute the "real" restant dû by walking the amortization schedule to the
+ * number of mensualités already paid. When we have all loan parameters, the
+ * schedule's `balanceAfter` at that index matches the bank's capital restant
+ * dû (±1€ rounding). Also returns the principal/interest split of the money
+ * the user has actually sent so far — useful for a "Déjà remboursé" tile
+ * that shows "2 366 € capital + 624 € intérêts" instead of a flat total.
+ *
+ * Falls back to `{ remainingDebt: principal − totalPaid, principalPaid:
+ * totalPaid, interestPaid: 0 }` when the params aren't complete enough to
+ * build a schedule — keeps the detail page usable during loan setup.
+ */
+function computeLoanBreakdown(input: LoanBreakdownInput): LoanBreakdown {
+  const {
+    principal,
+    annualRate,
+    termMonths,
+    monthlyPayment,
+    startDate,
+    paymentsMade,
+    totalPaidFallback,
+  } = input
+
+  const fallback: LoanBreakdown = {
+    remainingDebt: Math.max(0, principal - totalPaidFallback),
+    principalPaid: totalPaidFallback,
+    interestPaid: 0,
+  }
+
+  if (principal <= 0 || annualRate < 0) return fallback
+  const start = startDate ? new Date(startDate) : null
+  if (!start || Number.isNaN(start.getTime())) return fallback
+
+  // Need a term — use the stored one when present, otherwise derive from
+  // the monthly payment (mirrors what loan-details-card.tsx does on the
+  // client side so both views agree on the schedule).
+  let term = termMonths && termMonths > 0 ? termMonths : 0
+  if (term <= 0) {
+    if (!Number.isFinite(monthlyPayment) || monthlyPayment <= 0) return fallback
+    const derived = computeTermMonths({
+      originalPrincipal: principal,
+      annualRate,
+      monthlyPayment,
+    })
+    if (!derived) return fallback
+    term = derived
+  }
+
+  const loanInputs: LoanInputs = {
+    originalPrincipal: principal,
+    annualRate,
+    termMonths: term,
+    startDate: start,
+  }
+
+  // Use the stored mensualité as the override when set — banks round the
+  // payment slightly differently from our formula (e.g. 135.91€ vs
+  // 136.30€) and the resulting balance differs by ~15€ over 2 years.
+  const baseMonthlyPayment =
+    Number.isFinite(monthlyPayment) && monthlyPayment > 0 ? monthlyPayment : undefined
+  const schedule = simulateSchedule(loanInputs, { baseMonthlyPayment })
+
+  if (paymentsMade <= 0) {
+    return {
+      remainingDebt: principal,
+      principalPaid: 0,
+      interestPaid: 0,
+    }
+  }
+
+  // Clamp the cursor to the schedule length. If the user has somehow
+  // applied more mensualités than the contract lists (e.g. early-repay
+  // simulator disabled the last few rows), the schedule already ends at
+  // balance 0 so we just read the tail.
+  const cursor = Math.min(paymentsMade, schedule.rows.length) - 1
+  const row = schedule.rows[cursor]
+  if (!row) return fallback
+
+  const paidRows = schedule.rows.slice(0, cursor + 1)
+  const principalPaid = paidRows.reduce((sum, r) => sum + r.principal + r.extraPayment, 0)
+  const interestPaid = paidRows.reduce((sum, r) => sum + r.interest, 0)
+
+  return {
+    remainingDebt: Math.max(0, row.balanceAfter),
+    principalPaid,
+    interestPaid,
+  }
 }
