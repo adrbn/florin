@@ -356,6 +356,80 @@ export function LoanDetailsCard({ account, categories }: LoanDetailsCardProps) {
           <p className="text-xs text-emerald-600">Saved · loan details updated.</p>
         )}
 
+        {/* ============================ linked categories ============== */}
+        {/* Rendered unconditionally (not gated on loan params) so the user
+            can wire up the category→loan link even before filling in the
+            amortization details. */}
+        <div className="space-y-2 rounded-lg border border-border/60 bg-muted/20 p-3">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Catégories liées à ce prêt
+          </h3>
+          <p className="text-[11px] text-muted-foreground">
+            Les transactions catégorisées dans une catégorie liée mettent automatiquement à jour
+            le solde de ce prêt (comme un "tracking account" YNAB).
+          </p>
+          {linkedCategoryIds.length > 0 && (
+            <ul className="flex flex-wrap gap-1.5">
+              {linkedCategoryIds.map((id) => {
+                const cat = categories.find((c) => c.id === id)
+                if (!cat) return null
+                return (
+                  <li
+                    key={id}
+                    className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-700 dark:text-emerald-300"
+                  >
+                    {cat.emoji && <span aria-hidden>{cat.emoji}</span>}
+                    <span className="font-medium">{cat.name}</span>
+                    <span className="text-muted-foreground">· {cat.groupName}</span>
+                    <button
+                      type="button"
+                      onClick={() => onUnlinkCategory(id)}
+                      disabled={linkPending}
+                      className="ml-0.5 text-muted-foreground hover:text-destructive"
+                      title="Unlink this category from the loan"
+                      aria-label={`Unlink ${cat.name}`}
+                    >
+                      ×
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+          <div className="flex items-center gap-2">
+            <select
+              value={categoryToLink}
+              onChange={(e) => setCategoryToLink(e.target.value)}
+              disabled={linkPending}
+              className="h-8 flex-1 rounded-md border border-border bg-background px-2 text-xs"
+              aria-label="Link a category to this loan"
+            >
+              <option value="">Link a category…</option>
+              {categories
+                .filter((c) => c.linkedLoanAccountId !== account.id)
+                .map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.groupName} · {c.name}
+                    {c.linkedLoanAccountId ? ' (already linked elsewhere)' : ''}
+                  </option>
+                ))}
+            </select>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={linkPending || !categoryToLink}
+              onClick={() => onLinkCategory(categoryToLink)}
+            >
+              {linkPending ? '…' : 'Link'}
+            </Button>
+          </div>
+          {linkError && <p className="text-xs text-destructive">{linkError}</p>}
+          {linkStatus && !linkError && (
+            <p className="text-xs text-emerald-600">{linkStatus}</p>
+          )}
+        </div>
+
         {/* ============================== summary ========================== */}
         {loanInputs && effectiveBase ? (
           <>
@@ -438,77 +512,6 @@ export function LoanDetailsCard({ account, categories }: LoanDetailsCardProps) {
                     highlight={comparison.monthsSaved > 0}
                   />
                 </div>
-              )}
-            </div>
-
-            {/* ============================ linked categories ============== */}
-            <div className="space-y-2 rounded-lg border border-border/60 bg-muted/20 p-3">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Catégories liées à ce prêt
-              </h3>
-              <p className="text-[11px] text-muted-foreground">
-                Les transactions catégorisées dans une catégorie liée mettent automatiquement à
-                jour le solde de ce prêt (comme un "tracking account" YNAB).
-              </p>
-              {linkedCategoryIds.length > 0 && (
-                <ul className="flex flex-wrap gap-1.5">
-                  {linkedCategoryIds.map((id) => {
-                    const cat = categories.find((c) => c.id === id)
-                    if (!cat) return null
-                    return (
-                      <li
-                        key={id}
-                        className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-700 dark:text-emerald-300"
-                      >
-                        {cat.emoji && <span aria-hidden>{cat.emoji}</span>}
-                        <span className="font-medium">{cat.name}</span>
-                        <span className="text-muted-foreground">· {cat.groupName}</span>
-                        <button
-                          type="button"
-                          onClick={() => onUnlinkCategory(id)}
-                          disabled={linkPending}
-                          className="ml-0.5 text-muted-foreground hover:text-destructive"
-                          title="Unlink this category from the loan"
-                          aria-label={`Unlink ${cat.name}`}
-                        >
-                          ×
-                        </button>
-                      </li>
-                    )
-                  })}
-                </ul>
-              )}
-              <div className="flex items-center gap-2">
-                <select
-                  value={categoryToLink}
-                  onChange={(e) => setCategoryToLink(e.target.value)}
-                  disabled={linkPending}
-                  className="h-8 flex-1 rounded-md border border-border bg-background px-2 text-xs"
-                  aria-label="Link a category to this loan"
-                >
-                  <option value="">Link a category…</option>
-                  {categories
-                    .filter((c) => c.linkedLoanAccountId !== account.id)
-                    .map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.groupName} · {c.name}
-                        {c.linkedLoanAccountId ? ' (already linked elsewhere)' : ''}
-                      </option>
-                    ))}
-                </select>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={linkPending || !categoryToLink}
-                  onClick={() => onLinkCategory(categoryToLink)}
-                >
-                  {linkPending ? '…' : 'Link'}
-                </Button>
-              </div>
-              {linkError && <p className="text-xs text-destructive">{linkError}</p>}
-              {linkStatus && !linkError && (
-                <p className="text-xs text-emerald-600">{linkStatus}</p>
               )}
             </div>
 
