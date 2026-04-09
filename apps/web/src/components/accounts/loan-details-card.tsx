@@ -19,6 +19,7 @@ import { formatCurrency } from '@/lib/format/currency'
 import {
   buildSchedule,
   compareSchedules,
+  computeTermMonths,
   type LoanInputs,
   simulateSchedule,
 } from '@/lib/loan/amortization'
@@ -47,6 +48,19 @@ export interface LinkedCategoryOption {
 interface LoanDetailsCardProps {
   account: LoanDetailsInitial
   categories: ReadonlyArray<LinkedCategoryOption>
+  /**
+   * Sum of absolute amounts of every real payment applied to this loan — i.e.
+   * non-mirror transactions whose category is linked to this loan. Computed
+   * on the server so the number matches the payments table below the card.
+   */
+  totalPaid: number
+  /**
+   * Original principal minus {@link totalPaid}. Displayed as the "Encours"
+   * tile instead of `account.currentBalance`, which is the accounting sum of
+   * mirrors + adjustments on the loan row and doesn't match the user's
+   * mental model of "what's left to pay".
+   */
+  remainingDebt: number
 }
 
 function toNumberOrNull(v: string | number | null | undefined): number | null {
@@ -84,7 +98,12 @@ const dateFormatter = new Intl.DateTimeFormat('fr-FR', {
  * Everything is client-side re-computation from the same pure helpers in
  * `src/lib/loan/amortization.ts` — the server only owns the raw fields.
  */
-export function LoanDetailsCard({ account, categories }: LoanDetailsCardProps) {
+export function LoanDetailsCard({
+  account,
+  categories,
+  totalPaid,
+  remainingDebt,
+}: LoanDetailsCardProps) {
   const [pending, startTransition] = useTransition()
   const [saveError, setSaveError] = useState<string | null>(null)
   const [savedAt, setSavedAt] = useState<number | null>(null)
@@ -132,25 +151,55 @@ export function LoanDetailsCard({ account, categories }: LoanDetailsCardProps) {
   // null when any required field is missing — the rest of the render path
   // then knows to prompt the user to fill the form instead of drawing an
   // empty chart.
+  //
+  // Needs principal, rate, start date, AND one of {termMonths, monthlyPayment}.
+  // When only monthlyPayment is set we derive termMonths via the closed-form
+  // inverse of the annuity formula, and vice versa — so the user can fill in
+  // whichever half of the loan contract they have on hand.
   const loanInputs = useMemo((): LoanInputs | null => {
     const p = Number(principal)
     const r = Number(ratePercent) / 100
-    const n = Number(termMonths)
+    const nInput = Number(termMonths)
+    const mInput = Number(monthlyPayment)
     const s = startDate ? new Date(`${startDate}T00:00:00Z`) : null
     if (
       !Number.isFinite(p) ||
       p <= 0 ||
       !Number.isFinite(r) ||
       r < 0 ||
-      !Number.isFinite(n) ||
-      n <= 0 ||
       !s ||
       Number.isNaN(s.getTime())
     ) {
       return null
     }
+    let n = Number.isFinite(nInput) && nInput > 0 ? nInput : 0
+    if (n <= 0) {
+      // Try deriving from the monthly payment.
+      if (!Number.isFinite(mInput) || mInput <= 0) return null
+      const derived = computeTermMonths({
+        originalPrincipal: p,
+        annualRate: r,
+        monthlyPayment: mInput,
+      })
+      if (!derived) return null
+      n = derived
+    }
     return { originalPrincipal: p, annualRate: r, termMonths: n, startDate: s }
-  }, [principal, ratePercent, termMonths, startDate])
+  }, [principal, ratePercent, termMonths, monthlyPayment, startDate])
+
+  // What's missing — drives the empty-state hint so the user knows EXACTLY
+  // which field to fill in instead of the generic "fill the parameters".
+  const missingFields = useMemo(() => {
+    const missing: string[] = []
+    if (!principal || Number(principal) <= 0) missing.push('le montant initial')
+    if (ratePercent === '' || Number(ratePercent) < 0) missing.push('le taux')
+    if (!startDate) missing.push('la date de début')
+    // Term OR monthly payment — only complain if both are missing.
+    const hasTerm = termMonths !== '' && Number(termMonths) > 0
+    const hasMonthly = monthlyPayment !== '' && Number(monthlyPayment) > 0
+    if (!hasTerm && !hasMonthly) missing.push('la durée (mois) OU la mensualité')
+    return missing
+  }, [principal, ratePercent, startDate, termMonths, monthlyPayment])
 
   const base = useMemo(() => (loanInputs ? buildSchedule(loanInputs) : null), [loanInputs])
 
@@ -274,7 +323,6 @@ export function LoanDetailsCard({ account, categories }: LoanDetailsCardProps) {
     })
   }
 
-  const currentBalance = Number(account.currentBalance)
   // "Months remaining at the base mensualité" — derived from the simulated
   // base schedule rather than (termMonths - months since start) so partial
   // prepayments in real life show up as a shorter projected tail.
@@ -428,21 +476,31 @@ export function LoanDetailsCard({ account, categories }: LoanDetailsCardProps) {
           {linkStatus && !linkError && (
             <p className="text-xs text-emerald-600">{linkStatus}</p>
           )}
+          {linkedCategoryIds.length > 0 && (
+            <p className="text-[11px] text-muted-foreground">
+              Le nombre de paiements reflète les transactions déjà catégorisées. Pour en
+              appliquer plus, catégorisez vos anciens prélèvements sur la page{' '}
+              <a href="/transactions" className="underline hover:text-foreground">
+                Transactions
+              </a>{' '}
+              — le solde du prêt se mettra à jour automatiquement.
+            </p>
+          )}
         </div>
 
         {/* ============================== summary ========================== */}
         {loanInputs && effectiveBase ? (
           <>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Tile label="Encours" value={formatCurrency(currentBalance)} />
+              <Tile label="Restant dû" value={formatCurrency(remainingDebt)} />
               <Tile label="Mensualité" value={formatCurrency(effectiveBase.summary.monthlyPayment)} />
               <Tile
                 label="Mois restants"
                 value={remainingMonths !== null ? `${remainingMonths} mois` : '—'}
               />
               <Tile
-                label="Intérêts restants"
-                value={formatCurrency(effectiveBase.summary.totalInterest)}
+                label="Déjà remboursé"
+                value={formatCurrency(totalPaid)}
               />
             </div>
 
@@ -638,10 +696,16 @@ export function LoanDetailsCard({ account, categories }: LoanDetailsCardProps) {
             </div>
           </>
         ) : (
-          <p className="text-xs text-muted-foreground">
-            Fill in the loan parameters above (principal, rate, term, start date) to unlock the
-            amortization schedule, simulator, and remaining-balance chart.
-          </p>
+          <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-200">
+            <p className="font-medium">
+              Il manque {missingFields.length > 0 ? missingFields.join(', ') : 'des paramètres'} pour
+              afficher l'échéancier, le graphique et le simulateur.
+            </p>
+            <p className="mt-1 text-[11px] text-amber-700/90 dark:text-amber-300/80">
+              Astuce : vous n'avez besoin que de la durée <em>OU</em> de la mensualité — l'autre est
+              calculée automatiquement.
+            </p>
+          </div>
         )}
       </CardContent>
     </Card>

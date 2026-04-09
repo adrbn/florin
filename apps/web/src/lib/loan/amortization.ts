@@ -71,6 +71,32 @@ export function computeMonthlyPayment(inputs: LoanInputs): number {
   return (p * r * factor) / (factor - 1)
 }
 
+/**
+ * Inverse of {@link computeMonthlyPayment}: given a monthly payment, solve for
+ * the number of months needed to amortize the principal.
+ *
+ *   n = -log(1 - P·r/M) / log(1+r)
+ *
+ * Returns `null` when the monthly payment is too small to ever cover the
+ * interest (i.e. M ≤ P·r) — the loan would never be repaid. For a zero-rate
+ * loan, simplifies to ceil(P / M). Rounds up to the next whole month.
+ */
+export function computeTermMonths(args: {
+  originalPrincipal: number
+  annualRate: number
+  monthlyPayment: number
+}): number | null {
+  const { originalPrincipal: p, annualRate, monthlyPayment: m } = args
+  if (p <= 0 || m <= 0) return null
+  const r = annualRate / 12
+  if (r === 0) return Math.ceil(p / m)
+  // Payment too small to outpace interest → loan never amortizes.
+  if (m <= p * r) return null
+  const n = -Math.log(1 - (p * r) / m) / Math.log(1 + r)
+  if (!Number.isFinite(n) || n <= 0) return null
+  return Math.ceil(n)
+}
+
 /** Round a money value to 2 decimals to dodge floating-point noise. */
 function round2(v: number): number {
   return Math.round(v * 100) / 100
