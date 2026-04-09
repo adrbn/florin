@@ -9,7 +9,7 @@ import {
 import { Card } from '@/components/ui/card'
 import { db } from '@/db/client'
 import { categories, categoryGroups } from '@/db/schema'
-import { formatCurrency } from '@/lib/format/currency'
+import { formatCurrencySigned } from '@/lib/format/currency'
 import { listAccounts } from '@/server/actions/accounts'
 import {
   countTransactions,
@@ -157,10 +157,11 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
 
   // When a filter is active we also compute the total so the page doubles
   // as a verification surface — the user can eyeball the headline Burn
-  // KPI and the sum here and know they match.
-  const filteredTotal = hasFilter
-    ? txns.reduce((acc, t) => acc + Math.abs(Number(t.amount)), 0)
-    : null
+  // KPI and the sum here and know they match. We sum the SIGNED amounts
+  // (expenses negative, income positive) so "All" nets to the real
+  // cash-flow delta; using Math.abs here used to make expenses + income
+  // add up instead of cancel, which looked like broken arithmetic.
+  const filteredTotal = hasFilter ? txns.reduce((acc, t) => acc + Number(t.amount), 0) : null
 
   return (
     <div className="space-y-6">
@@ -214,7 +215,7 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
               <>
                 · current page totals{' '}
                 <span className="font-mono font-medium text-foreground tabular-nums">
-                  {formatCurrency(filteredTotal)}
+                  {formatCurrencySigned(filteredTotal)}
                 </span>
               </>
             )}
