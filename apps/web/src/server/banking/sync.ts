@@ -105,8 +105,8 @@ async function ensureAccountForUid(
     return existing.id
   }
   // Prefer the product name (e.g. "CCP", "Livret A") over `details.name`,
-  // which on French banks like LBP is the holder's legal name in caps
-  // ("MR ROBINO ADRIEN") — almost never what the user wants to see in the
+  // which on several French banks (LBP, Crédit Agricole, …) is the holder's
+  // legal name in caps — almost never what the user wants to see in the
   // sidebar. Fall back to a "{Bank} ·{last 4 of IBAN}" tag if the bank
   // doesn't expose a product label, then to the IBAN itself.
   const ibanTail = details.account_id?.iban?.slice(-4)
