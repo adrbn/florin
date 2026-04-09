@@ -25,6 +25,26 @@ export interface PatrimonyPoint {
 const FORECAST_MONTHS = 12
 const DAY_MS = 24 * 60 * 60 * 1000
 
+/**
+ * Lookback windows the user can pick for the trend regression. The slope is
+ * fit only on points within the window, so "30 days" shows what would happen
+ * if the last month's habits held, while "All" reflects the full history.
+ * `null` means no cap — use everything.
+ */
+interface TrendWindow {
+  readonly label: string
+  readonly days: number | null
+}
+
+const TREND_WINDOWS: ReadonlyArray<TrendWindow> = [
+  { label: '30d', days: 30 },
+  { label: '60d', days: 60 },
+  { label: '90d', days: 90 },
+  { label: '180d', days: 180 },
+  { label: '365d', days: 365 },
+  { label: 'All', days: null },
+]
+
 const dateLabel = (ts: number) =>
   new Date(ts).toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' })
 
@@ -77,16 +97,35 @@ interface ChartPoint {
  * daily history points sit close together and the 12-month forecast uses
  * its actual calendar share of the axis — no more "12 forecast points
  * compressed next to 100 history points" glitch.
+ *
+ * `trendWindowDays` caps which historical points the linear regression is
+ * fit on. The resulting slope is still projected across the entire chart
+ * width, so the dashed trend line shows "what if your last N days had been
+ * the whole story" at every point in history as well as the future.
  */
-function buildSeries(data: ReadonlyArray<PatrimonyPoint>, forecast: boolean): ChartPoint[] {
+function buildSeries(
+  data: ReadonlyArray<PatrimonyPoint>,
+  forecast: boolean,
+  trendWindowDays: number | null,
+): ChartPoint[] {
   if (data.length === 0) return []
 
-  // Linear-regression fit over the entire history → a single straight
-  // line (in day space) that we then evaluate at every history and
-  // forecast point. The "trend" series therefore renders as one clean
-  // line across both ranges, exactly what the user asked for.
+  // Pick the window of points we'll fit the regression on. When a window is
+  // set, we keep only points with occurredAt >= (lastHistoryDate - windowDays).
+  // Falling back to the full series when the window is null or smaller than
+  // two points — OLS needs at least two rows to have a meaningful slope.
+  const lastHistoryTs = new Date(data[data.length - 1]?.date ?? '').getTime()
+  const windowStartTs =
+    trendWindowDays === null ? Number.NEGATIVE_INFINITY : lastHistoryTs - trendWindowDays * DAY_MS
+  const windowData = data.filter((d) => new Date(d.date).getTime() >= windowStartTs)
+  const fitData = windowData.length >= 2 ? windowData : data
+
+  // Linear-regression fit over the window → a single straight line (in day
+  // space) that we then evaluate at every history and forecast point. The
+  // "trend" series therefore renders as one clean line across both ranges,
+  // exactly what the user asked for.
   const firstTs = new Date(data[0]?.date ?? '').getTime()
-  const points = data.map((d) => ({
+  const points = fitData.map((d) => ({
     x: (new Date(d.date).getTime() - firstTs) / DAY_MS,
     y: d.balance,
   }))
@@ -118,7 +157,11 @@ function buildSeries(data: ReadonlyArray<PatrimonyPoint>, forecast: boolean): Ch
 
 export function PatrimonyChart({ data }: { data: PatrimonyPoint[] }) {
   const [forecast, setForecast] = useState(false)
-  const series = buildSeries(data, forecast)
+  const [trendWindowIdx, setTrendWindowIdx] = useState(() =>
+    TREND_WINDOWS.findIndex((w) => w.days === null),
+  )
+  const trendWindow = TREND_WINDOWS[trendWindowIdx] ?? TREND_WINDOWS[TREND_WINDOWS.length - 1]
+  const series = buildSeries(data, forecast, trendWindow?.days ?? null)
   const lastRealTs = data.length > 0 ? new Date(data[data.length - 1]?.date ?? '').getTime() : null
 
   // Y-axis domain — start at the historical minimum (with a little headroom)
@@ -139,23 +182,61 @@ export function PatrimonyChart({ data }: { data: PatrimonyPoint[] }) {
 
   return (
     <Card className="flex h-full flex-col">
-      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+      <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0 pb-2">
         <div className="min-w-0">
           <CardTitle className="text-sm font-medium">Patrimony</CardTitle>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            Last 12 months{forecast ? ' · +12 months projected' : ''}
+            Last 12 months
+            {forecast ? ' · +12 months projected' : ''}
+            {trendWindow && trendWindow.days !== null
+              ? ` · trend from last ${trendWindow.days}d`
+              : ' · trend from all history'}
           </p>
         </div>
         {data.length >= 2 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setForecast((v) => !v)}
-            aria-pressed={forecast}
-            className="h-7 px-2 text-[11px] font-medium text-muted-foreground hover:text-foreground"
-          >
-            {forecast ? 'Hide forecast' : 'Show forecast'}
-          </Button>
+          <div className="flex flex-col items-end gap-1.5">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setForecast((v) => !v)}
+              aria-pressed={forecast}
+              className="h-7 px-2 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+            >
+              {forecast ? 'Hide forecast' : 'Show forecast'}
+            </Button>
+            {/* Segmented picker for the trend lookback window. Small, no labels
+                besides the days — the card subtitle explains what the series
+                represents. Uses a real <fieldset> + <label> pair per radio so
+                it stays keyboard-accessible without pulling in a UI kit. */}
+            <fieldset
+              className="flex items-center gap-0 rounded-md border border-border bg-background p-0.5 text-[10px]"
+              aria-label="Trend lookback window"
+            >
+              <legend className="sr-only">Trend window</legend>
+              {TREND_WINDOWS.map((w, idx) => {
+                const active = idx === trendWindowIdx
+                return (
+                  <label
+                    key={w.label}
+                    className={`cursor-pointer rounded px-1.5 py-0.5 font-medium transition-colors ${
+                      active
+                        ? 'bg-muted text-foreground'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="trend-window"
+                      className="sr-only"
+                      checked={active}
+                      onChange={() => setTrendWindowIdx(idx)}
+                    />
+                    {w.label}
+                  </label>
+                )
+              })}
+            </fieldset>
+          </div>
         )}
       </CardHeader>
       <CardContent className="min-h-0 flex-1 pb-3">

@@ -1,10 +1,11 @@
 'use server'
 
+import { randomUUID } from 'node:crypto'
 import { and, asc, desc, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { db } from '@/db/client'
-import { accounts, categorizationRules, transactions } from '@/db/schema'
+import { accounts, categories, categorizationRules, transactions } from '@/db/schema'
 import { matchRule, type Rule } from '@/lib/categorization/engine'
 import { normalizePayee } from '@/lib/categorization/normalize-payee'
 
@@ -41,6 +42,184 @@ async function recomputeAccountBalance(accountId: string): Promise<void> {
     .update(accounts)
     .set({ currentBalance: total, updatedAt: new Date() })
     .where(eq(accounts.id, accountId))
+}
+
+/**
+ * Reconcile the loan-mirror transaction for a given original transaction.
+ *
+ * A "loan mirror" is a paired, auto-generated row on a loan-kind account
+ * that represents "this payment reduced the loan balance". Triggered when
+ * the original transaction is categorized into a category whose
+ * `linkedLoanAccountId` points at a loan account. Both rows share the same
+ * `transferPairId` so the dashboard's existing transfer-exclusion filter
+ * already knows to ignore both sides from burn/income math.
+ *
+ * Invariants maintained by this helper:
+ *   - If the category is NOT linked: any existing mirror is deleted and
+ *     the original's transferPairId is cleared.
+ *   - If the category IS linked but the wrong mirror exists (e.g. previously
+ *     linked to a different loan): the old mirror is deleted and a fresh
+ *     one is created on the current loan account.
+ *   - If the category IS linked and no mirror exists: create one.
+ *   - If the category IS linked and a correct mirror exists: update its
+ *     amount/date/payee in case the original changed.
+ *
+ * Always recomputes the balance of every loan account it touched so the
+ * loan's currentBalance reflects the sum of its mirror rows.
+ *
+ * NB: this helper does NOT recurse — callers should still invoke it from
+ * each place that mutates a transaction's category/amount/deletion state.
+ */
+async function syncLoanMirror(transactionId: string): Promise<void> {
+  const original = await db.query.transactions.findFirst({
+    where: eq(transactions.id, transactionId),
+  })
+  if (!original) return
+  // Never reconcile a row that IS itself a loan mirror. Mirrors have no
+  // category and sit directly on a loan account — easier guard than
+  // trying to look up their origin.
+  const originalAccount = await db.query.accounts.findFirst({
+    where: eq(accounts.id, original.accountId),
+  })
+  if (!originalAccount) return
+  if (originalAccount.kind === 'loan') return
+
+  // Find the currently linked loan account via the category, if any.
+  let linkedLoanAccountId: string | null = null
+  if (original.categoryId) {
+    const cat = await db.query.categories.findFirst({
+      where: eq(categories.id, original.categoryId),
+    })
+    linkedLoanAccountId = cat?.linkedLoanAccountId ?? null
+  }
+
+  // Look up the existing mirror (if any) via transferPairId.
+  const touchedLoanAccountIds = new Set<string>()
+  let existingMirror: typeof original | null = null
+  if (original.transferPairId) {
+    const pair = await db.query.transactions.findFirst({
+      where: and(
+        eq(transactions.transferPairId, original.transferPairId),
+        sql`${transactions.id} <> ${original.id}`,
+      ),
+    })
+    existingMirror = pair ?? null
+    if (existingMirror) touchedLoanAccountIds.add(existingMirror.accountId)
+  }
+
+  // Case 1: no link → strip any mirror + clear transferPairId on original.
+  if (!linkedLoanAccountId) {
+    if (existingMirror) {
+      await db.delete(transactions).where(eq(transactions.id, existingMirror.id))
+    }
+    if (original.transferPairId) {
+      await db
+        .update(transactions)
+        .set({ transferPairId: null, updatedAt: new Date() })
+        .where(eq(transactions.id, original.id))
+    }
+    for (const id of touchedLoanAccountIds) await recomputeAccountBalance(id)
+    return
+  }
+
+  // Case 2: mirror exists but on the wrong loan → delete it so we can
+  //         recreate on the correct one.
+  if (existingMirror && existingMirror.accountId !== linkedLoanAccountId) {
+    await db.delete(transactions).where(eq(transactions.id, existingMirror.id))
+    existingMirror = null
+  }
+
+  // A payment against a debt is stored as a negative amount on the
+  // originating account (money out) — the mirror on the loan side is the
+  // absolute value (principal coming down toward zero from a negative
+  // starting balance). Income on the origin account (refunds, overpayments)
+  // would flip to a negative mirror, which is fine.
+  const mirrorAmount = (-Number(original.amount)).toFixed(2)
+  const mirrorPayee = `↳ ${original.payee || '(no payee)'}`
+
+  if (!existingMirror) {
+    // Case 3: create fresh mirror + share a transferPairId.
+    const pairId = original.transferPairId ?? randomUUID()
+    await db.insert(transactions).values({
+      accountId: linkedLoanAccountId,
+      occurredAt: original.occurredAt,
+      amount: mirrorAmount,
+      currency: original.currency,
+      payee: mirrorPayee,
+      normalizedPayee: normalizePayee(mirrorPayee),
+      memo: 'auto: loan payment mirror',
+      categoryId: null,
+      source: 'manual',
+      transferPairId: pairId,
+      needsReview: false,
+    })
+    if (original.transferPairId !== pairId) {
+      await db
+        .update(transactions)
+        .set({ transferPairId: pairId, updatedAt: new Date() })
+        .where(eq(transactions.id, original.id))
+    }
+    touchedLoanAccountIds.add(linkedLoanAccountId)
+  } else {
+    // Case 4: mirror already on correct loan → make sure it still matches
+    //         the current amount/date/payee of the original.
+    await db
+      .update(transactions)
+      .set({
+        occurredAt: original.occurredAt,
+        amount: mirrorAmount,
+        payee: mirrorPayee,
+        normalizedPayee: normalizePayee(mirrorPayee),
+        updatedAt: new Date(),
+      })
+      .where(eq(transactions.id, existingMirror.id))
+    touchedLoanAccountIds.add(linkedLoanAccountId)
+  }
+
+  for (const id of touchedLoanAccountIds) await recomputeAccountBalance(id)
+}
+
+/**
+ * Walk every non-deleted transaction currently sitting in `categoryId`
+ * and re-run the loan-mirror reconciliation on each. Exported so the
+ * category-link action can "back-fill" mirrors when the user first sets a
+ * category → loan link after history already exists.
+ *
+ * Returns the number of original transactions visited so the caller can
+ * tell the user "25 payments were re-linked".
+ */
+export async function reconcileLoanMirrorsForCategory(
+  categoryId: string,
+): Promise<number> {
+  const rows = await db
+    .select({ id: transactions.id })
+    .from(transactions)
+    .where(and(eq(transactions.categoryId, categoryId), isNull(transactions.deletedAt)))
+  for (const row of rows) {
+    await syncLoanMirror(row.id)
+  }
+  return rows.length
+}
+
+/**
+ * When an original transaction is being deleted, remove its loan mirror
+ * first so we don't leave an orphan row on the loan account. Symmetric to
+ * syncLoanMirror — always safe to call whether the row has a pair or not.
+ */
+async function deleteLoanMirrorFor(transactionId: string): Promise<ReadonlyArray<string>> {
+  const original = await db.query.transactions.findFirst({
+    where: eq(transactions.id, transactionId),
+  })
+  if (!original || !original.transferPairId) return []
+  const pair = await db.query.transactions.findFirst({
+    where: and(
+      eq(transactions.transferPairId, original.transferPairId),
+      sql`${transactions.id} <> ${original.id}`,
+    ),
+  })
+  if (!pair) return []
+  await db.delete(transactions).where(eq(transactions.id, pair.id))
+  return [pair.accountId]
 }
 
 export async function addTransaction(
@@ -99,6 +278,7 @@ export async function addTransaction(
       .returning({ id: transactions.id })
 
     await recomputeAccountBalance(data.accountId)
+    if (row?.id) await syncLoanMirror(row.id)
 
     revalidatePath('/transactions')
     revalidatePath('/accounts')
@@ -275,7 +455,9 @@ export async function updateTransactionCategory(
       .update(transactions)
       .set({ categoryId, updatedAt: new Date() })
       .where(eq(transactions.id, transactionId))
+    await syncLoanMirror(transactionId)
     revalidatePath('/transactions')
+    revalidatePath('/accounts')
     revalidatePath('/')
     revalidatePath('/categories')
     return { success: true }
@@ -292,6 +474,12 @@ export async function softDeleteTransaction(id: string): Promise<ActionResult> {
   }
 
   try {
+    // Delete the loan mirror first (hard-delete — mirrors are auto-generated
+    // and shouldn't linger in a soft-deleted state where they'd still affect
+    // balance calcs). Grab the loan account ids so we can recompute them
+    // after we've soft-deleted the original.
+    const touchedLoanIds = await deleteLoanMirrorFor(id)
+
     const [txn] = await db
       .update(transactions)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
@@ -300,6 +488,9 @@ export async function softDeleteTransaction(id: string): Promise<ActionResult> {
 
     if (txn) {
       await recomputeAccountBalance(txn.accountId)
+    }
+    for (const loanId of touchedLoanIds) {
+      await recomputeAccountBalance(loanId)
     }
 
     revalidatePath('/transactions')
@@ -341,8 +532,15 @@ export async function bulkUpdateTransactionCategory(
       .set({ categoryId, updatedAt: new Date() })
       .where(inArray(transactions.id, parsed.data))
       .returning({ id: transactions.id })
+    // Reconcile the loan mirror for each touched row. Sequential — the
+    // volume is bounded at 500 rows by bulkIdsSchema and each call does at
+    // most a few light queries, so a transaction-per-row is fine.
+    for (const row of result) {
+      await syncLoanMirror(row.id)
+    }
     revalidatePath('/transactions')
     revalidatePath('/review')
+    revalidatePath('/accounts')
     revalidatePath('/')
     revalidatePath('/categories')
     return { success: true, data: { updated: result.length } }
@@ -393,6 +591,14 @@ export async function bulkSoftDeleteTransactions(
     return { success: false, error: 'Invalid transaction ids' }
   }
   try {
+    // Clean up loan mirrors BEFORE soft-deleting the originals so the mirror
+    // lookup via transferPairId can still find the pair.
+    const loanAccountIdsTouched = new Set<string>()
+    for (const id of parsed.data) {
+      const ids = await deleteLoanMirrorFor(id)
+      for (const loanId of ids) loanAccountIdsTouched.add(loanId)
+    }
+
     const result = await db
       .update(transactions)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
@@ -402,6 +608,9 @@ export async function bulkSoftDeleteTransactions(
     const touched = new Set(result.map((r) => r.accountId))
     for (const accountId of touched) {
       await recomputeAccountBalance(accountId)
+    }
+    for (const loanId of loanAccountIdsTouched) {
+      await recomputeAccountBalance(loanId)
     }
 
     revalidatePath('/transactions')
