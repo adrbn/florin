@@ -20,8 +20,11 @@ function isoLocal(d: Date): string {
  * below the 6-month average.
  *
  * The whole card is clickable: tapping it drops the user on the
- * Transactions page pre-filtered to this month's expenses, so they can
- * verify the number line-by-line instead of having to trust the KPI.
+ * Transactions page scoped to this month's window (no direction filter)
+ * so they can see every row that influenced the KPI — negative spend AND
+ * positive refunds on expense categories, which now net against the burn.
+ * Filtering to direction=expense here would hide the refunds and make the
+ * linked list disagree with the headline number.
  */
 export async function BurnRateCard() {
   const [thisMonth, avg] = await Promise.all([getMonthBurn(), getAvgMonthlyBurn(6)])
@@ -37,7 +40,7 @@ export async function BurnRateCard() {
       tone="warning"
       href={{
         pathname: '/transactions',
-        query: { from, to, direction: 'expense', excludeTransfers: '1' },
+        query: { from, to, excludeTransfers: '1' },
       }}
     />
   )
