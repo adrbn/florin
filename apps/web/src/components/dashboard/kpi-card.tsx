@@ -38,10 +38,15 @@ const TONE_CLASSES: Record<KpiTone, string> = {
 
 export function KpiCard({ title, value, hint, icon: Icon, tone = 'default', href }: KpiCardProps) {
   const clickable = href !== undefined
+  // `h-full` on both the Card and the Link is what keeps all three KPI
+  // cards the same height in the dashboard grid. Without it the cards
+  // stay at their intrinsic content height, and a longer hint (e.g. the
+  // two-line Gross / − Debt breakdown on Net worth) makes that card
+  // visually taller than its siblings.
   const card = (
     <Card
       className={cn(
-        'gap-2 py-5',
+        'h-full gap-2 py-5',
         clickable &&
           'transition-colors hover:bg-muted/40 group-focus-visible:ring-2 group-focus-visible:ring-ring',
       )}
@@ -62,7 +67,7 @@ export function KpiCard({ title, value, hint, icon: Icon, tone = 'default', href
     return (
       <Link
         href={href}
-        className="group block rounded-xl focus:outline-none focus-visible:outline-none"
+        className="group block h-full rounded-xl focus:outline-none focus-visible:outline-none"
         aria-label={`${title} — view breakdown`}
       >
         {card}
