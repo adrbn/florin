@@ -1,6 +1,6 @@
 import type { LucideIcon } from 'lucide-react'
 import Link from 'next/link'
-import type { ComponentProps } from 'react'
+import type { ComponentProps, ReactNode } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 
@@ -11,7 +11,13 @@ export type KpiTone = 'default' | 'positive' | 'negative' | 'warning'
 interface KpiCardProps {
   title: string
   value: string
-  hint?: string
+  /**
+   * Secondary line shown under the headline number. Accepts a ReactNode
+   * (not just a string) so callers can render multi-line breakdowns like
+   * "Gross …" on one row and "− Debt …" on the next without having to
+   * reach into the card internals.
+   */
+  hint?: ReactNode
   icon?: LucideIcon
   tone?: KpiTone
   /**
@@ -35,20 +41,20 @@ export function KpiCard({ title, value, hint, icon: Icon, tone = 'default', href
   const card = (
     <Card
       className={cn(
-        'gap-1 py-3',
+        'gap-2 py-5',
         clickable &&
           'transition-colors hover:bg-muted/40 group-focus-visible:ring-2 group-focus-visible:ring-ring',
       )}
     >
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 py-0">
-        <CardTitle className="text-xs font-medium text-muted-foreground">{title}</CardTitle>
-        {Icon ? <Icon className="h-3.5 w-3.5 text-muted-foreground" /> : null}
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 px-6 py-0">
+        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+        {Icon ? <Icon className="h-4 w-4 text-muted-foreground" /> : null}
       </CardHeader>
-      <CardContent className="px-4 py-0">
-        <p className={cn('text-2xl font-bold tracking-tight tabular-nums', TONE_CLASSES[tone])}>
+      <CardContent className="px-6 py-0">
+        <p className={cn('text-4xl font-bold tracking-tight tabular-nums', TONE_CLASSES[tone])}>
           {value}
         </p>
-        {hint ? <p className="mt-0.5 truncate text-xs text-muted-foreground">{hint}</p> : null}
+        {hint ? <div className="mt-1.5 text-[11px] text-muted-foreground">{hint}</div> : null}
       </CardContent>
     </Card>
   )

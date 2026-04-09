@@ -4,6 +4,7 @@ import { LogOut } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from 'next-auth/react'
+import { ThemeToggle } from '@/components/theme/theme-toggle'
 import { cn } from '@/lib/utils'
 import { isLinkActive, type NavBadges, visibleNavLinks } from './nav-links'
 
@@ -65,7 +66,8 @@ export function Sidebar({ badges }: SidebarProps = {}) {
           )
         })}
       </nav>
-      <div className="p-3">
+      <div className="space-y-0.5 p-3">
+        <ThemeToggle />
         <button
           type="button"
           onClick={() => signOut({ callbackUrl: '/login' })}

@@ -17,9 +17,11 @@ import {
 export const dynamic = 'force-dynamic'
 
 /**
- * Reflect — analytics tab. Lays out four charts plus a small KPI strip.
- * Everything is server-rendered so the user gets fresh numbers on every
- * page load with no client-side fetching.
+ * Reflect — analytics tab. Lays out a KPI strip plus three charts (income
+ * vs spending, net worth, category breakdown). The whole page is designed
+ * to fit in a single viewport on desktop — same min-h-0 / flex pattern as
+ * the Dashboard — so the user doesn't have to scroll to see everything.
+ * On mobile we fall back to a natural vertical scroll.
  */
 export default async function ReflectPage() {
   const [flows, categoryShare, ageOfMoney, netWorthSeries, netWorth] = await Promise.all([
@@ -41,59 +43,63 @@ export default async function ReflectPage() {
     last12.income > 0 ? ((last12.income - last12.expense) / last12.income) * 100 : 0
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Reflect</h1>
-        <p className="text-muted-foreground">
+    <div className="flex min-h-0 flex-col gap-3 lg:h-full">
+      <header className="min-w-0">
+        <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Reflect</h1>
+        <p className="mt-0.5 text-xs text-muted-foreground">
           Long-window analytics — how your money has actually moved.
         </p>
-      </div>
+      </header>
 
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Card className="gap-1 py-3">
+          <CardHeader className="px-4 py-0">
+            <CardTitle className="text-[10px] uppercase tracking-wide text-muted-foreground">
               Net worth
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{formatCurrency(netWorth.net)}</p>
-            <p className="mt-1 text-[11px] text-muted-foreground">
+          <CardContent className="px-4 py-0">
+            <p className="text-xl font-bold tabular-nums">{formatCurrency(netWorth.net)}</p>
+            <p className="mt-0.5 text-[10px] text-muted-foreground">
               Gross {formatCurrency(netWorth.gross)}
             </p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
+        <Card className="gap-1 py-3">
+          <CardHeader className="px-4 py-0">
+            <CardTitle className="text-[10px] uppercase tracking-wide text-muted-foreground">
               Income (12mo)
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-emerald-600">{formatCurrency(last12.income)}</p>
+          <CardContent className="px-4 py-0">
+            <p className="text-xl font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+              {formatCurrency(last12.income)}
+            </p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
+        <Card className="gap-1 py-3">
+          <CardHeader className="px-4 py-0">
+            <CardTitle className="text-[10px] uppercase tracking-wide text-muted-foreground">
               Spending (12mo)
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-destructive">{formatCurrency(last12.expense)}</p>
+          <CardContent className="px-4 py-0">
+            <p className="text-xl font-bold tabular-nums text-destructive">
+              {formatCurrency(last12.expense)}
+            </p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
+        <Card className="gap-1 py-3">
+          <CardHeader className="px-4 py-0">
+            <CardTitle className="text-[10px] uppercase tracking-wide text-muted-foreground">
               Age of money
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">
+          <CardContent className="px-4 py-0">
+            <p className="text-xl font-bold tabular-nums">
               {ageOfMoney === null ? '—' : `${Math.round(ageOfMoney)} d`}
             </p>
-            <p className="mt-1 text-[11px] text-muted-foreground">
+            <p className="mt-0.5 text-[10px] text-muted-foreground">
               {savingsRate >= 0 ? '+' : ''}
               {savingsRate.toFixed(0)}% savings rate
             </p>
@@ -101,12 +107,23 @@ export default async function ReflectPage() {
         </Card>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <IncomeVsSpendingChart data={flows} />
-        <NetWorthChart data={netWorthSeries} />
+      {/*
+        Desktop layout: 12-column grid, two rows.
+          row 1 (flex-1): IncomeVsSpending (7 cols) + NetWorth (5 cols)
+          row 2 (flex-1): CategoryBreakdown (full width)
+        On mobile everything stacks naturally.
+      */}
+      <div className="grid min-h-0 grid-cols-1 gap-3 lg:flex-1 lg:grid-cols-12 lg:grid-rows-2">
+        <div className="min-h-[240px] lg:col-span-7 lg:min-h-0">
+          <IncomeVsSpendingChart data={flows} />
+        </div>
+        <div className="min-h-[240px] lg:col-span-5 lg:min-h-0">
+          <NetWorthChart data={netWorthSeries} />
+        </div>
+        <div className="min-h-[240px] lg:col-span-12 lg:min-h-0">
+          <CategoryBreakdownChart data={categoryShare} windowLabel="last 90 days" />
+        </div>
       </div>
-
-      <CategoryBreakdownChart data={categoryShare} windowLabel="last 90 days" />
     </div>
   )
 }
