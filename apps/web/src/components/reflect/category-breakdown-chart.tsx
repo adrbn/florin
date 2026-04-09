@@ -34,42 +34,48 @@ export function CategoryBreakdownChart({ data, windowLabel }: Props) {
 
   return (
     <Card className="flex h-full flex-col">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-base">Spending breakdown — {windowLabel}</CardTitle>
+      <CardHeader className="pb-1">
+        <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
+          Spending breakdown — {windowLabel}
+        </CardTitle>
       </CardHeader>
       <CardContent className="min-h-0 flex-1 pb-3">
         {chartData.length === 0 ? (
-          <p className="py-12 text-center text-sm text-muted-foreground">
+          <p className="py-6 text-center text-xs text-muted-foreground">
             No categorized spending in this window.
           </p>
         ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <ResponsiveContainer width="100%" height={240}>
-              <PieChart>
-                <Pie
-                  data={chartData}
-                  dataKey="value"
-                  nameKey="name"
-                  innerRadius={60}
-                  outerRadius={95}
-                  paddingAngle={2}
-                  isAnimationActive={false}
-                >
-                  {chartData.map((entry) => (
-                    <Cell key={entry.name} fill={entry.fill} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: 8,
-                    background: 'hsl(var(--popover))',
-                    border: '1px solid hsl(var(--border))',
-                  }}
-                  formatter={(value, name) => [formatCurrency(Number(value)), String(name)]}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-            <ul className="space-y-1.5 text-xs">
+          <div className="grid h-full min-h-0 grid-cols-1 gap-3 md:grid-cols-2">
+            <div className="min-h-0">
+              <ResponsiveContainer width="100%" height="100%" minHeight={140}>
+                <PieChart>
+                  <Pie
+                    data={chartData}
+                    dataKey="value"
+                    nameKey="name"
+                    innerRadius="55%"
+                    outerRadius="85%"
+                    paddingAngle={2}
+                    isAnimationActive={false}
+                  >
+                    {chartData.map((entry) => (
+                      <Cell key={entry.name} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      borderRadius: 8,
+                      background: 'var(--popover)',
+                      border: '1px solid var(--border)',
+                      fontSize: 12,
+                      color: 'var(--popover-foreground)',
+                    }}
+                    formatter={(value, name) => [formatCurrency(Number(value)), String(name)]}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <ul className="min-h-0 space-y-1 overflow-y-auto pr-1 text-[11px]">
               {chartData.map((entry) => {
                 const pct = total > 0 ? (entry.value / total) * 100 : 0
                 return (
@@ -77,7 +83,7 @@ export function CategoryBreakdownChart({ data, windowLabel }: Props) {
                     <span className="flex min-w-0 items-center gap-2">
                       <span
                         aria-hidden
-                        className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
+                        className="h-2 w-2 flex-shrink-0 rounded-full"
                         style={{ backgroundColor: entry.fill }}
                       />
                       <span className="truncate text-foreground">{entry.name}</span>

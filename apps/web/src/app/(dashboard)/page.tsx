@@ -76,13 +76,13 @@ export default function DashboardPage() {
       </header>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
-        <Suspense fallback={<CardSkeleton className="h-[84px]" />}>
+        <Suspense fallback={<CardSkeleton className="h-[120px]" />}>
           <NetWorthCard />
         </Suspense>
-        <Suspense fallback={<CardSkeleton className="h-[84px]" />}>
+        <Suspense fallback={<CardSkeleton className="h-[120px]" />}>
           <BurnRateCard />
         </Suspense>
-        <Suspense fallback={<CardSkeleton className="h-[84px]" />}>
+        <Suspense fallback={<CardSkeleton className="h-[120px]" />}>
           <SafetyGaugeCard />
         </Suspense>
       </div>

@@ -31,31 +31,45 @@ const formatMonth = (m: string): string => {
 export function IncomeVsSpendingChart({ data }: { data: ReadonlyArray<MonthlyFlow> }) {
   return (
     <Card className="flex h-full flex-col">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-base">Income vs spending</CardTitle>
+      <CardHeader className="pb-1">
+        <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
+          Income vs spending
+        </CardTitle>
       </CardHeader>
       <CardContent className="min-h-0 flex-1 pb-3">
-        <ResponsiveContainer width="100%" height={280}>
-          <BarChart data={[...data]} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-            <XAxis dataKey="month" tickFormatter={formatMonth} className="text-xs" />
+        <ResponsiveContainer width="100%" height="100%" minHeight={140}>
+          <BarChart data={[...data]} margin={{ top: 10, right: 8, left: -8, bottom: 0 }}>
+            <CartesianGrid vertical={false} stroke="var(--border)" strokeOpacity={0.6} />
+            <XAxis
+              dataKey="month"
+              tickFormatter={formatMonth}
+              tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
+              axisLine={false}
+              tickLine={false}
+              minTickGap={16}
+            />
             <YAxis
               tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`}
-              className="text-xs"
-              width={48}
+              tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
+              axisLine={false}
+              tickLine={false}
+              width={36}
             />
             <Tooltip
+              cursor={{ fill: 'var(--muted)', opacity: 0.3 }}
               contentStyle={{
                 borderRadius: 8,
-                background: 'hsl(var(--popover))',
-                border: '1px solid hsl(var(--border))',
+                background: 'var(--popover)',
+                border: '1px solid var(--border)',
+                fontSize: 12,
+                color: 'var(--popover-foreground)',
               }}
               formatter={(value, name) => [formatEur(Number(value)), String(name)]}
               labelFormatter={(label) => formatMonth(String(label))}
             />
-            <Legend wrapperStyle={{ fontSize: 11 }} />
-            <Bar dataKey="income" name="Income" fill="#10b981" radius={[3, 3, 0, 0]} />
-            <Bar dataKey="expense" name="Spending" fill="#ef4444" radius={[3, 3, 0, 0]} />
+            <Legend wrapperStyle={{ fontSize: 10, paddingTop: 4 }} iconSize={8} />
+            <Bar dataKey="income" name="Income" fill="var(--chart-2)" radius={[3, 3, 0, 0]} />
+            <Bar dataKey="expense" name="Spending" fill="var(--chart-4)" radius={[3, 3, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </CardContent>

@@ -4,6 +4,7 @@ import { LogOut } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from 'next-auth/react'
+import { ThemeToggle } from '@/components/theme/theme-toggle'
 import { cn } from '@/lib/utils'
 import { isLinkActive, type NavBadges, visibleNavLinks } from './nav-links'
 
@@ -35,14 +36,17 @@ export function MobileTopBar({ badges }: MobileTopBarProps = {}) {
           <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-sidebar-primary" />
           <span className="text-sm font-semibold tracking-tight">Florin</span>
         </div>
-        <button
-          type="button"
-          onClick={() => signOut({ callbackUrl: '/login' })}
-          className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-          aria-label="Sign out"
-        >
-          <LogOut className="h-3.5 w-3.5" />
-        </button>
+        <div className="flex items-center gap-1">
+          <ThemeToggle variant="compact" />
+          <button
+            type="button"
+            onClick={() => signOut({ callbackUrl: '/login' })}
+            className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            aria-label="Sign out"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </div>
       <nav
         aria-label="Primary"
