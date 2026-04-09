@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { Button } from '@/components/ui/button'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { deleteAccount, mergeAccount, setAccountArchived } from '@/server/actions/accounts'
 
 interface MergeTarget {
@@ -19,17 +20,28 @@ interface AccountCardActionsProps {
   mergeTargets: ReadonlyArray<MergeTarget>
 }
 
+type ConfirmKind = 'archive' | 'delete' | 'merge'
+
+interface ConfirmState {
+  kind: ConfirmKind
+  title: string
+  description: string
+  confirmLabel: string
+  destructive: boolean
+  payload?: { targetId: string; targetName: string }
+}
+
 /**
  * Inline per-account actions: archive/unarchive, merge-into, and delete.
  *
  * Archive is the default safe action: it hides the account from the grid and
  * excludes it from net worth, but keeps all transactions. Delete is
- * destructive and cascades — we gate it behind a confirm prompt.
+ * destructive and cascades. Merge re-parents every transaction onto another
+ * account and moves the bank-sync identity over, then drops the empty shell.
  *
- * Merge re-parents every transaction onto another account and moves the
- * bank-sync identity over, then drops the empty shell. It's the right
- * answer when a bank-synced account overlaps a legacy manual account
- * (e.g. "La Banque Postale ·3546" duplicating CCP).
+ * All three destructive paths go through a proper ConfirmDialog — browser
+ * `window.confirm` is too trivial to dismiss accidentally for actions that
+ * can wipe hundreds of transactions.
  */
 export function AccountCardActions({
   accountId,
@@ -41,13 +53,21 @@ export function AccountCardActions({
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [mergeTargetId, setMergeTargetId] = useState<string>('')
+  const [confirm, setConfirm] = useState<ConfirmState | null>(null)
 
   const onArchive = () => {
+    // Unarchiving and plain archive are benign enough to run without a
+    // modal. Only archive-while-bank-synced warrants the dialog because
+    // the sync keeps running in the background and that's surprising.
     if (hasBankSync && !isArchived) {
-      const ok = window.confirm(
-        `${accountName} still has an active bank sync. Archiving will hide it from the grid and net worth, but the sync will keep running. Continue?`,
-      )
-      if (!ok) return
+      setConfirm({
+        kind: 'archive',
+        title: `Archive ${accountName}?`,
+        description: `${accountName} still has an active bank sync. Archiving will hide it from the grid and exclude it from net worth, but the sync will keep pulling new transactions in the background.\n\nDisconnect the bank first if you want sync to stop.`,
+        confirmLabel: 'Archive anyway',
+        destructive: false,
+      })
+      return
     }
     setError(null)
     startTransition(async () => {
@@ -58,41 +78,58 @@ export function AccountCardActions({
     })
   }
 
-  const onDelete = () => {
-    const ok = window.confirm(
-      `Permanently delete "${accountName}"?\n\nAll transactions for this account will also be deleted. This cannot be undone. Prefer Archive unless you really want the data gone.`,
-    )
-    if (!ok) return
-    setError(null)
-    startTransition(async () => {
-      const result = await deleteAccount(accountId)
-      if (!result.success) {
-        setError(result.error ?? 'Failed')
-      }
+  const askDelete = () => {
+    setConfirm({
+      kind: 'delete',
+      title: `Permanently delete ${accountName}?`,
+      description: `All transactions for this account will also be deleted. This cannot be undone.\n\nPrefer Archive unless you really want the data gone.`,
+      confirmLabel: 'Delete forever',
+      destructive: true,
     })
   }
 
-  const onMerge = () => {
+  const askMerge = () => {
     const target = mergeTargets.find((t) => t.id === mergeTargetId)
     if (!target) return
-    const hasSyncWarning = hasBankSync
+    const syncLine = hasBankSync
       ? `\n\nThe bank sync currently on "${accountName}" will move onto "${target.name}", so future bank pushes will land there.`
       : ''
-    const ok = window.confirm(
-      `Merge "${accountName}" into "${target.name}"?\n\nAll transactions on "${accountName}" will be re-parented to "${target.name}", then "${accountName}" will be deleted.${hasSyncWarning}\n\nThis cannot be undone.`,
-    )
-    if (!ok) return
+    setConfirm({
+      kind: 'merge',
+      title: `Merge ${accountName} into ${target.name}?`,
+      description: `All transactions on "${accountName}" will be re-parented to "${target.name}", then "${accountName}" will be deleted.${syncLine}\n\nThis cannot be undone.`,
+      confirmLabel: `Merge into ${target.name}`,
+      destructive: true,
+      payload: { targetId: target.id, targetName: target.name },
+    })
+  }
+
+  const handleConfirm = () => {
+    if (!confirm) return
+    const current = confirm
     setError(null)
     startTransition(async () => {
-      const result = await mergeAccount({ sourceId: accountId, targetId: target.id })
-      if (!result.success) {
-        setError(result.error ?? 'Failed')
-        return
+      if (current.kind === 'archive') {
+        const result = await setAccountArchived(accountId, !isArchived)
+        if (!result.success) setError(result.error ?? 'Failed')
+      } else if (current.kind === 'delete') {
+        const result = await deleteAccount(accountId)
+        if (!result.success) setError(result.error ?? 'Failed')
+      } else if (current.kind === 'merge' && current.payload) {
+        const result = await mergeAccount({
+          sourceId: accountId,
+          targetId: current.payload.targetId,
+        })
+        if (!result.success) {
+          setError(result.error ?? 'Failed')
+        } else {
+          // Source no longer exists; bounce the user to the list so they
+          // don't linger on a dead detail page.
+          window.location.href = '/accounts'
+          return
+        }
       }
-      // On success the source account no longer exists — Next.js revalidation
-      // will kick in but the user is still on a dead detail page, so push
-      // them back to the list.
-      window.location.href = '/accounts'
+      setConfirm(null)
     })
   }
 
@@ -133,7 +170,7 @@ export function AccountCardActions({
           <Button
             size="sm"
             variant="ghost"
-            onClick={onMerge}
+            onClick={askMerge}
             disabled={pending || !mergeTargetId}
             title="Move all transactions and bank sync onto the target account, then delete this one"
           >
@@ -144,12 +181,24 @@ export function AccountCardActions({
       <Button
         size="sm"
         variant="ghost"
-        onClick={onDelete}
+        onClick={askDelete}
         disabled={pending}
         title="Delete forever"
       >
         Delete
       </Button>
+      <ConfirmDialog
+        open={confirm !== null}
+        onOpenChange={(open) => {
+          if (!open) setConfirm(null)
+        }}
+        title={confirm?.title ?? ''}
+        description={confirm?.description ?? ''}
+        confirmLabel={confirm?.confirmLabel ?? 'Confirm'}
+        destructive={confirm?.destructive ?? false}
+        pending={pending}
+        onConfirm={handleConfirm}
+      />
     </div>
   )
 }

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { Button } from '@/components/ui/button'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import {
   resetBankConnectionSync,
   revokeBankConnection,
@@ -13,17 +14,31 @@ interface BankConnectionActionsProps {
   aspspName: string
 }
 
+type ConfirmKind = 'reset' | 'disconnect'
+
+interface ConfirmState {
+  kind: ConfirmKind
+  title: string
+  description: string
+  confirmLabel: string
+  destructive: boolean
+}
+
 /**
  * Client-side action buttons for one bank_connections row.
  *
  * Sync runs the server action and surfaces the inserted-transaction count
- * inline. Disconnect prompts for confirmation because it cascades to nulling
- * the FK on linked accounts (which we explain in the prompt copy).
+ * inline. Reset and Disconnect route through a proper ConfirmDialog because
+ * both are destructive in different ways: reset deletes bank-API
+ * transactions for this connection, disconnect cascades into nulling the FK
+ * on linked accounts and stops future sync. Using `window.confirm` for these
+ * was too easy to click past without reading the consequences.
  */
 export function BankConnectionActions({ connectionId, aspspName }: BankConnectionActionsProps) {
   const [pending, startTransition] = useTransition()
   const [message, setMessage] = useState<string | null>(null)
   const [isError, setIsError] = useState(false)
+  const [confirm, setConfirm] = useState<ConfirmState | null>(null)
 
   const onSync = () => {
     setMessage(null)
@@ -44,60 +59,90 @@ export function BankConnectionActions({ connectionId, aspspName }: BankConnectio
     })
   }
 
-  const onReset = () => {
-    const ok = window.confirm(
-      `Reset ${aspspName} sync window?\n\nThis deletes every bank-API transaction for this connection and sets the sync start date to today. Your legacy/manual transactions stay untouched. Use this to recover from overlap with XLSX imports.`,
-    )
-    if (!ok) return
-    setMessage(null)
-    setIsError(false)
-    startTransition(async () => {
-      const result = await resetBankConnectionSync(connectionId)
-      if (!result.success) {
-        setIsError(true)
-        setMessage(result.error ?? 'Reset failed')
-        return
-      }
-      setIsError(false)
-      setMessage('Sync window reset — next sync will only fetch transactions from today onward.')
+  const askReset = () => {
+    setConfirm({
+      kind: 'reset',
+      title: `Reset ${aspspName} sync window?`,
+      description:
+        'This deletes every bank-API transaction for this connection and sets the sync start date to today.\n\nLegacy and manual transactions stay untouched. Use this only to recover from overlap with XLSX imports.',
+      confirmLabel: 'Reset sync window',
+      destructive: true,
     })
   }
 
-  const onDisconnect = () => {
-    const ok = window.confirm(
-      `Disconnect ${aspspName}? Linked accounts will be kept but converted to manual mode and will no longer auto-sync. Existing transactions stay.`,
-    )
-    if (!ok) return
+  const askDisconnect = () => {
+    setConfirm({
+      kind: 'disconnect',
+      title: `Disconnect ${aspspName}?`,
+      description:
+        'Linked accounts are kept but converted to manual mode and will no longer auto-sync. Existing transactions stay.\n\nYou can re-link the bank later if you change your mind, but the consent flow has to run again.',
+      confirmLabel: 'Disconnect',
+      destructive: true,
+    })
+  }
+
+  const handleConfirm = () => {
+    if (!confirm) return
+    const kind = confirm.kind
     setMessage(null)
     setIsError(false)
     startTransition(async () => {
-      const result = await revokeBankConnection(connectionId)
-      if (!result.success) {
-        setIsError(true)
-        setMessage(result.error ?? 'Disconnect failed')
+      if (kind === 'reset') {
+        const result = await resetBankConnectionSync(connectionId)
+        if (!result.success) {
+          setIsError(true)
+          setMessage(result.error ?? 'Reset failed')
+        } else {
+          setMessage(
+            'Sync window reset — next sync will only fetch transactions from today onward.',
+          )
+        }
+      } else {
+        const result = await revokeBankConnection(connectionId)
+        if (!result.success) {
+          setIsError(true)
+          setMessage(result.error ?? 'Disconnect failed')
+        }
       }
+      setConfirm(null)
     })
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:gap-2">
       {message && (
         <span
-          className={`text-xs ${isError ? 'text-destructive' : 'text-muted-foreground'}`}
+          className={`text-[11px] leading-tight sm:max-w-[18ch] sm:text-right ${
+            isError ? 'text-destructive' : 'text-muted-foreground'
+          }`}
           role="status"
         >
           {message}
         </span>
       )}
-      <Button size="sm" variant="outline" onClick={onSync} disabled={pending}>
-        {pending ? 'Syncing…' : 'Sync now'}
-      </Button>
-      <Button size="sm" variant="ghost" onClick={onReset} disabled={pending}>
-        Reset
-      </Button>
-      <Button size="sm" variant="ghost" onClick={onDisconnect} disabled={pending}>
-        Disconnect
-      </Button>
+      <div className="flex flex-wrap items-center justify-end gap-1.5">
+        <Button size="sm" variant="outline" onClick={onSync} disabled={pending}>
+          {pending && !confirm ? 'Syncing…' : 'Sync now'}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={askReset} disabled={pending}>
+          Reset
+        </Button>
+        <Button size="sm" variant="ghost" onClick={askDisconnect} disabled={pending}>
+          Disconnect
+        </Button>
+      </div>
+      <ConfirmDialog
+        open={confirm !== null}
+        onOpenChange={(open) => {
+          if (!open) setConfirm(null)
+        }}
+        title={confirm?.title ?? ''}
+        description={confirm?.description ?? ''}
+        confirmLabel={confirm?.confirmLabel ?? 'Confirm'}
+        destructive={confirm?.destructive ?? false}
+        pending={pending}
+        onConfirm={handleConfirm}
+      />
     </div>
   )
 }
