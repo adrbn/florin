@@ -4,7 +4,8 @@ import { asc, eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { db } from '@/db/client'
-import { categories, categoryGroups } from '@/db/schema'
+import { accounts, categories, categoryGroups } from '@/db/schema'
+import { reconcileLoanMirrorsForCategory } from '@/server/actions/transactions'
 
 const createCategorySchema = z.object({
   groupId: z.uuid(),
@@ -184,3 +185,83 @@ export async function listCategoriesByGroup() {
 }
 
 export type CategoryGroupWithCategories = Awaited<ReturnType<typeof listCategoriesByGroup>>[number]
+
+/**
+ * Plain flat list of (id, name, groupName) for category pickers that don't
+ * need the group hierarchy. Used by the loan-details card to pick which
+ * category should auto-pay-down the loan.
+ */
+export async function listCategoriesFlat() {
+  return db
+    .select({
+      id: categories.id,
+      name: categories.name,
+      emoji: categories.emoji,
+      groupName: categoryGroups.name,
+      linkedLoanAccountId: categories.linkedLoanAccountId,
+    })
+    .from(categories)
+    .innerJoin(categoryGroups, eq(categories.groupId, categoryGroups.id))
+    .orderBy(asc(categoryGroups.name), asc(categories.name))
+}
+
+/**
+ * Set (or clear) the loan-account link for a single category. Used by the
+ * loan details card to say "transactions in category X should pay down this
+ * loan". Passing `loanAccountId = null` clears the link.
+ *
+ * After flipping the link, we walk every non-deleted transaction on this
+ * category and re-run the loan-mirror reconciliation so existing history
+ * is back-filled — i.e. if the user sets "Student loans" as linked to the
+ * loan account for the first time after 6 months of payments, those 6
+ * months of mirrors get created retroactively, and the loan balance drops
+ * to match reality in one click.
+ */
+const setCategoryLoanLinkSchema = z.object({
+  categoryId: z.uuid(),
+  loanAccountId: z.uuid().nullable(),
+})
+
+export async function setCategoryLoanLink(
+  input: z.infer<typeof setCategoryLoanLinkSchema>,
+): Promise<ActionResult<{ touched: number }>> {
+  const parsed = setCategoryLoanLinkSchema.safeParse(input)
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues.map((i) => i.message).join(', ') }
+  }
+  const { categoryId, loanAccountId } = parsed.data
+
+  try {
+    // Guard: the target must actually be a loan account, otherwise we'd
+    // cheerfully mirror payments onto a checking account and wreck its balance.
+    if (loanAccountId) {
+      const target = await db.query.accounts.findFirst({
+        where: eq(accounts.id, loanAccountId),
+      })
+      if (!target) return { success: false, error: 'Loan account not found' }
+      if (target.kind !== 'loan') {
+        return { success: false, error: 'Target account is not a loan account' }
+      }
+    }
+
+    await db
+      .update(categories)
+      .set({ linkedLoanAccountId: loanAccountId })
+      .where(eq(categories.id, categoryId))
+
+    // Back-fill: reconcile every non-deleted transaction in this category.
+    // This is how "I just set the link, now catch up on the last 6 months
+    // of payments" works. Delegates to the same syncLoanMirror used by the
+    // transactions actions file.
+    const touched = await reconcileLoanMirrorsForCategory(categoryId)
+
+    revalidatePath('/categories')
+    revalidatePath('/accounts')
+    revalidatePath('/transactions')
+    revalidatePath('/')
+    return { success: true, data: { touched } }
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to link category'
+    return { success: false, error: message }
+  }
+}

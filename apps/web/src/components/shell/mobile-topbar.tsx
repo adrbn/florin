@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from 'next-auth/react'
 import { cn } from '@/lib/utils'
-import { isLinkActive, NAV_LINKS, type NavBadges } from './nav-links'
+import { isLinkActive, type NavBadges, visibleNavLinks } from './nav-links'
 
 interface MobileTopBarProps {
   badges?: NavBadges
@@ -27,6 +27,7 @@ interface MobileTopBarProps {
  */
 export function MobileTopBar({ badges }: MobileTopBarProps = {}) {
   const pathname = usePathname()
+  const links = visibleNavLinks(badges)
   return (
     <header className="sticky top-0 z-30 flex shrink-0 flex-col border-b bg-sidebar/95 text-sidebar-foreground backdrop-blur supports-[backdrop-filter]:bg-sidebar/80 md:hidden">
       <div className="flex items-center justify-between px-4 py-2.5">
@@ -47,7 +48,7 @@ export function MobileTopBar({ badges }: MobileTopBarProps = {}) {
         aria-label="Primary"
         className="-mb-px flex gap-1 overflow-x-auto px-2 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
-        {NAV_LINKS.map((l) => {
+        {links.map((l) => {
           const Icon = l.icon
           const active = isLinkActive(l.href, pathname)
           const badgeValue = l.badgeKey ? badges?.[l.badgeKey] : undefined

@@ -2,6 +2,7 @@ import { asc, eq } from 'drizzle-orm'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { AccountCardActions } from '@/components/accounts/account-card-actions'
+import { LoanDetailsCard } from '@/components/accounts/loan-details-card'
 import { AddTransactionModal } from '@/components/transactions/add-transaction-modal'
 import { DeleteTransactionButton } from '@/components/transactions/delete-transaction-button'
 import { TransactionCategoryCell } from '@/components/transactions/transaction-category-cell'
@@ -20,6 +21,7 @@ import { db } from '@/db/client'
 import { categories, categoryGroups } from '@/db/schema'
 import { formatCurrency, formatCurrencySigned } from '@/lib/format/currency'
 import { getAccountById, listAccounts } from '@/server/actions/accounts'
+import { listCategoriesFlat } from '@/server/actions/categories'
 import { listTransactionsForAccount } from '@/server/actions/transactions'
 
 const dateFormatter = new Intl.DateTimeFormat('fr-FR', {
@@ -37,7 +39,7 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
   const account = await getAccountById(id)
   if (!account) notFound()
 
-  const [transactionList, allAccounts, categoryList] = await Promise.all([
+  const [transactionList, allAccounts, categoryList, categoriesFlat] = await Promise.all([
     listTransactionsForAccount(account.id, 500),
     listAccounts({ includeArchived: false }),
     db
@@ -50,6 +52,7 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
       .from(categories)
       .innerJoin(categoryGroups, eq(categories.groupId, categoryGroups.id))
       .orderBy(asc(categoryGroups.name), asc(categories.name)),
+    listCategoriesFlat(),
   ])
 
   // Quick stats derived from the in-memory transaction list — cheap because
@@ -216,6 +219,21 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
           )}
         </CardContent>
       </Card>
+
+      {account.kind === 'loan' && (
+        <LoanDetailsCard
+          account={{
+            id: account.id,
+            currentBalance: account.currentBalance,
+            loanOriginalPrincipal: account.loanOriginalPrincipal,
+            loanInterestRate: account.loanInterestRate,
+            loanStartDate: account.loanStartDate,
+            loanTermMonths: account.loanTermMonths,
+            loanMonthlyPayment: account.loanMonthlyPayment,
+          }}
+          categories={categoriesFlat}
+        />
+      )}
 
       <Card>
         <CardHeader>

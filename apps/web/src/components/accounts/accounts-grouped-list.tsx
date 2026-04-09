@@ -17,8 +17,9 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { ChevronDown, GripVertical } from 'lucide-react'
-import { startTransition, useEffect, useState } from 'react'
+import { Check, ChevronDown, GripVertical, Loader2 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { startTransition, useEffect, useRef, useState } from 'react'
 import { AccountRowLink } from '@/components/accounts/account-row-link'
 import { Card } from '@/components/ui/card'
 import { formatCurrency } from '@/lib/format/currency'
@@ -38,17 +39,23 @@ interface AccountsGroupedListProps {
   accounts: ReadonlyArray<GroupedAccount>
 }
 
+// Bucket labels shown in the accounts grid. We collapse checking/savings/
+// physical-cash into one "Comptes" group because that's how the user thinks
+// about their day-to-day money — the underlying `kind` is still the source
+// of truth for things like net-worth math and edit forms. Keeping the label
+// neutral ("Comptes" rather than "Cash") avoids the confusion of seeing a
+// checking account filed under a header called CASH.
 const KIND_LABEL: Record<string, string> = {
-  checking: 'Cash',
-  savings: 'Cash',
-  cash: 'Cash',
+  checking: 'Comptes',
+  savings: 'Comptes',
+  cash: 'Comptes',
   loan: 'Loan',
   broker_cash: 'Investing',
   broker_portfolio: 'Investing',
   other: 'Other',
 }
 
-const KIND_ORDER: ReadonlyArray<string> = ['Cash', 'Investing', 'Loan', 'Other']
+const KIND_ORDER: ReadonlyArray<string> = ['Comptes', 'Investing', 'Loan', 'Other']
 
 interface GroupBucket {
   label: string
@@ -81,6 +88,7 @@ function bucketize(accounts: ReadonlyArray<GroupedAccount>): GroupBucket[] {
  * which is a separate concern handled by the edit form).
  */
 export function AccountsGroupedList({ accounts }: AccountsGroupedListProps) {
+  const router = useRouter()
   // Mirror the server prop into local state so optimistic reorders feel
   // instant. `accounts` can change on revalidation (new data, archive, etc.)
   // so we re-sync whenever it does.
@@ -91,6 +99,20 @@ export function AccountsGroupedList({ accounts }: AccountsGroupedListProps) {
 
   const buckets = bucketize(localAccounts)
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
+
+  // Save-status indicator — reorder persists to the DB automatically on drop
+  // and the user asked for a visible confirmation so it never feels like "did
+  // that save?". Status goes: idle → saving → saved (auto-clears after ~1.5s)
+  // → idle. We debounce the auto-clear with a ref so a rapid series of drops
+  // doesn't cause the indicator to flicker off mid-save.
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const savedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(
+    () => () => {
+      if (savedTimeoutRef.current) clearTimeout(savedTimeoutRef.current)
+    },
+    [],
+  )
 
   const sensors = useSensors(
     // Activation distance > 0 so clicks through to the row link still work —
@@ -133,9 +155,24 @@ export function AccountsGroupedList({ accounts }: AccountsGroupedListProps) {
     setLocalAccounts(next)
 
     // Persist just the affected bucket — the server only needs the ids that
-    // actually moved to assign stable display_order values.
+    // actually moved to assign stable display_order values. revalidatePath
+    // on the server marks the route as stale but doesn't push; we force a
+    // client-side refresh so the new canonical order streams down and the
+    // save-status indicator can flip to "saved".
+    setSaveStatus('saving')
+    if (savedTimeoutRef.current) {
+      clearTimeout(savedTimeoutRef.current)
+      savedTimeoutRef.current = null
+    }
     startTransition(async () => {
-      await reorderAccounts({ orderedIds: reordered.map((a) => a.id) })
+      const result = await reorderAccounts({ orderedIds: reordered.map((a) => a.id) })
+      if (result.success) {
+        router.refresh()
+        setSaveStatus('saved')
+        savedTimeoutRef.current = setTimeout(() => setSaveStatus('idle'), 1500)
+      } else {
+        setSaveStatus('idle')
+      }
     })
   }
 
@@ -145,6 +182,20 @@ export function AccountsGroupedList({ accounts }: AccountsGroupedListProps) {
 
   return (
     <div className="space-y-3">
+      <div className="flex h-4 items-center justify-end px-1 text-[10px] text-muted-foreground">
+        {saveStatus === 'saving' && (
+          <span className="flex items-center gap-1" role="status">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            Saving order…
+          </span>
+        )}
+        {saveStatus === 'saved' && (
+          <span className="flex items-center gap-1 text-emerald-600" role="status">
+            <Check className="h-3 w-3" />
+            Order saved
+          </span>
+        )}
+      </div>
       {buckets.map((bucket) => {
         const isCollapsed = collapsed[bucket.label] === true
         const isNegative = bucket.total < 0

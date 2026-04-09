@@ -107,6 +107,22 @@ export const accounts = pgTable('accounts', {
   displayColor: text('display_color'),
   displayIcon: text('display_icon'),
   displayOrder: integer('display_order').notNull().default(0),
+  // Loan-specific fields. All nullable because only kind='loan' accounts
+  // use them, and the user might not have all the details upfront. The
+  // UI enforces "need all four to compute a schedule" separately.
+  //   loanOriginalPrincipal → the amount originally borrowed (encours initial)
+  //   loanInterestRate      → annual rate as a decimal (e.g. 0.0350 for 3.50%)
+  //   loanStartDate         → first payment date, anchors the amortization
+  //   loanTermMonths        → total number of monthly instalments
+  //   loanMonthlyPayment    → fixed mensualité, in the account currency
+  loanOriginalPrincipal: numeric('loan_original_principal', {
+    precision: 14,
+    scale: 2,
+  }),
+  loanInterestRate: numeric('loan_interest_rate', { precision: 7, scale: 6 }),
+  loanStartDate: timestamp('loan_start_date', { withTimezone: false, mode: 'date' }),
+  loanTermMonths: integer('loan_term_months'),
+  loanMonthlyPayment: numeric('loan_monthly_payment', { precision: 14, scale: 2 }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
@@ -134,6 +150,16 @@ export const categories = pgTable(
     displayOrder: integer('display_order').notNull().default(0),
     isFixed: boolean('is_fixed').notNull().default(false),
     isArchived: boolean('is_archived').notNull().default(false),
+    /**
+     * Optional link to a loan account. When a transaction is categorized
+     * into a category that has this set, the loan account's currentBalance
+     * gets reduced by |amount| automatically — this is how "pay my student
+     * loan" on a checking account ripples into the loan balance, YNAB-style.
+     * Null for normal expense/income categories.
+     */
+    linkedLoanAccountId: uuid('linked_loan_account_id').references(() => accounts.id, {
+      onDelete: 'set null',
+    }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex('categories_group_name_unique').on(t.groupId, t.name)],

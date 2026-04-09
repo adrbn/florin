@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from 'next-auth/react'
 import { cn } from '@/lib/utils'
-import { isLinkActive, NAV_LINKS, type NavBadges } from './nav-links'
+import { isLinkActive, type NavBadges, visibleNavLinks } from './nav-links'
 
 interface SidebarProps {
   badges?: NavBadges
@@ -18,6 +18,7 @@ interface SidebarProps {
  */
 export function Sidebar({ badges }: SidebarProps = {}) {
   const pathname = usePathname()
+  const links = visibleNavLinks(badges)
   return (
     <aside className="hidden w-60 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground md:flex">
       <div className="flex items-center gap-2 px-6 py-5">
@@ -28,7 +29,7 @@ export function Sidebar({ badges }: SidebarProps = {}) {
         <h2 className="text-lg font-semibold tracking-tight">Florin</h2>
       </div>
       <nav className="flex-1 space-y-0.5 px-3">
-        {NAV_LINKS.map((l) => {
+        {links.map((l) => {
           const Icon = l.icon
           const active = isLinkActive(l.href, pathname)
           const badgeValue = l.badgeKey ? badges?.[l.badgeKey] : undefined

@@ -310,3 +310,61 @@ export async function getAccountById(id: string) {
   })
   return row ?? null
 }
+
+/**
+ * Save loan-specific fields for a kind='loan' account. All fields are
+ * optional because the user may fill them in over time — we only require
+ * the id. The amortization helper does its own "do you have enough to
+ * compute a schedule?" check on the UI side, so missing values here just
+ * mean "don't render the schedule yet", not a validation error.
+ *
+ * `interestRate` comes in as a percentage (e.g. 3.5 for 3.5%) from the UI
+ * and we store it as a decimal (0.035) — one single conversion point so
+ * the rest of the codebase never has to think about the unit.
+ */
+const loanSettingsSchema = z.object({
+  id: z.uuid(),
+  loanOriginalPrincipal: z.coerce.number().min(0).nullable(),
+  loanInterestRatePercent: z.coerce.number().min(0).max(100).nullable(),
+  loanStartDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .nullable(),
+  loanTermMonths: z.coerce.number().int().min(1).max(600).nullable(),
+  loanMonthlyPayment: z.coerce.number().min(0).nullable(),
+})
+
+export type LoanSettingsInput = z.infer<typeof loanSettingsSchema>
+
+export async function updateLoanSettings(input: LoanSettingsInput): Promise<ActionResult> {
+  const parsed = loanSettingsSchema.safeParse(input)
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues.map((i) => i.message).join(', ') }
+  }
+  const data = parsed.data
+  try {
+    await db
+      .update(accounts)
+      .set({
+        loanOriginalPrincipal:
+          data.loanOriginalPrincipal === null ? null : data.loanOriginalPrincipal.toFixed(2),
+        loanInterestRate:
+          data.loanInterestRatePercent === null
+            ? null
+            : (data.loanInterestRatePercent / 100).toFixed(6),
+        loanStartDate: data.loanStartDate === null ? null : new Date(`${data.loanStartDate}T00:00:00Z`),
+        loanTermMonths: data.loanTermMonths,
+        loanMonthlyPayment:
+          data.loanMonthlyPayment === null ? null : data.loanMonthlyPayment.toFixed(2),
+        updatedAt: new Date(),
+      })
+      .where(eq(accounts.id, data.id))
+    revalidatePath(`/accounts/${data.id}`)
+    revalidatePath('/accounts')
+    revalidatePath('/')
+    return { success: true }
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to update loan settings'
+    return { success: false, error: message }
+  }
+}
