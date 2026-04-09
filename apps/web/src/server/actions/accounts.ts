@@ -1,6 +1,6 @@
 'use server'
 
-import { asc, eq } from 'drizzle-orm'
+import { asc, eq, inArray, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { db } from '@/db/client'
@@ -158,6 +158,50 @@ export async function listAccounts(options: { includeArchived?: boolean } = {}) 
   const where = options.includeArchived ? undefined : eq(accounts.isArchived, false)
   const query = db.select().from(accounts).orderBy(asc(accounts.displayOrder), asc(accounts.name))
   return where ? query.where(where) : query
+}
+
+/**
+ * Persist a new drag-and-drop ordering of accounts. `orderedIds` is the full
+ * list of account ids in their new desired order — the client sends every
+ * account in the bucket it just reordered and we rewrite `display_order` in
+ * one shot so there are never gaps or ties.
+ *
+ * Using a CASE expression + a single UPDATE means the whole change is atomic
+ * from the DB's point of view; concurrent readers will see either the old
+ * order or the new one, never a half-applied permutation.
+ */
+const reorderSchema = z.object({
+  orderedIds: z.array(z.uuid()).min(1).max(500),
+})
+
+export async function reorderAccounts(
+  input: z.infer<typeof reorderSchema>,
+): Promise<ActionResult> {
+  const parsed = reorderSchema.safeParse(input)
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues.map((i) => i.message).join(', ') }
+  }
+  const { orderedIds } = parsed.data
+  try {
+    // Build a CASE WHEN id=$1 THEN 0 WHEN id=$2 THEN 1 … expression. Drizzle
+    // doesn't ship a first-party CASE helper so we inline it via sql``.
+    const cases = orderedIds.map(
+      (id, i) => sql`WHEN ${accounts.id} = ${id}::uuid THEN ${i}`,
+    )
+    await db
+      .update(accounts)
+      .set({
+        displayOrder: sql`CASE ${sql.join(cases, sql.raw(' '))} END`,
+        updatedAt: new Date(),
+      })
+      .where(inArray(accounts.id, orderedIds))
+    revalidatePath('/accounts')
+    revalidatePath('/')
+    return { success: true }
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to reorder accounts'
+    return { success: false, error: message }
+  }
 }
 
 /**
