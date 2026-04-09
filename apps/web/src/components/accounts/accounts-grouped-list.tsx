@@ -223,7 +223,7 @@ export function AccountsGroupedList({ accounts }: AccountsGroupedListProps) {
               </span>
             </button>
             {!isCollapsed && (
-              <Card className="divide-y divide-border/60 overflow-hidden p-0">
+              <Card className="divide-y divide-border/60 gap-0 overflow-hidden py-0">
                 <DndContext
                   sensors={sensors}
                   collisionDetection={closestCenter}
@@ -283,7 +283,7 @@ function SortableAccountRow({ id, name, balance, icon, color, isArchived }: Sort
   }
 
   return (
-    <div ref={setNodeRef} style={style} className="flex items-stretch bg-background">
+    <div ref={setNodeRef} style={style} className="flex items-stretch bg-card">
       <button
         type="button"
         aria-label={`Reorder ${name}`}
