@@ -55,12 +55,25 @@ interface LoanDetailsCardProps {
    */
   totalPaid: number
   /**
-   * Original principal minus {@link totalPaid}. Displayed as the "Encours"
-   * tile instead of `account.currentBalance`, which is the accounting sum of
-   * mirrors + adjustments on the loan row and doesn't match the user's
-   * mental model of "what's left to pay".
+   * Amortization-based remaining debt (capital restant dû) after
+   * {@link paymentsMade} mensualités. This matches what the bank reports;
+   * don't substitute `originalPrincipal − totalPaid` because that ignores
+   * interest accrual. Displayed as the "Restant dû" tile.
    */
   remainingDebt: number
+  /**
+   * Principal portion of {@link totalPaid} according to the amortization
+   * schedule. Sum with {@link interestPaid} to reconcile with totalPaid.
+   */
+  principalPaid: number
+  /** Interest portion of {@link totalPaid}. */
+  interestPaid: number
+  /**
+   * Number of mensualités already paid — used to mark the current cursor
+   * on the amortization chart and on the échéancier table so the user can
+   * see where they are in the schedule.
+   */
+  paymentsMade: number
 }
 
 function toNumberOrNull(v: string | number | null | undefined): number | null {
@@ -103,6 +116,9 @@ export function LoanDetailsCard({
   categories,
   totalPaid,
   remainingDebt,
+  principalPaid,
+  interestPaid,
+  paymentsMade,
 }: LoanDetailsCardProps) {
   const [pending, startTransition] = useTransition()
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -111,8 +127,7 @@ export function LoanDetailsCard({
   // Categories already linked to THIS loan account (there can be many — e.g.
   // one "Student loans" category and one "Student loans extra" category).
   const linkedCategoryIds = useMemo(
-    () =>
-      categories.filter((c) => c.linkedLoanAccountId === account.id).map((c) => c.id),
+    () => categories.filter((c) => c.linkedLoanAccountId === account.id).map((c) => c.id),
     [categories, account.id],
   )
   // The picker lets the user add one more link at a time. Seed it blank so
@@ -124,8 +139,8 @@ export function LoanDetailsCard({
 
   // Form state is seeded from the account row. Interest rate is stored as a
   // decimal (0.035) but shown in percent (3.5) — less surprising to type.
-  const [principal, setPrincipal] = useState(() =>
-    toNumberOrNull(account.loanOriginalPrincipal)?.toString() ?? '',
+  const [principal, setPrincipal] = useState(
+    () => toNumberOrNull(account.loanOriginalPrincipal)?.toString() ?? '',
   )
   const [ratePercent, setRatePercent] = useState(() => {
     const r = toNumberOrNull(account.loanInterestRate)
@@ -135,8 +150,8 @@ export function LoanDetailsCard({
     dateToInputValue(toDateOrNull(account.loanStartDate)),
   )
   const [termMonths, setTermMonths] = useState(() => account.loanTermMonths?.toString() ?? '')
-  const [monthlyPayment, setMonthlyPayment] = useState(() =>
-    toNumberOrNull(account.loanMonthlyPayment)?.toString() ?? '',
+  const [monthlyPayment, setMonthlyPayment] = useState(
+    () => toNumberOrNull(account.loanMonthlyPayment)?.toString() ?? '',
   )
 
   // Simulator state — start both knobs at 0 (no extra payments) so the
@@ -247,7 +262,10 @@ export function LoanDetailsCard({
   // stays monotonically increasing even when simulated ends earlier.
   const chartData = useMemo(() => {
     if (!effectiveBase) return []
-    const byIndex = new Map<number, { index: number; base: number; simulated?: number; date: number }>()
+    const byIndex = new Map<
+      number,
+      { index: number; base: number; simulated?: number; date: number }
+    >()
     for (const row of effectiveBase.rows) {
       byIndex.set(row.index, {
         index: row.index,
@@ -413,8 +431,8 @@ export function LoanDetailsCard({
             Catégories liées à ce prêt
           </h3>
           <p className="text-[11px] text-muted-foreground">
-            Les transactions catégorisées dans une catégorie liée mettent automatiquement à jour
-            le solde de ce prêt (comme un "tracking account" YNAB).
+            Les transactions catégorisées dans une catégorie liée mettent automatiquement à jour le
+            solde de ce prêt (comme un "tracking account" YNAB).
           </p>
           {linkedCategoryIds.length > 0 && (
             <ul className="flex flex-wrap gap-1.5">
@@ -473,13 +491,11 @@ export function LoanDetailsCard({
             </Button>
           </div>
           {linkError && <p className="text-xs text-destructive">{linkError}</p>}
-          {linkStatus && !linkError && (
-            <p className="text-xs text-emerald-600">{linkStatus}</p>
-          )}
+          {linkStatus && !linkError && <p className="text-xs text-emerald-600">{linkStatus}</p>}
           {linkedCategoryIds.length > 0 && (
             <p className="text-[11px] text-muted-foreground">
-              Le nombre de paiements reflète les transactions déjà catégorisées. Pour en
-              appliquer plus, catégorisez vos anciens prélèvements sur la page{' '}
+              Le nombre de paiements reflète les transactions déjà catégorisées. Pour en appliquer
+              plus, catégorisez vos anciens prélèvements sur la page{' '}
               <a href="/transactions" className="underline hover:text-foreground">
                 Transactions
               </a>{' '}
@@ -492,15 +508,38 @@ export function LoanDetailsCard({
         {loanInputs && effectiveBase ? (
           <>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Tile label="Restant dû" value={formatCurrency(remainingDebt)} />
-              <Tile label="Mensualité" value={formatCurrency(effectiveBase.summary.monthlyPayment)} />
+              <Tile
+                label="Restant dû"
+                value={formatCurrency(remainingDebt)}
+                sublabel={
+                  loanInputs.originalPrincipal > 0
+                    ? `${((1 - remainingDebt / loanInputs.originalPrincipal) * 100).toFixed(1)}% remboursé`
+                    : undefined
+                }
+              />
+              <Tile
+                label="Mensualité"
+                value={formatCurrency(effectiveBase.summary.monthlyPayment)}
+              />
               <Tile
                 label="Mois restants"
-                value={remainingMonths !== null ? `${remainingMonths} mois` : '—'}
+                value={
+                  remainingMonths !== null
+                    ? `${Math.max(0, remainingMonths - paymentsMade)} mois`
+                    : '—'
+                }
+                sublabel={
+                  remainingMonths !== null ? `${paymentsMade}/${remainingMonths} payés` : undefined
+                }
               />
               <Tile
                 label="Déjà remboursé"
                 value={formatCurrency(totalPaid)}
+                sublabel={
+                  principalPaid > 0 || interestPaid > 0
+                    ? `${formatCurrency(principalPaid)} capital + ${formatCurrency(interestPaid)} intérêts`
+                    : undefined
+                }
               />
             </div>
 
@@ -675,9 +714,7 @@ export function LoanDetailsCard({
                       {simulated?.rows.map((row) => (
                         <tr key={row.index} className="odd:bg-muted/10">
                           <td className="px-2 py-1 text-left">{row.index}</td>
-                          <td className="px-2 py-1 text-left">
-                            {dateFormatter.format(row.date)}
-                          </td>
+                          <td className="px-2 py-1 text-left">{dateFormatter.format(row.date)}</td>
                           <td className="px-2 py-1 text-right">{formatCurrency(row.payment)}</td>
                           <td className="px-2 py-1 text-right text-muted-foreground">
                             {formatCurrency(row.interest)}
@@ -686,7 +723,9 @@ export function LoanDetailsCard({
                           <td className="px-2 py-1 text-right text-emerald-600">
                             {row.extraPayment > 0 ? formatCurrency(row.extraPayment) : '—'}
                           </td>
-                          <td className="px-2 py-1 text-right">{formatCurrency(row.balanceAfter)}</td>
+                          <td className="px-2 py-1 text-right">
+                            {formatCurrency(row.balanceAfter)}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -698,8 +737,8 @@ export function LoanDetailsCard({
         ) : (
           <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-200">
             <p className="font-medium">
-              Il manque {missingFields.length > 0 ? missingFields.join(', ') : 'des paramètres'} pour
-              afficher l'échéancier, le graphique et le simulateur.
+              Il manque {missingFields.length > 0 ? missingFields.join(', ') : 'des paramètres'}{' '}
+              pour afficher l'échéancier, le graphique et le simulateur.
             </p>
             <p className="mt-1 text-[11px] text-amber-700/90 dark:text-amber-300/80">
               Astuce : vous n'avez besoin que de la durée <em>OU</em> de la mensualité — l'autre est
@@ -712,11 +751,12 @@ export function LoanDetailsCard({
   )
 }
 
-function Tile({ label, value }: { label: string; value: string }) {
+function Tile({ label, value, sublabel }: { label: string; value: string; sublabel?: string }) {
   return (
     <div className="rounded-md border border-border/60 bg-background p-3">
       <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="mt-0.5 text-lg font-semibold">{value}</p>
+      {sublabel && <p className="mt-0.5 text-[10px] text-muted-foreground">{sublabel}</p>}
     </div>
   )
 }
