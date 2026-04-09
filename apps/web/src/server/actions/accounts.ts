@@ -174,9 +174,7 @@ const reorderSchema = z.object({
   orderedIds: z.array(z.uuid()).min(1).max(500),
 })
 
-export async function reorderAccounts(
-  input: z.infer<typeof reorderSchema>,
-): Promise<ActionResult> {
+export async function reorderAccounts(input: z.infer<typeof reorderSchema>): Promise<ActionResult> {
   const parsed = reorderSchema.safeParse(input)
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues.map((i) => i.message).join(', ') }
@@ -185,8 +183,14 @@ export async function reorderAccounts(
   try {
     // Build a CASE WHEN id=$1 THEN 0 WHEN id=$2 THEN 1 … expression. Drizzle
     // doesn't ship a first-party CASE helper so we inline it via sql``.
+    //
+    // Both the uuid id param AND the integer position param need explicit
+    // casts — postgres.js binds JS values as untyped text by default, so
+    // without `::integer` PostgreSQL picks text for the CASE result and the
+    // UPDATE fails with "column 'display_order' is of type integer but
+    // expression is of type text". Silently. Which is exactly what bit us.
     const cases = orderedIds.map(
-      (id, i) => sql`WHEN ${accounts.id} = ${id}::uuid THEN ${i}`,
+      (id, i) => sql`WHEN ${accounts.id} = ${id}::uuid THEN ${i}::integer`,
     )
     await db
       .update(accounts)
@@ -200,6 +204,7 @@ export async function reorderAccounts(
     return { success: true }
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to reorder accounts'
+    console.error('[reorderAccounts] failed', { orderedIds, error: message })
     return { success: false, error: message }
   }
 }
@@ -229,9 +234,7 @@ const mergeSchema = z
     message: 'Source and target must be different accounts',
   })
 
-export async function mergeAccount(
-  input: z.infer<typeof mergeSchema>,
-): Promise<ActionResult> {
+export async function mergeAccount(input: z.infer<typeof mergeSchema>): Promise<ActionResult> {
   const parsed = mergeSchema.safeParse(input)
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues.map((i) => i.message).join(', ') }
@@ -352,7 +355,8 @@ export async function updateLoanSettings(input: LoanSettingsInput): Promise<Acti
           data.loanInterestRatePercent === null
             ? null
             : (data.loanInterestRatePercent / 100).toFixed(6),
-        loanStartDate: data.loanStartDate === null ? null : new Date(`${data.loanStartDate}T00:00:00Z`),
+        loanStartDate:
+          data.loanStartDate === null ? null : new Date(`${data.loanStartDate}T00:00:00Z`),
         loanTermMonths: data.loanTermMonths,
         loanMonthlyPayment:
           data.loanMonthlyPayment === null ? null : data.loanMonthlyPayment.toFixed(2),
