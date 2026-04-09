@@ -1,7 +1,7 @@
 'use server'
 
 import { randomUUID } from 'node:crypto'
-import { and, asc, desc, eq, gte, inArray, isNull, lte, or, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, ilike, inArray, isNull, lte, or, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { db } from '@/db/client'
@@ -295,6 +295,8 @@ export type TransactionDirection = 'all' | 'expense' | 'income'
 
 export interface ListTransactionsOptions {
   limit?: number
+  /** Zero-indexed row offset used for pagination. */
+  offset?: number
   accountId?: string
   needsReviewOnly?: boolean
   /** Inclusive lower bound on occurred_at. */
@@ -307,21 +309,35 @@ export interface ListTransactionsOptions {
    *  the dashboard Burn/Income math so click-through from a KPI card shows
    *  exactly the same rows the KPI counted. */
   excludeTransfers?: boolean
+  /** Substring match (case-insensitive) against the normalized payee.
+   *  Used by the Transactions page filter bar. */
+  payeeSearch?: string
+  /** Scope to a specific category. Pass 'none' to match uncategorized rows. */
+  categoryId?: string | 'none'
+  /** Inclusive lower bound on amount (in account currency, signed). */
+  minAmount?: number
+  /** Inclusive upper bound on amount (in account currency, signed). */
+  maxAmount?: number
 }
 
-export async function listTransactions(options: ListTransactionsOptions = {}) {
+/**
+ * Build the WHERE clause for listTransactions + countTransactions. Factored
+ * out so the count query uses the EXACT same predicate as the list query —
+ * "Page N of M" goes wrong the moment the two drift.
+ */
+function buildTransactionConditions(options: ListTransactionsOptions) {
   const {
-    limit = 100,
     accountId,
     needsReviewOnly = false,
     startDate,
     endDate,
     direction = 'all',
     excludeTransfers = false,
+    payeeSearch,
+    categoryId,
+    minAmount,
+    maxAmount,
   } = options
-  // Subquery: ids of accounts the user still cares about (not archived).
-  // Excluding archived accounts here keeps the Transactions page in sync with
-  // the dashboard widgets, which already filter the same way.
   const activeAccountIds = db
     .select({ id: accounts.id })
     .from(accounts)
@@ -342,10 +358,46 @@ export async function listTransactions(options: ListTransactionsOptions = {}) {
   if (excludeTransfers) {
     conditions.push(isNull(transactions.transferPairId))
   }
+  if (payeeSearch && payeeSearch.trim().length > 0) {
+    const needle = `%${payeeSearch.trim()}%`
+    conditions.push(
+      or(
+        ilike(transactions.normalizedPayee, needle),
+        ilike(transactions.payee, needle),
+      )!,
+    )
+  }
+  if (categoryId === 'none') {
+    conditions.push(isNull(transactions.categoryId))
+  } else if (categoryId) {
+    conditions.push(eq(transactions.categoryId, categoryId))
+  }
+  if (typeof minAmount === 'number' && Number.isFinite(minAmount)) {
+    conditions.push(sql`${transactions.amount} >= ${minAmount.toFixed(2)}`)
+  }
+  if (typeof maxAmount === 'number' && Number.isFinite(maxAmount)) {
+    conditions.push(sql`${transactions.amount} <= ${maxAmount.toFixed(2)}`)
+  }
+  return conditions
+}
+
+export async function countTransactions(options: ListTransactionsOptions = {}): Promise<number> {
+  const conditions = buildTransactionConditions(options)
+  const rows = await db
+    .select({ count: sql<string>`COUNT(*)` })
+    .from(transactions)
+    .where(and(...conditions))
+  return Number(rows[0]?.count ?? '0')
+}
+
+export async function listTransactions(options: ListTransactionsOptions = {}) {
+  const { limit = 100, offset = 0 } = options
+  const conditions = buildTransactionConditions(options)
   return db.query.transactions.findMany({
     where: and(...conditions),
     orderBy: [desc(transactions.occurredAt), desc(transactions.createdAt)],
     limit,
+    offset,
     with: {
       account: true,
       category: true,

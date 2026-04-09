@@ -1,6 +1,7 @@
 import { asc, eq } from 'drizzle-orm'
-import Link from 'next/link'
 import { AddTransactionModal } from '@/components/transactions/add-transaction-modal'
+import { TransactionsFilterBar } from '@/components/transactions/transactions-filter-bar'
+import { TransactionsPager } from '@/components/transactions/transactions-pager'
 import {
   type TransactionRowData,
   TransactionsTable,
@@ -10,7 +11,16 @@ import { db } from '@/db/client'
 import { categories, categoryGroups } from '@/db/schema'
 import { formatCurrency } from '@/lib/format/currency'
 import { listAccounts } from '@/server/actions/accounts'
-import { listTransactions, type TransactionDirection } from '@/server/actions/transactions'
+import {
+  countTransactions,
+  listTransactions,
+  type TransactionDirection,
+} from '@/server/actions/transactions'
+
+// Rows per page on the Transactions table. 100 keeps the page snappy and
+// lets the pager walk several thousand rows without choking. The filter bar
+// and pager both read `page` from searchParams.
+const PAGE_SIZE = 100
 
 const dateFormatter = new Intl.DateTimeFormat('fr-FR', {
   day: '2-digit',
@@ -41,12 +51,27 @@ function parseDirection(raw: string | undefined): TransactionDirection {
   return 'all'
 }
 
+/** Parse a signed number from a search param. Returns undefined when the
+ *  value is missing or not a finite number — the caller should treat that
+ *  the same as "no filter". */
+function parseAmount(raw: string | undefined): number | undefined {
+  if (raw === undefined || raw === '') return undefined
+  const n = Number(raw)
+  return Number.isFinite(n) ? n : undefined
+}
+
 interface TransactionsPageProps {
   searchParams: Promise<{
+    q?: string
+    accountId?: string
+    categoryId?: string
     from?: string
     to?: string
     direction?: string
     excludeTransfers?: string
+    minAmount?: string
+    maxAmount?: string
+    page?: string
   }>
 }
 
@@ -61,16 +86,47 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
     : null
   const direction = parseDirection(sp.direction)
   const excludeTransfers = sp.excludeTransfers === '1' || sp.excludeTransfers === 'true'
-  const hasFilter = Boolean(startDate || endDate || direction !== 'all' || excludeTransfers)
+  const payeeSearch = sp.q?.trim() || undefined
+  const accountIdFilter = sp.accountId || undefined
+  const categoryFilter: string | 'none' | undefined =
+    sp.categoryId === 'none' ? 'none' : sp.categoryId || undefined
+  const minAmount = parseAmount(sp.minAmount)
+  const maxAmount = parseAmount(sp.maxAmount)
+  const hasFilter = Boolean(
+    startDate ||
+      endDate ||
+      direction !== 'all' ||
+      excludeTransfers ||
+      payeeSearch ||
+      accountIdFilter ||
+      categoryFilter ||
+      minAmount !== undefined ||
+      maxAmount !== undefined,
+  )
 
-  const [txns, accountsList, categoryList] = await Promise.all([
+  const pageNum = Math.max(1, Number.parseInt(sp.page ?? '1', 10) || 1)
+
+  const filterOptions = {
+    startDate: startDate ?? undefined,
+    endDate: endDate ?? undefined,
+    direction,
+    excludeTransfers,
+    payeeSearch,
+    accountId: accountIdFilter,
+    categoryId: categoryFilter,
+    minAmount,
+    maxAmount,
+  }
+
+  const [txns, totalCount, accountsList, categoryList] = await Promise.all([
     listTransactions({
-      limit: 500,
-      startDate: startDate ?? undefined,
-      endDate: endDate ?? undefined,
-      direction,
-      excludeTransfers,
+      ...filterOptions,
+      limit: PAGE_SIZE,
+      offset: (pageNum - 1) * PAGE_SIZE,
     }),
+    // Parallel count so the pager can render "Page N of M" without a second
+    // round-trip. Uses the EXACT same filter options to stay consistent.
+    countTransactions(filterOptions),
     listAccounts(),
     db
       .select({
@@ -91,6 +147,13 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
     emoji: c.emoji,
     groupName: c.groupName,
   }))
+  const filterBarAccounts = accountOptions
+  const filterBarCategories = categoryList.map((c) => ({
+    id: c.id,
+    name: c.name,
+    emoji: c.emoji,
+    groupName: c.groupName ?? 'Other',
+  }))
 
   // When a filter is active we also compute the total so the page doubles
   // as a verification surface — the user can eyeball the headline Burn
@@ -109,58 +172,53 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
         <AddTransactionModal accounts={accountOptions} categories={categoryOptions} />
       </div>
 
+      <TransactionsFilterBar accounts={filterBarAccounts} categories={filterBarCategories} />
+
       {hasFilter && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Filtered
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+          <span className="font-semibold uppercase tracking-wide">Active filter</span>
+          {direction !== 'all' && (
+            <span
+              className={
+                direction === 'expense'
+                  ? 'rounded-full border border-destructive/40 bg-destructive/10 px-2 py-0.5 font-medium text-destructive'
+                  : 'rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 font-medium text-emerald-700 dark:text-emerald-300'
+              }
+            >
+              {direction === 'expense' ? 'Expenses only' : 'Income only'}
             </span>
-            {direction !== 'all' && (
-              <span
-                className={
-                  direction === 'expense'
-                    ? 'rounded-full border border-destructive/40 bg-destructive/10 px-2 py-0.5 text-[11px] font-medium text-destructive'
-                    : 'rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-300'
-                }
-              >
-                {direction === 'expense' ? 'Expenses only' : 'Income only'}
+          )}
+          {startDate && (
+            <span>
+              from{' '}
+              <span className="font-medium text-foreground">
+                {longDateFormatter.format(startDate)}
               </span>
-            )}
-            {startDate && (
-              <span className="text-muted-foreground">
-                from{' '}
-                <span className="font-medium text-foreground">
-                  {longDateFormatter.format(startDate)}
-                </span>
-              </span>
-            )}
-            {endOfDay && (
-              <span className="text-muted-foreground">
-                to{' '}
-                <span className="font-medium text-foreground">
-                  {longDateFormatter.format(endOfDay)}
-                </span>
-              </span>
-            )}
-            <span className="text-muted-foreground">·</span>
-            <span className="text-muted-foreground">
-              <span className="font-medium text-foreground tabular-nums">{txns.length}</span> tx{' '}
-              {filteredTotal !== null && (
-                <>
-                  totaling{' '}
-                  <span className="font-mono font-medium text-foreground tabular-nums">
-                    {formatCurrency(filteredTotal)}
-                  </span>
-                </>
-              )}
             </span>
-          </div>
-          <Link
-            href="/transactions"
-            className="text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-          >
-            Clear filter ✕
-          </Link>
+          )}
+          {endOfDay && (
+            <span>
+              to{' '}
+              <span className="font-medium text-foreground">
+                {longDateFormatter.format(endOfDay)}
+              </span>
+            </span>
+          )}
+          <span>
+            ·{' '}
+            <span className="font-medium text-foreground tabular-nums">
+              {totalCount.toLocaleString('fr-FR')}
+            </span>{' '}
+            matching tx{' '}
+            {filteredTotal !== null && (
+              <>
+                · current page totals{' '}
+                <span className="font-mono font-medium text-foreground tabular-nums">
+                  {formatCurrency(filteredTotal)}
+                </span>
+              </>
+            )}
+          </span>
         </div>
       )}
 
@@ -185,6 +243,7 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
               : 'No transactions yet. Click "Add transaction" to get started.'
           }
         />
+        <TransactionsPager page={pageNum} pageSize={PAGE_SIZE} totalCount={totalCount} />
       </Card>
     </div>
   )
