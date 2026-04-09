@@ -225,9 +225,19 @@ async function syncAccountTransactions(
 
 async function syncAccountBalance(florinAccountId: string, remoteUid: string): Promise<void> {
   const { balances } = await getBalances(remoteUid)
-  // Prefer the closing booked balance ('CLBD'); fall back to the first
-  // available balance type if the bank doesn't expose CLBD.
-  const closing = balances.find((b) => b.balance_type === 'CLBD') ?? balances[0]
+  // Pick the freshest balance type the bank exposes.
+  //   ITAV = interim available      → includes today's activity (real-time)
+  //   XPCD = expected                → interim + pending authorizations
+  //   CLAV = closing available       → end-of-day, spendable
+  //   ITBD = interim booked          → today's booked side
+  //   CLBD = closing booked          → LBP returns YESTERDAY's booked
+  // LBP specifically lags on CLBD: transactions from today land in
+  // /transactions before CLBD catches up, which produced the "solde not
+  // updating" bug when we only looked at CLBD. Preference order below picks
+  // the most real-time figure the ASPSP offers.
+  const preference = ['ITAV', 'XPCD', 'CLAV', 'ITBD', 'CLBD'] as const
+  const closing =
+    preference.map((t) => balances.find((b) => b.balance_type === t)).find(Boolean) ?? balances[0]
   if (!closing) return
   await db
     .update(accounts)

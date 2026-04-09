@@ -1,20 +1,14 @@
 import { asc, eq } from 'drizzle-orm'
 import Link from 'next/link'
 import { AddTransactionModal } from '@/components/transactions/add-transaction-modal'
-import { DeleteTransactionButton } from '@/components/transactions/delete-transaction-button'
-import { TransactionCategoryCell } from '@/components/transactions/transaction-category-cell'
-import { Card } from '@/components/ui/card'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+  type TransactionRowData,
+  TransactionsTable,
+} from '@/components/transactions/transactions-table'
+import { Card } from '@/components/ui/card'
 import { db } from '@/db/client'
 import { categories, categoryGroups } from '@/db/schema'
-import { formatCurrency, formatCurrencySigned } from '@/lib/format/currency'
+import { formatCurrency } from '@/lib/format/currency'
 import { listAccounts } from '@/server/actions/accounts'
 import { listTransactions, type TransactionDirection } from '@/server/actions/transactions'
 
@@ -170,65 +164,27 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
         </div>
       )}
 
-      <Card>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-28">Date</TableHead>
-              <TableHead>Payee</TableHead>
-              <TableHead>Account</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead className="text-right">Amount</TableHead>
-              <TableHead className="w-12" aria-label="Actions" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {txns.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="py-12 text-center text-muted-foreground">
-                  {hasFilter
-                    ? 'No transactions match this filter.'
-                    : 'No transactions yet. Click "Add transaction" to get started.'}
-                </TableCell>
-              </TableRow>
-            ) : (
-              txns.map((t) => {
-                const amount = Number(t.amount)
-                const isNegative = amount < 0
-                return (
-                  <TableRow key={t.id}>
-                    <TableCell className="font-mono text-xs text-muted-foreground">
-                      {dateFormatter.format(t.occurredAt)}
-                    </TableCell>
-                    <TableCell className="font-medium">{t.payee}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {t.account?.name ?? '—'}
-                    </TableCell>
-                    <TableCell>
-                      <TransactionCategoryCell
-                        transactionId={t.id}
-                        currentCategoryId={t.category?.id ?? null}
-                        currentCategoryName={t.category?.name ?? null}
-                        currentCategoryEmoji={t.category?.emoji ?? null}
-                        options={categoryOptions}
-                      />
-                    </TableCell>
-                    <TableCell
-                      className={`text-right font-mono tabular-nums ${
-                        isNegative ? 'text-destructive' : 'text-emerald-600'
-                      }`}
-                    >
-                      {formatCurrencySigned(amount)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <DeleteTransactionButton transactionId={t.id} payee={t.payee} />
-                    </TableCell>
-                  </TableRow>
-                )
-              })
-            )}
-          </TableBody>
-        </Table>
+      <Card className="p-0">
+        <TransactionsTable
+          rows={txns.map(
+            (t): TransactionRowData => ({
+              id: t.id,
+              date: dateFormatter.format(t.occurredAt),
+              payee: t.payee,
+              accountName: t.account?.name ?? '—',
+              amount: Number(t.amount),
+              currentCategoryId: t.category?.id ?? null,
+              currentCategoryName: t.category?.name ?? null,
+              currentCategoryEmoji: t.category?.emoji ?? null,
+            }),
+          )}
+          categoryOptions={categoryOptions}
+          emptyMessage={
+            hasFilter
+              ? 'No transactions match this filter.'
+              : 'No transactions yet. Click "Add transaction" to get started.'
+          }
+        />
       </Card>
     </div>
   )

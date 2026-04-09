@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, isNull, lte, sql } from 'drizzle-orm'
 import { db } from '@/db/client'
-import { accounts, balanceSnapshots, categories, categoryGroups, transactions } from '@/db/schema'
+import { accounts, categories, categoryGroups, transactions } from '@/db/schema'
 
 export interface NetWorth {
   /** Net = sum of every included account's current_balance (loans pull this
@@ -96,28 +96,76 @@ export interface PatrimonyPoint {
   balance: number
 }
 
+/**
+ * Patrimony time series — daily net worth for the last N months. Derived
+ * live from (sum of current account balances) + transactions, not from the
+ * `balance_snapshots` table. Snapshots are an orphan feature: no job ever
+ * wrote to them, which is why the chart rendered "No snapshots yet" forever.
+ *
+ * Algorithm (same spirit as `getNetWorthSeries` in reflect.ts, but daily):
+ *   1. Anchor at today = sum of current_balance for net-worth-included,
+ *      non-archived accounts. This matches the headline KPI.
+ *   2. Walk backward day by day, subtracting each day's transaction net to
+ *      get the balance at the END of the previous day.
+ *   3. Emit a point per day so the chart's time-scale X-axis renders the
+ *      curve smoothly at its actual calendar position.
+ */
 export async function getPatrimonyTimeSeries(months = 12): Promise<PatrimonyPoint[]> {
-  const start = startOfMonth(addMonths(new Date(), -months + 1))
+  const today = new Date()
+  const start = startOfMonth(addMonths(today, -months + 1))
+
+  // Live anchor — identical math to getNetWorth() so the right edge of the
+  // chart meets the "Net worth" KPI exactly.
+  const accountRows = await db.query.accounts.findMany({
+    where: and(eq(accounts.isIncludedInNetWorth, true), eq(accounts.isArchived, false)),
+  })
+  const currentNet = accountRows.reduce((sum, a) => sum + Number(a.currentBalance), 0)
+
+  // Per-day transaction nets across the window. We don't early-cut on the
+  // start date here because we need every transaction on or after `start` to
+  // walk back from today. Transfers and archived accounts are excluded so
+  // internal moves don't show up as jitter.
   const rows = await db
     .select({
-      date: balanceSnapshots.snapshotDate,
-      balance: balanceSnapshots.balance,
+      day: sql<string>`to_char(${transactions.occurredAt}, 'YYYY-MM-DD')`,
+      total: sql<string>`COALESCE(SUM(${transactions.amount}), 0)`,
     })
-    .from(balanceSnapshots)
-    .where(and(isNull(balanceSnapshots.accountId), gte(balanceSnapshots.snapshotDate, start)))
-    .orderBy(balanceSnapshots.snapshotDate)
-  // Return every snapshot we have — the chart's X-axis is a true time scale
-  // (numeric Unix ms), so additional daily snapshots render at their actual
-  // calendar position rather than competing with the forecast for category
-  // slots. If two snapshots land on the same day we keep the latest one so
-  // the curve is single-valued per day.
-  const byDay = new Map<string, { date: string; balance: number }>()
+    .from(transactions)
+    .innerJoin(accounts, eq(transactions.accountId, accounts.id))
+    .where(
+      and(
+        isNull(transactions.deletedAt),
+        gte(transactions.occurredAt, start),
+        sql`${transactions.transferPairId} IS NULL`,
+        eq(accounts.isArchived, false),
+        eq(accounts.isIncludedInNetWorth, true),
+      ),
+    )
+    .groupBy(sql`to_char(${transactions.occurredAt}, 'YYYY-MM-DD')`)
+
+  const netByDay = new Map<string, number>()
   for (const r of rows) {
-    const d = r.date instanceof Date ? r.date : new Date(String(r.date))
-    const iso = d.toISOString().slice(0, 10)
-    byDay.set(iso, { date: iso, balance: Number(r.balance) })
+    netByDay.set(r.day, Number(r.total))
   }
-  return Array.from(byDay.values()).sort((a, b) => (a.date < b.date ? -1 : 1))
+
+  // Iterate backward from today to `start`, then reverse. Using calendar
+  // arithmetic (not Date.now() - i*DAY_MS) so daylight-saving shifts don't
+  // drop or duplicate a day at the boundary.
+  const out: PatrimonyPoint[] = []
+  let bal = currentNet
+  const cursor = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()))
+  const startUtc = Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate())
+
+  while (cursor.getTime() >= startUtc) {
+    const iso = cursor.toISOString().slice(0, 10)
+    out.push({ date: iso, balance: bal })
+    // Step back one day and subtract the day we just emitted — yesterday's
+    // end-of-day balance equals today's end-of-day minus today's transactions.
+    bal -= netByDay.get(iso) ?? 0
+    cursor.setUTCDate(cursor.getUTCDate() - 1)
+  }
+
+  return out.reverse()
 }
 
 export interface CategoryBreakdownItem {

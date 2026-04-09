@@ -199,7 +199,7 @@ export function PatrimonyChart({ data }: { data: PatrimonyPoint[] }) {
       </CardHeader>
       <CardContent className="min-h-0 flex-1 pb-3">
         {data.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No snapshots yet.</p>
+          <p className="text-sm text-muted-foreground">No data yet.</p>
         ) : (
           <NoSSR fallback={<div className="h-full w-full" />}>
             <ResponsiveContainer width="100%" height="100%">
