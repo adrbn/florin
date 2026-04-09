@@ -92,12 +92,16 @@ export default async function AccountsPage({ searchParams }: AccountsPageProps) 
 
       {params.bank_link && <BankLinkBanner status={params.bank_link} reason={params.reason} />}
 
-      {bankingEnabled && <BankConnectionList />}
-
       <div className="space-y-3">
         <AccountsGroupedList accounts={accounts} />
         <AddAccountCard />
       </div>
+
+      {/* Linked banks live below the accounts grid — the grid is the thing
+       *  the user actually scans every time, and bank-connection management
+       *  is a once-a-year task. Putting it up top was dominant visual weight
+       *  for a low-frequency control. */}
+      {bankingEnabled && <BankConnectionList />}
     </div>
   )
 }
