@@ -1,7 +1,7 @@
 'use server'
 
 import { randomUUID } from 'node:crypto'
-import { and, asc, desc, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, inArray, isNull, lte, or, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { db } from '@/db/client'
@@ -422,6 +422,54 @@ export async function listTransactionsForAccount(
 ): Promise<TransactionWithRelations[]> {
   return db.query.transactions.findMany({
     where: and(eq(transactions.accountId, accountId), isNull(transactions.deletedAt)),
+    orderBy: [desc(transactions.occurredAt), desc(transactions.createdAt)],
+    limit,
+    with: {
+      account: true,
+      category: true,
+    },
+  }) as Promise<TransactionWithRelations[]>
+}
+
+/**
+ * Payments list for a loan account detail page. Returns every transaction
+ * whose category is linked to this loan (the "real" payments from checking)
+ * PLUS any manual balance adjustments on the loan account itself, but
+ * excludes the auto-generated mirror rows (they'd double-count the list).
+ */
+export async function listLoanPaymentsForAccount(
+  loanAccountId: string,
+  limit = 500,
+): Promise<TransactionWithRelations[]> {
+  // 1. ids of every category linked to this loan
+  const linkedCategoryRows = await db
+    .select({ id: categories.id })
+    .from(categories)
+    .where(eq(categories.linkedLoanAccountId, loanAccountId))
+  const linkedCategoryIds = linkedCategoryRows.map((r) => r.id)
+
+  // 2. fetch: (categorized in a linked category) OR (on the loan account AND
+  //    not a mirror). Both cases: not soft-deleted.
+  const whereClause =
+    linkedCategoryIds.length > 0
+      ? and(
+          isNull(transactions.deletedAt),
+          or(
+            inArray(transactions.categoryId, linkedCategoryIds),
+            and(
+              eq(transactions.accountId, loanAccountId),
+              isNull(transactions.transferPairId),
+            ),
+          ),
+        )
+      : and(
+          isNull(transactions.deletedAt),
+          eq(transactions.accountId, loanAccountId),
+          isNull(transactions.transferPairId),
+        )
+
+  return db.query.transactions.findMany({
+    where: whereClause,
     orderBy: [desc(transactions.occurredAt), desc(transactions.createdAt)],
     limit,
     with: {
