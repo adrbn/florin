@@ -1,42 +1,58 @@
 import { and, desc, eq, gte, isNull, lte, sql } from 'drizzle-orm'
 import { db } from '@/db/client'
 import { accounts, categories, categoryGroups, transactions } from '@/db/schema'
+import { getLoanLiabilities } from './loan-liabilities'
 
 export interface NetWorth {
-  /** Net = sum of every included account's current_balance (loans pull this
-   * down because their balance is negative). Mirrors PATRIMOINE NET in the
-   * legacy sheet. */
-  net: number
-  /** Gross = sum of non-loan included accounts' current_balance. Mirrors
-   * PATRIMOINE BRUT in the legacy sheet. */
+  /** Gross = sum of non-loan included accounts' current_balance (assets
+   * only). Mirrors PATRIMOINE BRUT in the legacy sheet. */
   gross: number
+  /** Total liability = Σ amortization-based remaining debt across every
+   * loan-kind included account. Positive number. */
+  liability: number
+  /** Net = gross − liability. Mirrors PATRIMOINE NET in the legacy sheet. */
+  net: number
 }
 
 /**
- * Net worth is computed live from the `accounts` table. This is the same math
- * as the legacy sheet's PATRIMOINE NET / PATRIMOINE BRUT cells:
- *   net   = Σ(account.current_balance) for every account included in net worth
- *   gross = same, excluding loan-kind accounts
+ * Net worth is computed live from the `accounts` table + amortization math
+ * for any loan accounts:
  *
- * We deliberately do NOT use `balance_snapshots` for the headline number — the
- * snapshot is just a point-in-time copy and gets stale the moment a balance
- * changes. The accounts table is the source of truth; the user can edit
- * balances directly via the Accounts page when reality drifts.
+ *   gross     = Σ(account.current_balance) for non-loan included accounts
+ *   liability = Σ amortization-derived restant dû for each included loan
+ *   net       = gross − liability
+ *
+ * We deliberately do NOT use `balance_snapshots` for the headline number —
+ * the snapshot is just a point-in-time copy and gets stale the moment a
+ * balance changes. The accounts table is the source of truth for assets;
+ * the amortization schedule (driven by loan params: principal, rate, term,
+ * start date, mensualité) is the source of truth for liabilities.
+ *
+ * Why not just read `account.current_balance` for loans? Because for a loan
+ * it's the running sum of the payment-mirror rows we insert on the loan
+ * account (one +135,91 € row per mensualité) — which drifts away from the
+ * bank's real capital restant dû by the amount of interest already paid.
+ * On a 10 000 € / 3.9 % / 84 months loan after 22 payments the naive number
+ * understates the liability by ~635 €, which was flipping net worth the
+ * wrong way (net > gross!) instead of pulling it down.
  */
 export async function getNetWorth(): Promise<NetWorth> {
   const accountRows = await db.query.accounts.findMany({
     where: eq(accounts.isIncludedInNetWorth, true),
   })
-  let net = 0
+  const liabilityMap = await getLoanLiabilities(accountRows)
+
   let gross = 0
+  let liability = 0
   for (const a of accountRows) {
-    const balance = Number(a.currentBalance)
-    net += balance
-    if (a.kind !== 'loan') {
-      gross += balance
+    if (a.kind === 'loan') {
+      liability += liabilityMap.get(a.id)?.remainingDebt ?? 0
+    } else {
+      gross += Number(a.currentBalance)
     }
   }
-  return { net, gross }
+
+  return { gross, liability, net: gross - liability }
 }
 
 export interface BurnOptions {
@@ -98,17 +114,26 @@ export interface PatrimonyPoint {
 
 /**
  * Patrimony time series — daily net worth for the last N months. Derived
- * live from (sum of current account balances) + transactions, not from the
- * `balance_snapshots` table. Snapshots are an orphan feature: no job ever
- * wrote to them, which is why the chart rendered "No snapshots yet" forever.
+ * live from (sum of current account balances minus loan liability) +
+ * transactions, not from the `balance_snapshots` table. Snapshots are an
+ * orphan feature: no job ever wrote to them, which is why the chart
+ * rendered "No snapshots yet" forever.
  *
  * Algorithm (same spirit as `getNetWorthSeries` in reflect.ts, but daily):
- *   1. Anchor at today = sum of current_balance for net-worth-included,
- *      non-archived accounts. This matches the headline KPI.
+ *   1. Anchor at today = getNetWorth().net so the right edge of the chart
+ *      meets the headline KPI exactly.
  *   2. Walk backward day by day, subtracting each day's transaction net to
- *      get the balance at the END of the previous day.
+ *      get the balance at the END of the previous day. Loan accounts are
+ *      excluded from the per-day walk because their mirror rows aren't a
+ *      cash flow — the liability is already baked into the anchor.
  *   3. Emit a point per day so the chart's time-scale X-axis renders the
  *      curve smoothly at its actual calendar position.
+ *
+ * CAVEAT: treating the loan liability as constant across the window is an
+ * approximation (the real restant dû drops by ~principal/month = ~126 €/
+ * month on the user's 10k€ loan). Good enough for a 12-month chart; if
+ * this becomes visible we'll need to recompute the schedule balance at
+ * each historical date.
  */
 export async function getPatrimonyTimeSeries(months = 12): Promise<PatrimonyPoint[]> {
   const today = new Date()
@@ -116,15 +141,12 @@ export async function getPatrimonyTimeSeries(months = 12): Promise<PatrimonyPoin
 
   // Live anchor — identical math to getNetWorth() so the right edge of the
   // chart meets the "Net worth" KPI exactly.
-  const accountRows = await db.query.accounts.findMany({
-    where: and(eq(accounts.isIncludedInNetWorth, true), eq(accounts.isArchived, false)),
-  })
-  const currentNet = accountRows.reduce((sum, a) => sum + Number(a.currentBalance), 0)
+  const { net: currentNet } = await getNetWorth()
 
-  // Per-day transaction nets across the window. We don't early-cut on the
-  // start date here because we need every transaction on or after `start` to
-  // walk back from today. Transfers and archived accounts are excluded so
-  // internal moves don't show up as jitter.
+  // Per-day transaction nets across the window, excluding loan accounts.
+  // Loan mirrors (+135.91 €) are accounting entries, not cash movements;
+  // including them would double-subtract the liability which is already
+  // baked into the anchor above.
   const rows = await db
     .select({
       day: sql<string>`to_char(${transactions.occurredAt}, 'YYYY-MM-DD')`,
@@ -139,6 +161,7 @@ export async function getPatrimonyTimeSeries(months = 12): Promise<PatrimonyPoin
         sql`${transactions.transferPairId} IS NULL`,
         eq(accounts.isArchived, false),
         eq(accounts.isIncludedInNetWorth, true),
+        sql`${accounts.kind} <> 'loan'`,
       ),
     )
     .groupBy(sql`to_char(${transactions.occurredAt}, 'YYYY-MM-DD')`)

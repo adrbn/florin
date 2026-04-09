@@ -1,6 +1,7 @@
 import { and, asc, eq, gte, isNull, sql } from 'drizzle-orm'
 import { db } from '@/db/client'
 import { accounts, categories, categoryGroups, transactions } from '@/db/schema'
+import { getNetWorth } from './dashboard'
 
 /**
  * Reflect tab queries — analytics summarizing the user's spending and income
@@ -182,15 +183,14 @@ export interface NetWorthPoint {
  * edge of the chart.
  */
 export async function getNetWorthSeries(months = 24): Promise<NetWorthPoint[]> {
-  // Live anchor: same math as the dashboard's getNetWorth.
-  const accountRows = await db.query.accounts.findMany({
-    where: eq(accounts.isIncludedInNetWorth, true),
-  })
-  const currentNet = accountRows.reduce((sum, a) => sum + Number(a.currentBalance), 0)
+  // Live anchor: same math as the dashboard's getNetWorth (= gross −
+  // amortization-based liability for loans).
+  const { net: currentNet } = await getNetWorth()
 
   // Get monthly transaction nets across the whole window so we can walk
-  // backwards. We don't constrain on `gte(start)` here — we still want the
-  // current month's partial activity to subtract correctly.
+  // backwards. Loan accounts are excluded — their mirror rows aren't a
+  // cash flow and the liability is already baked into the anchor. See the
+  // matching CAVEAT on `getPatrimonyTimeSeries` in dashboard.ts.
   const rows = await db
     .select({
       month: sql<string>`to_char(${transactions.occurredAt}, 'YYYY-MM')`,
@@ -203,6 +203,7 @@ export async function getNetWorthSeries(months = 24): Promise<NetWorthPoint[]> {
         isNull(transactions.deletedAt),
         sql`${transactions.transferPairId} IS NULL`,
         eq(accounts.isArchived, false),
+        sql`${accounts.kind} <> 'loan'`,
       ),
     )
     .groupBy(sql`to_char(${transactions.occurredAt}, 'YYYY-MM')`)
