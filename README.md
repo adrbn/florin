@@ -22,13 +22,15 @@ take:
   a PSD2 aggregator covering 2 000+ EU banks (Boursorama, La Banque Postale,
   Revolut, N26, Fortuneo, Crédit Agricole, Caixa, Deutsche Bank, …). You
   register your own free app and keep the credentials.
-- **Single-user.** One admin, one instance. Simpler auth, simpler model, fewer
-  ways to leak data to people you didn't mean to share with.
+- **Single-tenant.** One admin, one instance — simpler auth, simpler model,
+  zero risk of cross-user data leaks. Want to share with a partner or friend?
+  Each of you runs your own copy; no shared database, no invite flow to worry
+  about.
 - **YNAB-style workflow.** Group categories by intention (Needs / Wants / Bills
   / Savings / Income), review new imports before they hit your stats, and
   recategorize in bulk.
 - **Built for real use, not screenshots.** Dashboard, review queue, bulk
-  actions, mobile-friendly layout, PWA-installable, proper dark mode.
+  actions, mobile-friendly layout, PWA-installable, proper light/dark mode.
 
 ---
 
@@ -42,8 +44,8 @@ take:
   expenses
 - Review queue for bank-imported transactions (approve / recategorize / delete
   in bulk)
-- One-shot legacy XLSX importer (for the old YNAB-style spreadsheet many
-  French households still keep)
+- One-shot legacy XLSX importer (for the classic YNAB-style spreadsheet with
+  a `Cleared` UUID column per row)
 - Resizable + reorderable transactions table with persisted column widths
 - Mobile: stacked card layout for the review queue, PWA installable on iOS /
   Android
@@ -80,7 +82,7 @@ take:
 ### 1. Clone and configure
 
 ```bash
-git clone https://github.com/<you>/florin.git
+git clone https://github.com/adrbn/florin.git
 cd florin
 cp .env.example .env
 ```
@@ -283,18 +285,41 @@ A fresh server means a fresh database. Two ways to populate it:
 
 ## Updating
 
+### On the host running Florin
+
 ```bash
 cd florin
 git pull
-docker compose pull
-docker compose up -d
+docker compose up -d --build web
 cd apps/web
-pnpm drizzle-kit migrate
+pnpm drizzle-kit migrate   # only if there are new files under apps/web/drizzle/
 ```
 
-Run `pnpm drizzle-kit migrate` any time the upstream includes a new migration
-in `apps/web/drizzle/`. The app tolerates missing migrations but will complain
-loudly in the logs.
+`--build web` rebuilds just the web image, keeps Postgres running, and incurs
+no data loss.
+
+### Remote one-liner (from your dev machine)
+
+If your deployment host is reachable over SSH, you can ship the current `main`
+in one command from the repo root:
+
+```bash
+make deploy
+```
+
+This pushes `main`, then SSHes into the deployment host and runs the rebuild
+for you. Configure it once via environment variables (put them in your shell
+profile, or in a git-ignored `.envrc` if you use direnv):
+
+```bash
+export FLORIN_DEPLOY_HOST=myserver          # ssh target (alias or user@host)
+export FLORIN_DEPLOY_PATH=/opt/florin       # path to the florin repo on the host
+# Optional — wrap the remote command (e.g. `pct exec 100 --` for Proxmox LXC):
+export FLORIN_DEPLOY_WRAP=""
+```
+
+Requirements: key-based SSH to `FLORIN_DEPLOY_HOST`, and `docker compose` on
+the target. Run `make deploy-status` afterwards to poll the health endpoint.
 
 ---
 
