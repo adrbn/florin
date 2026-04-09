@@ -22,7 +22,10 @@ import { categories, categoryGroups } from '@/db/schema'
 import { formatCurrency, formatCurrencySigned } from '@/lib/format/currency'
 import { getAccountById, listAccounts } from '@/server/actions/accounts'
 import { listCategoriesFlat } from '@/server/actions/categories'
-import { listTransactionsForAccount } from '@/server/actions/transactions'
+import {
+  listLoanPaymentsForAccount,
+  listTransactionsForAccount,
+} from '@/server/actions/transactions'
 
 const dateFormatter = new Intl.DateTimeFormat('fr-FR', {
   day: '2-digit',
@@ -39,8 +42,11 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
   const account = await getAccountById(id)
   if (!account) notFound()
 
+  const isLoan = account.kind === 'loan'
   const [transactionList, allAccounts, categoryList, categoriesFlat] = await Promise.all([
-    listTransactionsForAccount(account.id, 500),
+    isLoan
+      ? listLoanPaymentsForAccount(account.id, 500)
+      : listTransactionsForAccount(account.id, 500),
     listAccounts({ includeArchived: false }),
     db
       .select({
@@ -111,11 +117,11 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      {isLoan ? (
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
-              Current balance
+              Encours actuel
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -127,36 +133,79 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
             )}
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
-              Inflow (last {transactionList.length} tx)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-emerald-600">{formatCurrency(inflow)}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
-              Outflow (last {transactionList.length} tx)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-destructive">{formatCurrency(outflow)}</p>
-          </CardContent>
-        </Card>
-      </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
+                Current balance
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-bold">{formatCurrency(account.currentBalance)}</p>
+              {account.lastSyncedAt && (
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Last synced {new Date(account.lastSyncedAt).toLocaleString('fr-FR')}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
+                Inflow (last {transactionList.length} tx)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-bold text-emerald-600">{formatCurrency(inflow)}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
+                Outflow (last {transactionList.length} tx)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-bold text-destructive">{formatCurrency(outflow)}</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {isLoan && (
+        <LoanDetailsCard
+          account={{
+            id: account.id,
+            currentBalance: account.currentBalance,
+            loanOriginalPrincipal: account.loanOriginalPrincipal,
+            loanInterestRate: account.loanInterestRate,
+            loanStartDate: account.loanStartDate,
+            loanTermMonths: account.loanTermMonths,
+            loanMonthlyPayment: account.loanMonthlyPayment,
+          }}
+          categories={categoriesFlat}
+        />
+      )}
 
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Transactions</CardTitle>
+          <CardTitle className="text-base">
+            {isLoan ? 'Paiements sur ce prêt' : 'Transactions'}
+          </CardTitle>
+          {isLoan && (
+            <p className="text-[11px] text-muted-foreground">
+              Transactions catégorisées dans une catégorie liée à ce prêt, plus les ajustements
+              manuels sur le compte prêt lui-même.
+            </p>
+          )}
         </CardHeader>
         <CardContent className="p-0">
           {transactionList.length === 0 ? (
             <p className="px-4 py-12 text-center text-sm text-muted-foreground">
-              No transactions yet. Click "+ Add transaction" above to record one.
+              {isLoan
+                ? 'Aucun paiement pour le moment. Liez une catégorie ci-dessus et catégorisez vos paiements pour les voir ici.'
+                : 'No transactions yet. Click "+ Add transaction" above to record one.'}
             </p>
           ) : (
             <Table>
@@ -219,21 +268,6 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
           )}
         </CardContent>
       </Card>
-
-      {account.kind === 'loan' && (
-        <LoanDetailsCard
-          account={{
-            id: account.id,
-            currentBalance: account.currentBalance,
-            loanOriginalPrincipal: account.loanOriginalPrincipal,
-            loanInterestRate: account.loanInterestRate,
-            loanStartDate: account.loanStartDate,
-            loanTermMonths: account.loanTermMonths,
-            loanMonthlyPayment: account.loanMonthlyPayment,
-          }}
-          categories={categoriesFlat}
-        />
-      )}
 
       <Card>
         <CardHeader>
