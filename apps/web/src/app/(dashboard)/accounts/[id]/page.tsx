@@ -70,6 +70,22 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
     .filter((t) => Number(t.amount) < 0)
     .reduce((acc, t) => acc + Math.abs(Number(t.amount)), 0)
 
+  // Loan-specific derived numbers.
+  // `totalPaid` = sum of |amount| for every real payment (non-mirror rows
+  // living on an origin account like checking) that's categorized under a
+  // category linked to this loan. Manual adjustments living on the loan row
+  // itself are excluded — they're balance corrections, not payments.
+  // `remainingDebt` = originalPrincipal - totalPaid. Displayed as the main
+  // "Encours actuel" tile instead of `account.currentBalance`, which sums
+  // mirrors + adjustments and doesn't match the user's mental model.
+  const loanTotalPaid = isLoan
+    ? transactionList
+        .filter((t) => t.accountId !== account.id)
+        .reduce((acc, t) => acc + Math.abs(Number(t.amount)), 0)
+    : 0
+  const loanPrincipal = Number(account.loanOriginalPrincipal ?? 0)
+  const loanRemainingDebt = isLoan ? Math.max(0, loanPrincipal - loanTotalPaid) : 0
+
   const accountOptions = allAccounts.map((a) => ({ id: a.id, name: a.name }))
   // Every *other* non-archived account — the merge picker needs them.
   const mergeTargets = allAccounts
@@ -118,21 +134,53 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
       </div>
 
       {isLoan ? (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
-              Encours actuel
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{formatCurrency(account.currentBalance)}</p>
-            {account.lastSyncedAt && (
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
+                Restant à rembourser
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-bold">{formatCurrency(loanRemainingDebt)}</p>
+              {loanPrincipal > 0 && (
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  {((1 - loanRemainingDebt / loanPrincipal) * 100).toFixed(1)}% remboursé
+                </p>
+              )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
+                Déjà remboursé
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-bold text-emerald-600">{formatCurrency(loanTotalPaid)}</p>
               <p className="mt-1 text-[11px] text-muted-foreground">
-                Last synced {new Date(account.lastSyncedAt).toLocaleString('fr-FR')}
+                {transactionList.filter((t) => t.accountId !== account.id).length} paiement(s) appliqué(s)
               </p>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
+                Montant initial
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-bold text-muted-foreground">
+                {loanPrincipal > 0 ? formatCurrency(loanPrincipal) : '—'}
+              </p>
+              {account.loanInterestRate && (
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Taux {(Number(account.loanInterestRate) * 100).toFixed(2)} %
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-3">
           <Card>
@@ -185,6 +233,8 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
             loanMonthlyPayment: account.loanMonthlyPayment,
           }}
           categories={categoriesFlat}
+          totalPaid={loanTotalPaid}
+          remainingDebt={loanRemainingDebt}
         />
       )}
 
