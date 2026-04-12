@@ -22,6 +22,7 @@ extraResources:
   - from: assets/
     to: assets/
 mac:
+  icon: assets/icon.icns
   category: public.app-category.finance
   target:
     - target: dmg
