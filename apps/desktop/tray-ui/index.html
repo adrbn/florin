@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Florin</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+      background: transparent;
+      color: #e2e8f0;
+      width: 320px;
+      min-height: 420px;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .popup {
+      background: #0f1117;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      box-shadow:
+        0 20px 60px rgba(0, 0, 0, 0.6),
+        0 0 0 0.5px rgba(255, 255, 255, 0.05) inset;
+      overflow: hidden;
+      width: 320px;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    }
+
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-icon {
+      width: 22px;
+      height: 22px;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.5px;
+    }
+
+    .brand-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #f1f5f9;
+      letter-spacing: -0.2px;
+    }
+
+    .sync-status {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      color: #64748b;
+    }
+
+    .sync-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 4px rgba(34, 197, 94, 0.5);
+    }
+
+    .sync-dot.syncing {
+      background: #f59e0b;
+      box-shadow: 0 0 4px rgba(245, 158, 11, 0.5);
+      animation: pulse 1s infinite;
+    }
+
+    .sync-dot.error {
+      background: #ef4444;
+      box-shadow: 0 0 4px rgba(239, 68, 68, 0.5);
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* Net Worth Section */
+    .net-worth-section {
+      padding: 16px 16px 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    }
+
+    .section-label {
+      font-size: 10px;
+      font-weight: 500;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 6px;
+    }
+
+    .net-worth-value {
+      font-size: 26px;
+      font-weight: 700;
+      color: #f8fafc;
+      letter-spacing: -1px;
+      line-height: 1;
+    }
+
+    .net-worth-delta {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      font-size: 11px;
+      font-weight: 500;
+      margin-top: 5px;
+      padding: 2px 6px;
+      border-radius: 20px;
+    }
+
+    .net-worth-delta.positive {
+      color: #4ade80;
+      background: rgba(74, 222, 128, 0.1);
+    }
+
+    .net-worth-delta.negative {
+      color: #f87171;
+      background: rgba(248, 113, 113, 0.1);
+    }
+
+    .net-worth-delta.neutral {
+      color: #94a3b8;
+      background: rgba(148, 163, 184, 0.1);
+    }
+
+    /* Burn Section */
+    .burn-section {
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    }
+
+    .burn-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .burn-label {
+      font-size: 10px;
+      font-weight: 500;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    .burn-value {
+      font-size: 15px;
+      font-weight: 600;
+      color: #f1f5f9;
+    }
+
+    .burn-sub {
+      font-size: 11px;
+      color: #64748b;
+      font-weight: 400;
+    }
+
+    .progress-bar-track {
+      height: 4px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.4s ease;
+      background: linear-gradient(90deg, #6366f1, #8b5cf6);
+    }
+
+    .progress-bar-fill.warning {
+      background: linear-gradient(90deg, #f59e0b, #ef4444);
+    }
+
+    /* Transactions Section */
+    .transactions-section {
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    }
+
+    .transactions-list {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .transaction-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 5px 0;
+    }
+
+    .category-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .transaction-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .transaction-payee {
+      font-size: 12px;
+      font-weight: 500;
+      color: #e2e8f0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .transaction-category {
+      font-size: 10px;
+      color: #64748b;
+      margin-top: 1px;
+    }
+
+    .transaction-amount {
+      font-size: 12px;
+      font-weight: 600;
+      color: #f87171;
+      white-space: nowrap;
+    }
+
+    .transaction-amount.income {
+      color: #4ade80;
+    }
+
+    /* Review badge */
+    .review-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.2);
+      border-radius: 6px;
+      font-size: 11px;
+      color: #fbbf24;
+      margin: 0 16px 10px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .review-badge:hover {
+      background: rgba(245, 158, 11, 0.2);
+    }
+
+    .review-badge-icon {
+      font-size: 12px;
+    }
+
+    /* Actions */
+    .actions {
+      padding: 10px 16px;
+      display: flex;
+      gap: 6px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 7px 10px;
+      border-radius: 7px;
+      border: none;
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #6366f1, #7c3aed);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #818cf8, #8b5cf6);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.07);
+      color: #cbd5e1;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #f1f5f9;
+    }
+
+    .btn:active {
+      transform: translateY(0) scale(0.98);
+    }
+
+    /* Footer */
+    .footer {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 16px 12px;
+      gap: 16px;
+    }
+
+    .footer-link {
+      font-size: 11px;
+      color: #475569;
+      cursor: pointer;
+      background: none;
+      border: none;
+      font-family: inherit;
+      transition: color 0.15s;
+      padding: 0;
+    }
+
+    .footer-link:hover {
+      color: #94a3b8;
+    }
+
+    .footer-sep {
+      width: 1px;
+      height: 10px;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    /* Loading state */
+    .skeleton {
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 4px;
+      animation: shimmer 1.5s infinite;
+    }
+
+    @keyframes shimmer {
+      0% { opacity: 0.6; }
+      50% { opacity: 1; }
+      100% { opacity: 0.6; }
+    }
+
+    .skeleton-text {
+      height: 12px;
+      width: 80px;
+    }
+
+    .skeleton-value {
+      height: 26px;
+      width: 140px;
+    }
+
+    /* Error state */
+    .error-state {
+      padding: 20px 16px;
+      text-align: center;
+      color: #64748b;
+      font-size: 12px;
+    }
+
+    .error-state .error-icon {
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="popup">
+    <div class="header">
+      <div class="header-brand">
+        <div class="brand-icon">F</div>
+        <span class="brand-name">Florin</span>
+      </div>
+      <div class="sync-status">
+        <div class="sync-dot" id="syncDot"></div>
+        <span id="syncLabel">Synced</span>
+      </div>
+    </div>
+
+    <div id="content">
+      <!-- Net Worth -->
+      <div class="net-worth-section">
+        <div class="section-label">Net Worth</div>
+        <div class="net-worth-value" id="netWorthValue">
+          <span class="skeleton skeleton-value"></span>
+        </div>
+        <div class="net-worth-delta neutral" id="netWorthDelta" style="display:none"></div>
+      </div>
+
+      <!-- Burn Rate -->
+      <div class="burn-section">
+        <div class="burn-header">
+          <div class="burn-label">Monthly Burn</div>
+          <div>
+            <span class="burn-value" id="burnValue">
+              <span class="skeleton skeleton-text"></span>
+            </span>
+            <span class="burn-sub" id="burnSub" style="display:none"></span>
+          </div>
+        </div>
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill" id="burnProgress" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <!-- Recent Transactions -->
+      <div class="transactions-section">
+        <div class="section-label" style="margin-bottom: 8px;">Recent Expenses</div>
+        <div class="transactions-list" id="transactionsList">
+          <div class="transaction-item">
+            <div class="category-dot skeleton" style="width:8px;height:8px;"></div>
+            <div class="transaction-info">
+              <div class="skeleton skeleton-text" style="width:100px;margin-bottom:3px;"></div>
+              <div class="skeleton skeleton-text" style="width:60px;height:9px;"></div>
+            </div>
+            <div class="skeleton skeleton-text" style="width:50px;"></div>
+          </div>
+          <div class="transaction-item">
+            <div class="category-dot skeleton" style="width:8px;height:8px;"></div>
+            <div class="transaction-info">
+              <div class="skeleton skeleton-text" style="width:80px;margin-bottom:3px;"></div>
+              <div class="skeleton skeleton-text" style="width:50px;height:9px;"></div>
+            </div>
+            <div class="skeleton skeleton-text" style="width:45px;"></div>
+          </div>
+          <div class="transaction-item">
+            <div class="category-dot skeleton" style="width:8px;height:8px;"></div>
+            <div class="transaction-info">
+              <div class="skeleton skeleton-text" style="width:90px;margin-bottom:3px;"></div>
+              <div class="skeleton skeleton-text" style="width:55px;height:9px;"></div>
+            </div>
+            <div class="skeleton skeleton-text" style="width:40px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="reviewBadge" style="display:none"></div>
+
+      <!-- Actions -->
+      <div class="actions">
+        <button class="btn btn-primary" id="btnSync">Sync Now</button>
+        <button class="btn btn-secondary" id="btnAdd">+ Transaction</button>
+        <button class="btn btn-secondary" id="btnDashboard">Dashboard</button>
+      </div>
+
+      <!-- Footer -->
+      <div class="footer">
+        <button class="footer-link" id="btnQuit">Quit</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Category color palette (cycles by index)
+    const CATEGORY_COLORS = [
+      '#6366f1', '#8b5cf6', '#ec4899', '#ef4444',
+      '#f97316', '#eab308', '#22c55e', '#14b8a6',
+      '#06b6d4', '#3b82f6',
+    ]
+
+    function categoryColor(index) {
+      return CATEGORY_COLORS[index % CATEGORY_COLORS.length]
+    }
+
+    function formatCurrency(amount) {
+      if (amount === null || amount === undefined) return '—'
+      const abs = Math.abs(amount)
+      const formatted = new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(abs)
+      return amount < 0 ? `-${formatted}` : formatted
+    }
+
+    function formatDelta(delta) {
+      if (!delta && delta !== 0) return null
+      const sign = delta >= 0 ? '+' : ''
+      return `${sign}${formatCurrency(delta)} vs last month`
+    }
+
+    function setSyncState(state) {
+      const dot = document.getElementById('syncDot')
+      const label = document.getElementById('syncLabel')
+      dot.className = 'sync-dot'
+      if (state === 'syncing') {
+        dot.classList.add('syncing')
+        label.textContent = 'Syncing…'
+      } else if (state === 'error') {
+        dot.classList.add('error')
+        label.textContent = 'Error'
+      } else {
+        label.textContent = 'Synced'
+      }
+    }
+
+    function renderData(data) {
+      if (!data) return
+
+      // Net worth
+      const { netWorth, burn, topExpenses, reviewCount } = data
+
+      const netWorthEl = document.getElementById('netWorthValue')
+      if (netWorth != null) {
+        netWorthEl.textContent = formatCurrency(netWorth.total ?? netWorth)
+      }
+
+      const deltaEl = document.getElementById('netWorthDelta')
+      const delta = netWorth?.monthDelta ?? null
+      if (delta !== null) {
+        deltaEl.textContent = formatDelta(delta)
+        deltaEl.className = `net-worth-delta ${delta >= 0 ? 'positive' : 'negative'}`
+        deltaEl.style.display = 'inline-flex'
+      }
+
+      // Burn rate
+      const burnEl = document.getElementById('burnValue')
+      const burnSubEl = document.getElementById('burnSub')
+      if (burn != null) {
+        const burnAmount = burn.amount ?? burn
+        burnEl.textContent = formatCurrency(burnAmount)
+        burnSubEl.style.display = 'inline'
+
+        const budget = burn.budget ?? null
+        const progress = document.getElementById('burnProgress')
+        if (budget && budget > 0) {
+          const pct = Math.min(100, Math.round((Math.abs(burnAmount) / budget) * 100))
+          progress.style.width = `${pct}%`
+          burnSubEl.textContent = ` / ${formatCurrency(budget)}`
+          if (pct > 80) {
+            progress.classList.add('warning')
+          }
+        } else {
+          progress.style.width = '40%'
+          burnSubEl.textContent = ' this month'
+        }
+      }
+
+      // Top expenses
+      const list = document.getElementById('transactionsList')
+      if (topExpenses && topExpenses.length > 0) {
+        list.innerHTML = topExpenses.map((tx, i) => {
+          const isIncome = (tx.amount ?? 0) > 0
+          const color = categoryColor(i)
+          const payee = tx.payee ?? tx.name ?? tx.merchant ?? 'Unknown'
+          const category = tx.category ?? tx.categoryName ?? ''
+          return `
+            <div class="transaction-item">
+              <div class="category-dot" style="background:${color}"></div>
+              <div class="transaction-info">
+                <div class="transaction-payee">${escapeHtml(payee)}</div>
+                ${category ? `<div class="transaction-category">${escapeHtml(category)}</div>` : ''}
+              </div>
+              <div class="transaction-amount ${isIncome ? 'income' : ''}">${formatCurrency(tx.amount)}</div>
+            </div>
+          `
+        }).join('')
+      } else if (topExpenses && topExpenses.length === 0) {
+        list.innerHTML = '<div style="font-size:11px;color:#475569;padding:4px 0;">No recent expenses</div>'
+      }
+
+      // Review badge
+      const badgeContainer = document.getElementById('reviewBadge')
+      if (reviewCount && reviewCount > 0) {
+        badgeContainer.style.display = 'block'
+        badgeContainer.innerHTML = `
+          <div class="review-badge" id="reviewBadgeInner">
+            <span class="review-badge-icon">⚠</span>
+            <span>${reviewCount} transaction${reviewCount !== 1 ? 's' : ''} need review</span>
+          </div>
+        `
+        document.getElementById('reviewBadgeInner')?.addEventListener('click', () => {
+          window.florin?.openDashboard()
+        })
+      } else {
+        badgeContainer.style.display = 'none'
+      }
+    }
+
+    function escapeHtml(str) {
+      const d = document.createElement('div')
+      d.appendChild(document.createTextNode(str))
+      return d.innerHTML
+    }
+
+    async function loadData() {
+      if (!window.florin) return
+      try {
+        const data = await window.florin.getTrayData()
+        renderData(data)
+      } catch (err) {
+        setSyncState('error')
+      }
+    }
+
+    // Button handlers
+    document.getElementById('btnSync').addEventListener('click', async () => {
+      if (!window.florin) return
+      setSyncState('syncing')
+      document.getElementById('btnSync').textContent = 'Syncing…'
+      try {
+        await window.florin.syncAll()
+        await loadData()
+        setSyncState('synced')
+      } catch {
+        setSyncState('error')
+      } finally {
+        document.getElementById('btnSync').textContent = 'Sync Now'
+      }
+    })
+
+    document.getElementById('btnAdd').addEventListener('click', () => {
+      window.florin?.openAddTransaction()
+    })
+
+    document.getElementById('btnDashboard').addEventListener('click', () => {
+      window.florin?.openDashboard()
+    })
+
+    document.getElementById('btnQuit').addEventListener('click', () => {
+      // Send quit via IPC — requires main process to handle 'quit-app'
+      // For now, use the remote module fallback via openDashboard pattern
+      const { ipcRenderer } = window.__electron__ ?? {}
+      // Graceful: just open dashboard as a workaround until quit IPC is wired
+      window.florin?.openDashboard()
+    })
+
+    // Listen for refresh events from tray click
+    if (window.florin) {
+      window.florin.onRefresh(() => {
+        loadData()
+      })
+    }
+
+    // Initial load
+    loadData()
+  </script>
+</body>
+</html>
