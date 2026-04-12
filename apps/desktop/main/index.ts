@@ -7,6 +7,11 @@ import { registerIpcHandlers } from './ipc'
 import { startSyncScheduler, stopSyncScheduler } from './scheduler'
 import { initAutoUpdater } from './updater'
 
+// Prevent uncaught exceptions from crashing the app with a dialog
+process.on('uncaughtException', (err) => {
+  console.error('[main] uncaught exception:', err)
+})
+
 // Extend app to track quitting state
 declare module 'electron' {
   interface App {
