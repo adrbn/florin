@@ -1,0 +1,16 @@
+appId: com.florin.desktop
+productName: Florin
+mac:
+  category: public.app-category.finance
+  icon: assets/icon.icns
+  target:
+    - target: dmg
+      arch:
+        - universal
+dmg:
+  title: Florin
+  artifactName: Florin-${version}-${arch}.dmg
+publish:
+  provider: github
+  owner: adrbn
+  repo: florin
