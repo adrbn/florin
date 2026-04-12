@@ -1,12 +1,26 @@
 appId: com.florin.desktop
 productName: Florin
+directories:
+  output: dist
+files:
+  - main.cjs
+  - dist-main/**
+  - .next/**
+  - tray-ui/**
+  - assets/**
+  - package.json
+  - next.config.ts
+  - node_modules/**
+extraResources:
+  - from: assets/
+    to: assets/
 mac:
   category: public.app-category.finance
-  icon: assets/icon.icns
   target:
     - target: dmg
       arch:
-        - universal
+        - arm64
+        - x64
 dmg:
   title: Florin
   artifactName: Florin-${version}-${arch}.dmg

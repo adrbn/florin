@@ -2,10 +2,12 @@
   "name": "@florin/desktop",
   "version": "0.1.0",
   "private": true,
-  "main": "main/index.ts",
+  "main": "main.cjs",
   "scripts": {
-    "dev": "electron .",
-    "build": "next build && electron-builder",
+    "build:main": "node scripts/build-main.mjs",
+    "dev": "node scripts/build-main.mjs && electron .",
+    "build": "node scripts/build-main.mjs && next build",
+    "pack": "node scripts/build-main.mjs && next build && electron-builder --mac",
     "start": "electron ."
   },
   "dependencies": {
