@@ -1,0 +1,27 @@
+name: Desktop Release
+
+on:
+  push:
+    tags:
+      - 'desktop-v*'
+
+jobs:
+  build-mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm turbo build --filter=@florin/desktop
+      - name: Build DMG
+        run: cd apps/desktop && pnpm electron-builder --mac
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: apps/desktop/dist/*.dmg
