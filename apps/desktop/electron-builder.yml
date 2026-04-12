@@ -8,7 +8,7 @@ files:
   - .next/**
   - assets/**
   - package.json
-  - next.config.ts
+  - next.config.mjs
   - "node_modules/**"
   - "!node_modules/.pnpm/electron@*/**"
   - "!node_modules/.pnpm/electron-builder@*/**"
