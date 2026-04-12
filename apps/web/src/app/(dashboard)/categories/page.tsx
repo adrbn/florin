@@ -1,6 +1,14 @@
-import { CategoriesEditor } from '@/components/categories/categories-editor'
-import { CategorySpendList } from '@/components/categories/category-spend-list'
+import { CategoriesEditor } from '@florin/core/components/categories/categories-editor'
+import { CategorySpendList } from '@florin/core/components/categories/category-spend-list'
 import { queries } from '@/db/client'
+import {
+  createCategory,
+  updateCategory,
+  deleteCategory,
+  createCategoryGroup,
+  updateCategoryGroup,
+  deleteCategoryGroup,
+} from '@/server/actions/categories'
 
 export default async function CategoriesPage() {
   const [groups, monthBreakdown] = await Promise.all([
@@ -8,7 +16,6 @@ export default async function CategoriesPage() {
     queries.getMonthByCategory(),
   ])
 
-  // Map drizzle's `with` rows into the simpler shape the client editor expects.
   const editorGroups = groups.map((g) => ({
     id: g.id,
     name: g.name,
@@ -34,7 +41,17 @@ export default async function CategoriesPage() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <CategoriesEditor groups={editorGroups} />
+          <CategoriesEditor
+            groups={editorGroups}
+            actions={{
+              onCreateCategory: createCategory,
+              onUpdateCategory: updateCategory,
+              onDeleteCategory: deleteCategory,
+              onCreateCategoryGroup: createCategoryGroup,
+              onUpdateCategoryGroup: updateCategoryGroup,
+              onDeleteCategoryGroup: deleteCategoryGroup,
+            }}
+          />
         </div>
         <div>
           <CategorySpendList items={monthBreakdown} />

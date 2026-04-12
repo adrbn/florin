@@ -1,8 +1,8 @@
-import { CategoryBreakdownChart } from '@/components/reflect/category-breakdown-chart'
-import { IncomeVsSpendingChart } from '@/components/reflect/income-vs-spending-chart'
-import { NetWorthChart } from '@/components/reflect/net-worth-chart'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { formatCurrency } from '@/lib/format/currency'
+import { CategoryBreakdownChart } from '@florin/core/components/reflect/category-breakdown-chart'
+import { IncomeVsSpendingChart } from '@florin/core/components/reflect/income-vs-spending-chart'
+import { NetWorthChart } from '@florin/core/components/reflect/net-worth-chart'
+import { Card, CardContent, CardHeader, CardTitle } from '@florin/core/components/ui/card'
+import { formatCurrency } from '@florin/core/lib/format'
 import { queries } from '@/db/client'
 
 // Reflect reads from the database on every render — never prerender it at

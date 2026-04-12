@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@florin/core/components/ui/card'
 import { LoginForm } from './login-form'
 
 export default function LoginPage() {

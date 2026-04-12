@@ -3,9 +3,9 @@
 import { useRouter } from 'next/navigation'
 import { signIn } from 'next-auth/react'
 import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { Button } from '@florin/core/components/ui/button'
+import { Input } from '@florin/core/components/ui/input'
+import { Label } from '@florin/core/components/ui/label'
 
 export function LoginForm() {
   const router = useRouter()

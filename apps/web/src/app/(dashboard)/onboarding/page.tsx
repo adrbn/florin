@@ -1,8 +1,9 @@
 import { count, eq } from 'drizzle-orm'
-import { OnboardingWizard } from '@/components/onboarding/onboarding-wizard'
+import { OnboardingWizard } from '@florin/core/components/onboarding/onboarding-wizard'
 import { db } from '@/db/client'
 import { accounts, categories } from '@/db/schema'
 import { isEnableBankingConfigured } from '@/server/banking/enable-banking'
+import { createAccount, updateAccount } from '@/server/actions/accounts'
 
 /**
  * Onboarding entry point. Server-fetches the "is the install fresh" flags so
@@ -22,6 +23,8 @@ export default async function OnboardingPage() {
       bankingEnabled={isEnableBankingConfigured()}
       hasAccounts={hasAccounts}
       hasCategories={hasCategories}
+      onCreateAccount={createAccount}
+      onUpdateAccount={updateAccount}
     />
   )
 }

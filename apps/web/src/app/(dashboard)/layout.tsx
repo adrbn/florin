@@ -1,5 +1,5 @@
-import { MobileTopBar } from '@/components/shell/mobile-topbar'
-import { Sidebar } from '@/components/shell/sidebar'
+import { MobileTopBar } from '@florin/core/components/shell/mobile-topbar'
+import { Sidebar } from '@florin/core/components/shell/sidebar'
 import { countNeedsReview } from '@/server/actions/transactions'
 import { ensureAutoSyncScheduler } from '@/server/banking/scheduler'
 

@@ -27,3 +27,12 @@ export function createCurrencyFormatter(locale: string, currency: string): Curre
       signedFormatter.format(toNumber(amount)),
   }
 }
+
+/**
+ * Default formatter using EUR / fr-FR locale.
+ * Components that need a different currency should accept a `CurrencyFormatter`
+ * prop instead of calling these directly.
+ */
+const defaultFormatter = createCurrencyFormatter('fr-FR', 'EUR')
+export const formatCurrency = defaultFormatter.format
+export const formatCurrencySigned = defaultFormatter.formatSigned
