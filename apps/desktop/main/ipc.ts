@@ -1,7 +1,11 @@
 import { ipcMain } from 'electron'
 import type { FlorinQueries } from '@florin/core/types'
+import { getSyncStatus } from './scheduler'
 
-export function registerIpcHandlers(queries: FlorinQueries) {
+export function registerIpcHandlers(
+  queries: FlorinQueries,
+  syncAllFn: () => Promise<void>,
+) {
   ipcMain.handle('tray:get-data', async () => {
     const [netWorth, burn, topExpenses, reviewCount] = await Promise.all([
       queries.getNetWorth(),
@@ -13,7 +17,16 @@ export function registerIpcHandlers(queries: FlorinQueries) {
   })
 
   ipcMain.handle('tray:sync-all', async () => {
-    // Placeholder — sync wiring added in Task 11
-    return { success: true }
+    try {
+      await syncAllFn()
+      return { success: true }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'unknown error'
+      return { success: false, error: message }
+    }
+  })
+
+  ipcMain.handle('tray:sync-status', () => {
+    return getSyncStatus()
   })
 }

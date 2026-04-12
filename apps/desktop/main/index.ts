@@ -4,6 +4,7 @@ import { createSqliteClient, createSqliteQueries } from '@florin/db-sqlite'
 import { createWindow, getMainWindow } from './window'
 import { setupTray } from './tray'
 import { registerIpcHandlers } from './ipc'
+import { startSyncScheduler, stopSyncScheduler } from './scheduler'
 
 // Extend app to track quitting state
 declare module 'electron' {
@@ -37,8 +38,21 @@ app.whenReady().then(async () => {
   // Set up menu bar tray widget
   setupTray(port)
 
-  // Register IPC handlers for tray widget data fetching
-  registerIpcHandlers(queries)
+  // Create a sync function that delegates to the Next.js server-side module.
+  // We dynamically import so the module resolves after Next.js has prepared
+  // and the FLORIN_DB_PATH env var is visible to the server-side code.
+  const syncAllFn = async () => {
+    const { syncAllConnections } = await import(
+      '../src/server/banking/sync-all'
+    )
+    await syncAllConnections()
+  }
+
+  // Register IPC handlers for tray widget data fetching and sync
+  registerIpcHandlers(queries, syncAllFn)
+
+  // Start background bank sync scheduler (2min warmup, then every 6h)
+  startSyncScheduler(syncAllFn)
 })
 
 app.on('window-all-closed', () => {
@@ -47,6 +61,7 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   app.isQuitting = true
+  stopSyncScheduler()
 })
 
 async function startNextServer(): Promise<number> {
