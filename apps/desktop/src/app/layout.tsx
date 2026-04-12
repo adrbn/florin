@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { ThemeProvider } from '@florin/core/components/theme/theme-provider'
+import { I18nProvider } from '@florin/core/i18n/context'
 
 export const metadata: Metadata = {
   title: 'Florin',
@@ -20,7 +21,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <I18nProvider locale="en">
+            {children}
+          </I18nProvider>
         </ThemeProvider>
       </body>
     </html>
