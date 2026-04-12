@@ -64,14 +64,14 @@ export async function listTransactionsForAccount(
   accountId: string,
   limit = 500,
 ): Promise<TransactionWithRelations[]> {
-  return listTransactionsForAccountQuery(db, accountId, limit) as Promise<TransactionWithRelations[]>
+  return listTransactionsForAccountQuery(db, accountId, limit) as unknown as Promise<TransactionWithRelations[]>
 }
 
 export async function listLoanPaymentsForAccount(
   loanAccountId: string,
   limit = 500,
 ): Promise<TransactionWithRelations[]> {
-  return listLoanPaymentsForAccountQuery(db, loanAccountId, limit) as Promise<TransactionWithRelations[]>
+  return listLoanPaymentsForAccountQuery(db, loanAccountId, limit) as unknown as Promise<TransactionWithRelations[]>
 }
 
 export type TransactionWithRelations = Awaited<ReturnType<typeof listTransactions>>[number]
