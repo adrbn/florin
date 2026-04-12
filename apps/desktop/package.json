@@ -2,7 +2,7 @@
   "name": "@florin/desktop",
   "version": "0.1.0",
   "private": true,
-  "main": "main.cjs",
+  "main": "dist-main/index.cjs",
   "scripts": {
     "build:main": "node scripts/build-main.mjs",
     "dev": "node scripts/build-main.mjs && electron .",
