@@ -1,25 +1,25 @@
 import { asc, eq } from 'drizzle-orm'
-import { AddTransactionModal } from '@/components/transactions/add-transaction-modal'
-import { TransactionsFilterBar } from '@/components/transactions/transactions-filter-bar'
-import { TransactionsPager } from '@/components/transactions/transactions-pager'
+import { AddTransactionModal } from '@florin/core/components/transactions/add-transaction-modal'
+import { TransactionsFilterBar } from '@florin/core/components/transactions/transactions-filter-bar'
+import { TransactionsPager } from '@florin/core/components/transactions/transactions-pager'
 import {
   type TransactionRowData,
   TransactionsTable,
-} from '@/components/transactions/transactions-table'
-import { Card } from '@/components/ui/card'
+} from '@florin/core/components/transactions/transactions-table'
+import { Card } from '@florin/core/components/ui/card'
 import { db } from '@/db/client'
 import { categories, categoryGroups } from '@/db/schema'
-import { formatCurrencySigned } from '@/lib/format/currency'
+import { formatCurrencySigned } from '@florin/core/lib/format'
 import { listAccounts } from '@/server/actions/accounts'
 import {
+  addTransaction,
   countTransactions,
   listTransactions,
+  softDeleteTransaction,
+  updateTransactionCategory,
   type TransactionDirection,
 } from '@/server/actions/transactions'
 
-// Rows per page on the Transactions table. 100 keeps the page snappy and
-// lets the pager walk several thousand rows without choking. The filter bar
-// and pager both read `page` from searchParams.
 const PAGE_SIZE = 100
 
 const dateFormatter = new Intl.DateTimeFormat('fr-FR', {
@@ -34,9 +34,6 @@ const longDateFormatter = new Intl.DateTimeFormat('fr-FR', {
   year: 'numeric',
 })
 
-/** Parse a YYYY-MM-DD string into a local-midnight Date, or return null if
- *  the input is missing or malformed. We stay strict on the shape so a
- *  broken querystring can't silently widen the filter window. */
 function parseIsoDate(raw: string | undefined): Date | null {
   if (!raw) return null
   if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null
@@ -51,9 +48,6 @@ function parseDirection(raw: string | undefined): TransactionDirection {
   return 'all'
 }
 
-/** Parse a signed number from a search param. Returns undefined when the
- *  value is missing or not a finite number — the caller should treat that
- *  the same as "no filter". */
 function parseAmount(raw: string | undefined): number | undefined {
   if (raw === undefined || raw === '') return undefined
   const n = Number(raw)
@@ -79,8 +73,6 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
   const sp = await searchParams
   const startDate = parseIsoDate(sp.from)
   const endOfDay = parseIsoDate(sp.to)
-  // Honor "to" as inclusive: bump it to the very end of that day so the
-  // user sees the last day's transactions, not everything before it.
   const endDate = endOfDay
     ? new Date(endOfDay.getFullYear(), endOfDay.getMonth(), endOfDay.getDate(), 23, 59, 59, 999)
     : null
@@ -124,8 +116,6 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
       limit: PAGE_SIZE,
       offset: (pageNum - 1) * PAGE_SIZE,
     }),
-    // Parallel count so the pager can render "Page N of M" without a second
-    // round-trip. Uses the EXACT same filter options to stay consistent.
     countTransactions(filterOptions),
     listAccounts(),
     db
@@ -155,12 +145,6 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
     groupName: c.groupName ?? 'Other',
   }))
 
-  // When a filter is active we also compute the total so the page doubles
-  // as a verification surface — the user can eyeball the headline Burn
-  // KPI and the sum here and know they match. We sum the SIGNED amounts
-  // (expenses negative, income positive) so "All" nets to the real
-  // cash-flow delta; using Math.abs here used to make expenses + income
-  // add up instead of cancel, which looked like broken arithmetic.
   const filteredTotal = hasFilter ? txns.reduce((acc, t) => acc + Number(t.amount), 0) : null
 
   return (
@@ -170,7 +154,11 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
           <h1 className="text-3xl font-bold tracking-tight">Transactions</h1>
           <p className="text-muted-foreground">Recent activity across all accounts.</p>
         </div>
-        <AddTransactionModal accounts={accountOptions} categories={categoryOptions} />
+        <AddTransactionModal
+          accounts={accountOptions}
+          categories={categoryOptions}
+          onAddTransaction={addTransaction}
+        />
       </div>
 
       <TransactionsFilterBar accounts={filterBarAccounts} categories={filterBarCategories} />
@@ -243,6 +231,10 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
               ? 'No transactions match this filter.'
               : 'No transactions yet. Click "Add transaction" to get started.'
           }
+          actions={{
+            onUpdateTransactionCategory: updateTransactionCategory,
+            onSoftDeleteTransaction: softDeleteTransaction,
+          }}
         />
         <TransactionsPager page={pageNum} pageSize={PAGE_SIZE} totalCount={totalCount} />
       </Card>

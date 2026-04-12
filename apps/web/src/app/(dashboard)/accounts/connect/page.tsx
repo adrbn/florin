@@ -8,8 +8,8 @@
  * /api/banking/callback which finalizes everything.
  */
 import Link from 'next/link'
-import { Button, buttonVariants } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Button, buttonVariants } from '@florin/core/components/ui/button'
+import { Card, CardContent } from '@florin/core/components/ui/card'
 import { listBanks, startBankConnection } from '@/server/actions/banking'
 import { isEnableBankingConfigured } from '@/server/banking/enable-banking'
 

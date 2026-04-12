@@ -1,8 +1,9 @@
 import { count, eq, isNull } from 'drizzle-orm'
-import { ExportButton } from '@/components/settings/export-button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { ExportButton } from '@florin/core/components/settings/export-button'
+import { Card, CardContent, CardHeader, CardTitle } from '@florin/core/components/ui/card'
 import { db } from '@/db/client'
 import { accounts, bankConnections, categories, transactions } from '@/db/schema'
+import { exportAllData } from '@/server/actions/export'
 import { auth } from '@/server/auth'
 import { isEnableBankingConfigured } from '@/server/banking/enable-banking'
 import { env } from '@/server/env'
@@ -85,7 +86,7 @@ export default async function SettingsPage() {
               Download every table as a single JSON file. Bank consent tokens are stripped from the
               export so the file is safe to share.
             </p>
-            <ExportButton />
+            <ExportButton onExportAllData={exportAllData} />
             <p className="text-[11px] text-muted-foreground">
               Tip: schedule <code className="font-mono">pg_dump</code> separately for backups that
               include indexes + history.

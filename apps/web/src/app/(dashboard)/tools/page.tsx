@@ -1,5 +1,5 @@
-import { CompoundCalculator } from '@/components/tools/compound-calculator'
-import { LoanCalculator } from '@/components/tools/loan-calculator'
+import { CompoundCalculator } from '@florin/core/components/tools/compound-calculator'
+import { LoanCalculator } from '@florin/core/components/tools/loan-calculator'
 
 /**
  * Tools — calculators that don't depend on user data. Each one is a fully

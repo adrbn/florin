@@ -1,11 +1,20 @@
 import { asc, eq } from 'drizzle-orm'
-import { ApproveAllButton } from '@/components/review/approve-all-button'
-import { ReviewTable } from '@/components/review/review-table'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { ApproveAllButton } from '@florin/core/components/review/approve-all-button'
+import { ReviewTable } from '@florin/core/components/review/review-table'
+import { Card, CardContent, CardHeader, CardTitle } from '@florin/core/components/ui/card'
 import { db } from '@/db/client'
 import { categories, categoryGroups } from '@/db/schema'
-import { formatCurrencySigned } from '@/lib/format/currency'
-import { listTransactions } from '@/server/actions/transactions'
+import { formatCurrencySigned } from '@florin/core/lib/format'
+import {
+  approveAllTransactions,
+  approveTransaction,
+  softDeleteTransaction,
+  updateTransactionCategory,
+  bulkApproveTransactions,
+  bulkSoftDeleteTransactions,
+  bulkUpdateTransactionCategory,
+  listTransactions,
+} from '@/server/actions/transactions'
 
 const dateFormatter = new Intl.DateTimeFormat('fr-FR', {
   day: '2-digit',
@@ -13,12 +22,6 @@ const dateFormatter = new Intl.DateTimeFormat('fr-FR', {
   year: '2-digit',
 })
 
-/**
- * Review queue — every bank-imported transaction lands here with
- * needs_review=true. The user eyeballs payee + category, optionally
- * recategorizes inline, then clicks ✓ to clear the flag. Mirrors the YNAB
- * "approve transactions" workflow.
- */
 export default async function ReviewPage() {
   const [pending, categoryList] = await Promise.all([
     listTransactions({ needsReviewOnly: true, limit: 500 }),
@@ -43,7 +46,12 @@ export default async function ReviewPage() {
             New imports waiting for approval. Confirm payee + category before they count.
           </p>
         </div>
-        {pending.length > 0 && <ApproveAllButton count={pending.length} />}
+        {pending.length > 0 && (
+          <ApproveAllButton
+            count={pending.length}
+            onApproveAllTransactions={approveAllTransactions}
+          />
+        )}
       </div>
 
       <Card>
@@ -74,6 +82,14 @@ export default async function ReviewPage() {
                 }
               })}
               categoryOptions={categoryList}
+              actions={{
+                onApproveTransaction: approveTransaction,
+                onSoftDeleteTransaction: softDeleteTransaction,
+                onUpdateTransactionCategory: updateTransactionCategory,
+                onBulkApproveTransactions: bulkApproveTransactions,
+                onBulkSoftDeleteTransactions: bulkSoftDeleteTransactions,
+                onBulkUpdateTransactionCategory: bulkUpdateTransactionCategory,
+              }}
             />
           )}
         </CardContent>

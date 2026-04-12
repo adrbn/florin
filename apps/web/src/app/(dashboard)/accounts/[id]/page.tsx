@@ -1,14 +1,14 @@
 import { asc, eq } from 'drizzle-orm'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { AccountCardActions } from '@/components/accounts/account-card-actions'
-import { LoanDetailsCard } from '@/components/accounts/loan-details-card'
-import { AddTransactionModal } from '@/components/transactions/add-transaction-modal'
-import { DeleteTransactionButton } from '@/components/transactions/delete-transaction-button'
-import { TransactionCategoryCell } from '@/components/transactions/transaction-category-cell'
-import { Badge } from '@/components/ui/badge'
-import { buttonVariants } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { AccountCardActions } from '@florin/core/components/accounts/account-card-actions'
+import { LoanDetailsCard } from '@florin/core/components/accounts/loan-details-card'
+import { AddTransactionModal } from '@florin/core/components/transactions/add-transaction-modal'
+import { DeleteTransactionButton } from '@florin/core/components/transactions/delete-transaction-button'
+import { TransactionCategoryCell } from '@florin/core/components/transactions/transaction-category-cell'
+import { Badge } from '@florin/core/components/ui/badge'
+import { buttonVariants } from '@florin/core/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@florin/core/components/ui/card'
 import {
   Table,
   TableBody,
@@ -16,16 +16,26 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
+} from '@florin/core/components/ui/table'
 import { db } from '@/db/client'
 import { categories, categoryGroups } from '@/db/schema'
-import { formatCurrency, formatCurrencySigned } from '@/lib/format/currency'
+import { formatCurrency, formatCurrencySigned } from '@florin/core/lib/format'
 import { computeLoanLiability } from '@/lib/loan/liability'
-import { getAccountById, listAccounts } from '@/server/actions/accounts'
-import { listCategoriesFlat } from '@/server/actions/categories'
+import {
+  getAccountById,
+  listAccounts,
+  deleteAccount,
+  mergeAccount,
+  setAccountArchived,
+  updateLoanSettings,
+} from '@/server/actions/accounts'
+import { listCategoriesFlat, setCategoryLoanLink } from '@/server/actions/categories'
 import {
   listLoanPaymentsForAccount,
   listTransactionsForAccount,
+  addTransaction,
+  softDeleteTransaction,
+  updateTransactionCategory,
 } from '@/server/actions/transactions'
 
 const dateFormatter = new Intl.DateTimeFormat('fr-FR', {
@@ -62,8 +72,6 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
     listCategoriesFlat(),
   ])
 
-  // Quick stats derived from the in-memory transaction list — cheap because
-  // we cap at 500 rows and the page is per-account.
   const inflow = transactionList
     .filter((t) => Number(t.amount) > 0)
     .reduce((acc, t) => acc + Number(t.amount), 0)
@@ -71,20 +79,10 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
     .filter((t) => Number(t.amount) < 0)
     .reduce((acc, t) => acc + Math.abs(Number(t.amount)), 0)
 
-  // Loan-specific derived numbers.
-  // `totalPaid` = sum of |amount| for every real payment (non-mirror rows
-  // living on an origin account like checking) that's categorized under a
-  // category linked to this loan. Manual adjustments living on the loan row
-  // itself are excluded — they're balance corrections, not payments.
   const loanOriginPayments = isLoan ? transactionList.filter((t) => t.accountId !== account.id) : []
   const loanTotalPaid = loanOriginPayments.reduce((acc, t) => acc + Math.abs(Number(t.amount)), 0)
   const loanPrincipal = Number(account.loanOriginalPrincipal ?? 0)
 
-  // `remainingDebt` = balance from the amortization schedule after
-  // `paymentsMade` mensualités. This matches what the bank reports (capital
-  // restant dû) and correctly accounts for interest accrual instead of the
-  // naive `principal − totalPaid` subtraction. Shared with the dashboard net
-  // worth KPI via `@/lib/loan/liability` so both views show the same number.
   const loanBreakdown = isLoan
     ? computeLoanLiability(account, loanOriginPayments.length, loanTotalPaid)
     : null
@@ -93,7 +91,6 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
   const loanInterestPaid = loanBreakdown?.interestPaid ?? 0
 
   const accountOptions = allAccounts.map((a) => ({ id: a.id, name: a.name }))
-  // Every *other* non-archived account — the merge picker needs them.
   const mergeTargets = allAccounts
     .filter((a) => a.id !== account.id)
     .map((a) => ({ id: a.id, name: a.name }))
@@ -129,6 +126,7 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
             categories={categoryList}
             defaultAccountId={account.id}
             triggerLabel="+ Add transaction"
+            onAddTransaction={addTransaction}
           />
           <Link
             href={`/accounts/${account.id}/edit`}
@@ -250,6 +248,8 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
           principalPaid={loanPrincipalPaid}
           interestPaid={loanInterestPaid}
           paymentsMade={loanOriginPayments.length}
+          onUpdateLoanSettings={updateLoanSettings}
+          onSetCategoryLoanLink={setCategoryLoanLink}
         />
       )}
 
@@ -310,6 +310,7 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
                           currentCategoryName={t.category?.name ?? null}
                           currentCategoryEmoji={t.category?.emoji ?? null}
                           options={categoryList}
+                          onUpdateTransactionCategory={updateTransactionCategory}
                         />
                       </TableCell>
                       <TableCell
@@ -323,6 +324,7 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
                         <DeleteTransactionButton
                           transactionId={t.id}
                           payee={t.payee || '(no payee)'}
+                          onSoftDeleteTransaction={softDeleteTransaction}
                         />
                       </TableCell>
                     </TableRow>
@@ -345,6 +347,9 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
             isArchived={account.isArchived}
             hasBankSync={account.syncProvider === 'enable_banking'}
             mergeTargets={mergeTargets}
+            onDeleteAccount={deleteAccount}
+            onMergeAccount={mergeAccount}
+            onSetAccountArchived={setAccountArchived}
           />
         </CardContent>
       </Card>

@@ -1,8 +1,8 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { AccountForm, type AccountFormInitial } from '@/components/accounts/account-form'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { getAccountById } from '@/server/actions/accounts'
+import { AccountForm, type AccountFormInitial } from '@florin/core/components/accounts/account-form'
+import { Card, CardContent, CardHeader, CardTitle } from '@florin/core/components/ui/card'
+import { getAccountById, createAccount, updateAccount } from '@/server/actions/accounts'
 
 interface AccountEditPageProps {
   params: Promise<{ id: string }>
@@ -37,7 +37,11 @@ export default async function AccountEditPage({ params }: AccountEditPageProps) 
           <CardTitle>Edit account</CardTitle>
         </CardHeader>
         <CardContent>
-          <AccountForm initial={initial} />
+          <AccountForm
+            initial={initial}
+            onCreateAccount={createAccount}
+            onUpdateAccount={updateAccount}
+          />
         </CardContent>
       </Card>
     </div>

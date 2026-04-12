@@ -1,12 +1,17 @@
 import Link from 'next/link'
-import { AccountsGroupedList } from '@/components/accounts/accounts-grouped-list'
-import { AddAccountCard } from '@/components/accounts/add-account-card'
-import { BankConnectionList } from '@/components/accounts/bank-connection-list'
-import { buttonVariants } from '@/components/ui/button'
-import { queries } from '@/db/client'
+import { AccountsGroupedList } from '@florin/core/components/accounts/accounts-grouped-list'
+import { AddAccountCard } from '@florin/core/components/accounts/add-account-card'
+import { BankConnectionList } from '@florin/core/components/accounts/bank-connection-list'
+import { buttonVariants } from '@florin/core/components/ui/button'
+import { queries, db } from '@/db/client'
 import { getLoanLiabilities } from '@florin/db-pg'
-import { db } from '@/db/client'
 import { isEnableBankingConfigured } from '@/server/banking/enable-banking'
+import { reorderAccounts, createAccount, updateAccount } from '@/server/actions/accounts'
+import {
+  syncBankConnection,
+  resetBankConnectionSync,
+  revokeBankConnection,
+} from '@/server/actions/banking'
 
 interface AccountsPageProps {
   searchParams: Promise<{
@@ -27,20 +32,20 @@ function BankLinkBanner({
   if (status === 'success') {
     return (
       <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-900 dark:text-emerald-100">
-        ✅ Bank linked. Initial sync complete — your accounts and transactions are now live below.
+        Bank linked. Initial sync complete — your accounts and transactions are now live below.
       </div>
     )
   }
   if (status === 'cancelled') {
     return (
       <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-100">
-        ⚠️ Bank linking cancelled{reason ? `: ${decodeURIComponent(reason)}` : '.'}
+        Bank linking cancelled{reason ? `: ${decodeURIComponent(reason)}` : '.'}
       </div>
     )
   }
   return (
     <div className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-      ❌ Bank linking failed{reason ? `: ${decodeURIComponent(reason)}` : '.'} You can retry from
+      Bank linking failed{reason ? `: ${decodeURIComponent(reason)}` : '.'} You can retry from
       the Connect bank button below.
     </div>
   )
@@ -52,12 +57,6 @@ export default async function AccountsPage({ searchParams }: AccountsPageProps) 
   const rawAccounts = await queries.listAccounts({ includeArchived: showArchived })
   const bankingEnabled = isEnableBankingConfigured()
 
-  // Replace loan currentBalance with the amortization-derived liability
-  // shown as a negative number, so the Loan bucket in the grouped list
-  // reflects the real "capital restant dû" instead of the running sum of
-  // payment mirrors (which was flipped positive and misled the user into
-  // thinking the loan was an asset). Non-loan accounts pass through
-  // unchanged.
   const liabilityMap = await getLoanLiabilities(db, rawAccounts)
   const accounts = rawAccounts.map((a) => {
     if (a.kind !== 'loan') return a
@@ -65,6 +64,9 @@ export default async function AccountsPage({ searchParams }: AccountsPageProps) 
     if (!liability) return a
     return { ...a, currentBalance: (-liability.remainingDebt).toFixed(2) }
   })
+
+  // Fetch bank connection rows for the list
+  const bankConnectionRows = await queries.listBankConnections()
 
   return (
     <div className="space-y-4">
@@ -94,15 +96,18 @@ export default async function AccountsPage({ searchParams }: AccountsPageProps) 
       {params.bank_link && <BankLinkBanner status={params.bank_link} reason={params.reason} />}
 
       <div className="space-y-3">
-        <AccountsGroupedList accounts={accounts} />
-        <AddAccountCard />
+        <AccountsGroupedList accounts={accounts} onReorderAccounts={reorderAccounts} />
+        <AddAccountCard onCreateAccount={createAccount} onUpdateAccount={updateAccount} />
       </div>
 
-      {/* Linked banks live below the accounts grid — the grid is the thing
-       *  the user actually scans every time, and bank-connection management
-       *  is a once-a-year task. Putting it up top was dominant visual weight
-       *  for a low-frequency control. */}
-      {bankingEnabled && <BankConnectionList />}
+      {bankingEnabled && (
+        <BankConnectionList
+          rows={bankConnectionRows}
+          onSyncBankConnection={syncBankConnection}
+          onResetBankConnectionSync={resetBankConnectionSync}
+          onRevokeBankConnection={revokeBankConnection}
+        />
+      )}
     </div>
   )
 }
