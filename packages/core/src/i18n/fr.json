@@ -1,0 +1,64 @@
+{
+  "app.name": "Florin",
+  "app.tagline": "Vos finances, votre machine.",
+
+  "nav.dashboard": "Tableau de bord",
+  "nav.transactions": "Transactions",
+  "nav.accounts": "Comptes",
+  "nav.categories": "Catégories",
+  "nav.review": "À vérifier",
+  "nav.reflect": "Bilan",
+  "nav.settings": "Paramètres",
+  "nav.tools": "Outils",
+
+  "kpi.netWorth": "Patrimoine net",
+  "kpi.burnRate": "Dépenses du mois",
+  "kpi.safetyGauge": "Matelas de sécurité",
+  "kpi.budgetRemaining": "Budget restant",
+
+  "dashboard.patrimony": "Patrimoine",
+  "dashboard.incomeVsSpending": "Revenus vs Dépenses",
+  "dashboard.topExpenses": "Dépenses principales",
+  "dashboard.byCategory": "Ce mois par catégorie",
+  "dashboard.syncAll": "Tout synchroniser",
+  "dashboard.lastSync": "Dernière sync",
+
+  "transactions.add": "Ajouter une transaction",
+  "transactions.filters": "Filtres",
+  "transactions.noResults": "Aucune transaction trouvée",
+
+  "accounts.addAccount": "Ajouter un compte",
+  "accounts.bankConnections": "Connexions bancaires",
+  "accounts.connectBank": "Connecter une banque",
+
+  "categories.income": "Revenus",
+  "categories.bills": "Factures",
+  "categories.needs": "Besoins",
+  "categories.wants": "Envies",
+  "categories.savings": "Épargne",
+
+  "review.approve": "Approuver",
+  "review.approveAll": "Tout approuver",
+
+  "onboarding.welcome.title": "Bienvenue sur Florin",
+  "onboarding.welcome.subtitle": "Vos finances, votre machine. Toutes les données restent sur cet ordinateur.",
+  "onboarding.locale.title": "Langue et devise",
+  "onboarding.locale.subtitle": "Choisissez votre langue et devise de référence.",
+  "onboarding.banking.title": "Sync bancaire (Optionnel)",
+  "onboarding.banking.subtitle": "Connectez votre banque via PSD2 pour synchroniser vos transactions.",
+  "onboarding.banking.skip": "Passer pour l'instant",
+  "onboarding.banking.setup": "Configurer Enable Banking",
+  "onboarding.categories.title": "Vos catégories",
+  "onboarding.categories.subtitle": "Vérifiez et personnalisez vos catégories de dépenses.",
+  "onboarding.account.title": "Premier compte",
+  "onboarding.account.subtitle": "Créez votre premier compte pour commencer.",
+  "onboarding.tutorial.title": "Visite guidée",
+  "onboarding.tutorial.subtitle": "Laissez-nous vous faire découvrir l'application.",
+
+  "tray.syncNow": "Synchroniser",
+  "tray.addTransaction": "Ajouter une transaction",
+  "tray.openDashboard": "Ouvrir le tableau de bord",
+  "tray.quit": "Quitter",
+  "tray.recent": "Récents",
+  "tray.updateAvailable": "Mise à jour disponible"
+}

@@ -9,7 +9,9 @@
     "./lib/format": "./src/lib/format/currency.ts",
     "./lib/categorization": "./src/lib/categorization/index.ts",
     "./lib/loan": "./src/lib/loan/liability.ts",
-    "./lib/utils": "./src/lib/utils.ts"
+    "./lib/utils": "./src/lib/utils.ts",
+    "./i18n": "./src/i18n/index.ts",
+    "./i18n/seed-categories": "./src/i18n/seed-categories.ts"
   },
   "dependencies": {
     "clsx": "^2.1.1",

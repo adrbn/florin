@@ -1,0 +1,64 @@
+{
+  "app.name": "Florin",
+  "app.tagline": "Your finances, your machine.",
+
+  "nav.dashboard": "Dashboard",
+  "nav.transactions": "Transactions",
+  "nav.accounts": "Accounts",
+  "nav.categories": "Categories",
+  "nav.review": "Review",
+  "nav.reflect": "Reflect",
+  "nav.settings": "Settings",
+  "nav.tools": "Tools",
+
+  "kpi.netWorth": "Net Worth",
+  "kpi.burnRate": "Burn Rate",
+  "kpi.safetyGauge": "Safety Gauge",
+  "kpi.budgetRemaining": "Budget Remaining",
+
+  "dashboard.patrimony": "Patrimony",
+  "dashboard.incomeVsSpending": "Income vs Spending",
+  "dashboard.topExpenses": "Top Expenses",
+  "dashboard.byCategory": "This Month by Category",
+  "dashboard.syncAll": "Sync All",
+  "dashboard.lastSync": "Last sync",
+
+  "transactions.add": "Add Transaction",
+  "transactions.filters": "Filters",
+  "transactions.noResults": "No transactions found",
+
+  "accounts.addAccount": "Add Account",
+  "accounts.bankConnections": "Bank Connections",
+  "accounts.connectBank": "Connect Bank",
+
+  "categories.income": "Income",
+  "categories.bills": "Bills",
+  "categories.needs": "Needs",
+  "categories.wants": "Wants",
+  "categories.savings": "Savings",
+
+  "review.approve": "Approve",
+  "review.approveAll": "Approve All",
+
+  "onboarding.welcome.title": "Welcome to Florin",
+  "onboarding.welcome.subtitle": "Your finances, your machine. All data stays on this computer.",
+  "onboarding.locale.title": "Language & Currency",
+  "onboarding.locale.subtitle": "Choose your language and base currency.",
+  "onboarding.banking.title": "Bank Sync (Optional)",
+  "onboarding.banking.subtitle": "Connect your bank via PSD2 for automatic transaction sync.",
+  "onboarding.banking.skip": "Skip for now",
+  "onboarding.banking.setup": "Set up Enable Banking",
+  "onboarding.categories.title": "Your Categories",
+  "onboarding.categories.subtitle": "Review and customize your spending categories.",
+  "onboarding.account.title": "First Account",
+  "onboarding.account.subtitle": "Create your first account to start tracking.",
+  "onboarding.tutorial.title": "Quick Tour",
+  "onboarding.tutorial.subtitle": "Let us show you around.",
+
+  "tray.syncNow": "Sync Now",
+  "tray.addTransaction": "Add Transaction",
+  "tray.openDashboard": "Open Dashboard",
+  "tray.quit": "Quit",
+  "tray.recent": "Recent",
+  "tray.updateAvailable": "Update available"
+}
