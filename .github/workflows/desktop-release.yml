@@ -20,7 +20,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Rebuild better-sqlite3 for current Node
-        run: cd node_modules/.pnpm/better-sqlite3@*/node_modules/better-sqlite3 && npx --yes node-gyp rebuild
+        run: cd node_modules/.pnpm/better-sqlite3@*/node_modules/better-sqlite3 && npx --yes node-gyp@11 rebuild --release
       - name: Build main process + Next.js
         run: cd apps/desktop && pnpm build
       - name: Build DMG
