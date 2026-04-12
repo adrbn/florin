@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@florin/core/component
 import { db } from '@/db/client'
 import { accounts, categories, transactions } from '@/db/schema'
 import { exportAllData } from '@/server/actions/export'
+import { isPinEnabled } from '@/server/actions/pin'
+import { PinSettings } from '@/components/pin-settings'
 
 interface Stat {
   label: string
@@ -20,10 +22,12 @@ export default async function SettingsPage() {
     accountCountRow,
     transactionCountRow,
     categoryCountRow,
+    pinEnabled,
   ] = await Promise.all([
     db.select({ value: count() }).from(accounts).where(eq(accounts.isArchived, false)),
     db.select({ value: count() }).from(transactions).where(isNull(transactions.deletedAt)),
     db.select({ value: count() }).from(categories).where(eq(categories.isArchived, false)),
+    isPinEnabled(),
   ])
 
   const stats: Stat[] = [
@@ -70,6 +74,15 @@ export default async function SettingsPage() {
               Tip: back up the <code className="font-mono">florin.db</code> file separately for
               full database snapshots.
             </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">PIN Lock</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <PinSettings pinEnabled={pinEnabled} />
           </CardContent>
         </Card>
 

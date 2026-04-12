@@ -1,6 +1,9 @@
+import { headers } from 'next/headers'
+import { redirect } from 'next/navigation'
 import { MobileTopBar } from '@florin/core/components/shell/mobile-topbar'
 import { Sidebar } from '@florin/core/components/shell/sidebar'
 import { countNeedsReview } from '@/server/actions/transactions'
+import { queries } from '@/db/client'
 
 // Every page under (dashboard) reads live database state, so none of them
 // should be statically prerendered at build time. Pin the whole group to
@@ -8,6 +11,21 @@ import { countNeedsReview } from '@/server/actions/transactions'
 export const dynamic = 'force-dynamic'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  // On first launch, when there are no accounts, send the user through the
+  // onboarding wizard. We skip the redirect when the user is already on
+  // /onboarding to avoid an infinite redirect loop (the layout wraps that page
+  // too since it lives in the same route group).
+  const headersList = await headers()
+  const pathname = headersList.get('x-pathname') ?? headersList.get('x-invoke-path') ?? ''
+  const isOnboarding = pathname.startsWith('/onboarding')
+
+  if (!isOnboarding) {
+    const accounts = await queries.listAccounts()
+    if (accounts.length === 0) {
+      redirect('/onboarding')
+    }
+  }
+
   // Compute the review badge once per render so both the sidebar and the
   // mobile top bar can show a live count without each child page having to
   // plumb it through manually.
