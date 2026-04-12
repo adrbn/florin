@@ -1,5 +1,6 @@
 import { app, BrowserWindow } from 'electron'
 import path from 'node:path'
+import { createSqliteClient, createSqliteQueries } from '@florin/db-sqlite'
 import { createWindow, getMainWindow } from './window'
 import { setupTray } from './tray'
 import { registerIpcHandlers } from './ipc'
@@ -11,7 +12,22 @@ declare module 'electron' {
   }
 }
 
+// Resolve the SQLite database path. In production Electron stores user data at
+// ~/Library/Application Support/Florin (macOS). During development we fall back
+// to the working directory.
+const DB_PATH = path.join(app.getPath('userData'), 'florin.db')
+
+// Set the env var so the Next.js server-side db client (src/db/client.ts) uses
+// the same database file as the Electron main process.
+process.env.FLORIN_DB_PATH = DB_PATH
+
 app.whenReady().then(async () => {
+  // Initialize SQLite database — createSqliteClient enables WAL mode and
+  // foreign keys automatically. The schema tables are created lazily by
+  // drizzle-kit push (dev) or pre-built migrations (production).
+  const db = createSqliteClient(DB_PATH)
+  const queries = createSqliteQueries(db)
+
   // Start Next.js custom server
   const port = await startNextServer()
 
@@ -21,9 +37,8 @@ app.whenReady().then(async () => {
   // Set up menu bar tray widget
   setupTray(port)
 
-  // TODO (Task 10): wire real queries from @florin/db-sqlite once the DB
-  // adapter is available. For now IPC handlers are not registered here.
-  // registerIpcHandlers(queries)
+  // Register IPC handlers for tray widget data fetching
+  registerIpcHandlers(queries)
 })
 
 app.on('window-all-closed', () => {
