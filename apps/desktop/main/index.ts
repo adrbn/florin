@@ -5,6 +5,7 @@ import { createWindow, getMainWindow } from './window'
 import { setupTray } from './tray'
 import { registerIpcHandlers } from './ipc'
 import { startSyncScheduler, stopSyncScheduler } from './scheduler'
+import { initAutoUpdater } from './updater'
 
 // Extend app to track quitting state
 declare module 'electron' {
@@ -34,6 +35,9 @@ app.whenReady().then(async () => {
 
   // Create main window
   createWindow(port)
+
+  // Initialize auto-updater (checks GitHub Releases)
+  initAutoUpdater()
 
   // Set up menu bar tray widget
   setupTray(port)
