@@ -4,6 +4,9 @@ import { NetWorthChart } from '@florin/core/components/reflect/net-worth-chart'
 import { Card, CardContent, CardHeader, CardTitle } from '@florin/core/components/ui/card'
 import { formatCurrency } from '@florin/core/lib/format'
 import { queries } from '@/db/client'
+import { detectRecurringTransactions } from '@/server/actions/recurring'
+import { RecurringList } from '@/components/recurring-list'
+import { PdfExportButton } from '@/components/pdf-export-button'
 
 // Reflect reads from the database on every render — never prerender it at
 // build time, otherwise the user would see frozen numbers from the moment
@@ -18,12 +21,13 @@ export const dynamic = 'force-dynamic'
  * On mobile we fall back to a natural vertical scroll.
  */
 export default async function ReflectPage() {
-  const [flows, categoryShare, ageOfMoney, netWorthSeries, netWorth] = await Promise.all([
+  const [flows, categoryShare, ageOfMoney, netWorthSeries, netWorth, recurring] = await Promise.all([
     queries.getMonthlyFlows(12),
     queries.getCategoryBreakdown(90),
     queries.getAgeOfMoney(90),
     queries.getNetWorthSeries(24),
     queries.getNetWorth(),
+    detectRecurringTransactions(),
   ])
 
   const last12 = flows.reduce(
@@ -38,11 +42,14 @@ export default async function ReflectPage() {
 
   return (
     <div className="flex min-h-0 flex-col gap-3 lg:h-full">
-      <header className="min-w-0">
-        <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Reflect</h1>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          Long-window analytics — how your money has actually moved.
-        </p>
+      <header className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Reflect</h1>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Long-window analytics — how your money has actually moved.
+          </p>
+        </div>
+        <PdfExportButton />
       </header>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -118,6 +125,18 @@ export default async function ReflectPage() {
           <CategoryBreakdownChart data={categoryShare} windowLabel="last 90 days" />
         </div>
       </div>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Recurring Expenses</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Auto-detected repeating payments based on payee frequency patterns.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <RecurringList patterns={recurring} />
+        </CardContent>
+      </Card>
     </div>
   )
 }

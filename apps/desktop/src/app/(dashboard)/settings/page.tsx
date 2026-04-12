@@ -2,10 +2,12 @@ import { count, eq, isNull } from 'drizzle-orm'
 import { ExportButton } from '@florin/core/components/settings/export-button'
 import { Card, CardContent, CardHeader, CardTitle } from '@florin/core/components/ui/card'
 import { db } from '@/db/client'
-import { accounts, categories, transactions } from '@/db/schema'
+import { accounts, categories, settings, transactions } from '@/db/schema'
 import { exportAllData } from '@/server/actions/export'
 import { isPinEnabled } from '@/server/actions/pin'
 import { PinSettings } from '@/components/pin-settings'
+import { BankingSettings } from '@/components/banking-settings'
+import { LocaleSettings } from '@/components/locale-settings'
 
 interface Stat {
   label: string
@@ -23,12 +25,23 @@ export default async function SettingsPage() {
     transactionCountRow,
     categoryCountRow,
     pinEnabled,
+    ebAppIdRow,
+    localeRow,
+    currencyRow,
   ] = await Promise.all([
     db.select({ value: count() }).from(accounts).where(eq(accounts.isArchived, false)),
     db.select({ value: count() }).from(transactions).where(isNull(transactions.deletedAt)),
     db.select({ value: count() }).from(categories).where(eq(categories.isArchived, false)),
     isPinEnabled(),
+    db.select().from(settings).where(eq(settings.key, 'eb_app_id')).get(),
+    db.select().from(settings).where(eq(settings.key, 'user_locale')).get(),
+    db.select().from(settings).where(eq(settings.key, 'user_currency')).get(),
   ])
+
+  const bankingConfigured = Boolean(ebAppIdRow?.value)
+  const bankingAppId = ebAppIdRow?.value ?? null
+  const currentLocale = localeRow?.value ?? 'en'
+  const currentCurrency = currencyRow?.value ?? 'EUR'
 
   const stats: Stat[] = [
     { label: 'Accounts (active)', value: String(accountCountRow[0]?.value ?? 0) },
@@ -50,13 +63,21 @@ export default async function SettingsPage() {
           <CardHeader>
             <CardTitle className="text-base">Profile</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm">
+          <CardContent className="space-y-4 text-sm">
             <Row label="Mode" value="Desktop (SQLite)" />
-            <Row label="Locale" value="fr-FR" />
-            <Row label="Base currency" value="EUR" />
-            <p className="pt-2 text-[11px] text-muted-foreground">
+            <LocaleSettings currentLocale={currentLocale} currentCurrency={currentCurrency} />
+            <p className="pt-1 text-[11px] text-muted-foreground">
               Florin Desktop stores all data locally in a SQLite database. No server, no cloud.
             </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Bank Sync</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <BankingSettings configured={bankingConfigured} currentAppId={bankingAppId} />
           </CardContent>
         </Card>
 
@@ -71,7 +92,7 @@ export default async function SettingsPage() {
             </p>
             <ExportButton onExportAllData={exportAllData} />
             <p className="text-[11px] text-muted-foreground">
-              Tip: back up the <code className="font-mono">florin.db</code> file separately for
+              Tip: back up the <code className="tabular-nums">florin.db</code> file separately for
               full database snapshots.
             </p>
           </CardContent>
@@ -105,7 +126,7 @@ export default async function SettingsPage() {
             <p>
               <strong className="text-foreground">Database:</strong> SQLite with WAL mode. Your data
               lives in{' '}
-              <code className="font-mono">
+              <code className="tabular-nums">
                 {process.env.FLORIN_DB_PATH || '~/Library/Application Support/Florin/florin.db'}
               </code>
             </p>
@@ -124,7 +145,7 @@ function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline justify-between gap-3 border-b border-border/40 pb-1.5 last:border-0">
       <span className="text-xs uppercase tracking-wide text-muted-foreground">{label}</span>
-      <span className="truncate font-mono text-foreground">{value}</span>
+      <span className="truncate tabular-nums text-foreground">{value}</span>
     </div>
   )
 }

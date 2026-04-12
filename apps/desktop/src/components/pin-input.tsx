@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 
 interface PinInputProps {
   onSubmit: (pin: string) => Promise<boolean>
@@ -11,56 +11,68 @@ export function PinInput({ onSubmit, length = 4 }: PinInputProps) {
   const [digits, setDigits] = useState<string[]>(Array(length).fill(''))
   const [error, setError] = useState(false)
   const [pending, setPending] = useState(false)
-  const inputsRef = useRef<(HTMLInputElement | null)[]>([])
+  const inputRef = useRef<HTMLInputElement | null>(null)
 
-  // Focus the first empty slot on mount
   useEffect(() => {
-    inputsRef.current[0]?.focus()
+    inputRef.current?.focus()
   }, [])
 
-  function handleChange(index: number, value: string) {
-    const digit = value.replace(/\D/g, '').slice(-1)
-    const next = [...digits]
-    next[index] = digit
-    setDigits(next)
-    setError(false)
-
-    if (digit && index < length - 1) {
-      inputsRef.current[index + 1]?.focus()
-    }
-
-    // Auto-submit when all digits filled
-    const filled = next.every((d) => d !== '')
-    if (filled) {
-      void submit(next.join(''))
-    }
-  }
-
-  function handleKeyDown(index: number, e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Backspace' && !digits[index] && index > 0) {
-      inputsRef.current[index - 1]?.focus()
-    }
-  }
-
-  async function submit(pin: string) {
-    setPending(true)
-    try {
-      const ok = await onSubmit(pin)
-      if (!ok) {
-        setError(true)
-        setDigits(Array(length).fill(''))
-        setTimeout(() => {
-          inputsRef.current[0]?.focus()
-        }, 50)
+  const submit = useCallback(
+    async (pin: string) => {
+      setPending(true)
+      try {
+        const ok = await onSubmit(pin)
+        if (!ok) {
+          setError(true)
+          setDigits(Array(length).fill(''))
+          setTimeout(() => inputRef.current?.focus(), 50)
+        }
+      } finally {
+        setPending(false)
       }
-    } finally {
-      setPending(false)
+    },
+    [onSubmit, length],
+  )
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    // Accept digits from both main row and numpad
+    const digit = e.key.length === 1 && /^[0-9]$/.test(e.key) ? e.key : null
+
+    if (digit) {
+      e.preventDefault()
+      setError(false)
+      const next = [...digits]
+      const idx = next.findIndex((d) => d === '')
+      if (idx === -1) return
+      next[idx] = digit
+      setDigits(next)
+      if (next.every((d) => d !== '')) {
+        void submit(next.join(''))
+      }
+      return
+    }
+
+    if (e.key === 'Backspace') {
+      e.preventDefault()
+      setError(false)
+      const next = [...digits]
+      // Find last filled digit
+      let idx = next.length - 1
+      while (idx >= 0 && next[idx] === '') idx--
+      if (idx >= 0) {
+        next[idx] = ''
+        setDigits(next)
+      }
     }
   }
 
   return (
     <div className="flex flex-col items-center gap-6">
-      <div className="flex gap-3">
+      {/* Single real input overlaid on dots — captures all keyboard events including numpad */}
+      <div
+        className="relative flex cursor-text gap-3"
+        onClick={() => inputRef.current?.focus()}
+      >
         {digits.map((digit, i) => (
           <div
             key={i}
@@ -76,27 +88,18 @@ export function PinInput({ onSubmit, length = 4 }: PinInputProps) {
             {digit ? '●' : ''}
           </div>
         ))}
-      </div>
-
-      {/* Hidden inputs for focus management and keyboard input */}
-      <div className="sr-only flex gap-2">
-        {digits.map((digit, i) => (
-          <input
-            key={i}
-            ref={(el) => {
-              inputsRef.current[i] = el
-            }}
-            type="text"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            maxLength={1}
-            value={digit}
-            disabled={pending}
-            aria-label={`PIN digit ${i + 1}`}
-            onChange={(e) => handleChange(i, e.target.value)}
-            onKeyDown={(e) => handleKeyDown(i, e)}
-          />
-        ))}
+        <input
+          ref={inputRef}
+          type="text"
+          inputMode="numeric"
+          autoComplete="off"
+          disabled={pending}
+          aria-label="PIN code"
+          className="absolute inset-0 cursor-text opacity-0"
+          value={digits.join('')}
+          onChange={() => {}}
+          onKeyDown={handleKeyDown}
+        />
       </div>
 
       {error && (

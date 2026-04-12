@@ -37,6 +37,7 @@ import {
   softDeleteTransaction,
   updateTransactionCategory,
 } from '@/server/actions/transactions'
+import { ImportTransactions } from '@/components/import-transactions'
 
 const dateFormatter = new Intl.DateTimeFormat('fr-FR', {
   day: '2-digit',
@@ -253,6 +254,17 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
         />
       )}
 
+      {!isLoan && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Import Transactions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ImportTransactions accountId={account.id} accountName={account.name} />
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">
@@ -289,7 +301,7 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
                   const isNegative = amount < 0
                   return (
                     <TableRow key={t.id}>
-                      <TableCell className="font-mono text-xs text-muted-foreground">
+                      <TableCell className="tabular-nums text-xs text-muted-foreground">
                         {dateFormatter.format(t.occurredAt)}
                       </TableCell>
                       <TableCell className="font-medium">
@@ -314,7 +326,7 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
                         />
                       </TableCell>
                       <TableCell
-                        className={`text-right font-mono tabular-nums ${
+                        className={`text-right tabular-nums ${
                           isNegative ? 'text-destructive' : 'text-emerald-600'
                         }`}
                       >

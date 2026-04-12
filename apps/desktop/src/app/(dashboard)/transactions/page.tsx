@@ -202,7 +202,7 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
             {filteredTotal !== null && (
               <>
                 · current page totals{' '}
-                <span className="font-mono font-medium text-foreground tabular-nums">
+                <span className="font-medium text-foreground tabular-nums">
                   {formatCurrencySigned(filteredTotal)}
                 </span>
               </>
