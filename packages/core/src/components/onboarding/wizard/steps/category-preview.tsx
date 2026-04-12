@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { getSeedCategories } from '../../../../i18n/seed-categories.js'
-import type { SeedCategoryGroup, SeedCategory } from '../../../../i18n/seed-categories.js'
+import { getSeedCategories } from '../../../../i18n/seed-categories'
+import type { SeedCategoryGroup, SeedCategory } from '../../../../i18n/seed-categories'
 
 interface CategoryPreviewStepProps {
   locale: string

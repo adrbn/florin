@@ -18,6 +18,7 @@
     "./i18n/seed-categories": "./src/i18n/seed-categories.ts",
     "./i18n/context": "./src/i18n/context.tsx",
     "./components/onboarding/wizard": "./src/components/onboarding/wizard/index.ts",
+    "./components/shell/nav-links": "./src/components/shell/nav-links.ts",
     "./components/*": "./src/components/*.tsx"
   },
   "typesVersions": {

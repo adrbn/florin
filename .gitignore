@@ -38,6 +38,16 @@ apps/web/drizzle/meta/_journal.json.bak
 data/
 backups/
 
+# Desktop (Electron) build artifacts & local DB
+apps/desktop/dist-main/
+apps/desktop/main.cjs
+apps/desktop/*.db
+apps/desktop/*.db-shm
+apps/desktop/*.db-wal
+
+# Superpowers brainstorm state
+.superpowers/
+
 # Secrets — private keys, certs, API credentials (must never leave the machine)
 secrets/
 apps/*/secrets/

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { queries } from '@/db/client'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * Generate a monthly summary as a printable HTML page.
  * The client opens this URL and uses window.print() to save as PDF.

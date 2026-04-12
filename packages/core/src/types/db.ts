@@ -5,7 +5,7 @@ import type {
   CategoryGroupWithCategories,
   CategorizationRule,
   TransactionWithRelations,
-} from './models.js'
+} from './models'
 
 // ============ Query result types ============
 

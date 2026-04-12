@@ -1,10 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import type { CreateAccountInput, ActionResult } from '../../../../types/index.js'
+import type { CreateAccountInput, ActionResult } from '../../../../types/index'
 
 interface FirstAccountStepProps {
-  onCreateAccount: (input: CreateAccountInput) => Promise<ActionResult>
+  onCreateAccount: (input: CreateAccountInput) => Promise<ActionResult<unknown>>
 }
 
 const ACCOUNT_TYPES = [

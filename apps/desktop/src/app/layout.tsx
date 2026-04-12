@@ -3,6 +3,8 @@ import './globals.css'
 import { ThemeProvider } from '@florin/core/components/theme/theme-provider'
 import { I18nProvider } from '@florin/core/i18n/context'
 
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: 'Florin',
   description: 'Your finances, your machine.',
