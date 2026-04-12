@@ -13,6 +13,7 @@
     "./lib/chart/palette": "./src/lib/chart/palette.ts",
     "./lib/calculators/compound": "./src/lib/calculators/compound.ts",
     "./lib/calculators/loan": "./src/lib/calculators/loan.ts",
+    "./banking": "./src/banking/index.ts",
     "./i18n": "./src/i18n/index.ts",
     "./i18n/seed-categories": "./src/i18n/seed-categories.ts",
     "./components/*": "./src/components/*.tsx"
