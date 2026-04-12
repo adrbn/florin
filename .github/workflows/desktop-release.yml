@@ -19,6 +19,8 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Rebuild native modules for current Node
+        run: pnpm rebuild better-sqlite3
       - name: Build main process + Next.js
         run: cd apps/desktop && pnpm build
       - name: Build DMG
