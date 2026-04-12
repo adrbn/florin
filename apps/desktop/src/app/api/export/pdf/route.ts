@@ -1,0 +1,140 @@
+import { NextResponse } from 'next/server'
+import { queries } from '@/db/client'
+
+/**
+ * Generate a monthly summary as a printable HTML page.
+ * The client opens this URL and uses window.print() to save as PDF.
+ * This avoids needing a heavy PDF library dependency.
+ */
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url)
+  const month = searchParams.get('month') // YYYY-MM format
+  const now = new Date()
+  const year = month ? parseInt(month.split('-')[0]!, 10) : now.getFullYear()
+  const mon = month ? parseInt(month.split('-')[1]!, 10) : now.getMonth() + 1
+
+  const startDate = new Date(year, mon - 1, 1)
+  const endDate = new Date(year, mon, 0, 23, 59, 59, 999)
+
+  const monthLabel = startDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+
+  const [netWorth, flows, categoryBreakdown, topExpenses] = await Promise.all([
+    queries.getNetWorth(),
+    queries.getMonthlyFlows(1),
+    queries.getCategoryBreakdown(30),
+    queries.getTopExpenses(20, 31),
+  ])
+
+  const income = flows[0]?.income ?? 0
+  const expense = flows[0]?.expense ?? 0
+  const net = income - expense
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Florin — ${monthLabel}</title>
+  <style>
+    @media print { @page { margin: 1.5cm; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif; color: #1a1a2e; font-size: 12px; line-height: 1.5; padding: 2rem; max-width: 800px; margin: 0 auto; }
+    h1 { font-size: 24px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 4px; }
+    h2 { font-size: 14px; font-weight: 600; margin: 20px 0 8px; padding-bottom: 4px; border-bottom: 1px solid #e2e8f0; }
+    .subtitle { color: #64748b; font-size: 13px; margin-bottom: 20px; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+    .kpi { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; }
+    .kpi-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; }
+    .kpi-value { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 4px; }
+    .positive { color: #059669; }
+    .negative { color: #dc2626; }
+    table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+    th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; padding: 6px 8px; border-bottom: 2px solid #e2e8f0; }
+    td { padding: 6px 8px; border-bottom: 1px solid #f1f5f9; font-size: 12px; }
+    td.amount { text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; }
+    .footer { margin-top: 30px; padding-top: 10px; border-top: 1px solid #e2e8f0; color: #94a3b8; font-size: 10px; text-align: center; }
+    .print-btn { position: fixed; bottom: 20px; right: 20px; background: #6366f1; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-size: 14px; cursor: pointer; box-shadow: 0 4px 12px rgba(99,102,241,.3); }
+    .print-btn:hover { background: #4f46e5; }
+    @media print { .print-btn { display: none; } }
+  </style>
+</head>
+<body>
+  <h1>Monthly Summary</h1>
+  <p class="subtitle">${monthLabel} — Florin Finance Report</p>
+
+  <div class="kpi-grid">
+    <div class="kpi">
+      <div class="kpi-label">Net Worth</div>
+      <div class="kpi-value">${fmt(netWorth.net)}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Income</div>
+      <div class="kpi-value positive">${fmt(income)}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Expenses</div>
+      <div class="kpi-value negative">${fmt(expense)}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Net</div>
+      <div class="kpi-value ${net >= 0 ? 'positive' : 'negative'}">${fmt(net)}</div>
+    </div>
+  </div>
+
+  <h2>Spending by Category</h2>
+  <table>
+    <thead><tr><th>Category</th><th>Group</th><th style="text-align:right">Amount</th></tr></thead>
+    <tbody>
+      ${categoryBreakdown
+        .map(
+          (c) => `<tr>
+        <td>${c.emoji ? c.emoji + ' ' : ''}${esc(c.categoryName)}</td>
+        <td>${esc(c.groupName)}</td>
+        <td class="amount negative">${fmt(c.total)}</td>
+      </tr>`,
+        )
+        .join('')}
+    </tbody>
+  </table>
+
+  <h2>Top Expenses</h2>
+  <table>
+    <thead><tr><th>Date</th><th>Payee</th><th>Category</th><th style="text-align:right">Amount</th></tr></thead>
+    <tbody>
+      ${topExpenses
+        .map(
+          (t) => `<tr>
+        <td>${new Date(t.date).toLocaleDateString('fr-FR')}</td>
+        <td>${esc(t.payee)}</td>
+        <td>${esc(t.categoryName ?? '—')}</td>
+        <td class="amount negative">${fmt(t.amount)}</td>
+      </tr>`,
+        )
+        .join('')}
+    </tbody>
+  </table>
+
+  <div class="footer">
+    Generated by Florin on ${new Date().toLocaleDateString('fr-FR')} — florin.app
+  </div>
+
+  <button class="print-btn" onclick="window.print()">Save as PDF</button>
+</body>
+</html>`
+
+  return new NextResponse(html, {
+    headers: { 'Content-Type': 'text/html; charset=utf-8' },
+  })
+}
+
+function fmt(amount: number): string {
+  return new Intl.NumberFormat('fr-FR', {
+    style: 'currency',
+    currency: 'EUR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount)
+}
+
+function esc(str: string): string {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}

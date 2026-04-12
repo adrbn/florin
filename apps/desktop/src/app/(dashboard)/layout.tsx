@@ -1,7 +1,7 @@
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { MobileTopBar } from '@florin/core/components/shell/mobile-topbar'
-import { Sidebar } from '@florin/core/components/shell/sidebar'
+import { DesktopSidebar } from '@/components/desktop-sidebar'
+import { KeyboardShortcuts } from '@/components/keyboard-shortcuts'
 import { countNeedsReview } from '@/server/actions/transactions'
 import { queries } from '@/db/client'
 
@@ -39,11 +39,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // visible viewport.
   return (
     <div className="flex h-dvh w-full flex-col overflow-hidden md:flex-row">
-      <Sidebar badges={badges} />
-      <MobileTopBar badges={badges} />
+      <DesktopSidebar badges={badges} />
       <main className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 lg:p-8">
         {children}
       </main>
+      <KeyboardShortcuts />
     </div>
   )
 }
