@@ -5,6 +5,9 @@ on:
     tags:
       - 'desktop-v*'
 
+permissions:
+  contents: write
+
 jobs:
   build-mac:
     runs-on: macos-latest
@@ -16,9 +19,10 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm turbo build --filter=@florin/desktop
+      - name: Build main process + Next.js
+        run: cd apps/desktop && pnpm build
       - name: Build DMG
-        run: cd apps/desktop && pnpm electron-builder --mac
+        run: cd apps/desktop && pnpm exec electron-builder --mac
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload to Release
