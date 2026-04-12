@@ -9,6 +9,9 @@
     "lint": "turbo lint",
     "test": "turbo test"
   },
+  "pnpm": {
+    "onlyBuiltDependencies": ["better-sqlite3"]
+  },
   "devDependencies": {
     "turbo": "^2.5.5"
   }
