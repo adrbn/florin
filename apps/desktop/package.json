@@ -25,6 +25,9 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.2",
     "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^25.6.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
     "electron": "^35.0.0",
     "electron-builder": "^25.0.0",
     "esbuild": "^0.28.0",
