@@ -30,14 +30,19 @@ export function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // Forward the pathname as a request header so server layouts and server
+  // components can read it without relying on unstable Next.js internals.
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set('x-pathname', pathname)
+
   const pinEnabled = request.cookies.get(PIN_ENABLED_COOKIE)?.value === '1'
   if (!pinEnabled) {
-    return NextResponse.next()
+    return NextResponse.next({ request: { headers: requestHeaders } })
   }
 
   const authed = request.cookies.get(PIN_COOKIE)?.value === '1'
   if (authed) {
-    return NextResponse.next()
+    return NextResponse.next({ request: { headers: requestHeaders } })
   }
 
   const loginUrl = request.nextUrl.clone()
