@@ -1,12 +1,11 @@
 import { CategoriesEditor } from '@/components/categories/categories-editor'
 import { CategorySpendList } from '@/components/categories/category-spend-list'
-import { listCategoriesByGroup } from '@/server/actions/categories'
-import { getMonthByCategory } from '@/server/queries/dashboard'
+import { queries } from '@/db/client'
 
 export default async function CategoriesPage() {
   const [groups, monthBreakdown] = await Promise.all([
-    listCategoriesByGroup(),
-    getMonthByCategory(),
+    queries.listCategoriesByGroup(),
+    queries.getMonthByCategory(),
   ])
 
   // Map drizzle's `with` rows into the simpler shape the client editor expects.

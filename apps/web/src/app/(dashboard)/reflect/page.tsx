@@ -3,13 +3,7 @@ import { IncomeVsSpendingChart } from '@/components/reflect/income-vs-spending-c
 import { NetWorthChart } from '@/components/reflect/net-worth-chart'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatCurrency } from '@/lib/format/currency'
-import { getNetWorth } from '@/server/queries/dashboard'
-import {
-  getAgeOfMoney,
-  getCategoryBreakdown,
-  getMonthlyFlows,
-  getNetWorthSeries,
-} from '@/server/queries/reflect'
+import { queries } from '@/db/client'
 
 // Reflect reads from the database on every render — never prerender it at
 // build time, otherwise the user would see frozen numbers from the moment
@@ -25,11 +19,11 @@ export const dynamic = 'force-dynamic'
  */
 export default async function ReflectPage() {
   const [flows, categoryShare, ageOfMoney, netWorthSeries, netWorth] = await Promise.all([
-    getMonthlyFlows(12),
-    getCategoryBreakdown(90),
-    getAgeOfMoney(90),
-    getNetWorthSeries(24),
-    getNetWorth(),
+    queries.getMonthlyFlows(12),
+    queries.getCategoryBreakdown(90),
+    queries.getAgeOfMoney(90),
+    queries.getNetWorthSeries(24),
+    queries.getNetWorth(),
   ])
 
   const last12 = flows.reduce(

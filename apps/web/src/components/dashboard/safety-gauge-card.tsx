@@ -1,5 +1,5 @@
 import { Shield } from 'lucide-react'
-import { getAvgMonthlyBurn, getNetWorth } from '@/server/queries/dashboard'
+import { queries } from '@/db/client'
 import { KpiCard, type KpiTone } from './kpi-card'
 
 function tone(months: number): KpiTone {
@@ -24,7 +24,7 @@ function format(months: number): string {
 }
 
 export async function SafetyGaugeCard() {
-  const [{ net }, avgBurn] = await Promise.all([getNetWorth(), getAvgMonthlyBurn(6)])
+  const [{ net }, avgBurn] = await Promise.all([queries.getNetWorth(), queries.getAvgMonthlyBurn(6)])
   const months = avgBurn > 0 ? net / avgBurn : 0
   return (
     <KpiCard

@@ -9,12 +9,7 @@ import { SafetyGaugeCard } from '@/components/dashboard/safety-gauge-card'
 import { SyncAllButton } from '@/components/dashboard/sync-all-button'
 import { TopExpensesCard } from '@/components/dashboard/top-expenses-card'
 import { OnboardingBanner } from '@/components/onboarding/onboarding-banner'
-import {
-  countUncategorizedExpensesThisMonth,
-  getMonthByCategory,
-  getPatrimonyTimeSeries,
-} from '@/server/queries/dashboard'
-import { getMonthlyFlows } from '@/server/queries/reflect'
+import { queries } from '@/db/client'
 
 function CardSkeleton({ className }: { className?: string }) {
   // Match the real Card primitive (rounded-xl, ring-foreground/10) so the
@@ -29,19 +24,19 @@ function CardSkeleton({ className }: { className?: string }) {
 }
 
 async function PatrimonyChartServer() {
-  const data = await getPatrimonyTimeSeries(12)
+  const data = await queries.getPatrimonyTimeSeries(12)
   return <PatrimonyChart data={data} />
 }
 
 async function IncomeVsSpendingServer() {
-  const data = await getMonthlyFlows(12)
+  const data = await queries.getMonthlyFlows(12)
   return <IncomeVsSpendingCard data={data} />
 }
 
 async function CategoryPieServer() {
   const [data, uncategorizedCount] = await Promise.all([
-    getMonthByCategory(),
-    countUncategorizedExpensesThisMonth(),
+    queries.getMonthByCategory(),
+    queries.countUncategorizedExpensesThisMonth(),
   ])
   return <CategoryPie data={data} uncategorizedCount={uncategorizedCount} />
 }

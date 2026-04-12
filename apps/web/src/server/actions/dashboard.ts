@@ -1,6 +1,7 @@
 'use server'
 
-import { getTopExpenses, type TopExpense } from '@/server/queries/dashboard'
+import { queries } from '@/db/client'
+import type { TopExpense } from '@florin/core/types'
 
 /**
  * Server action wrapper around getTopExpenses for the client-side filter UI
@@ -16,5 +17,5 @@ export async function fetchTopExpenses(
   // Light input clamping — UI is internal but cheap defense in depth.
   const safeDays = Math.max(1, Math.min(365, Math.floor(days)))
   const safeN = Math.max(1, Math.min(50, Math.floor(n)))
-  return getTopExpenses(safeN, safeDays, categoryId)
+  return queries.getTopExpenses(safeN, safeDays, categoryId)
 }

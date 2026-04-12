@@ -1,27 +1,15 @@
 import { and, asc, eq, gte, isNull, sql } from 'drizzle-orm'
-import { db } from '@/db/client'
-import { accounts, categories, categoryGroups, transactions } from '@/db/schema'
+import type { PgDB } from '../client'
+import { accounts, categories, categoryGroups, transactions } from '../schema'
 import { getNetWorth } from './dashboard'
 
-/**
- * Reflect tab queries — analytics summarizing the user's spending and income
- * habits over time. All queries respect the standard filters: not deleted,
- * not transfer pair, not on an archived account.
- */
+import type {
+  MonthlyFlow,
+  CategoryShare,
+  NetWorthPoint,
+} from '@florin/core/types'
 
-export interface MonthlyFlow {
-  month: string // YYYY-MM
-  income: number
-  expense: number
-  net: number
-}
-
-/**
- * Per-month income vs expense aggregation. Used by the income-vs-spending
- * bar chart on the Reflect tab. Always returns `months` rows, padding empty
- * months with zeros so the chart x-axis is continuous.
- */
-export async function getMonthlyFlows(months = 12): Promise<MonthlyFlow[]> {
+export async function getMonthlyFlows(db: PgDB, months = 12): Promise<MonthlyFlow[]> {
   const start = startOfMonth(addMonths(new Date(), -(months - 1)))
   const rows = await db
     .select({
@@ -42,8 +30,6 @@ export async function getMonthlyFlows(months = 12): Promise<MonthlyFlow[]> {
     .groupBy(sql`to_char(${transactions.occurredAt}, 'YYYY-MM')`)
     .orderBy(sql`to_char(${transactions.occurredAt}, 'YYYY-MM')`)
 
-  // Build a complete month list and merge in actual data so the chart never
-  // has gaps where the user happens to have zero activity.
   const byMonth = new Map<string, MonthlyFlow>()
   for (const r of rows) {
     const income = Number(r.income)
@@ -59,18 +45,7 @@ export async function getMonthlyFlows(months = 12): Promise<MonthlyFlow[]> {
   return out
 }
 
-export interface CategoryShare {
-  groupName: string
-  categoryName: string
-  emoji: string | null
-  total: number
-}
-
-/**
- * Spending by category over a configurable window. Defaults to the trailing
- * 90 days because the user usually wants "recently" not "this calendar month".
- */
-export async function getCategoryBreakdown(days = 90): Promise<CategoryShare[]> {
+export async function getCategoryBreakdown(db: PgDB, days = 90): Promise<CategoryShare[]> {
   const start = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
   const rows = await db
     .select({
@@ -106,16 +81,7 @@ export async function getCategoryBreakdown(days = 90): Promise<CategoryShare[]> 
     .filter((r) => r.total > 0)
 }
 
-/**
- * Age of money — YNAB's signature metric. Approximation:
- *   For each spend over the last N days, look back to find dollar-for-dollar
- *   incoming income that "funded" it (FIFO), then average the days between
- *   the deposit and the spend.
- *
- * We do the FIFO walk in JS because the cohort sizes are small (90 days
- * worth of activity) and the SQL window for this is gnarly.
- */
-export async function getAgeOfMoney(days = 90): Promise<number | null> {
+export async function getAgeOfMoney(db: PgDB, days = 90): Promise<number | null> {
   const start = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
   const rows = await db
     .select({
@@ -134,7 +100,6 @@ export async function getAgeOfMoney(days = 90): Promise<number | null> {
     )
     .orderBy(asc(transactions.occurredAt))
 
-  // Inflow queue: each item is { date, remaining } sorted oldest first.
   const inflows: { date: Date; remaining: number }[] = []
   const matches: { spendDate: Date; inflowDate: Date; amount: number }[] = []
   for (const row of rows) {
@@ -164,33 +129,9 @@ export async function getAgeOfMoney(days = 90): Promise<number | null> {
   return weighted / totalAmount
 }
 
-export interface NetWorthPoint {
-  month: string // YYYY-MM
-  /** Cumulative net of all transactions up to end of month, signed. */
-  cumulative: number
-}
+export async function getNetWorthSeries(db: PgDB, months = 24): Promise<NetWorthPoint[]> {
+  const { net: currentNet } = await getNetWorth(db)
 
-/**
- * Net worth time series anchored on the current account balances. We can't
- * trust a "cumulative cashflow from zero" approach because most users have
- * starting balances that predate any transaction in the DB — that approach
- * was producing charts that floated around 0€ even when net worth was 6500€.
- *
- * Instead: take the live net worth (sum of current account balances) and
- * walk backward by month, subtracting each month's transaction net to get
- * the balance at the END of the previous month. The result is a real net
- * worth curve that lines up with the dashboard "Net worth" KPI on the right
- * edge of the chart.
- */
-export async function getNetWorthSeries(months = 24): Promise<NetWorthPoint[]> {
-  // Live anchor: same math as the dashboard's getNetWorth (= gross −
-  // amortization-based liability for loans).
-  const { net: currentNet } = await getNetWorth()
-
-  // Get monthly transaction nets across the whole window so we can walk
-  // backwards. Loan accounts are excluded — their mirror rows aren't a
-  // cash flow and the liability is already baked into the anchor. See the
-  // matching CAVEAT on `getPatrimonyTimeSeries` in dashboard.ts.
   const rows = await db
     .select({
       month: sql<string>`to_char(${transactions.occurredAt}, 'YYYY-MM')`,
@@ -213,8 +154,6 @@ export async function getNetWorthSeries(months = 24): Promise<NetWorthPoint[]> {
     byMonth.set(r.month, Number(r.total))
   }
 
-  // Walk backward: month[0] (most recent) = currentNet, then for each prior
-  // month subtract the more-recent month's transactions to get its end balance.
   const out: NetWorthPoint[] = []
   let bal = currentNet
   for (let i = 0; i < months; i++) {

@@ -1,0 +1,21 @@
+{
+  "name": "@florin/db-pg",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema.ts"
+  },
+  "dependencies": {
+    "@florin/core": "workspace:*",
+    "drizzle-orm": "^0.45.2",
+    "postgres": "^3.4.9",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.2",
+    "drizzle-kit": "^0.31.10",
+    "typescript": "^6.0.2"
+  }
+}

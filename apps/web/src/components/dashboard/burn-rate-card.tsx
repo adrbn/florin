@@ -1,6 +1,6 @@
 import { Flame } from 'lucide-react'
 import { formatCurrency } from '@/lib/format/currency'
-import { getAvgMonthlyBurn, getMonthBurn } from '@/server/queries/dashboard'
+import { queries } from '@/db/client'
 import { KpiCard } from './kpi-card'
 
 /** ISO date (YYYY-MM-DD) in local time — used for the `from`/`to` query
@@ -27,7 +27,7 @@ function isoLocal(d: Date): string {
  * linked list disagree with the headline number.
  */
 export async function BurnRateCard() {
-  const [thisMonth, avg] = await Promise.all([getMonthBurn(), getAvgMonthlyBurn(6)])
+  const [thisMonth, avg] = await Promise.all([queries.getMonthBurn(), queries.getAvgMonthlyBurn(6)])
   const now = new Date()
   const from = isoLocal(new Date(now.getFullYear(), now.getMonth(), 1))
   const to = isoLocal(new Date(now.getFullYear(), now.getMonth() + 1, 0))

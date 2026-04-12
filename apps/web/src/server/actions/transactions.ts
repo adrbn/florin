@@ -1,534 +1,78 @@
 'use server'
 
-import { randomUUID } from 'node:crypto'
-import { and, asc, desc, eq, gte, ilike, inArray, isNull, lte, or, sql } from 'drizzle-orm'
+import { asc } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
-import { z } from 'zod'
-import { db } from '@/db/client'
-import { accounts, categories, categorizationRules, transactions } from '@/db/schema'
-import { matchRule, type Rule } from '@/lib/categorization/engine'
-import { normalizePayee } from '@/lib/categorization/normalize-payee'
+import { mutations, queries, db } from '@/db/client'
+import {
+  listTransactionsForAccountQuery,
+  listLoanPaymentsForAccountQuery,
+  reconcileLoanMirrorsForCategory,
+} from '@florin/db-pg'
+import type {
+  ActionResult,
+  AddTransactionInput,
+  ListTransactionsOptions,
+  TransactionDirection,
+} from '@florin/core/types'
 
-const addTransactionSchema = z.object({
-  accountId: z.uuid(),
-  occurredAt: z.coerce.date(),
-  amount: z.coerce.number(),
-  payee: z.string().min(1).max(200),
-  memo: z.string().max(500).optional().nullable(),
-  categoryId: z
-    .union([z.uuid(), z.literal('')])
-    .optional()
-    .nullable(),
-})
-
-export type AddTransactionInput = z.infer<typeof addTransactionSchema>
-
-export interface ActionResult<T = void> {
-  success: boolean
-  error?: string
-  data?: T
-}
-
-async function recomputeAccountBalance(accountId: string): Promise<void> {
-  const result = await db
-    .select({
-      total: sql<string>`COALESCE(SUM(${transactions.amount}), 0)::text`,
-    })
-    .from(transactions)
-    .where(and(eq(transactions.accountId, accountId), isNull(transactions.deletedAt)))
-
-  const total = result[0]?.total ?? '0'
-  await db
-    .update(accounts)
-    .set({ currentBalance: total, updatedAt: new Date() })
-    .where(eq(accounts.id, accountId))
-}
-
-/**
- * Reconcile the loan-mirror transaction for a given original transaction.
- *
- * A "loan mirror" is a paired, auto-generated row on a loan-kind account
- * that represents "this payment reduced the loan balance". Triggered when
- * the original transaction is categorized into a category whose
- * `linkedLoanAccountId` points at a loan account. Both rows share the same
- * `transferPairId` so the dashboard's existing transfer-exclusion filter
- * already knows to ignore both sides from burn/income math.
- *
- * Invariants maintained by this helper:
- *   - If the category is NOT linked: any existing mirror is deleted and
- *     the original's transferPairId is cleared.
- *   - If the category IS linked but the wrong mirror exists (e.g. previously
- *     linked to a different loan): the old mirror is deleted and a fresh
- *     one is created on the current loan account.
- *   - If the category IS linked and no mirror exists: create one.
- *   - If the category IS linked and a correct mirror exists: update its
- *     amount/date/payee in case the original changed.
- *
- * Always recomputes the balance of every loan account it touched so the
- * loan's currentBalance reflects the sum of its mirror rows.
- *
- * NB: this helper does NOT recurse — callers should still invoke it from
- * each place that mutates a transaction's category/amount/deletion state.
- */
-async function syncLoanMirror(transactionId: string): Promise<void> {
-  const original = await db.query.transactions.findFirst({
-    where: eq(transactions.id, transactionId),
-  })
-  if (!original) return
-  // Never reconcile a row that IS itself a loan mirror. Mirrors have no
-  // category and sit directly on a loan account — easier guard than
-  // trying to look up their origin.
-  const originalAccount = await db.query.accounts.findFirst({
-    where: eq(accounts.id, original.accountId),
-  })
-  if (!originalAccount) return
-  if (originalAccount.kind === 'loan') return
-
-  // Find the currently linked loan account via the category, if any.
-  let linkedLoanAccountId: string | null = null
-  if (original.categoryId) {
-    const cat = await db.query.categories.findFirst({
-      where: eq(categories.id, original.categoryId),
-    })
-    linkedLoanAccountId = cat?.linkedLoanAccountId ?? null
-  }
-
-  // Look up the existing mirror (if any) via transferPairId.
-  const touchedLoanAccountIds = new Set<string>()
-  let existingMirror: typeof original | null = null
-  if (original.transferPairId) {
-    const pair = await db.query.transactions.findFirst({
-      where: and(
-        eq(transactions.transferPairId, original.transferPairId),
-        sql`${transactions.id} <> ${original.id}`,
-      ),
-    })
-    existingMirror = pair ?? null
-    if (existingMirror) touchedLoanAccountIds.add(existingMirror.accountId)
-  }
-
-  // Case 1: no link → strip any mirror + clear transferPairId on original.
-  if (!linkedLoanAccountId) {
-    if (existingMirror) {
-      await db.delete(transactions).where(eq(transactions.id, existingMirror.id))
-    }
-    if (original.transferPairId) {
-      await db
-        .update(transactions)
-        .set({ transferPairId: null, updatedAt: new Date() })
-        .where(eq(transactions.id, original.id))
-    }
-    for (const id of touchedLoanAccountIds) await recomputeAccountBalance(id)
-    return
-  }
-
-  // Case 2: mirror exists but on the wrong loan → delete it so we can
-  //         recreate on the correct one.
-  if (existingMirror && existingMirror.accountId !== linkedLoanAccountId) {
-    await db.delete(transactions).where(eq(transactions.id, existingMirror.id))
-    existingMirror = null
-  }
-
-  // A payment against a debt is stored as a negative amount on the
-  // originating account (money out) — the mirror on the loan side is the
-  // absolute value (principal coming down toward zero from a negative
-  // starting balance). Income on the origin account (refunds, overpayments)
-  // would flip to a negative mirror, which is fine.
-  const mirrorAmount = (-Number(original.amount)).toFixed(2)
-  const mirrorPayee = `↳ ${original.payee || '(no payee)'}`
-
-  if (!existingMirror) {
-    // Case 3: create fresh mirror + share a transferPairId.
-    const pairId = original.transferPairId ?? randomUUID()
-    await db.insert(transactions).values({
-      accountId: linkedLoanAccountId,
-      occurredAt: original.occurredAt,
-      amount: mirrorAmount,
-      currency: original.currency,
-      payee: mirrorPayee,
-      normalizedPayee: normalizePayee(mirrorPayee),
-      memo: 'auto: loan payment mirror',
-      categoryId: null,
-      source: 'manual',
-      transferPairId: pairId,
-      needsReview: false,
-    })
-    if (original.transferPairId !== pairId) {
-      await db
-        .update(transactions)
-        .set({ transferPairId: pairId, updatedAt: new Date() })
-        .where(eq(transactions.id, original.id))
-    }
-    touchedLoanAccountIds.add(linkedLoanAccountId)
-  } else {
-    // Case 4: mirror already on correct loan → make sure it still matches
-    //         the current amount/date/payee of the original.
-    await db
-      .update(transactions)
-      .set({
-        occurredAt: original.occurredAt,
-        amount: mirrorAmount,
-        payee: mirrorPayee,
-        normalizedPayee: normalizePayee(mirrorPayee),
-        updatedAt: new Date(),
-      })
-      .where(eq(transactions.id, existingMirror.id))
-    touchedLoanAccountIds.add(linkedLoanAccountId)
-  }
-
-  for (const id of touchedLoanAccountIds) await recomputeAccountBalance(id)
-}
-
-/**
- * Walk every non-deleted transaction currently sitting in `categoryId`
- * and re-run the loan-mirror reconciliation on each. Exported so the
- * category-link action can "back-fill" mirrors when the user first sets a
- * category → loan link after history already exists.
- *
- * Returns the number of original transactions visited so the caller can
- * tell the user "25 payments were re-linked".
- */
-export async function reconcileLoanMirrorsForCategory(
-  categoryId: string,
-): Promise<number> {
-  const rows = await db
-    .select({ id: transactions.id })
-    .from(transactions)
-    .where(and(eq(transactions.categoryId, categoryId), isNull(transactions.deletedAt)))
-  for (const row of rows) {
-    await syncLoanMirror(row.id)
-  }
-  return rows.length
-}
-
-/**
- * When an original transaction is being deleted, remove its loan mirror
- * first so we don't leave an orphan row on the loan account. Symmetric to
- * syncLoanMirror — always safe to call whether the row has a pair or not.
- */
-async function deleteLoanMirrorFor(transactionId: string): Promise<ReadonlyArray<string>> {
-  const original = await db.query.transactions.findFirst({
-    where: eq(transactions.id, transactionId),
-  })
-  if (!original || !original.transferPairId) return []
-  const pair = await db.query.transactions.findFirst({
-    where: and(
-      eq(transactions.transferPairId, original.transferPairId),
-      sql`${transactions.id} <> ${original.id}`,
-    ),
-  })
-  if (!pair) return []
-  await db.delete(transactions).where(eq(transactions.id, pair.id))
-  return [pair.accountId]
-}
+export type { AddTransactionInput, ActionResult, TransactionDirection, ListTransactionsOptions }
 
 export async function addTransaction(
   input: AddTransactionInput,
 ): Promise<ActionResult<{ id: string }>> {
-  const parsed = addTransactionSchema.safeParse(input)
-  if (!parsed.success) {
-    return {
-      success: false,
-      error: parsed.error.issues.map((i) => i.message).join(', '),
-    }
-  }
-  const data = parsed.data
-
-  try {
-    const normalized = normalizePayee(data.payee)
-
-    let categoryId: string | null =
-      data.categoryId && data.categoryId !== '' ? data.categoryId : null
-
-    if (!categoryId) {
-      const rules = await db.select().from(categorizationRules)
-      const ruleSet: Rule[] = rules.map((r) => ({
-        id: r.id,
-        priority: r.priority,
-        categoryId: r.categoryId,
-        isActive: r.isActive,
-        matchPayeeRegex: r.matchPayeeRegex,
-        matchMinAmount: r.matchMinAmount ? Number(r.matchMinAmount) : null,
-        matchMaxAmount: r.matchMaxAmount ? Number(r.matchMaxAmount) : null,
-        matchAccountId: r.matchAccountId,
-      }))
-
-      categoryId = matchRule(
-        {
-          payee: normalized,
-          amount: data.amount,
-          accountId: data.accountId,
-        },
-        ruleSet,
-      )
-    }
-
-    const [row] = await db
-      .insert(transactions)
-      .values({
-        accountId: data.accountId,
-        occurredAt: data.occurredAt,
-        amount: data.amount.toFixed(2),
-        payee: data.payee,
-        normalizedPayee: normalized,
-        memo: data.memo || null,
-        categoryId,
-        source: 'manual',
-      })
-      .returning({ id: transactions.id })
-
-    await recomputeAccountBalance(data.accountId)
-    if (row?.id) await syncLoanMirror(row.id)
-
+  const result = await mutations.addTransaction(input)
+  if (result.success) {
     revalidatePath('/transactions')
     revalidatePath('/accounts')
     revalidatePath('/')
-
-    return { success: true, data: { id: row?.id ?? '' } }
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to add transaction'
-    return { success: false, error: message }
   }
-}
-
-export type TransactionDirection = 'all' | 'expense' | 'income'
-
-export interface ListTransactionsOptions {
-  limit?: number
-  /** Zero-indexed row offset used for pagination. */
-  offset?: number
-  accountId?: string
-  needsReviewOnly?: boolean
-  /** Inclusive lower bound on occurred_at. */
-  startDate?: Date
-  /** Inclusive upper bound on occurred_at. */
-  endDate?: Date
-  /** 'expense' → amount < 0, 'income' → amount > 0, 'all' → no filter. */
-  direction?: TransactionDirection
-  /** Drop transactions that are one side of an internal transfer. Matches
-   *  the dashboard Burn/Income math so click-through from a KPI card shows
-   *  exactly the same rows the KPI counted. */
-  excludeTransfers?: boolean
-  /** Substring match (case-insensitive) against the normalized payee.
-   *  Used by the Transactions page filter bar. */
-  payeeSearch?: string
-  /** Scope to a specific category. Pass 'none' to match uncategorized rows. */
-  categoryId?: string | 'none'
-  /** Inclusive lower bound on amount (in account currency, signed). */
-  minAmount?: number
-  /** Inclusive upper bound on amount (in account currency, signed). */
-  maxAmount?: number
-}
-
-/**
- * Build the WHERE clause for listTransactions + countTransactions. Factored
- * out so the count query uses the EXACT same predicate as the list query —
- * "Page N of M" goes wrong the moment the two drift.
- */
-function buildTransactionConditions(options: ListTransactionsOptions) {
-  const {
-    accountId,
-    needsReviewOnly = false,
-    startDate,
-    endDate,
-    direction = 'all',
-    excludeTransfers = false,
-    payeeSearch,
-    categoryId,
-    minAmount,
-    maxAmount,
-  } = options
-  const activeAccountIds = db
-    .select({ id: accounts.id })
-    .from(accounts)
-    .where(eq(accounts.isArchived, false))
-  const conditions = [
-    isNull(transactions.deletedAt),
-    inArray(transactions.accountId, activeAccountIds),
-  ]
-  if (accountId) conditions.push(eq(transactions.accountId, accountId))
-  if (needsReviewOnly) conditions.push(eq(transactions.needsReview, true))
-  if (startDate) conditions.push(gte(transactions.occurredAt, startDate))
-  if (endDate) conditions.push(lte(transactions.occurredAt, endDate))
-  if (direction === 'expense') {
-    conditions.push(sql`${transactions.amount} < 0`)
-  } else if (direction === 'income') {
-    conditions.push(sql`${transactions.amount} > 0`)
-  }
-  if (excludeTransfers) {
-    conditions.push(isNull(transactions.transferPairId))
-  }
-  if (payeeSearch && payeeSearch.trim().length > 0) {
-    const needle = `%${payeeSearch.trim()}%`
-    conditions.push(
-      or(
-        ilike(transactions.normalizedPayee, needle),
-        ilike(transactions.payee, needle),
-      )!,
-    )
-  }
-  if (categoryId === 'none') {
-    conditions.push(isNull(transactions.categoryId))
-  } else if (categoryId) {
-    conditions.push(eq(transactions.categoryId, categoryId))
-  }
-  if (typeof minAmount === 'number' && Number.isFinite(minAmount)) {
-    conditions.push(sql`${transactions.amount} >= ${minAmount.toFixed(2)}`)
-  }
-  if (typeof maxAmount === 'number' && Number.isFinite(maxAmount)) {
-    conditions.push(sql`${transactions.amount} <= ${maxAmount.toFixed(2)}`)
-  }
-  return conditions
+  return result
 }
 
 export async function countTransactions(options: ListTransactionsOptions = {}): Promise<number> {
-  const conditions = buildTransactionConditions(options)
-  const rows = await db
-    .select({ count: sql<string>`COUNT(*)` })
-    .from(transactions)
-    .where(and(...conditions))
-  return Number(rows[0]?.count ?? '0')
+  return queries.countTransactions(options)
 }
 
 export async function listTransactions(options: ListTransactionsOptions = {}) {
-  const { limit = 100, offset = 0 } = options
-  const conditions = buildTransactionConditions(options)
-  return db.query.transactions.findMany({
-    where: and(...conditions),
-    orderBy: [desc(transactions.occurredAt), desc(transactions.createdAt)],
-    limit,
-    offset,
-    with: {
-      account: true,
-      category: true,
-    },
-  })
+  return queries.listTransactions(options)
 }
 
-/**
- * Count of transactions sitting in the review queue. Drives the sidebar badge
- * so the user knows there's bank-imported activity waiting for them.
- */
 export async function countNeedsReview(): Promise<number> {
-  const rows = await db
-    .select({ count: sql<string>`COUNT(*)` })
-    .from(transactions)
-    .innerJoin(accounts, eq(transactions.accountId, accounts.id))
-    .where(
-      and(
-        isNull(transactions.deletedAt),
-        eq(transactions.needsReview, true),
-        eq(accounts.isArchived, false),
-      ),
-    )
-  return Number(rows[0]?.count ?? '0')
+  return queries.countNeedsReview()
 }
 
-/**
- * Approve one transaction (clear the needs_review flag). Used by the review
- * queue page after the user has confirmed payee + category.
- */
 export async function approveTransaction(transactionId: string): Promise<ActionResult> {
-  const parsed = z.uuid().safeParse(transactionId)
-  if (!parsed.success) return { success: false, error: 'Invalid transaction id' }
-  try {
-    await db
-      .update(transactions)
-      .set({ needsReview: false, updatedAt: new Date() })
-      .where(eq(transactions.id, transactionId))
+  const result = await mutations.approveTransaction(transactionId)
+  if (result.success) {
     revalidatePath('/review')
     revalidatePath('/transactions')
     revalidatePath('/')
-    return { success: true }
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to approve'
-    return { success: false, error: message }
   }
+  return result
 }
 
-/**
- * Approve every pending review row in one shot. Useful when the user trusts
- * the bank import after eyeballing the queue and just wants to bulk-clear it.
- */
 export async function approveAllTransactions(): Promise<ActionResult<{ approved: number }>> {
-  try {
-    const result = await db
-      .update(transactions)
-      .set({ needsReview: false, updatedAt: new Date() })
-      .where(eq(transactions.needsReview, true))
-      .returning({ id: transactions.id })
+  const result = await mutations.approveAllTransactions()
+  if (result.success) {
     revalidatePath('/review')
     revalidatePath('/transactions')
     revalidatePath('/')
-    return { success: true, data: { approved: result.length } }
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to bulk approve'
-    return { success: false, error: message }
   }
+  return result
 }
 
-// Sort + filter helpers used by account detail pages.
 export async function listTransactionsForAccount(
   accountId: string,
   limit = 500,
 ): Promise<TransactionWithRelations[]> {
-  return db.query.transactions.findMany({
-    where: and(eq(transactions.accountId, accountId), isNull(transactions.deletedAt)),
-    orderBy: [desc(transactions.occurredAt), desc(transactions.createdAt)],
-    limit,
-    with: {
-      account: true,
-      category: true,
-    },
-  }) as Promise<TransactionWithRelations[]>
+  return listTransactionsForAccountQuery(db, accountId, limit) as Promise<TransactionWithRelations[]>
 }
 
-/**
- * Payments list for a loan account detail page. Returns every transaction
- * whose category is linked to this loan (the "real" payments from checking)
- * PLUS any manual balance adjustments on the loan account itself, but
- * excludes the auto-generated mirror rows (they'd double-count the list).
- */
 export async function listLoanPaymentsForAccount(
   loanAccountId: string,
   limit = 500,
 ): Promise<TransactionWithRelations[]> {
-  // 1. ids of every category linked to this loan
-  const linkedCategoryRows = await db
-    .select({ id: categories.id })
-    .from(categories)
-    .where(eq(categories.linkedLoanAccountId, loanAccountId))
-  const linkedCategoryIds = linkedCategoryRows.map((r) => r.id)
-
-  // 2. fetch: (categorized in a linked category) OR (on the loan account AND
-  //    not a mirror). Both cases: not soft-deleted.
-  const whereClause =
-    linkedCategoryIds.length > 0
-      ? and(
-          isNull(transactions.deletedAt),
-          or(
-            inArray(transactions.categoryId, linkedCategoryIds),
-            and(
-              eq(transactions.accountId, loanAccountId),
-              isNull(transactions.transferPairId),
-            ),
-          ),
-        )
-      : and(
-          isNull(transactions.deletedAt),
-          eq(transactions.accountId, loanAccountId),
-          isNull(transactions.transferPairId),
-        )
-
-  return db.query.transactions.findMany({
-    where: whereClause,
-    orderBy: [desc(transactions.occurredAt), desc(transactions.createdAt)],
-    limit,
-    with: {
-      account: true,
-      category: true,
-    },
-  }) as Promise<TransactionWithRelations[]>
+  return listLoanPaymentsForAccountQuery(db, loanAccountId, limit) as Promise<TransactionWithRelations[]>
 }
 
 // Re-export asc to keep tree-shaking happy in callers that need ordering helpers.
@@ -536,190 +80,78 @@ export { asc }
 
 export type TransactionWithRelations = Awaited<ReturnType<typeof listTransactions>>[number]
 
-/**
- * Reassign one transaction to a different category (or clear it). Used by the
- * inline category picker on the Transactions page.
- */
 export async function updateTransactionCategory(
   transactionId: string,
   categoryId: string | null,
 ): Promise<ActionResult> {
-  const idParse = z.uuid().safeParse(transactionId)
-  if (!idParse.success) return { success: false, error: 'Invalid transaction id' }
-  if (categoryId !== null) {
-    const catParse = z.uuid().safeParse(categoryId)
-    if (!catParse.success) return { success: false, error: 'Invalid category id' }
-  }
-  try {
-    await db
-      .update(transactions)
-      .set({ categoryId, updatedAt: new Date() })
-      .where(eq(transactions.id, transactionId))
-    await syncLoanMirror(transactionId)
+  const result = await mutations.updateTransactionCategory(transactionId, categoryId)
+  if (result.success) {
     revalidatePath('/transactions')
     revalidatePath('/accounts')
     revalidatePath('/')
     revalidatePath('/categories')
-    return { success: true }
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to update category'
-    return { success: false, error: message }
   }
+  return result
 }
 
 export async function softDeleteTransaction(id: string): Promise<ActionResult> {
-  const parsed = z.uuid().safeParse(id)
-  if (!parsed.success) {
-    return { success: false, error: 'Invalid transaction id' }
-  }
-
-  try {
-    // Delete the loan mirror first (hard-delete — mirrors are auto-generated
-    // and shouldn't linger in a soft-deleted state where they'd still affect
-    // balance calcs). Grab the loan account ids so we can recompute them
-    // after we've soft-deleted the original.
-    const touchedLoanIds = await deleteLoanMirrorFor(id)
-
-    const [txn] = await db
-      .update(transactions)
-      .set({ deletedAt: new Date(), updatedAt: new Date() })
-      .where(eq(transactions.id, id))
-      .returning({ accountId: transactions.accountId })
-
-    if (txn) {
-      await recomputeAccountBalance(txn.accountId)
-    }
-    for (const loanId of touchedLoanIds) {
-      await recomputeAccountBalance(loanId)
-    }
-
+  const result = await mutations.softDeleteTransaction(id)
+  if (result.success) {
     revalidatePath('/transactions')
     revalidatePath('/review')
     revalidatePath('/accounts')
     revalidatePath('/')
-    return { success: true }
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to delete transaction'
-    return { success: false, error: message }
   }
+  return result
 }
 
 // ============ bulk actions ============
 
-const bulkIdsSchema = z.array(z.uuid()).min(1).max(500)
-
-/**
- * Reassign a category (or clear it) for many transactions in one shot.
- * Used by the multi-select bulk bar on the Review and Transactions pages so
- * the user can burn through a queue like "all 12 PAYPAL rows → Food" without
- * opening the picker 12 times.
- */
 export async function bulkUpdateTransactionCategory(
   ids: ReadonlyArray<string>,
   categoryId: string | null,
 ): Promise<ActionResult<{ updated: number }>> {
-  const parsed = bulkIdsSchema.safeParse(ids)
-  if (!parsed.success) {
-    return { success: false, error: 'Invalid transaction ids' }
-  }
-  if (categoryId !== null) {
-    const catParse = z.uuid().safeParse(categoryId)
-    if (!catParse.success) return { success: false, error: 'Invalid category id' }
-  }
-  try {
-    const result = await db
-      .update(transactions)
-      .set({ categoryId, updatedAt: new Date() })
-      .where(inArray(transactions.id, parsed.data))
-      .returning({ id: transactions.id })
-    // Reconcile the loan mirror for each touched row. Sequential — the
-    // volume is bounded at 500 rows by bulkIdsSchema and each call does at
-    // most a few light queries, so a transaction-per-row is fine.
-    for (const row of result) {
-      await syncLoanMirror(row.id)
-    }
+  const result = await mutations.bulkUpdateTransactionCategory([...ids], categoryId)
+  if (result.success) {
     revalidatePath('/transactions')
     revalidatePath('/review')
     revalidatePath('/accounts')
     revalidatePath('/')
     revalidatePath('/categories')
-    return { success: true, data: { updated: result.length } }
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to update categories'
-    return { success: false, error: message }
   }
+  return result
 }
 
-/**
- * Approve a specific subset of review rows. Unlike approveAllTransactions,
- * this one scopes to the ids the user explicitly ticked — the Review page
- * uses it when the bulk bar is active but the user only selected some rows.
- */
 export async function bulkApproveTransactions(
   ids: ReadonlyArray<string>,
 ): Promise<ActionResult<{ approved: number }>> {
-  const parsed = bulkIdsSchema.safeParse(ids)
-  if (!parsed.success) {
-    return { success: false, error: 'Invalid transaction ids' }
-  }
-  try {
-    const result = await db
-      .update(transactions)
-      .set({ needsReview: false, updatedAt: new Date() })
-      .where(inArray(transactions.id, parsed.data))
-      .returning({ id: transactions.id })
+  const result = await mutations.bulkApproveTransactions([...ids])
+  if (result.success) {
     revalidatePath('/review')
     revalidatePath('/transactions')
     revalidatePath('/')
-    return { success: true, data: { approved: result.length } }
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to approve selection'
-    return { success: false, error: message }
   }
+  return result
 }
 
-/**
- * Soft-delete many transactions, then recompute the balance of every account
- * that was touched (each account only once, even if many of its rows were
- * deleted). Mirrors softDeleteTransaction but batched.
- */
 export async function bulkSoftDeleteTransactions(
   ids: ReadonlyArray<string>,
 ): Promise<ActionResult<{ deleted: number }>> {
-  const parsed = bulkIdsSchema.safeParse(ids)
-  if (!parsed.success) {
-    return { success: false, error: 'Invalid transaction ids' }
-  }
-  try {
-    // Clean up loan mirrors BEFORE soft-deleting the originals so the mirror
-    // lookup via transferPairId can still find the pair.
-    const loanAccountIdsTouched = new Set<string>()
-    for (const id of parsed.data) {
-      const ids = await deleteLoanMirrorFor(id)
-      for (const loanId of ids) loanAccountIdsTouched.add(loanId)
-    }
-
-    const result = await db
-      .update(transactions)
-      .set({ deletedAt: new Date(), updatedAt: new Date() })
-      .where(inArray(transactions.id, parsed.data))
-      .returning({ accountId: transactions.accountId })
-
-    const touched = new Set(result.map((r) => r.accountId))
-    for (const accountId of touched) {
-      await recomputeAccountBalance(accountId)
-    }
-    for (const loanId of loanAccountIdsTouched) {
-      await recomputeAccountBalance(loanId)
-    }
-
+  const result = await mutations.bulkSoftDeleteTransactions([...ids])
+  if (result.success) {
     revalidatePath('/transactions')
     revalidatePath('/review')
     revalidatePath('/accounts')
     revalidatePath('/')
-    return { success: true, data: { deleted: result.length } }
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to delete transactions'
-    return { success: false, error: message }
   }
+  return result
+}
+
+/**
+ * Exported so the category-link action can back-fill mirrors.
+ */
+export async function reconcileLoanMirrorsForCategoryAction(
+  categoryId: string,
+): Promise<number> {
+  return reconcileLoanMirrorsForCategory(db, categoryId)
 }

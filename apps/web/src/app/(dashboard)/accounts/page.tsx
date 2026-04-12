@@ -3,9 +3,10 @@ import { AccountsGroupedList } from '@/components/accounts/accounts-grouped-list
 import { AddAccountCard } from '@/components/accounts/add-account-card'
 import { BankConnectionList } from '@/components/accounts/bank-connection-list'
 import { buttonVariants } from '@/components/ui/button'
-import { listAccounts } from '@/server/actions/accounts'
+import { queries } from '@/db/client'
+import { getLoanLiabilities } from '@florin/db-pg'
+import { db } from '@/db/client'
 import { isEnableBankingConfigured } from '@/server/banking/enable-banking'
-import { getLoanLiabilities } from '@/server/queries/loan-liabilities'
 
 interface AccountsPageProps {
   searchParams: Promise<{
@@ -48,7 +49,7 @@ function BankLinkBanner({
 export default async function AccountsPage({ searchParams }: AccountsPageProps) {
   const params = await searchParams
   const showArchived = params.show_archived === '1'
-  const rawAccounts = await listAccounts({ includeArchived: showArchived })
+  const rawAccounts = await queries.listAccounts({ includeArchived: showArchived })
   const bankingEnabled = isEnableBankingConfigured()
 
   // Replace loan currentBalance with the amortization-derived liability
@@ -57,7 +58,7 @@ export default async function AccountsPage({ searchParams }: AccountsPageProps) 
   // payment mirrors (which was flipped positive and misled the user into
   // thinking the loan was an asset). Non-loan accounts pass through
   // unchanged.
-  const liabilityMap = await getLoanLiabilities(rawAccounts)
+  const liabilityMap = await getLoanLiabilities(db, rawAccounts)
   const accounts = rawAccounts.map((a) => {
     if (a.kind !== 'loan') return a
     const liability = liabilityMap.get(a.id)
