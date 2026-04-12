@@ -1,10 +1,10 @@
 import { Wallet } from 'lucide-react'
 import { formatCurrency } from '@/lib/format/currency'
-import { getNetWorth } from '@/server/queries/dashboard'
+import { queries } from '@/db/client'
 import { KpiCard } from './kpi-card'
 
 export async function NetWorthCard() {
-  const { gross, liability, net } = await getNetWorth()
+  const { gross, liability, net } = await queries.getNetWorth()
   // Show the gross ± debt breakdown so the user can eyeball where the
   // headline number comes from (gross = assets, debt = amortization
   // restant dû). When there's no loan configured, fall back to just gross.

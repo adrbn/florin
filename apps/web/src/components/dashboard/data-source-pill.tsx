@@ -1,5 +1,5 @@
 import { CloudOff, Database, FileSpreadsheet, PlugZap } from 'lucide-react'
-import { getDataSourceInfo } from '@/server/queries/dashboard'
+import { queries } from '@/db/client'
 
 const FR_DATETIME = new Intl.DateTimeFormat('fr-FR', {
   day: '2-digit',
@@ -21,7 +21,7 @@ const FR_DATETIME = new Intl.DateTimeFormat('fr-FR', {
  * dashboard is showing fetched data or a copy-paste of your spreadsheet.
  */
 export async function DataSourcePill() {
-  const info = await getDataSourceInfo()
+  const info = await queries.getDataSourceInfo()
 
   if (info.kind === 'empty') {
     return (

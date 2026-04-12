@@ -1,7 +1,6 @@
 import { asc, eq } from 'drizzle-orm'
-import { db } from '@/db/client'
+import { db, queries } from '@/db/client'
 import { categories, categoryGroups } from '@/db/schema'
-import { getTopExpenses } from '@/server/queries/dashboard'
 import { TopExpensesList } from './top-expenses-list'
 
 const DEFAULT_DAYS = 30
@@ -10,7 +9,7 @@ export async function TopExpensesCard() {
   // Server-side initial render at the default 30-day window. The client
   // component takes over filtering from here via the `fetchTopExpenses`
   // server action.
-  const initial = await getTopExpenses(5, DEFAULT_DAYS, null)
+  const initial = await queries.getTopExpenses(5, DEFAULT_DAYS, null)
 
   // Categories list for the filter dropdown — only expense categories,
   // joined with their group for prettier labels ("Group / Name").

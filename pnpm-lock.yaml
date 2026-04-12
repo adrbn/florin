@@ -29,6 +29,9 @@ importers:
       '@florin/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@florin/db-pg':
+        specifier: workspace:*
+        version: link:../../packages/db-pg
       '@hookform/resolvers':
         specifier: ^5.2.2
         version: 5.2.2(react-hook-form@7.72.1(react@19.2.5))
@@ -59,9 +62,6 @@ importers:
       next-themes:
         specifier: ^0.4.6
         version: 0.4.6(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
-      postgres:
-        specifier: ^3.4.9
-        version: 3.4.9
       react:
         specifier: ^19.2.4
         version: 19.2.5
@@ -145,6 +145,31 @@ importers:
         specifier: ^4.3.6
         version: 4.3.6
     devDependencies:
+      typescript:
+        specifier: ^6.0.2
+        version: 6.0.2
+
+  packages/db-pg:
+    dependencies:
+      '@florin/core':
+        specifier: workspace:*
+        version: link:../core
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(postgres@3.4.9)
+      postgres:
+        specifier: ^3.4.9
+        version: 3.4.9
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
+    devDependencies:
+      '@types/node':
+        specifier: ^25.5.2
+        version: 25.6.0
+      drizzle-kit:
+        specifier: ^0.31.10
+        version: 0.31.10
       typescript:
         specifier: ^6.0.2
         version: 6.0.2

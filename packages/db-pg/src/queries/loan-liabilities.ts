@@ -1,7 +1,7 @@
 import { and, inArray, isNotNull, isNull, sql } from 'drizzle-orm'
-import { db } from '@/db/client'
-import { transactions } from '@/db/schema'
-import { computeLoanLiability, type LoanLiability } from '@/lib/loan/liability'
+import { computeLoanLiability, type LoanLiability } from '@florin/core/lib/loan'
+import type { PgDB } from '../client'
+import { transactions } from '../schema'
 
 /**
  * Shape the helper needs from an account row. Kept structural so any caller
@@ -35,6 +35,7 @@ export interface LoanLiabilityInputAccount {
  * (the returned Map only has entries for loan-kind accounts).
  */
 export async function getLoanLiabilities(
+  db: PgDB,
   accountRows: ReadonlyArray<LoanLiabilityInputAccount>,
 ): Promise<Map<string, LoanLiability>> {
   const result = new Map<string, LoanLiability>()

@@ -1,0 +1,2 @@
+ALTER TABLE "transactions" ADD COLUMN "needs_review" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+CREATE INDEX "transactions_needs_review_idx" ON "transactions" USING btree ("needs_review") WHERE "transactions"."needs_review" = true;

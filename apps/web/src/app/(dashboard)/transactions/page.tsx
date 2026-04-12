@@ -107,8 +107,8 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
   const pageNum = Math.max(1, Number.parseInt(sp.page ?? '1', 10) || 1)
 
   const filterOptions = {
-    startDate: startDate ?? undefined,
-    endDate: endDate ?? undefined,
+    startDate: startDate?.toISOString() ?? undefined,
+    endDate: endDate?.toISOString() ?? undefined,
     direction,
     excludeTransfers,
     payeeSearch,
