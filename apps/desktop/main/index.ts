@@ -69,8 +69,14 @@ app.on('before-quit', () => {
 })
 
 async function startNextServer(): Promise<number> {
+  const isProd = app.isPackaged
+  // In production, the app root is the asar/unpacked resource directory.
+  // __dirname is dist-main/ inside the app, so '..' reaches the app root.
+  const appDir = path.join(__dirname, '..')
+  if (isProd) process.env.NODE_ENV = 'production'
+
   const next = (await import('next')).default
-  const nextApp = next({ dev: process.env.NODE_ENV !== 'production', dir: path.join(__dirname, '..') })
+  const nextApp = next({ dev: !isProd, dir: appDir })
   const handle = nextApp.getRequestHandler()
   await nextApp.prepare()
 
