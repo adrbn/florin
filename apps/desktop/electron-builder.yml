@@ -1,16 +1,26 @@
 appId: com.florin.desktop
 productName: Florin
+asar: true
+asarUnpack:
+  - ".next/**"
+  - "node_modules/better-sqlite3/**"
 directories:
   output: dist
 files:
-  - main.cjs
   - dist-main/**
   - .next/**
-  - tray-ui/**
   - assets/**
   - package.json
   - next.config.ts
-  - node_modules/**
+  - "node_modules/**"
+  - "!node_modules/.pnpm/electron@*/**"
+  - "!node_modules/.pnpm/electron-builder@*/**"
+  - "!node_modules/.pnpm/esbuild@*/**"
+  - "!node_modules/.pnpm/@esbuild/**"
+  - "!node_modules/.pnpm/typescript@*/**"
+  - "!node_modules/.pnpm/@types/**"
+  - "!node_modules/.pnpm/tailwindcss@*/**"
+  - "!node_modules/.pnpm/@tailwindcss/**"
 extraResources:
   - from: assets/
     to: assets/
