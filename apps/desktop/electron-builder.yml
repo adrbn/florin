@@ -1,9 +1,6 @@
 appId: com.florin.desktop
 productName: Florin
-asar: true
-asarUnpack:
-  - ".next/**"
-  - "node_modules/better-sqlite3/**"
+asar: false
 directories:
   output: dist
 files:
