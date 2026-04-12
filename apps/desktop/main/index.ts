@@ -1,6 +1,8 @@
 import { app, BrowserWindow } from 'electron'
 import path from 'node:path'
 import { createWindow, getMainWindow } from './window'
+import { setupTray } from './tray'
+import { registerIpcHandlers } from './ipc'
 
 // Extend app to track quitting state
 declare module 'electron' {
@@ -15,6 +17,13 @@ app.whenReady().then(async () => {
 
   // Create main window
   createWindow(port)
+
+  // Set up menu bar tray widget
+  setupTray(port)
+
+  // TODO (Task 10): wire real queries from @florin/db-sqlite once the DB
+  // adapter is available. For now IPC handlers are not registered here.
+  // registerIpcHandlers(queries)
 })
 
 app.on('window-all-closed', () => {
