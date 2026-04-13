@@ -247,16 +247,30 @@ async function syncAccountBalance(
   remoteUid: string,
 ): Promise<void> {
   const { balances } = await getBalances(config, remoteUid)
-  // Prefer booked balances (actual funds) over available balances (which
-  // include overdraft/credit facilities and overstate the real balance).
-  const preference = ['CLBD', 'ITBD', 'XPCD', 'CLAV', 'ITAV'] as const
-  const closing =
-    preference.map((t) => balances.find((b) => b.balance_type === t)).find(Boolean) ?? balances[0]
-  if (!closing) return
+
+  // Booked balance types reflect actual funds in the account. Available
+  // balance types (ITAV, CLAV) include the overdraft/credit facility and
+  // can be thousands higher than the real balance — never use them.
+  const bookedTypes = ['CLBD', 'ITBD', 'XPCD'] as const
+  const booked = bookedTypes
+    .map((t) => balances.find((b) => b.balance_type === t))
+    .find(Boolean)
+
+  if (!booked) {
+    // Bank only returns available balances (e.g. La Banque Postale) —
+    // don't overwrite the account balance with an inflated number.
+    // Still update lastSyncedAt so the user knows sync ran.
+    await db
+      .update(accounts)
+      .set({ lastSyncedAt: new Date().toISOString(), updatedAt: new Date().toISOString() })
+      .where(eq(accounts.id, florinAccountId))
+    return
+  }
+
   await db
     .update(accounts)
     .set({
-      currentBalance: Number(closing.balance_amount.amount),
+      currentBalance: Number(booked.balance_amount.amount),
       lastSyncedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     })
