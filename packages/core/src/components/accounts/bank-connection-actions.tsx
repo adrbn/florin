@@ -10,7 +10,7 @@ interface BankConnectionActionsProps {
   aspspName: string
   onSyncBankConnection: (connectionId: string) => Promise<ActionResult<{ accountsSynced: number; transactionsInserted: number }>>
   onResetBankConnectionSync: (connectionId: string) => Promise<ActionResult>
-  onRevokeBankConnection: (connectionId: string) => Promise<ActionResult>
+  onRevokeBankConnection: (connectionId: string, opts?: { deleteTransactions?: boolean }) => Promise<ActionResult>
 }
 
 type ConfirmKind = 'reset' | 'disconnect'
@@ -18,21 +18,10 @@ type ConfirmKind = 'reset' | 'disconnect'
 interface ConfirmState {
   kind: ConfirmKind
   title: string
-  description: string
   confirmLabel: string
   destructive: boolean
 }
 
-/**
- * Client-side action buttons for one bank_connections row.
- *
- * Sync runs the server action and surfaces the inserted-transaction count
- * inline. Reset and Disconnect route through a proper ConfirmDialog because
- * both are destructive in different ways: reset deletes bank-API
- * transactions for this connection, disconnect cascades into nulling the FK
- * on linked accounts and stops future sync. Using `window.confirm` for these
- * was too easy to click past without reading the consequences.
- */
 export function BankConnectionActions({
   connectionId,
   aspspName,
@@ -44,6 +33,7 @@ export function BankConnectionActions({
   const [message, setMessage] = useState<string | null>(null)
   const [isError, setIsError] = useState(false)
   const [confirm, setConfirm] = useState<ConfirmState | null>(null)
+  const [deleteTransactions, setDeleteTransactions] = useState(false)
 
   const onSync = () => {
     setMessage(null)
@@ -68,19 +58,16 @@ export function BankConnectionActions({
     setConfirm({
       kind: 'reset',
       title: `Reset ${aspspName} sync window?`,
-      description:
-        'This deletes every bank-API transaction for this connection and sets the sync start date to today.\n\nLegacy and manual transactions stay untouched. Use this only to recover from overlap with XLSX imports.',
       confirmLabel: 'Reset sync window',
       destructive: true,
     })
   }
 
   const askDisconnect = () => {
+    setDeleteTransactions(false)
     setConfirm({
       kind: 'disconnect',
       title: `Disconnect ${aspspName}?`,
-      description:
-        'Linked accounts are kept but converted to manual mode and will no longer auto-sync. Existing transactions stay.\n\nYou can re-link the bank later if you change your mind, but the consent flow has to run again.',
       confirmLabel: 'Disconnect',
       destructive: true,
     })
@@ -103,7 +90,7 @@ export function BankConnectionActions({
           )
         }
       } else {
-        const result = await onRevokeBankConnection(connectionId)
+        const result = await onRevokeBankConnection(connectionId, { deleteTransactions })
         if (!result.success) {
           setIsError(true)
           setMessage(result.error ?? 'Disconnect failed')
@@ -112,6 +99,24 @@ export function BankConnectionActions({
       setConfirm(null)
     })
   }
+
+  const dialogDescription = confirm?.kind === 'reset'
+    ? 'This deletes every bank-API transaction for this connection and sets the sync start date to today.\n\nLegacy and manual transactions stay untouched. Use this only to recover from overlap with XLSX imports.'
+    : (
+        <div className="space-y-3">
+          <p>Linked accounts are kept but converted to manual mode and will no longer auto-sync.</p>
+          <p>You can re-link the bank later if you change your mind, but the consent flow has to run again.</p>
+          <label className="flex items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-sm cursor-pointer">
+            <input
+              type="checkbox"
+              checked={deleteTransactions}
+              onChange={(e) => setDeleteTransactions(e.target.checked)}
+              className="rounded"
+            />
+            <span>Also delete all bank-synced transactions</span>
+          </label>
+        </div>
+      )
 
   return (
     <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:gap-2">
@@ -142,7 +147,7 @@ export function BankConnectionActions({
           if (!open) setConfirm(null)
         }}
         title={confirm?.title ?? ''}
-        description={confirm?.description ?? ''}
+        description={dialogDescription}
         confirmLabel={confirm?.confirmLabel ?? 'Confirm'}
         destructive={confirm?.destructive ?? false}
         pending={pending}

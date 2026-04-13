@@ -247,7 +247,10 @@ export async function resetBankConnectionSync(connectionId: string): Promise<Act
  * delete the row. Linked accounts have their bankConnectionId nulled by the
  * ON DELETE SET NULL FK.
  */
-export async function revokeBankConnection(connectionId: string): Promise<ActionResult> {
+export async function revokeBankConnection(
+  connectionId: string,
+  opts?: { deleteTransactions?: boolean },
+): Promise<ActionResult> {
   try {
     const connection = await db
       .select()
@@ -265,6 +268,26 @@ export async function revokeBankConnection(connectionId: string): Promise<Action
         // Best-effort — Enable Banking may have already invalidated the session.
       }
     }
+
+    const linkedAccounts = await db
+      .select({ id: accounts.id })
+      .from(accounts)
+      .where(eq(accounts.bankConnectionId, connectionId))
+      .all()
+
+    // Optionally delete all bank-synced transactions for linked accounts
+    if (opts?.deleteTransactions && linkedAccounts.length > 0) {
+      const accountIds = linkedAccounts.map((a) => a.id)
+      await db
+        .delete(transactions)
+        .where(
+          and(
+            eq(transactions.source, 'enable_banking'),
+            inArray(transactions.accountId, accountIds),
+          ),
+        )
+    }
+
     await db
       .update(accounts)
       .set({
@@ -277,6 +300,7 @@ export async function revokeBankConnection(connectionId: string): Promise<Action
     await db.delete(bankConnections).where(eq(bankConnections.id, connectionId))
     revalidatePath('/accounts')
     revalidatePath('/')
+    revalidatePath('/transactions')
     return { success: true }
   } catch (error: unknown) {
     return { success: false, error: extractErrorMessage(error) }

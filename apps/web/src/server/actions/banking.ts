@@ -272,7 +272,10 @@ export async function resetBankConnectionSync(connectionId: string): Promise<Act
  * delete the row. Linked accounts have their `bankConnectionId` nulled by the
  * `ON DELETE SET NULL` FK and stay around as historical data.
  */
-export async function revokeBankConnection(connectionId: string): Promise<ActionResult> {
+export async function revokeBankConnection(
+  connectionId: string,
+  opts?: { deleteTransactions?: boolean },
+): Promise<ActionResult> {
   const parsed = z.uuid().safeParse(connectionId)
   if (!parsed.success) {
     return { success: false, error: 'Invalid connection id' }
@@ -289,6 +292,24 @@ export async function revokeBankConnection(connectionId: string): Promise<Action
     } catch {
       // Best-effort — Enable Banking may have already invalidated the session.
     }
+
+    const linkedAccounts = await db
+      .select({ id: accounts.id })
+      .from(accounts)
+      .where(eq(accounts.bankConnectionId, connectionId))
+
+    if (opts?.deleteTransactions && linkedAccounts.length > 0) {
+      const accountIds = linkedAccounts.map((a) => a.id)
+      await db
+        .delete(transactions)
+        .where(
+          and(
+            eq(transactions.source, 'enable_banking'),
+            inArray(transactions.accountId, accountIds),
+          ),
+        )
+    }
+
     // Demote the previously-linked accounts to manual so the user can keep
     // editing them by hand without seeing stale "synced" labels.
     await db
@@ -303,6 +324,7 @@ export async function revokeBankConnection(connectionId: string): Promise<Action
     await db.delete(bankConnections).where(eq(bankConnections.id, connectionId))
     revalidatePath('/accounts')
     revalidatePath('/')
+    revalidatePath('/transactions')
     return { success: true }
   } catch (error: unknown) {
     return { success: false, error: extractErrorMessage(error) }
