@@ -38,6 +38,14 @@ import {
 } from '@/db/schema'
 import { getEnableBankingConfig } from './config'
 
+/** Build a short error string tagged with which operation failed. */
+function shortError(op: string, error: unknown): string {
+  if (error instanceof EnableBankingError) {
+    return `${op}: API ${error.status ?? '?'} — ${extractShortReason(error)}`
+  }
+  return `${op}: ${error instanceof Error ? error.message : 'unknown error'}`
+}
+
 /** Pull a short human-readable reason from a verbose EnableBankingError. */
 function extractShortReason(error: EnableBankingError): string {
   const body = error.body as Record<string, unknown> | undefined
@@ -320,15 +328,34 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
   let accountsSynced = 0
 
   for (const uid of session.accounts) {
+    // Fetch account details — if this fails the UID is unusable, skip it.
+    let details: AccountDetails
     try {
-      const details = await getAccountDetails(ebConfig, uid)
-      const florinAccountId = await ensureAccountForUid(
-        connectionId,
-        uid,
-        details,
-        connection.aspspName,
-      )
+      details = await getAccountDetails(ebConfig, uid)
+    } catch (error: unknown) {
+      errors.push({ accountUid: uid, message: shortError('details', error) })
+      continue
+    }
 
+    const florinAccountId = await ensureAccountForUid(
+      connectionId,
+      uid,
+      details,
+      connection.aspspName,
+    )
+
+    // Balance and transactions sync independently — a 422 on transactions
+    // (common for certain account types) must not prevent the balance from
+    // updating. Each operation records its own error.
+    let balanceOk = false
+    try {
+      await syncAccountBalance(ebConfig, florinAccountId, uid)
+      balanceOk = true
+    } catch (error: unknown) {
+      errors.push({ accountUid: uid, message: shortError('balance', error) })
+    }
+
+    try {
       const priorTx = await db
         .select()
         .from(transactions)
@@ -344,7 +371,6 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
         .get()
 
       const isFirstSync = !priorTx
-      await syncAccountBalance(ebConfig, florinAccountId, uid)
       const inserted = await syncAccountTransactions(
         ebConfig,
         florinAccountId,
@@ -354,16 +380,12 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
         connection.syncStartDate,
       )
       totalInserted += inserted
-      accountsSynced += 1
     } catch (error: unknown) {
-      const message =
-        error instanceof EnableBankingError
-          ? `API ${error.status ?? '?'}: ${extractShortReason(error)}`
-          : error instanceof Error
-            ? error.message
-            : 'unknown error'
-      errors.push({ accountUid: uid, message })
+      errors.push({ accountUid: uid, message: shortError('transactions', error) })
     }
+
+    // Count as synced if at least the balance updated
+    if (balanceOk) accountsSynced += 1
   }
 
   await db

@@ -182,8 +182,11 @@ export async function syncBankConnection(
     const result = await runSync(connectionId)
     revalidatePath('/accounts')
     revalidatePath('/')
+    // Partial success: report success if at least some accounts synced,
+    // even if some individual operations failed (e.g. transactions 422 on
+    // an account type the bank doesn't fully support via PSD2).
     return {
-      success: result.errors.length === 0,
+      success: result.accountsSynced > 0,
       data: {
         accountsSynced: result.accountsSynced,
         transactionsInserted: result.transactionsInserted,
