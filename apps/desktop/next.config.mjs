@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const config = {
   devIndicators: false,
+  transpilePackages: ['@florin/core', '@florin/db-sqlite'],
   serverExternalPackages: ['better-sqlite3', 'bindings'],
   webpack: (config, { isServer }) => {
     if (isServer) {
