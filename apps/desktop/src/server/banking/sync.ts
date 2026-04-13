@@ -241,40 +241,52 @@ async function syncAccountTransactions(
   return inserted
 }
 
+/** Pick the most accurate balance. Returns the chosen entry + type label. */
+function pickBalance(
+  balances: ReadonlyArray<{ balance_type?: string; balance_amount: { amount: string; currency: string } }>,
+): { amount: number; type: string; allTypes: string } | null {
+  if (balances.length === 0) return null
+
+  const allTypes = balances.map((b) => `${b.balance_type ?? '?'}=${b.balance_amount.amount}`).join(', ')
+
+  // Prefer booked (actual funds), then available (includes overdraft) as fallback.
+  const preference = ['CLBD', 'ITBD', 'XPCD', 'CLAV', 'ITAV'] as const
+  const chosen =
+    preference.map((t) => balances.find((b) => b.balance_type === t)).find(Boolean) ?? balances[0]
+  if (!chosen) return null
+
+  return {
+    amount: Number(chosen.balance_amount.amount),
+    type: chosen.balance_type ?? 'unknown',
+    allTypes,
+  }
+}
+
 async function syncAccountBalance(
   config: EnableBankingConfig,
   florinAccountId: string,
   remoteUid: string,
-): Promise<void> {
+): Promise<string> {
   const { balances } = await getBalances(config, remoteUid)
-
-  // Booked balance types reflect actual funds in the account. Available
-  // balance types (ITAV, CLAV) include the overdraft/credit facility and
-  // can be thousands higher than the real balance — never use them.
-  const bookedTypes = ['CLBD', 'ITBD', 'XPCD'] as const
-  const booked = bookedTypes
-    .map((t) => balances.find((b) => b.balance_type === t))
-    .find(Boolean)
-
-  if (!booked) {
-    // Bank only returns available balances (e.g. La Banque Postale) —
-    // don't overwrite the account balance with an inflated number.
-    // Still update lastSyncedAt so the user knows sync ran.
+  const picked = pickBalance(balances)
+  if (!picked) {
     await db
       .update(accounts)
       .set({ lastSyncedAt: new Date().toISOString(), updatedAt: new Date().toISOString() })
       .where(eq(accounts.id, florinAccountId))
-    return
+    return 'no balances returned'
   }
 
   await db
     .update(accounts)
     .set({
-      currentBalance: Number(booked.balance_amount.amount),
+      currentBalance: picked.amount,
       lastSyncedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     })
     .where(eq(accounts.id, florinAccountId))
+
+  return `balance=${picked.amount} (${picked.type}) [${picked.allTypes}]`
 }
 
 async function loadActiveRules(): Promise<ReadonlyArray<Rule>> {
@@ -360,6 +372,7 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
 
   const rules = await loadActiveRules()
   const errors: { accountUid: string; message: string }[] = []
+  const balanceInfos: string[] = []
   let totalInserted = 0
   let accountsSynced = 0
 
@@ -384,8 +397,9 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
     // (common for certain account types) must not prevent the balance from
     // updating. Each operation records its own error.
     let balanceOk = false
+    let balanceDebug = ''
     try {
-      await syncAccountBalance(ebConfig, florinAccountId, uid)
+      balanceDebug = await syncAccountBalance(ebConfig, florinAccountId, uid)
       balanceOk = true
     } catch (error: unknown) {
       errors.push({ accountUid: uid, message: shortError('balance', error) })
@@ -421,14 +435,21 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
     }
 
     // Count as synced if at least the balance updated
-    if (balanceOk) accountsSynced += 1
+    if (balanceOk) {
+      accountsSynced += 1
+      if (balanceDebug) balanceInfos.push(balanceDebug)
+    }
   }
 
   await db
     .update(bankConnections)
     .set({
       lastSyncedAt: new Date().toISOString(),
-      lastSyncError: errors.length > 0 ? errors.map((e) => e.message).join('; ') : null,
+      lastSyncError: errors.length > 0
+        ? errors.map((e) => e.message).join('; ')
+        : balanceInfos.length > 0
+          ? `[info] ${balanceInfos.join(' | ')}`
+          : null,
       updatedAt: new Date().toISOString(),
     })
     .where(eq(bankConnections.id, connectionId))

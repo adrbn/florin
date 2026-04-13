@@ -223,39 +223,48 @@ async function syncAccountTransactions(
   return inserted
 }
 
-async function syncAccountBalance(florinAccountId: string, remoteUid: string): Promise<void> {
-  const { balances } = await getBalances(remoteUid)
-  // Pick the freshest balance type the bank exposes.
-  //   ITAV = interim available      → includes today's activity (real-time)
-  //   XPCD = expected                → interim + pending authorizations
-  //   CLAV = closing available       → end-of-day, spendable
-  //   ITBD = interim booked          → today's booked side
-  //   CLBD = closing booked          → LBP returns YESTERDAY's booked
-  // LBP specifically lags on CLBD: transactions from today land in
-  // Booked balance types reflect actual funds. Available types (ITAV, CLAV)
-  // include overdraft/credit facilities — never use them.
-  const bookedTypes = ['CLBD', 'ITBD', 'XPCD'] as const
-  const booked = bookedTypes
-    .map((t) => balances.find((b) => b.balance_type === t))
-    .find(Boolean)
+/** Pick the most accurate balance. Returns the chosen entry + type label. */
+function pickBalance(
+  balances: ReadonlyArray<{ balance_type?: string; balance_amount: { amount: string; currency: string } }>,
+): { amount: number; type: string; allTypes: string } | null {
+  if (balances.length === 0) return null
 
-  if (!booked) {
-    // Bank only returns available balances — don't overwrite.
+  const allTypes = balances.map((b) => `${b.balance_type ?? '?'}=${b.balance_amount.amount}`).join(', ')
+
+  // Prefer booked (actual funds), then available (includes overdraft) as fallback.
+  const preference = ['CLBD', 'ITBD', 'XPCD', 'CLAV', 'ITAV'] as const
+  const chosen =
+    preference.map((t) => balances.find((b) => b.balance_type === t)).find(Boolean) ?? balances[0]
+  if (!chosen) return null
+
+  return {
+    amount: Number(chosen.balance_amount.amount),
+    type: chosen.balance_type ?? 'unknown',
+    allTypes,
+  }
+}
+
+async function syncAccountBalance(florinAccountId: string, remoteUid: string): Promise<string> {
+  const { balances } = await getBalances(remoteUid)
+  const picked = pickBalance(balances)
+  if (!picked) {
     await db
       .update(accounts)
       .set({ lastSyncedAt: new Date(), updatedAt: new Date() })
       .where(eq(accounts.id, florinAccountId))
-    return
+    return 'no balances returned'
   }
 
   await db
     .update(accounts)
     .set({
-      currentBalance: booked.balance_amount.amount,
+      currentBalance: picked.amount,
       lastSyncedAt: new Date(),
       updatedAt: new Date(),
     })
     .where(eq(accounts.id, florinAccountId))
+
+  return `balance=${picked.amount} (${picked.type}) [${picked.allTypes}]`
 }
 
 async function loadActiveRules(): Promise<ReadonlyArray<Rule>> {
@@ -311,21 +320,41 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
 
   const rules = await loadActiveRules()
   const errors: { accountUid: string; message: string }[] = []
+  const balanceInfos: string[] = []
   let totalInserted = 0
   let accountsSynced = 0
 
   for (const uid of session.accounts) {
+    // Fetch account details — if this fails the UID is unusable, skip it.
+    let details: AccountDetails
     try {
-      // Enable Banking returns a list of UIDs — we have to hit
-      // /accounts/{uid}/details to get the name, IBAN, currency, etc.
-      const details = await getAccountDetails(uid)
-      const florinAccountId = await ensureAccountForUid(
-        connectionId,
-        uid,
-        details,
-        connection.aspspName,
-      )
-      // Detect first sync by absence of any prior transaction for this account.
+      details = await getAccountDetails(uid)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'unknown error'
+      errors.push({ accountUid: uid, message: `details: ${message}` })
+      continue
+    }
+
+    const florinAccountId = await ensureAccountForUid(
+      connectionId,
+      uid,
+      details,
+      connection.aspspName,
+    )
+
+    // Balance and transactions sync independently — a 422 on transactions
+    // must not prevent the balance from updating.
+    let balanceOk = false
+    let balanceDebug = ''
+    try {
+      balanceDebug = await syncAccountBalance(florinAccountId, uid)
+      balanceOk = true
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'unknown error'
+      errors.push({ accountUid: uid, message: `balance: ${message}` })
+    }
+
+    try {
       const priorTx = await db.query.transactions.findFirst({
         where: and(
           eq(transactions.accountId, florinAccountId),
@@ -335,7 +364,6 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
         ),
       })
       const isFirstSync = !priorTx
-      await syncAccountBalance(florinAccountId, uid)
       const inserted = await syncAccountTransactions(
         florinAccountId,
         uid,
@@ -344,10 +372,14 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
         connection.syncStartDate,
       )
       totalInserted += inserted
-      accountsSynced += 1
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'unknown error'
-      errors.push({ accountUid: uid, message })
+      errors.push({ accountUid: uid, message: `transactions: ${message}` })
+    }
+
+    if (balanceOk) {
+      accountsSynced += 1
+      if (balanceDebug) balanceInfos.push(balanceDebug)
     }
   }
 
@@ -355,7 +387,11 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
     .update(bankConnections)
     .set({
       lastSyncedAt: new Date(),
-      lastSyncError: errors.length > 0 ? errors.map((e) => e.message).join('; ') : null,
+      lastSyncError: errors.length > 0
+        ? errors.map((e) => e.message).join('; ')
+        : balanceInfos.length > 0
+          ? `[info] ${balanceInfos.join(' | ')}`
+          : null,
       updatedAt: new Date(),
     })
     .where(eq(bankConnections.id, connectionId))
