@@ -112,10 +112,11 @@ async function startNextServer(): Promise<number> {
   const { createServer } = await import('node:http')
   return new Promise((resolve) => {
     const server = createServer((req, res) => handle(req, res))
-    server.listen(0, '127.0.0.1', () => {
-      const addr = server.address()
-      const port = typeof addr === 'object' ? addr!.port : 3001
-      resolve(port)
+    // Fixed port so the Enable Banking redirect URI can be registered once:
+    // http://127.0.0.1:3847/api/banking/callback
+    const FIXED_PORT = 3847
+    server.listen(FIXED_PORT, '127.0.0.1', () => {
+      resolve(FIXED_PORT)
     })
   })
 }
