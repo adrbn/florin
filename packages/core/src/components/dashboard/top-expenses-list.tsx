@@ -106,7 +106,7 @@ export function TopExpensesList({ initial, categories, defaultDays, onFetchTopEx
                     {t.categoryName ?? 'Uncategorized'}
                   </p>
                 </div>
-                <span className="shrink-0 font-mono text-destructive">
+                <span className="shrink-0 tabular-nums text-destructive">
                   −{formatCurrency(t.amount)}
                 </span>
               </li>

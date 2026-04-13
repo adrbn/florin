@@ -88,7 +88,7 @@ export function CategoryBreakdownChart({ data, windowLabel }: Props) {
                       />
                       <span className="truncate text-foreground">{entry.name}</span>
                     </span>
-                    <span className="flex items-center gap-2 whitespace-nowrap font-mono">
+                    <span className="flex items-center gap-2 whitespace-nowrap tabular-nums">
                       <span className="text-foreground">{formatCurrency(entry.value)}</span>
                       <span className="text-muted-foreground">{pct.toFixed(0)}%</span>
                     </span>

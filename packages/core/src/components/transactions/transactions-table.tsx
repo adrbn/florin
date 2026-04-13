@@ -152,7 +152,7 @@ function TransactionRow({ row, categoryOptions, actions }: TransactionRowProps) 
     <div className="flex flex-col gap-1.5 px-3 py-2.5 text-xs hover:bg-muted/40 md:grid md:grid-cols-[var(--col-date)_minmax(0,1fr)_var(--col-account)_var(--col-category)_var(--col-amount)_var(--col-actions)] md:items-center md:gap-3 md:py-2">
       {/* Line 1 (mobile) / flattened onto the grid (desktop) */}
       <div className="flex min-w-0 items-center gap-2 md:contents">
-        <span className="shrink-0 font-mono text-[11px] text-muted-foreground md:text-xs">
+        <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground md:text-xs">
           {row.date}
         </span>
         <span
@@ -181,7 +181,7 @@ function TransactionRow({ row, categoryOptions, actions }: TransactionRowProps) 
           />
         </div>
         <span
-          className={`shrink-0 font-mono tabular-nums md:text-right ${
+          className={`shrink-0 tabular-nums md:text-right ${
             isNegative ? 'text-destructive' : 'text-emerald-600'
           }`}
         >

@@ -10,8 +10,8 @@ export function PinGate() {
   async function handleSubmit(pin: string): Promise<boolean> {
     const ok = await verifyPinAndSetCookie(pin)
     if (ok) {
-      router.push('/')
-      router.refresh()
+      // Hard navigation so the middleware sees the new cookie immediately
+      window.location.href = '/'
     }
     return ok
   }

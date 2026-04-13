@@ -7,6 +7,7 @@ files:
   - dist-main/**
   - .next/**
   - assets/**
+  - tray-ui/**
   - package.json
   - next.config.mjs
   - "node_modules/**"

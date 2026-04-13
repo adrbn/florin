@@ -1,13 +1,12 @@
 import { count, eq, isNull } from 'drizzle-orm'
-import { ExportButton } from '@florin/core/components/settings/export-button'
 import { Card, CardContent, CardHeader, CardTitle } from '@florin/core/components/ui/card'
 import { db } from '@/db/client'
 import { accounts, categories, settings, transactions } from '@/db/schema'
-import { exportAllData } from '@/server/actions/export'
 import { isPinEnabled } from '@/server/actions/pin'
 import { PinSettings } from '@/components/pin-settings'
 import { BankingSettings } from '@/components/banking-settings'
 import { LocaleSettings } from '@/components/locale-settings'
+import { ImportData } from '@/components/import-data'
 
 interface Stat {
   label: string
@@ -90,11 +89,16 @@ export default async function SettingsPage() {
               Download every table as a single JSON file. The export is safe to share — no secrets
               are included.
             </p>
-            <ExportButton onExportAllData={exportAllData} />
-            <p className="text-[11px] text-muted-foreground">
-              Tip: back up the <code className="tabular-nums">florin.db</code> file separately for
-              full database snapshots.
-            </p>
+            <a
+              href="/api/export/json"
+              download
+              className="inline-flex h-8 items-center rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+            >
+              Export all data (JSON)
+            </a>
+            <div className="border-t border-border/40 pt-3">
+              <ImportData />
+            </div>
           </CardContent>
         </Card>
 
