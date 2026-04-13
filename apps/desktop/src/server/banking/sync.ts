@@ -20,6 +20,7 @@
 import { and, desc, eq, isNotNull, isNull } from 'drizzle-orm'
 import {
   type EnableBankingConfig,
+  EnableBankingError,
   getAccountDetails,
   getBalances,
   getSession,
@@ -36,6 +37,24 @@ import {
   transactions,
 } from '@/db/schema'
 import { getEnableBankingConfig } from './config'
+
+/** Pull a short human-readable reason from a verbose EnableBankingError. */
+function extractShortReason(error: EnableBankingError): string {
+  const body = error.body as Record<string, unknown> | undefined
+  if (body && typeof body === 'object') {
+    // Enable Banking errors often have a `message` or `error` field
+    if (typeof body.message === 'string') return body.message
+    if (typeof body.error === 'string') return body.error
+  }
+  // Fallback: strip the verbose prefix "Enable Banking API 422 on GET /path — ..."
+  const msg = error.message
+  const dashIdx = msg.indexOf(' — ')
+  if (dashIdx > 0) {
+    const after = msg.slice(dashIdx + 3, dashIdx + 103)
+    return after.length < msg.slice(dashIdx + 3).length ? `${after}…` : after
+  }
+  return msg.slice(0, 100)
+}
 
 export interface SyncResult {
   connectionId: string
@@ -220,7 +239,9 @@ async function syncAccountBalance(
   remoteUid: string,
 ): Promise<void> {
   const { balances } = await getBalances(config, remoteUid)
-  const preference = ['ITAV', 'XPCD', 'CLAV', 'ITBD', 'CLBD'] as const
+  // Prefer booked balances (actual funds) over available balances (which
+  // include overdraft/credit facilities and overstate the real balance).
+  const preference = ['CLBD', 'ITBD', 'XPCD', 'CLAV', 'ITAV'] as const
   const closing =
     preference.map((t) => balances.find((b) => b.balance_type === t)).find(Boolean) ?? balances[0]
   if (!closing) return
@@ -335,7 +356,12 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
       totalInserted += inserted
       accountsSynced += 1
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'unknown error'
+      const message =
+        error instanceof EnableBankingError
+          ? `API ${error.status ?? '?'}: ${extractShortReason(error)}`
+          : error instanceof Error
+            ? error.message
+            : 'unknown error'
       errors.push({ accountUid: uid, message })
     }
   }

@@ -90,7 +90,11 @@ export function BankConnectionList({
                   <p className="text-[11px] text-muted-foreground">
                     Last synced {formatRelative(row.lastSyncedAt)}
                     {row.lastSyncError && (
-                      <span className="ml-1 text-destructive">— {row.lastSyncError}</span>
+                      <span className="ml-1 text-destructive" title={row.lastSyncError}>
+                        — {row.lastSyncError.length > 80
+                          ? `${row.lastSyncError.slice(0, 80)}…`
+                          : row.lastSyncError}
+                      </span>
                     )}
                   </p>
                 </div>
