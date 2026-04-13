@@ -303,7 +303,29 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
     throw new Error(`Bank connection ${connectionId} not found`)
   }
 
-  const session = await getSession(ebConfig, connection.sessionId)
+  let session: Awaited<ReturnType<typeof getSession>>
+  try {
+    session = await getSession(ebConfig, connection.sessionId)
+  } catch (error: unknown) {
+    // 422 / 404 on the session endpoint means the consent is dead — mark
+    // the connection so the user knows to re-authenticate.
+    const reason =
+      error instanceof EnableBankingError
+        ? `Session rejected (${error.status ?? '?'}) — reconnect this bank`
+        : 'Failed to reach Enable Banking'
+    await db
+      .update(bankConnections)
+      .set({ status: 'expired', lastSyncError: reason, updatedAt: new Date().toISOString() })
+      .where(eq(bankConnections.id, connectionId))
+    return {
+      connectionId,
+      accountsSynced: 0,
+      transactionsInserted: 0,
+      errors: [{ accountUid: '*', message: reason }],
+      durationMs: Date.now() - startedAt,
+    }
+  }
+
   if (session.status !== 'AUTHORIZED') {
     await db
       .update(bankConnections)
