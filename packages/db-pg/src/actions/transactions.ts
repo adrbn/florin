@@ -130,7 +130,7 @@ export async function softDeleteTransactionMutation(
       .where(eq(transactions.id, id))
       .returning({ accountId: transactions.accountId })
 
-    if (txn) {
+    if (txn?.accountId) {
       await recomputeAccountBalance(db, txn.accountId)
     }
     for (const loanId of touchedLoanIds) {
@@ -251,7 +251,9 @@ export async function bulkSoftDeleteTransactionsMutation(
       .where(inArray(transactions.id, parsed.data))
       .returning({ accountId: transactions.accountId })
 
-    const touched = new Set(result.map((r) => r.accountId))
+    const touched = new Set(
+      result.map((r) => r.accountId).filter((id): id is string => id !== null),
+    )
     for (const accountId of touched) {
       await recomputeAccountBalance(db, accountId)
     }

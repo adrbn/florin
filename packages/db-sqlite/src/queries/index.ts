@@ -107,7 +107,7 @@ function mapCategorizationRule(row: typeof categorizationRules.$inferSelect): Ca
 }
 
 type SqliteTransactionWithRelations = typeof transactions.$inferSelect & {
-  account: typeof accounts.$inferSelect
+  account: typeof accounts.$inferSelect | null
   category: typeof categories.$inferSelect | null
 }
 
@@ -133,7 +133,7 @@ function mapTransactionWithRelations(row: SqliteTransactionWithRelations): Trans
     deletedAt: toDate(row.deletedAt),
     createdAt: toDateRequired(row.createdAt),
     updatedAt: toDateRequired(row.updatedAt),
-    account: mapAccount(row.account),
+    account: row.account ? mapAccount(row.account) : null,
     category: row.category ? mapCategory(row.category) : null,
   }
 }

@@ -50,7 +50,7 @@ export async function getLoanLiabilities(
 
   const counts = new Map<string, number>()
   for (const r of rows) {
-    counts.set(r.accountId, Number(r.count))
+    if (r.accountId) counts.set(r.accountId, Number(r.count))
   }
 
   for (const a of loanAccounts) {

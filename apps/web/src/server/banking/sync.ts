@@ -258,7 +258,7 @@ async function syncAccountBalance(florinAccountId: string, remoteUid: string): P
   await db
     .update(accounts)
     .set({
-      currentBalance: picked.amount,
+      currentBalance: String(picked.amount),
       lastSyncedAt: new Date(),
       updatedAt: new Date(),
     })

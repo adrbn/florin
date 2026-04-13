@@ -18,7 +18,7 @@ interface AccountCardActionsProps {
   hasBankSync?: boolean
   /** Every other non-archived account, used to populate the "merge into" picker. */
   mergeTargets: ReadonlyArray<MergeTarget>
-  onDeleteAccount: (id: string) => Promise<ActionResult>
+  onDeleteAccount: (id: string, opts?: { deleteTransactions?: boolean }) => Promise<ActionResult>
   onMergeAccount: (input: { sourceId: string; targetId: string }) => Promise<ActionResult>
   onSetAccountArchived: (id: string, archived: boolean) => Promise<ActionResult>
 }
@@ -60,6 +60,7 @@ export function AccountCardActions({
   const [error, setError] = useState<string | null>(null)
   const [mergeTargetId, setMergeTargetId] = useState<string>('')
   const [confirm, setConfirm] = useState<ConfirmState | null>(null)
+  const [deleteTransactions, setDeleteTransactions] = useState(false)
 
   const onArchive = () => {
     // Unarchiving and plain archive are benign enough to run without a
@@ -85,11 +86,12 @@ export function AccountCardActions({
   }
 
   const askDelete = () => {
+    setDeleteTransactions(false)
     setConfirm({
       kind: 'delete',
-      title: `Permanently delete ${accountName}?`,
-      description: `All transactions for this account will also be deleted. This cannot be undone.\n\nPrefer Archive unless you really want the data gone.`,
-      confirmLabel: 'Delete forever',
+      title: `Delete ${accountName}?`,
+      description: '',
+      confirmLabel: 'Delete account',
       destructive: true,
     })
   }
@@ -119,7 +121,7 @@ export function AccountCardActions({
         const result = await onSetAccountArchived(accountId, !isArchived)
         if (!result.success) setError(result.error ?? 'Failed')
       } else if (current.kind === 'delete') {
-        const result = await onDeleteAccount(accountId)
+        const result = await onDeleteAccount(accountId, { deleteTransactions })
         if (!result.success) setError(result.error ?? 'Failed')
       } else if (current.kind === 'merge' && current.payload) {
         const result = await onMergeAccount({
@@ -199,7 +201,27 @@ export function AccountCardActions({
           if (!open) setConfirm(null)
         }}
         title={confirm?.title ?? ''}
-        description={confirm?.description ?? ''}
+        description={
+          confirm?.kind === 'delete' ? (
+            <div className="space-y-3">
+              <p>
+                The account will be removed. By default, transactions are kept
+                and will still appear in the transactions list.
+              </p>
+              <label className="flex items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={deleteTransactions}
+                  onChange={(e) => setDeleteTransactions(e.target.checked)}
+                  className="rounded"
+                />
+                <span>Also delete all transactions</span>
+              </label>
+            </div>
+          ) : (
+            confirm?.description ?? ''
+          )
+        }
         confirmLabel={confirm?.confirmLabel ?? 'Confirm'}
         destructive={confirm?.destructive ?? false}
         pending={pending}

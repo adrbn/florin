@@ -195,7 +195,7 @@ export interface LoanSettingsInput {
 export interface FlorinMutations {
   createAccount(input: CreateAccountInput): Promise<ActionResult<{ id: string }>>
   updateAccount(input: UpdateAccountInput): Promise<ActionResult>
-  deleteAccount(id: string): Promise<ActionResult>
+  deleteAccount(id: string, opts?: { deleteTransactions?: boolean }): Promise<ActionResult>
   setAccountArchived(id: string, archived: boolean): Promise<ActionResult>
   reorderAccounts(orderedIds: string[]): Promise<ActionResult>
   mergeAccount(sourceId: string, targetId: string): Promise<ActionResult>

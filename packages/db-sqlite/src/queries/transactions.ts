@@ -36,7 +36,11 @@ function buildTransactionConditions(db: SqliteDB, options: ListTransactionsOptio
     .where(eq(accounts.isArchived, false))
   const conditions = [
     isNull(transactions.deletedAt),
-    inArray(transactions.accountId, activeAccountIds),
+    // Include transactions on active accounts OR orphaned (account deleted)
+    or(
+      inArray(transactions.accountId, activeAccountIds),
+      isNull(transactions.accountId),
+    )!,
   ]
   if (accountId) conditions.push(eq(transactions.accountId, accountId))
   if (needsReviewOnly) conditions.push(eq(transactions.needsReview, true))

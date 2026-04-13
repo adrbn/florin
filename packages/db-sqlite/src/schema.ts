@@ -157,9 +157,7 @@ export const transactions = sqliteTable(
     id: text('id')
       .primaryKey()
       .$defaultFn(() => randomUUID()),
-    accountId: text('account_id')
-      .notNull()
-      .references(() => accounts.id, { onDelete: 'cascade' }),
+    accountId: text('account_id').references(() => accounts.id, { onDelete: 'set null' }),
     occurredAt: text('occurred_at').notNull(),
     recordedAt: text('recorded_at')
       .notNull()
