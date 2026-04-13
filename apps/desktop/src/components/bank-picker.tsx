@@ -18,9 +18,8 @@ export function BankPicker({ banks, country }: BankPickerProps) {
     setConnecting(bank.name)
     setError(null)
     try {
-      // The redirect URL points back to the desktop app's local server.
-      // We use the current origin (127.0.0.1:<port>) for the callback.
-      const redirectUrl = `${window.location.origin}/api/banking/callback`
+      // Fixed redirect URL matching what's registered in Enable Banking.
+      const redirectUrl = 'https://127.0.0.1:3847/api/banking/callback'
       const result = await startBankConnection({
         aspspName: bank.name,
         aspspCountry: bank.country ?? country,
