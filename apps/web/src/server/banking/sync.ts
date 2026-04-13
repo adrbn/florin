@@ -232,10 +232,10 @@ async function syncAccountBalance(florinAccountId: string, remoteUid: string): P
   //   ITBD = interim booked          → today's booked side
   //   CLBD = closing booked          → LBP returns YESTERDAY's booked
   // LBP specifically lags on CLBD: transactions from today land in
-  // /transactions before CLBD catches up, which produced the "solde not
-  // updating" bug when we only looked at CLBD. Preference order below picks
-  // the most real-time figure the ASPSP offers.
-  const preference = ['ITAV', 'XPCD', 'CLAV', 'ITBD', 'CLBD'] as const
+  // Prefer booked balances (actual funds) over available balances (which
+  // include overdraft/credit facilities and overstate the real balance).
+  // ITBD is still real-time but without the overdraft inflation.
+  const preference = ['CLBD', 'ITBD', 'XPCD', 'CLAV', 'ITAV'] as const
   const closing =
     preference.map((t) => balances.find((b) => b.balance_type === t)).find(Boolean) ?? balances[0]
   if (!closing) return
