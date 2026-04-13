@@ -188,19 +188,20 @@ export async function mergeAccountMutation(
   }
 
   try {
-    await db.transaction(async (tx) => {
-      const [src] = await tx.select().from(accounts).where(eq(accounts.id, sourceId))
-      const [tgt] = await tx.select().from(accounts).where(eq(accounts.id, targetId))
+    // better-sqlite3 transactions must be synchronous — no async/await.
+    // Drizzle's SQLite driver supports synchronous .all()/.get()/.run().
+    db.transaction((tx) => {
+      const [src] = tx.select().from(accounts).where(eq(accounts.id, sourceId)).all()
+      const [tgt] = tx.select().from(accounts).where(eq(accounts.id, targetId)).all()
       if (!src) throw new Error('Source account not found')
       if (!tgt) throw new Error('Target account not found')
 
-      await tx
-        .update(transactions)
+      tx.update(transactions)
         .set({ accountId: targetId, updatedAt: new Date().toISOString() })
         .where(eq(transactions.accountId, sourceId))
+        .run()
 
-      await tx
-        .update(accounts)
+      tx.update(accounts)
         .set({
           syncProvider: src.syncProvider,
           syncExternalId: src.syncExternalId,
@@ -212,9 +213,9 @@ export async function mergeAccountMutation(
           updatedAt: new Date().toISOString(),
         })
         .where(eq(accounts.id, targetId))
+        .run()
 
-      await tx
-        .update(accounts)
+      tx.update(accounts)
         .set({
           bankConnectionId: null,
           syncExternalId: null,
@@ -222,7 +223,9 @@ export async function mergeAccountMutation(
           updatedAt: new Date().toISOString(),
         })
         .where(eq(accounts.id, sourceId))
-      await tx.delete(accounts).where(eq(accounts.id, sourceId))
+        .run()
+
+      tx.delete(accounts).where(eq(accounts.id, sourceId)).run()
     })
 
     return { success: true }
