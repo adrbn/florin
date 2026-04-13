@@ -1,5 +1,5 @@
 import { autoUpdater } from 'electron-updater'
-import { BrowserWindow } from 'electron'
+import { BrowserWindow, ipcMain } from 'electron'
 
 export function initAutoUpdater() {
   try {
@@ -20,6 +20,10 @@ export function initAutoUpdater() {
 
     autoUpdater.on('error', () => {
       // Silently ignore update errors (no network, no release, etc.)
+    })
+
+    ipcMain.on('install-update', () => {
+      autoUpdater.quitAndInstall()
     })
 
     autoUpdater.checkForUpdates().catch(() => {})
