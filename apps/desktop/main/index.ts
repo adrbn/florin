@@ -29,6 +29,13 @@ const DB_PATH = path.join(app.getPath('userData'), 'florin.db')
 // the same database file as the Electron main process.
 process.env.FLORIN_DB_PATH = DB_PATH
 
+// Allow the self-signed localhost certificate used by our HTTPS server.
+// Without this, Electron's Chromium rejects the page load entirely.
+app.on('certificate-error', (event, _webContents, _url, _error, _cert, callback) => {
+  event.preventDefault()
+  callback(true)
+})
+
 app.whenReady().then(async () => {
   // Initialize SQLite database — createSqliteClient enables WAL mode and
   // foreign keys automatically. The schema tables are created lazily by
@@ -109,14 +116,49 @@ async function startNextServer(): Promise<number> {
   const handle = nextApp.getRequestHandler()
   await nextApp.prepare()
 
-  const { createServer } = await import('node:http')
+  // Enable Banking requires HTTPS redirect URIs, so we serve the local
+  // Next.js server over TLS with a self-signed certificate generated on
+  // first launch and stored in the userData directory.
+  const { createServer } = await import('node:https')
+  const cert = await getOrCreateLocalCert()
+  const FIXED_PORT = 3847
   return new Promise((resolve) => {
-    const server = createServer((req, res) => handle(req, res))
-    // Fixed port so the Enable Banking redirect URI can be registered once:
-    // http://127.0.0.1:3847/api/banking/callback
-    const FIXED_PORT = 3847
+    const server = createServer({ key: cert.key, cert: cert.cert }, (req, res) =>
+      handle(req, res),
+    )
     server.listen(FIXED_PORT, '127.0.0.1', () => {
       resolve(FIXED_PORT)
     })
   })
+}
+
+/**
+ * Generate (or reuse) a self-signed TLS certificate so the local Next.js
+ * server can run over HTTPS. Enable Banking mandates HTTPS redirect URIs,
+ * even for localhost. The cert is stored in the app's userData directory
+ * and is only used for the local loopback — never exposed to the network.
+ */
+async function getOrCreateLocalCert(): Promise<{ key: string; cert: string }> {
+  const fs = await import('node:fs/promises')
+  const keyPath = path.join(app.getPath('userData'), 'localhost-key.pem')
+  const certPath = path.join(app.getPath('userData'), 'localhost-cert.pem')
+  try {
+    const [key, cert] = await Promise.all([
+      fs.readFile(keyPath, 'utf8'),
+      fs.readFile(certPath, 'utf8'),
+    ])
+    return { key, cert }
+  } catch {
+    // Generate a self-signed cert valid for 10 years
+    const { execSync } = await import('node:child_process')
+    execSync(
+      `openssl req -x509 -newkey rsa:2048 -keyout "${keyPath}" -out "${certPath}" ` +
+        `-days 3650 -nodes -subj "/CN=127.0.0.1" -addext "subjectAltName=IP:127.0.0.1,DNS:localhost"`,
+    )
+    const [key, cert] = await Promise.all([
+      fs.readFile(keyPath, 'utf8'),
+      fs.readFile(certPath, 'utf8'),
+    ])
+    return { key, cert }
+  }
 }

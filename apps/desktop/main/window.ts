@@ -19,7 +19,7 @@ export function createWindow(port: number) {
     },
   })
 
-  mainWindow.loadURL(`http://127.0.0.1:${port}`)
+  mainWindow.loadURL(`https://127.0.0.1:${port}`)
 
   // Keep the window title as "Florin" regardless of page <title> changes
   mainWindow.on('page-title-updated', (event) => {
@@ -39,7 +39,7 @@ export function createWindow(port: number) {
  * middleware knows whether to enforce PIN protection even on fresh sessions.
  */
 export async function syncPinCookie(pinEnabled: boolean) {
-  const url = `http://127.0.0.1:${mainPort}`
+  const url = `https://127.0.0.1:${mainPort}`
   const ses = session.defaultSession
   if (pinEnabled) {
     await ses.cookies.set({
