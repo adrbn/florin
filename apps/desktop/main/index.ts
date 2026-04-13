@@ -3,7 +3,7 @@ import path from 'node:path'
 import { createSqliteClient, createSqliteQueries, createSqliteMutations, schema } from '@florin/db-sqlite'
 import { eq } from 'drizzle-orm'
 import { createWindow, getMainWindow, syncPinCookie } from './window'
-import { setupTray } from './tray'
+import { setupTray, getTrayWindow } from './tray'
 import { registerIpcHandlers } from './ipc'
 import { startSyncScheduler, stopSyncScheduler } from './scheduler'
 import { initAutoUpdater } from './updater'
@@ -77,8 +77,15 @@ app.whenReady().then(async () => {
   // Register IPC handlers for tray widget data fetching and sync
   registerIpcHandlers(queries, mutations, syncAllFn)
 
-  // Start background bank sync scheduler (2min warmup, then every 6h)
-  startSyncScheduler(syncAllFn)
+  // Start background bank sync scheduler (2min warmup, then every 6h).
+  // After each sync, refresh the tray widget and the main window so data
+  // stays current even when the user isn't actively looking at the dashboard.
+  startSyncScheduler(syncAllFn, () => {
+    const main = getMainWindow()
+    if (main) main.webContents.reload()
+    const trayWin = getTrayWindow()
+    if (trayWin) trayWin.webContents.send('tray:refresh')
+  })
 })
 
 app.on('window-all-closed', () => {

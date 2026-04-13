@@ -29,7 +29,10 @@ export function getSyncStatus(): Readonly<SyncStatus> {
   return { ...status }
 }
 
-export function startSyncScheduler(syncFn: () => Promise<void>): void {
+export function startSyncScheduler(
+  syncFn: () => Promise<void>,
+  onSyncComplete?: () => void,
+): void {
   const wrappedSync = async () => {
     if (status.isSyncing) return
     status.isSyncing = true
@@ -37,6 +40,7 @@ export function startSyncScheduler(syncFn: () => Promise<void>): void {
     try {
       await syncFn()
       status.lastSyncAt = new Date()
+      onSyncComplete?.()
     } catch (error: unknown) {
       status.lastError = error instanceof Error ? error.message : 'unknown error'
     } finally {
