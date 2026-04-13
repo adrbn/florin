@@ -30,6 +30,10 @@ export function setupTray(_port: number) {
     hasShadow: true,
     roundedCorners: true,
     backgroundColor: '#0f1117',
+    // Panel type prevents the app from activating (stealing focus from other
+    // apps) when the tray popup is shown — it floats above everything like a
+    // proper menu bar widget.
+    type: 'panel',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -63,12 +67,12 @@ export function setupTray(_port: number) {
         .then((h: number) => {
           if (h > 0) trayWindow?.setSize(380, h)
           positionTrayWindow()
-          trayWindow?.show()
+          trayWindow?.showInactive()
           trayWindow?.webContents.send('tray:refresh')
         })
         .catch(() => {
           positionTrayWindow()
-          trayWindow?.show()
+          trayWindow?.showInactive()
           trayWindow?.webContents.send('tray:refresh')
         })
     }
