@@ -36,6 +36,11 @@ app.on('certificate-error', (event, _webContents, _url, _error, _cert, callback)
   callback(true)
 })
 
+// Also allow Node.js fetch (used by the main process for sync API calls) to
+// accept the self-signed localhost cert. This only affects local loopback —
+// renderer-side HTTPS goes through Chromium's stack above.
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
+
 app.whenReady().then(async () => {
   // Initialize SQLite database — createSqliteClient enables WAL mode and
   // foreign keys automatically. The schema tables are created lazily by
@@ -71,14 +76,19 @@ app.whenReady().then(async () => {
   // Set up menu bar tray widget
   setupTray(port)
 
-  // Create a sync function that delegates to the Next.js server-side module.
-  // We dynamically import so the module resolves after Next.js has prepared
-  // and the FLORIN_DB_PATH env var is visible to the server-side code.
+  // Sync function delegates to the Next.js API route over localhost HTTPS.
+  // This keeps the sync logic running inside the Next.js server context where
+  // path aliases, drizzle, and Enable Banking modules resolve correctly —
+  // a bare dynamic import from the main process fails because @/ aliases
+  // don't resolve outside webpack/Next.js.
   const syncAllFn = async () => {
-    const { syncAllConnections } = await import(
-      '../src/server/banking/sync-all'
-    )
-    await syncAllConnections()
+    const res = await fetch(`https://127.0.0.1:${port}/api/banking/sync`, {
+      method: 'POST',
+    })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ error: res.statusText }))
+      throw new Error(body.error ?? `Sync failed (${res.status})`)
+    }
   }
 
   // Register IPC handlers for tray widget data fetching and sync

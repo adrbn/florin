@@ -34,6 +34,9 @@ export function setupTray(_port: number) {
     // apps) when the tray popup is shown — it floats above everything like a
     // proper menu bar widget.
     type: 'panel',
+    // Keep the popup on the current space only — prevent it from reappearing
+    // after a Mission Control / space switch animation.
+    visibleOnAllWorkspaces: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -67,12 +70,12 @@ export function setupTray(_port: number) {
         .then((h: number) => {
           if (h > 0) trayWindow?.setSize(380, h)
           positionTrayWindow()
-          trayWindow?.showInactive()
+          trayWindow?.show()
           trayWindow?.webContents.send('tray:refresh')
         })
         .catch(() => {
           positionTrayWindow()
-          trayWindow?.showInactive()
+          trayWindow?.show()
           trayWindow?.webContents.send('tray:refresh')
         })
     }
