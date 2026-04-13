@@ -41,7 +41,7 @@ export default async function ReflectPage() {
     last12.income > 0 ? ((last12.income - last12.expense) / last12.income) * 100 : 0
 
   return (
-    <div className="flex min-h-0 flex-col gap-3 lg:h-full">
+    <div className="space-y-3">
       <header className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Reflect</h1>
@@ -108,20 +108,14 @@ export default async function ReflectPage() {
         </Card>
       </div>
 
-      {/*
-        Desktop layout: 12-column grid, two rows.
-          row 1 (flex-1): IncomeVsSpending (7 cols) + NetWorth (5 cols)
-          row 2 (flex-1): CategoryBreakdown (full width)
-        On mobile everything stacks naturally.
-      */}
-      <div className="grid min-h-0 grid-cols-1 gap-3 lg:flex-1 lg:grid-cols-12 lg:grid-rows-2">
-        <div className="min-h-[240px] lg:col-span-7 lg:min-h-0">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
+        <div className="min-h-[320px] lg:col-span-7">
           <IncomeVsSpendingChart data={flows} />
         </div>
-        <div className="min-h-[240px] lg:col-span-5 lg:min-h-0">
+        <div className="min-h-[320px] lg:col-span-5">
           <NetWorthChart data={netWorthSeries} />
         </div>
-        <div className="min-h-[240px] lg:col-span-12 lg:min-h-0">
+        <div className="min-h-[320px] lg:col-span-12">
           <CategoryBreakdownChart data={categoryShare} windowLabel="last 90 days" />
         </div>
       </div>
