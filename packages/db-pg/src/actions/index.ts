@@ -42,7 +42,7 @@ export function createPgMutations(db: PgDB): FlorinMutations {
     // Accounts
     createAccount: (input) => createAccountMutation(db, input),
     updateAccount: (input) => updateAccountMutation(db, input),
-    deleteAccount: (id) => deleteAccountMutation(db, id),
+    deleteAccount: (id, opts) => deleteAccountMutation(db, id, opts),
     setAccountArchived: (id, archived) => setAccountArchivedMutation(db, id, archived),
     reorderAccounts: (orderedIds) => reorderAccountsMutation(db, orderedIds),
     mergeAccount: (sourceId, targetId) => mergeAccountMutation(db, sourceId, targetId),

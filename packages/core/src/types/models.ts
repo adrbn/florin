@@ -87,7 +87,7 @@ export interface Category {
 
 export interface Transaction {
   id: string
-  accountId: string
+  accountId: string | null
   occurredAt: Date
   recordedAt: Date
   amount: string
@@ -139,6 +139,6 @@ export interface CategoryGroupWithCategories extends CategoryGroup {
 }
 
 export interface TransactionWithRelations extends Transaction {
-  account: Account
+  account: Account | null
   category: Category | null
 }

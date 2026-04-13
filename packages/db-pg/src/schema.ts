@@ -170,9 +170,7 @@ export const transactions = pgTable(
   'transactions',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    accountId: uuid('account_id')
-      .notNull()
-      .references(() => accounts.id, { onDelete: 'cascade' }),
+    accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'set null' }),
     occurredAt: timestamp('occurred_at', { withTimezone: false, mode: 'date' }).notNull(),
     recordedAt: timestamp('recorded_at', { withTimezone: true }).notNull().defaultNow(),
     amount: numeric('amount', { precision: 14, scale: 2 }).notNull(),

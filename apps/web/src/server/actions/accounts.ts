@@ -31,8 +31,11 @@ export async function updateAccount(input: UpdateAccountInput): Promise<ActionRe
   return result
 }
 
-export async function deleteAccount(id: string): Promise<ActionResult> {
-  const result = await mutations.deleteAccount(id)
+export async function deleteAccount(
+  id: string,
+  opts?: { deleteTransactions?: boolean },
+): Promise<ActionResult> {
+  const result = await mutations.deleteAccount(id, opts)
   if (result.success) {
     revalidatePath('/accounts')
     revalidatePath('/')

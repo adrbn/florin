@@ -36,7 +36,7 @@ export async function syncLoanMirror(db: PgDB, transactionId: string): Promise<v
   const original = await db.query.transactions.findFirst({
     where: eq(transactions.id, transactionId),
   })
-  if (!original) return
+  if (!original || !original.accountId) return
 
   const originalAccount = await db.query.accounts.findFirst({
     where: eq(accounts.id, original.accountId),
@@ -62,7 +62,7 @@ export async function syncLoanMirror(db: PgDB, transactionId: string): Promise<v
       ),
     })
     existingMirror = pair ?? null
-    if (existingMirror) touchedLoanAccountIds.add(existingMirror.accountId)
+    if (existingMirror?.accountId) touchedLoanAccountIds.add(existingMirror.accountId)
   }
 
   // Case 1: no link
@@ -150,7 +150,7 @@ export async function deleteLoanMirrorFor(
   })
   if (!pair) return []
   await db.delete(transactions).where(eq(transactions.id, pair.id))
-  return [pair.accountId]
+  return pair.accountId ? [pair.accountId] : []
 }
 
 /**

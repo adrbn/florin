@@ -99,6 +99,7 @@ export async function updateAccountMutation(
 export async function deleteAccountMutation(
   db: SqliteDB,
   id: string,
+  opts?: { deleteTransactions?: boolean },
 ): Promise<ActionResult> {
   const parsed = z.uuid().safeParse(id)
   if (!parsed.success) {
@@ -106,6 +107,12 @@ export async function deleteAccountMutation(
   }
 
   try {
+    if (opts?.deleteTransactions) {
+      // Explicitly delete transactions before the account
+      db.delete(transactions).where(eq(transactions.accountId, id)).run()
+    }
+    // With onDelete: 'set null', remaining transactions keep their data
+    // but get accountId = NULL — they stay visible in the "all" view.
     await db.delete(accounts).where(eq(accounts.id, id))
     return { success: true }
   } catch (error: unknown) {
