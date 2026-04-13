@@ -201,15 +201,24 @@ export async function mergeAccountMutation(
         .where(eq(transactions.accountId, sourceId))
         .run()
 
+      // Keep whichever account's bank connection is active. If the target
+      // is already bank-synced, preserve its sync info and balance (which
+      // the next sync will refresh). Only copy sync info from the source
+      // when the source is the bank-synced one and the target is manual.
+      const tgtIsBankSynced = tgt.bankConnectionId !== null
+      const srcIsBankSynced = src.bankConnectionId !== null
+
       tx.update(accounts)
         .set({
-          syncProvider: src.syncProvider,
-          syncExternalId: src.syncExternalId,
-          bankConnectionId: src.bankConnectionId,
+          syncProvider: tgtIsBankSynced ? tgt.syncProvider : src.syncProvider,
+          syncExternalId: tgtIsBankSynced ? tgt.syncExternalId : src.syncExternalId,
+          bankConnectionId: tgtIsBankSynced ? tgt.bankConnectionId : src.bankConnectionId,
           iban: tgt.iban ?? src.iban,
           institution: tgt.institution ?? src.institution,
-          lastSyncedAt: src.lastSyncedAt,
-          currentBalance: src.currentBalance,
+          lastSyncedAt: tgtIsBankSynced ? tgt.lastSyncedAt : src.lastSyncedAt,
+          currentBalance: srcIsBankSynced && !tgtIsBankSynced
+            ? src.currentBalance
+            : tgt.currentBalance,
           updatedAt: new Date().toISOString(),
         })
         .where(eq(accounts.id, targetId))
