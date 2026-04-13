@@ -19,4 +19,6 @@ contextBridge.exposeInMainWorld('florin', {
     ipcRenderer.on('update-downloaded', (_event, version) => cb(version))
   },
   installUpdate: () => ipcRenderer.send('install-update'),
+  importPem: () => ipcRenderer.invoke('dialog:import-pem') as Promise<string | null>,
+  openExternal: (url: string) => ipcRenderer.send('shell:open-external', url),
 })

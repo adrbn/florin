@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { CheckCircle, Unplug } from 'lucide-react'
+import { CheckCircle, FileKey, Unplug } from 'lucide-react'
 
 interface BankingSettingsProps {
   configured: boolean
@@ -15,9 +15,14 @@ export function BankingSettings({ configured, currentAppId }: BankingSettingsPro
   const [status, setStatus] = useState<'idle' | 'saved' | 'error'>('idle')
   const [error, setError] = useState<string | null>(null)
 
+  async function handlePickPem() {
+    const dest = await window.florin?.importPem?.()
+    if (dest) setKeyPath(dest)
+  }
+
   async function handleSave() {
     if (!appId.trim() || !keyPath.trim()) {
-      setError('Both fields are required.')
+      setError('Both App ID and private key are required.')
       return
     }
     setSaving(true)
@@ -77,19 +82,25 @@ export function BankingSettings({ configured, currentAppId }: BankingSettingsPro
           />
         </div>
         <div className="space-y-1.5">
-          <label htmlFor="eb-key-path" className="text-xs font-medium">
-            RSA Private Key Path
-          </label>
-          <input
-            id="eb-key-path"
-            type="text"
-            value={keyPath}
-            onChange={(e) => setKeyPath(e.target.value)}
-            placeholder={configured ? '••••••••' : '/path/to/private.pem'}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-          />
+          <label className="text-xs font-medium">RSA Private Key (.pem)</label>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handlePickPem}
+              className="inline-flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm hover:bg-accent hover:text-accent-foreground"
+            >
+              <FileKey className="h-3.5 w-3.5" />
+              {keyPath ? 'Change file...' : 'Import .pem file...'}
+            </button>
+            {keyPath && (
+              <span className="truncate text-xs text-muted-foreground">{keyPath.split('/').pop()}</span>
+            )}
+            {!keyPath && configured && (
+              <span className="text-xs text-muted-foreground">Key already imported</span>
+            )}
+          </div>
           <p className="text-[11px] text-muted-foreground">
-            Absolute path to your RSA private key file (.pem).
+            The key file is copied into Florin&apos;s secure data folder. The original is not modified.
           </p>
         </div>
       </div>
@@ -108,7 +119,7 @@ export function BankingSettings({ configured, currentAppId }: BankingSettingsPro
         className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:opacity-50"
       >
         <Unplug className="h-3.5 w-3.5" />
-        {saving ? 'Saving…' : configured ? 'Update Credentials' : 'Configure Banking'}
+        {saving ? 'Saving...' : configured ? 'Update Credentials' : 'Configure Banking'}
       </button>
     </div>
   )
