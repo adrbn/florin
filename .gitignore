@@ -48,6 +48,9 @@ apps/desktop/*.db-wal
 # Superpowers brainstorm state
 .superpowers/
 
+# Claude context (local-only, not committed)
+CLAUDE.md
+
 # Secrets — private keys, certs, API credentials (must never leave the machine)
 secrets/
 apps/*/secrets/
