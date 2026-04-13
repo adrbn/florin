@@ -28,6 +28,12 @@ export function createWindow(port: number) {
     event.preventDefault()
   })
 
+  // When the window regains focus (e.g. after completing a bank auth flow in
+  // the system browser), reload to pick up any new accounts / transactions.
+  mainWindow.on('focus', () => {
+    mainWindow?.webContents.reload()
+  })
+
   mainWindow.on('close', (event) => {
     if (!app.isQuitting) {
       event.preventDefault()
