@@ -4,8 +4,14 @@ contextBridge.exposeInMainWorld('florin', {
   getTrayData: () => ipcRenderer.invoke('tray:get-data'),
   syncAll: () => ipcRenderer.invoke('tray:sync-all'),
   getSyncStatus: () => ipcRenderer.invoke('tray:sync-status'),
+  listAccounts: () => ipcRenderer.invoke('tray:list-accounts'),
+  listCategories: () => ipcRenderer.invoke('tray:list-categories'),
+  addTransaction: (input: { accountId: string; amount: number; payee: string; categoryId?: string }) =>
+    ipcRenderer.invoke('tray:add-transaction', input),
   openDashboard: () => ipcRenderer.send('open-dashboard'),
-  openAddTransaction: () => ipcRenderer.send('open-add-transaction'),
+  quitApp: () => ipcRenderer.send('quit-app'),
+  dataChanged: () => ipcRenderer.send('tray:data-changed'),
+  resizeWindow: (height: number) => ipcRenderer.send('tray:resize', height),
   onRefresh: (cb: () => void) => {
     ipcRenderer.on('tray:refresh', cb)
   },

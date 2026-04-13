@@ -29,10 +29,15 @@ export function createCurrencyFormatter(locale: string, currency: string): Curre
 }
 
 /**
- * Default formatter using EUR / fr-FR locale.
- * Components that need a different currency should accept a `CurrencyFormatter`
- * prop instead of calling these directly.
+ * Mutable default formatter — starts as EUR / fr-FR but can be reconfigured
+ * at runtime via `setCurrencyConfig()` for single-user desktop apps.
  */
-const defaultFormatter = createCurrencyFormatter('fr-FR', 'EUR')
-export const formatCurrency = defaultFormatter.format
-export const formatCurrencySigned = defaultFormatter.formatSigned
+let activeFormatter = createCurrencyFormatter('fr-FR', 'EUR')
+
+export function setCurrencyConfig(locale: string, currency: string): void {
+  activeFormatter = createCurrencyFormatter(locale, currency)
+}
+
+export const formatCurrency: CurrencyFormatter['format'] = (...args) => activeFormatter.format(...args)
+export const formatCurrencySigned: CurrencyFormatter['formatSigned'] = (...args) =>
+  activeFormatter.formatSigned(...args)

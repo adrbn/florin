@@ -92,7 +92,7 @@ export function ReviewRow({
           onChange={onToggleSelect}
           className="h-3.5 w-3.5 shrink-0 cursor-pointer rounded border-border accent-foreground md:justify-self-center"
         />
-        <span className="shrink-0 font-mono text-[11px] text-muted-foreground md:text-xs">
+        <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground md:text-xs">
           {date}
         </span>
         <span
@@ -121,7 +121,7 @@ export function ReviewRow({
           />
         </div>
         <span
-          className={`shrink-0 font-mono tabular-nums md:text-right ${
+          className={`shrink-0 tabular-nums md:text-right ${
             isNegative ? 'text-destructive' : 'text-emerald-600'
           }`}
         >

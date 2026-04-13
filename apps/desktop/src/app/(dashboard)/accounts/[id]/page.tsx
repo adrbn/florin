@@ -302,7 +302,7 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
                   return (
                     <TableRow key={t.id}>
                       <TableCell className="tabular-nums text-xs text-muted-foreground">
-                        {dateFormatter.format(t.occurredAt)}
+                        {dateFormatter.format(new Date(t.occurredAt))}
                       </TableCell>
                       <TableCell className="font-medium">
                         {t.payee || '(no payee)'}

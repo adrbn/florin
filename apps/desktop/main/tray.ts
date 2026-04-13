@@ -1,19 +1,16 @@
 import { Tray, BrowserWindow, nativeImage, ipcMain } from 'electron'
 import path from 'node:path'
-import { showMainWindow } from './window'
+import { getMainWindow, showMainWindow } from './window'
 
 let tray: Tray | null = null
 let trayWindow: BrowserWindow | null = null
 
 export function setupTray(_port: number) {
-  // Create a 16x16 template icon for macOS menu bar
-  // Template images auto-adapt to dark/light menu bar
   const iconPath = path.join(__dirname, '../assets/tray-iconTemplate.png')
   let icon: Electron.NativeImage
   try {
     icon = nativeImage.createFromPath(iconPath)
   } catch {
-    // Fallback: create a simple empty icon if asset not found
     icon = nativeImage.createEmpty()
   }
 
@@ -21,17 +18,20 @@ export function setupTray(_port: number) {
   tray.setToolTip('Florin')
 
   trayWindow = new BrowserWindow({
-    width: 320,
-    height: 420,
+    width: 380,
+    height: 10,
     show: false,
     frame: false,
     resizable: false,
     movable: false,
     alwaysOnTop: true,
     skipTaskbar: true,
-    transparent: true,
+    transparent: false,
+    hasShadow: true,
+    roundedCorners: true,
+    backgroundColor: '#0f1117',
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -39,7 +39,16 @@ export function setupTray(_port: number) {
 
   trayWindow.loadFile(path.join(__dirname, '../tray-ui/index.html'))
 
-  // Hide tray window when it loses focus
+  // Auto-size window to match popup content height
+  trayWindow.webContents.on('did-finish-load', () => {
+    trayWindow?.webContents
+      .executeJavaScript('document.querySelector(".popup").offsetHeight')
+      .then((h: number) => {
+        if (h > 0) trayWindow?.setSize(380, h)
+      })
+      .catch(() => {})
+  })
+
   trayWindow.on('blur', () => {
     trayWindow?.hide()
   })
@@ -48,9 +57,20 @@ export function setupTray(_port: number) {
     if (trayWindow?.isVisible()) {
       trayWindow.hide()
     } else {
-      positionTrayWindow()
-      trayWindow?.show()
-      trayWindow?.webContents.send('tray:refresh')
+      // Re-measure content height before showing (form may have toggled)
+      trayWindow?.webContents
+        .executeJavaScript('document.querySelector(".popup").offsetHeight')
+        .then((h: number) => {
+          if (h > 0) trayWindow?.setSize(380, h)
+          positionTrayWindow()
+          trayWindow?.show()
+          trayWindow?.webContents.send('tray:refresh')
+        })
+        .catch(() => {
+          positionTrayWindow()
+          trayWindow?.show()
+          trayWindow?.webContents.send('tray:refresh')
+        })
     }
   })
 
@@ -60,10 +80,20 @@ export function setupTray(_port: number) {
     trayWindow?.hide()
   })
 
-  ipcMain.on('open-add-transaction', () => {
-    showMainWindow()
-    trayWindow?.hide()
-    // Could navigate to add-transaction, but for now just show main window
+  // IPC: resize tray window when content changes (e.g. form toggle)
+  ipcMain.on('tray:resize', (_event, height: number) => {
+    if (trayWindow && height > 0) {
+      trayWindow.setSize(380, height)
+      positionTrayWindow()
+    }
+  })
+
+  // IPC: reload dashboard after tray changes data
+  ipcMain.on('tray:data-changed', () => {
+    const main = getMainWindow()
+    if (main) {
+      main.webContents.reload()
+    }
   })
 }
 

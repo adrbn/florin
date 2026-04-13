@@ -18,7 +18,7 @@ export function DesktopSidebar({ badges }: DesktopSidebarProps) {
   const links = visibleNavLinks(badges)
   return (
     <aside className="hidden w-60 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground md:flex">
-      <div className="flex items-center gap-3 px-6 py-5" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}>
+      <div className="flex items-center gap-3 px-6 pb-5 pt-10" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}>
         <span
           aria-hidden
           className="h-2.5 w-2.5 rounded-full bg-sidebar-primary shadow-[0_0_6px_2px_hsl(var(--sidebar-primary)/0.3)]"

@@ -1,7 +1,8 @@
 import { app, BrowserWindow } from 'electron'
 import path from 'node:path'
-import { createSqliteClient, createSqliteQueries } from '@florin/db-sqlite'
-import { createWindow, getMainWindow } from './window'
+import { createSqliteClient, createSqliteQueries, createSqliteMutations, schema } from '@florin/db-sqlite'
+import { eq } from 'drizzle-orm'
+import { createWindow, getMainWindow, syncPinCookie } from './window'
 import { setupTray } from './tray'
 import { registerIpcHandlers } from './ipc'
 import { startSyncScheduler, stopSyncScheduler } from './scheduler'
@@ -34,12 +35,28 @@ app.whenReady().then(async () => {
   // drizzle-kit push (dev) or pre-built migrations (production).
   const db = createSqliteClient(DB_PATH)
   const queries = createSqliteQueries(db)
+  const mutations = createSqliteMutations(db)
 
   // Start Next.js custom server
   const port = await startNextServer()
 
+  // Sync PIN cookie from database before creating the window so the
+  // middleware knows whether to enforce PIN on the very first request.
+  let pinEnabled = false
+  try {
+    const row = db
+      .select({ value: schema.settings.value })
+      .from(schema.settings)
+      .where(eq(schema.settings.key, 'pin_hash'))
+      .get()
+    pinEnabled = Boolean(row?.value)
+  } catch { /* settings table may not exist yet */ }
+
   // Create main window
   createWindow(port)
+
+  // Sync PIN cookie state
+  await syncPinCookie(pinEnabled)
 
   // Initialize auto-updater (checks GitHub Releases)
   initAutoUpdater()
@@ -58,7 +75,7 @@ app.whenReady().then(async () => {
   }
 
   // Register IPC handlers for tray widget data fetching and sync
-  registerIpcHandlers(queries, syncAllFn)
+  registerIpcHandlers(queries, mutations, syncAllFn)
 
   // Start background bank sync scheduler (2min warmup, then every 6h)
   startSyncScheduler(syncAllFn)

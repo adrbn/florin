@@ -23,18 +23,18 @@ export default function AboutPage() {
         </div>
         <div className="flex justify-between text-sm">
           <span className="text-muted-foreground">Developer</span>
-          <span className="font-medium">Adrien</span>
+          <span className="font-medium">Goldian</span>
         </div>
         <div className="flex justify-between text-sm">
           <span className="text-muted-foreground">License</span>
-          <span className="font-medium">MIT</span>
+          <span className="font-medium">Commercial</span>
         </div>
       </div>
 
       <div className="rounded-lg border bg-card p-6 space-y-3">
         <h2 className="text-sm font-semibold">Links</h2>
         <a
-          href="https://github.com/adrbn/florin"
+          href="https://github.com/goldian-dev/florin"
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-2 text-sm text-primary hover:underline"
@@ -43,16 +43,16 @@ export default function AboutPage() {
           GitHub Repository
         </a>
         <a
-          href="https://github.com/adrbn/florin/issues"
+          href="https://github.com/goldian-dev/florin/issues"
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-2 text-sm text-primary hover:underline"
         >
           <ExternalLink className="h-3.5 w-3.5" />
-          Report an Issue on GitHub
+          Report an Issue
         </a>
         <a
-          href="https://github.com/adrbn/florin/releases"
+          href="https://github.com/goldian-dev/florin/releases"
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-2 text-sm text-primary hover:underline"
@@ -65,7 +65,7 @@ export default function AboutPage() {
       <BugReport />
 
       <p className="text-center text-xs text-muted-foreground">
-        Self-hosted personal finance dashboard.
+        Privacy-first personal finance dashboard.
         <br />
         All data stays on your computer.
       </p>

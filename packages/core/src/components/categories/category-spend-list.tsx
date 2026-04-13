@@ -38,7 +38,7 @@ export function CategorySpendList({ items }: CategorySpendListProps) {
                       <span className="truncate">{item.categoryName}</span>
                       <span className="text-[10px] text-muted-foreground">· {item.groupName}</span>
                     </span>
-                    <span className="font-mono tabular-nums text-foreground">
+                    <span className="tabular-nums text-foreground">
                       {formatCurrency(item.total)}
                     </span>
                   </div>

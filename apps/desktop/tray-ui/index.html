@@ -13,10 +13,9 @@
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
-      background: transparent;
+      background: #0f1117;
       color: #e2e8f0;
-      width: 320px;
-      min-height: 420px;
+      width: 380px;
       overflow: hidden;
       -webkit-font-smoothing: antialiased;
     }
@@ -29,10 +28,9 @@
         0 20px 60px rgba(0, 0, 0, 0.6),
         0 0 0 0.5px rgba(255, 255, 255, 0.05) inset;
       overflow: hidden;
-      width: 320px;
+      width: 380px;
     }
 
-    /* Header */
     .header {
       display: flex;
       align-items: center;
@@ -47,25 +45,19 @@
       gap: 8px;
     }
 
-    .brand-icon {
-      width: 22px;
-      height: 22px;
-      background: linear-gradient(135deg, #6366f1, #8b5cf6);
-      border-radius: 6px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 12px;
-      font-weight: 700;
-      color: #fff;
-      letter-spacing: -0.5px;
+    .brand-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #6366f1;
+      box-shadow: 0 0 6px rgba(99, 102, 241, 0.4);
     }
 
     .brand-name {
       font-size: 13px;
-      font-weight: 600;
+      font-weight: 700;
       color: #f1f5f9;
-      letter-spacing: -0.2px;
+      letter-spacing: -0.3px;
     }
 
     .sync-status {
@@ -100,7 +92,6 @@
       50% { opacity: 0.4; }
     }
 
-    /* Net Worth Section */
     .net-worth-section {
       padding: 16px 16px 12px;
       border-bottom: 1px solid rgba(255, 255, 255, 0.07);
@@ -123,33 +114,6 @@
       line-height: 1;
     }
 
-    .net-worth-delta {
-      display: inline-flex;
-      align-items: center;
-      gap: 3px;
-      font-size: 11px;
-      font-weight: 500;
-      margin-top: 5px;
-      padding: 2px 6px;
-      border-radius: 20px;
-    }
-
-    .net-worth-delta.positive {
-      color: #4ade80;
-      background: rgba(74, 222, 128, 0.1);
-    }
-
-    .net-worth-delta.negative {
-      color: #f87171;
-      background: rgba(248, 113, 113, 0.1);
-    }
-
-    .net-worth-delta.neutral {
-      color: #94a3b8;
-      background: rgba(148, 163, 184, 0.1);
-    }
-
-    /* Burn Section */
     .burn-section {
       padding: 12px 16px;
       border-bottom: 1px solid rgba(255, 255, 255, 0.07);
@@ -159,7 +123,6 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 8px;
     }
 
     .burn-label {
@@ -176,31 +139,6 @@
       color: #f1f5f9;
     }
 
-    .burn-sub {
-      font-size: 11px;
-      color: #64748b;
-      font-weight: 400;
-    }
-
-    .progress-bar-track {
-      height: 4px;
-      background: rgba(255, 255, 255, 0.08);
-      border-radius: 2px;
-      overflow: hidden;
-    }
-
-    .progress-bar-fill {
-      height: 100%;
-      border-radius: 2px;
-      transition: width 0.4s ease;
-      background: linear-gradient(90deg, #6366f1, #8b5cf6);
-    }
-
-    .progress-bar-fill.warning {
-      background: linear-gradient(90deg, #f59e0b, #ef4444);
-    }
-
-    /* Transactions Section */
     .transactions-section {
       padding: 12px 16px;
       border-bottom: 1px solid rgba(255, 255, 255, 0.07);
@@ -257,29 +195,68 @@
       color: #4ade80;
     }
 
-    /* Review badge */
-    .review-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      padding: 4px 10px;
-      background: rgba(245, 158, 11, 0.12);
-      border: 1px solid rgba(245, 158, 11, 0.2);
+    /* Add transaction form */
+    .add-form {
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+      display: none;
+    }
+
+    .add-form.open {
+      display: block;
+    }
+
+    .form-row {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+
+    .form-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .form-input, .form-select {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 6px;
-      font-size: 11px;
-      color: #fbbf24;
-      margin: 0 16px 10px;
-      cursor: pointer;
-      transition: background 0.15s;
-    }
-
-    .review-badge:hover {
-      background: rgba(245, 158, 11, 0.2);
-    }
-
-    .review-badge-icon {
+      color: #f1f5f9;
       font-size: 12px;
+      padding: 6px 8px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s;
     }
+
+    .form-input:focus, .form-select:focus {
+      border-color: #6366f1;
+    }
+
+    .form-input::placeholder {
+      color: #475569;
+    }
+
+    .form-input.flex-1 { flex: 1; }
+
+    .form-select {
+      flex: 1;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+
+    .form-select option {
+      background: #1e1e2e;
+      color: #f1f5f9;
+    }
+
+    .form-msg {
+      font-size: 11px;
+      padding: 4px 0 0;
+      display: none;
+    }
+
+    .form-msg.success { color: #4ade80; display: block; }
+    .form-msg.error { color: #f87171; display: block; }
 
     /* Actions */
     .actions {
@@ -301,6 +278,10 @@
       white-space: nowrap;
     }
 
+    .btn:active {
+      transform: scale(0.97);
+    }
+
     .btn-primary {
       background: linear-gradient(135deg, #6366f1, #7c3aed);
       color: #fff;
@@ -309,8 +290,6 @@
 
     .btn-primary:hover {
       background: linear-gradient(135deg, #818cf8, #8b5cf6);
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
     }
 
     .btn-secondary {
@@ -324,8 +303,20 @@
       color: #f1f5f9;
     }
 
-    .btn:active {
-      transform: translateY(0) scale(0.98);
+    .btn-submit {
+      background: #22c55e;
+      color: #fff;
+      flex: none;
+      padding: 6px 14px;
+    }
+
+    .btn-submit:hover { background: #16a34a; }
+
+    .btn-cancel {
+      background: rgba(255, 255, 255, 0.07);
+      color: #94a3b8;
+      flex: none;
+      padding: 6px 10px;
     }
 
     /* Footer */
@@ -358,7 +349,6 @@
       background: rgba(255, 255, 255, 0.1);
     }
 
-    /* Loading state */
     .skeleton {
       background: rgba(255, 255, 255, 0.06);
       border-radius: 4px;
@@ -371,35 +361,15 @@
       100% { opacity: 0.6; }
     }
 
-    .skeleton-text {
-      height: 12px;
-      width: 80px;
-    }
-
-    .skeleton-value {
-      height: 26px;
-      width: 140px;
-    }
-
-    /* Error state */
-    .error-state {
-      padding: 20px 16px;
-      text-align: center;
-      color: #64748b;
-      font-size: 12px;
-    }
-
-    .error-state .error-icon {
-      font-size: 24px;
-      margin-bottom: 8px;
-    }
+    .skeleton-text { height: 12px; width: 80px; }
+    .skeleton-value { height: 26px; width: 140px; }
   </style>
 </head>
 <body>
   <div class="popup">
     <div class="header">
       <div class="header-brand">
-        <div class="brand-icon">F</div>
+        <div class="brand-dot"></div>
         <span class="brand-name">Florin</span>
       </div>
       <div class="sync-status">
@@ -409,106 +379,84 @@
     </div>
 
     <div id="content">
-      <!-- Net Worth -->
       <div class="net-worth-section">
         <div class="section-label">Net Worth</div>
         <div class="net-worth-value" id="netWorthValue">
           <span class="skeleton skeleton-value"></span>
         </div>
-        <div class="net-worth-delta neutral" id="netWorthDelta" style="display:none"></div>
       </div>
 
-      <!-- Burn Rate -->
       <div class="burn-section">
         <div class="burn-header">
           <div class="burn-label">Monthly Burn</div>
-          <div>
-            <span class="burn-value" id="burnValue">
-              <span class="skeleton skeleton-text"></span>
-            </span>
-            <span class="burn-sub" id="burnSub" style="display:none"></span>
-          </div>
-        </div>
-        <div class="progress-bar-track">
-          <div class="progress-bar-fill" id="burnProgress" style="width: 0%"></div>
+          <span class="burn-value" id="burnValue">
+            <span class="skeleton skeleton-text"></span>
+          </span>
         </div>
       </div>
 
-      <!-- Recent Transactions -->
       <div class="transactions-section">
         <div class="section-label" style="margin-bottom: 8px;">Recent Expenses</div>
         <div class="transactions-list" id="transactionsList">
-          <div class="transaction-item">
-            <div class="category-dot skeleton" style="width:8px;height:8px;"></div>
-            <div class="transaction-info">
-              <div class="skeleton skeleton-text" style="width:100px;margin-bottom:3px;"></div>
-              <div class="skeleton skeleton-text" style="width:60px;height:9px;"></div>
-            </div>
-            <div class="skeleton skeleton-text" style="width:50px;"></div>
-          </div>
-          <div class="transaction-item">
-            <div class="category-dot skeleton" style="width:8px;height:8px;"></div>
-            <div class="transaction-info">
-              <div class="skeleton skeleton-text" style="width:80px;margin-bottom:3px;"></div>
-              <div class="skeleton skeleton-text" style="width:50px;height:9px;"></div>
-            </div>
-            <div class="skeleton skeleton-text" style="width:45px;"></div>
-          </div>
-          <div class="transaction-item">
-            <div class="category-dot skeleton" style="width:8px;height:8px;"></div>
-            <div class="transaction-info">
-              <div class="skeleton skeleton-text" style="width:90px;margin-bottom:3px;"></div>
-              <div class="skeleton skeleton-text" style="width:55px;height:9px;"></div>
-            </div>
-            <div class="skeleton skeleton-text" style="width:40px;"></div>
-          </div>
+          <div style="font-size:11px;color:#475569;padding:4px 0;">Loading…</div>
         </div>
       </div>
 
-      <div id="reviewBadge" style="display:none"></div>
+      <!-- Inline add transaction form -->
+      <div class="add-form" id="addForm">
+        <div class="section-label" style="margin-bottom: 8px;">Quick Add</div>
+        <div class="form-row">
+          <input class="form-input flex-1" id="inputPayee" type="text" placeholder="Payee" />
+          <input class="form-input" id="inputAmount" type="number" step="0.01" placeholder="Amount" style="width:90px;" />
+        </div>
+        <div class="form-row">
+          <select class="form-select" id="inputAccount">
+            <option value="">Loading accounts…</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <select class="form-select" id="inputCategory">
+            <option value="">No category</option>
+          </select>
+          <button class="btn btn-submit" id="btnSubmitTx">Add</button>
+          <button class="btn btn-cancel" id="btnCancelTx">✕</button>
+        </div>
+        <div class="form-msg" id="formMsg"></div>
+      </div>
 
-      <!-- Actions -->
       <div class="actions">
         <button class="btn btn-primary" id="btnSync">Sync Now</button>
         <button class="btn btn-secondary" id="btnAdd">+ Transaction</button>
         <button class="btn btn-secondary" id="btnDashboard">Dashboard</button>
       </div>
 
-      <!-- Footer -->
       <div class="footer">
-        <button class="footer-link" id="btnQuit">Quit</button>
+        <button class="footer-link" id="btnQuit">Quit Florin</button>
       </div>
     </div>
   </div>
 
   <script>
-    // Category color palette (cycles by index)
     const CATEGORY_COLORS = [
       '#6366f1', '#8b5cf6', '#ec4899', '#ef4444',
       '#f97316', '#eab308', '#22c55e', '#14b8a6',
       '#06b6d4', '#3b82f6',
     ]
 
-    function categoryColor(index) {
-      return CATEGORY_COLORS[index % CATEGORY_COLORS.length]
-    }
-
     function formatCurrency(amount) {
-      if (amount === null || amount === undefined) return '—'
-      const abs = Math.abs(amount)
-      const formatted = new Intl.NumberFormat('en-US', {
+      if (amount === null || amount === undefined || isNaN(amount)) return '—'
+      return new Intl.NumberFormat('fr-FR', {
         style: 'currency',
-        currency: 'USD',
+        currency: 'EUR',
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
-      }).format(abs)
-      return amount < 0 ? `-${formatted}` : formatted
+      }).format(amount)
     }
 
-    function formatDelta(delta) {
-      if (!delta && delta !== 0) return null
-      const sign = delta >= 0 ? '+' : ''
-      return `${sign}${formatCurrency(delta)} vs last month`
+    function escapeHtml(str) {
+      const d = document.createElement('div')
+      d.appendChild(document.createTextNode(str))
+      return d.innerHTML
     }
 
     function setSyncState(state) {
@@ -529,56 +477,23 @@
     function renderData(data) {
       if (!data) return
 
-      // Net worth
       const { netWorth, burn, topExpenses, reviewCount } = data
 
-      const netWorthEl = document.getElementById('netWorthValue')
-      if (netWorth != null) {
-        netWorthEl.textContent = formatCurrency(netWorth.total ?? netWorth)
-      }
+      document.getElementById('netWorthValue').textContent =
+        formatCurrency(netWorth?.net ?? 0)
 
-      const deltaEl = document.getElementById('netWorthDelta')
-      const delta = netWorth?.monthDelta ?? null
-      if (delta !== null) {
-        deltaEl.textContent = formatDelta(delta)
-        deltaEl.className = `net-worth-delta ${delta >= 0 ? 'positive' : 'negative'}`
-        deltaEl.style.display = 'inline-flex'
-      }
+      document.getElementById('burnValue').textContent =
+        formatCurrency(typeof burn === 'number' ? burn : burn?.amount ?? 0)
 
-      // Burn rate
-      const burnEl = document.getElementById('burnValue')
-      const burnSubEl = document.getElementById('burnSub')
-      if (burn != null) {
-        const burnAmount = burn.amount ?? burn
-        burnEl.textContent = formatCurrency(burnAmount)
-        burnSubEl.style.display = 'inline'
-
-        const budget = burn.budget ?? null
-        const progress = document.getElementById('burnProgress')
-        if (budget && budget > 0) {
-          const pct = Math.min(100, Math.round((Math.abs(burnAmount) / budget) * 100))
-          progress.style.width = `${pct}%`
-          burnSubEl.textContent = ` / ${formatCurrency(budget)}`
-          if (pct > 80) {
-            progress.classList.add('warning')
-          }
-        } else {
-          progress.style.width = '40%'
-          burnSubEl.textContent = ' this month'
-        }
-      }
-
-      // Top expenses
       const list = document.getElementById('transactionsList')
       if (topExpenses && topExpenses.length > 0) {
         list.innerHTML = topExpenses.map((tx, i) => {
           const isIncome = (tx.amount ?? 0) > 0
-          const color = categoryColor(i)
-          const payee = tx.payee ?? tx.name ?? tx.merchant ?? 'Unknown'
-          const category = tx.category ?? tx.categoryName ?? ''
+          const payee = tx.payee ?? 'Unknown'
+          const category = tx.categoryName ?? ''
           return `
             <div class="transaction-item">
-              <div class="category-dot" style="background:${color}"></div>
+              <div class="category-dot" style="background:${CATEGORY_COLORS[i % CATEGORY_COLORS.length]}"></div>
               <div class="transaction-info">
                 <div class="transaction-payee">${escapeHtml(payee)}</div>
                 ${category ? `<div class="transaction-category">${escapeHtml(category)}</div>` : ''}
@@ -587,32 +502,9 @@
             </div>
           `
         }).join('')
-      } else if (topExpenses && topExpenses.length === 0) {
+      } else {
         list.innerHTML = '<div style="font-size:11px;color:#475569;padding:4px 0;">No recent expenses</div>'
       }
-
-      // Review badge
-      const badgeContainer = document.getElementById('reviewBadge')
-      if (reviewCount && reviewCount > 0) {
-        badgeContainer.style.display = 'block'
-        badgeContainer.innerHTML = `
-          <div class="review-badge" id="reviewBadgeInner">
-            <span class="review-badge-icon">⚠</span>
-            <span>${reviewCount} transaction${reviewCount !== 1 ? 's' : ''} need review</span>
-          </div>
-        `
-        document.getElementById('reviewBadgeInner')?.addEventListener('click', () => {
-          window.florin?.openDashboard()
-        })
-      } else {
-        badgeContainer.style.display = 'none'
-      }
-    }
-
-    function escapeHtml(str) {
-      const d = document.createElement('div')
-      d.appendChild(document.createTextNode(str))
-      return d.innerHTML
     }
 
     async function loadData() {
@@ -625,46 +517,146 @@
       }
     }
 
-    // Button handlers
+    // --- Sync ---
     document.getElementById('btnSync').addEventListener('click', async () => {
       if (!window.florin) return
+      const btn = document.getElementById('btnSync')
       setSyncState('syncing')
-      document.getElementById('btnSync').textContent = 'Syncing…'
+      btn.textContent = 'Syncing…'
+      btn.disabled = true
       try {
-        await window.florin.syncAll()
-        await loadData()
-        setSyncState('synced')
+        const result = await window.florin.syncAll()
+        if (result?.success === false) {
+          // No bank connections is not a real error
+          if (result.error && result.error.includes('No connections')) {
+            setSyncState('synced')
+          } else {
+            setSyncState('error')
+          }
+        } else {
+          await loadData()
+          window.florin.dataChanged()
+          setSyncState('synced')
+        }
       } catch {
         setSyncState('error')
       } finally {
-        document.getElementById('btnSync').textContent = 'Sync Now'
+        btn.textContent = 'Sync Now'
+        btn.disabled = false
       }
     })
 
-    document.getElementById('btnAdd').addEventListener('click', () => {
-      window.florin?.openAddTransaction()
+    // --- Add Transaction ---
+    let accountsLoaded = false
+    let categoriesLoaded = false
+
+    async function loadAccounts() {
+      if (accountsLoaded || !window.florin) return
+      try {
+        const accounts = await window.florin.listAccounts()
+        const sel = document.getElementById('inputAccount')
+        sel.innerHTML = accounts.map(a =>
+          `<option value="${a.id}">${escapeHtml(a.name)}</option>`
+        ).join('')
+        accountsLoaded = true
+      } catch { /* ignore */ }
+    }
+
+    async function loadCategories() {
+      if (categoriesLoaded || !window.florin) return
+      try {
+        const cats = await window.florin.listCategories()
+        const sel = document.getElementById('inputCategory')
+        sel.innerHTML = '<option value="">No category</option>' + cats.map(c =>
+          `<option value="${c.id}">${c.emoji ? c.emoji + ' ' : ''}${escapeHtml(c.groupName)} / ${escapeHtml(c.name)}</option>`
+        ).join('')
+        categoriesLoaded = true
+      } catch { /* ignore */ }
+    }
+
+    function resizeToContent() {
+      const h = document.querySelector('.popup')?.offsetHeight
+      if (h && window.florin) window.florin.resizeWindow(h)
+    }
+
+    document.getElementById('btnAdd').addEventListener('click', async () => {
+      const form = document.getElementById('addForm')
+      form.classList.toggle('open')
+      if (form.classList.contains('open')) {
+        await Promise.all([loadAccounts(), loadCategories()])
+        document.getElementById('inputPayee').focus()
+      }
+      setTimeout(resizeToContent, 50)
     })
 
+    document.getElementById('btnCancelTx').addEventListener('click', () => {
+      document.getElementById('addForm').classList.remove('open')
+      document.getElementById('formMsg').className = 'form-msg'
+      document.getElementById('inputPayee').value = ''
+      document.getElementById('inputAmount').value = ''
+      setTimeout(resizeToContent, 50)
+    })
+
+    document.getElementById('btnSubmitTx').addEventListener('click', async () => {
+      const payee = document.getElementById('inputPayee').value.trim()
+      const amountStr = document.getElementById('inputAmount').value.trim()
+      const accountId = document.getElementById('inputAccount').value
+      const categoryId = document.getElementById('inputCategory').value
+      const msg = document.getElementById('formMsg')
+
+      if (!payee || !amountStr || !accountId) {
+        msg.textContent = 'Fill in all fields'
+        msg.className = 'form-msg error'
+        return
+      }
+
+      const amount = -Math.abs(parseFloat(amountStr))
+      if (isNaN(amount)) {
+        msg.textContent = 'Invalid amount'
+        msg.className = 'form-msg error'
+        return
+      }
+
+      try {
+        const txInput = { accountId, amount, payee }
+        if (categoryId) txInput.categoryId = categoryId
+        const result = await window.florin.addTransaction(txInput)
+        if (result?.success === false) {
+          msg.textContent = result.error || 'Failed'
+          msg.className = 'form-msg error'
+        } else {
+          msg.textContent = 'Added!'
+          msg.className = 'form-msg success'
+          document.getElementById('inputPayee').value = ''
+          document.getElementById('inputAmount').value = ''
+          await loadData()
+          window.florin.dataChanged()
+          setTimeout(() => {
+            msg.className = 'form-msg'
+            document.getElementById('addForm').classList.remove('open')
+          }, 1200)
+        }
+      } catch {
+        msg.textContent = 'Failed to add'
+        msg.className = 'form-msg error'
+      }
+    })
+
+    // --- Dashboard ---
     document.getElementById('btnDashboard').addEventListener('click', () => {
       window.florin?.openDashboard()
     })
 
+    // --- Quit ---
     document.getElementById('btnQuit').addEventListener('click', () => {
-      // Send quit via IPC — requires main process to handle 'quit-app'
-      // For now, use the remote module fallback via openDashboard pattern
-      const { ipcRenderer } = window.__electron__ ?? {}
-      // Graceful: just open dashboard as a workaround until quit IPC is wired
-      window.florin?.openDashboard()
+      window.florin?.quitApp()
     })
 
-    // Listen for refresh events from tray click
+    // --- Refresh on tray click ---
     if (window.florin) {
-      window.florin.onRefresh(() => {
-        loadData()
-      })
+      window.florin.onRefresh(() => loadData())
     }
 
-    // Initial load
     loadData()
   </script>
 </body>

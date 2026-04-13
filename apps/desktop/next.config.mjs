@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const config = {
+  devIndicators: false,
   serverExternalPackages: ['better-sqlite3', 'bindings'],
   webpack: (config, { isServer }) => {
     if (isServer) {
