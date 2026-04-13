@@ -171,7 +171,7 @@ The sandbox is free; production access is free for personal use.
    ```
 3. Upload the public key to the Enable Banking control panel.
 4. **Add the redirect URI** for your deployment in the Enable Banking app settings:
-   - **Desktop:** `http://127.0.0.1:3847/api/banking/callback`
+   - **Desktop:** `https://127.0.0.1:3847/api/banking/callback`
    - **Web (self-hosted):** `https://florin.yourdomain.tld/api/banking/callback`
 5. Configure credentials:
    - **Desktop:** go to Settings > Bank Sync, enter your App ID, and click
