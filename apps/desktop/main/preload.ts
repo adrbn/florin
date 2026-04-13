@@ -15,4 +15,8 @@ contextBridge.exposeInMainWorld('florin', {
   onRefresh: (cb: () => void) => {
     ipcRenderer.on('tray:refresh', cb)
   },
+  onUpdateDownloaded: (cb: (version: string) => void) => {
+    ipcRenderer.on('update-downloaded', (_event, version) => cb(version))
+  },
+  installUpdate: () => ipcRenderer.send('install-update'),
 })

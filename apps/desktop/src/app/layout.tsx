@@ -6,6 +6,7 @@ import { ThemeProvider } from '@florin/core/components/theme/theme-provider'
 import { I18nProvider } from '@florin/core/i18n/context'
 import { setCurrencyConfig } from '@florin/core/lib/format'
 import { cn } from '@florin/core/lib/utils'
+import { UpdateBanner } from '@/components/update-banner'
 import { db } from '@/db/client'
 import { settings } from '@/db/schema'
 
@@ -48,6 +49,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         >
           <I18nProvider locale="en">
             {children}
+            <UpdateBanner />
           </I18nProvider>
         </ThemeProvider>
       </body>
