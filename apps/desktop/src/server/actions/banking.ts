@@ -312,8 +312,17 @@ export async function revokeBankConnection(
 
 function extractErrorMessage(error: unknown): string {
   if (error instanceof EnableBankingError) {
-    return `Enable Banking ${error.status ?? ''}: ${error.message}`
+    // Extract a short reason from the API response body if possible,
+    // otherwise truncate the verbose message to something readable.
+    const body = error.body as Record<string, unknown> | undefined
+    if (body && typeof body === 'object') {
+      if (typeof body.message === 'string') return body.message
+      if (typeof body.error === 'string') return body.error
+    }
+    return `Enable Banking error ${error.status ?? ''}`
   }
-  if (error instanceof Error) return error.message
+  if (error instanceof Error) {
+    return error.message.length > 120 ? `${error.message.slice(0, 120)}…` : error.message
+  }
   return 'Unknown error'
 }
