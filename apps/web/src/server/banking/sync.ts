@@ -232,17 +232,26 @@ async function syncAccountBalance(florinAccountId: string, remoteUid: string): P
   //   ITBD = interim booked          → today's booked side
   //   CLBD = closing booked          → LBP returns YESTERDAY's booked
   // LBP specifically lags on CLBD: transactions from today land in
-  // Prefer booked balances (actual funds) over available balances (which
-  // include overdraft/credit facilities and overstate the real balance).
-  // ITBD is still real-time but without the overdraft inflation.
-  const preference = ['CLBD', 'ITBD', 'XPCD', 'CLAV', 'ITAV'] as const
-  const closing =
-    preference.map((t) => balances.find((b) => b.balance_type === t)).find(Boolean) ?? balances[0]
-  if (!closing) return
+  // Booked balance types reflect actual funds. Available types (ITAV, CLAV)
+  // include overdraft/credit facilities — never use them.
+  const bookedTypes = ['CLBD', 'ITBD', 'XPCD'] as const
+  const booked = bookedTypes
+    .map((t) => balances.find((b) => b.balance_type === t))
+    .find(Boolean)
+
+  if (!booked) {
+    // Bank only returns available balances — don't overwrite.
+    await db
+      .update(accounts)
+      .set({ lastSyncedAt: new Date(), updatedAt: new Date() })
+      .where(eq(accounts.id, florinAccountId))
+    return
+  }
+
   await db
     .update(accounts)
     .set({
-      currentBalance: closing.balance_amount.amount,
+      currentBalance: booked.balance_amount.amount,
       lastSyncedAt: new Date(),
       updatedAt: new Date(),
     })
