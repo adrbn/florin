@@ -170,13 +170,20 @@ The sandbox is free; production access is free for personal use.
    openssl rsa -in enablebanking-private.pem -pubout -out enablebanking-public.pem
    ```
 3. Upload the public key to the Enable Banking control panel.
-4. Set the redirect URL to match your deployment.
-5. Fill in `.env` (web) or configure via Settings (desktop):
-   ```bash
-   ENABLE_BANKING_APP_ID=<your-application-id>
-   ENABLE_BANKING_PRIVATE_KEY_PATH=/path/to/enablebanking-private.pem
-   ENABLE_BANKING_REDIRECT_URL=https://florin.mydomain.tld/api/banking/callback
-   ```
+4. **Add the redirect URI** for your deployment in the Enable Banking app settings:
+   - **Desktop:** `http://127.0.0.1:3847/api/banking/callback`
+   - **Web (self-hosted):** `https://florin.yourdomain.tld/api/banking/callback`
+5. Configure credentials:
+   - **Desktop:** go to Settings > Bank Sync, enter your App ID, and click
+     "Import .pem file..." to securely import your private key. The key is
+     copied into `~/Library/Application Support/Florin/` and never leaves
+     your machine.
+   - **Web:** fill in `.env`:
+     ```bash
+     ENABLE_BANKING_APP_ID=<your-application-id>
+     ENABLE_BANKING_PRIVATE_KEY_PATH=/path/to/enablebanking-private.pem
+     ENABLE_BANKING_REDIRECT_URL=https://florin.yourdomain.tld/api/banking/callback
+     ```
 
 ---
 
