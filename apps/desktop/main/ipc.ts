@@ -1,4 +1,6 @@
-import { app, ipcMain } from 'electron'
+import { app, dialog, ipcMain, shell } from 'electron'
+import { copyFile } from 'node:fs/promises'
+import path from 'node:path'
 import type { FlorinQueries, FlorinMutations } from '@florin/core/types'
 import { getSyncStatus } from './scheduler'
 
@@ -60,6 +62,29 @@ export function registerIpcHandlers(
       const message = error instanceof Error ? error.message : 'unknown error'
       return { success: false, error: message }
     }
+  })
+
+  // File picker for PEM import — copies the selected file into userData and
+  // returns the destination path so the renderer can save it to settings.
+  ipcMain.handle('dialog:import-pem', async () => {
+    const result = await dialog.showOpenDialog({
+      title: 'Select RSA Private Key (.pem)',
+      filters: [
+        { name: 'PEM files', extensions: ['pem', 'key'] },
+        { name: 'All files', extensions: ['*'] },
+      ],
+      properties: ['openFile'],
+    })
+    if (result.canceled || result.filePaths.length === 0) return null
+    const src = result.filePaths[0]!
+    const dest = path.join(app.getPath('userData'), 'private.pem')
+    await copyFile(src, dest)
+    return dest
+  })
+
+  // Open a URL in the system browser (for bank SCA redirects)
+  ipcMain.on('shell:open-external', (_event, url: string) => {
+    shell.openExternal(url)
   })
 
   ipcMain.on('quit-app', () => {

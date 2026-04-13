@@ -29,8 +29,9 @@ function consentValidUntil(maxDays?: number): string {
   return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString()
 }
 
-export function isEnableBankingConfigured(): Promise<boolean> {
-  return getEnableBankingConfig().then((c) => c !== null)
+export async function isEnableBankingConfigured(): Promise<boolean> {
+  const config = await getEnableBankingConfig()
+  return config !== null
 }
 
 /** List banks for a given country (defaults to FR). */

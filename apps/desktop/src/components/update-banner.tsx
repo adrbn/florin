@@ -3,15 +3,6 @@
 import { useState, useEffect } from 'react'
 import { Download } from 'lucide-react'
 
-declare global {
-  interface Window {
-    florin?: {
-      onUpdateDownloaded?: (cb: (version: string) => void) => void
-      installUpdate?: () => void
-    }
-  }
-}
-
 export function UpdateBanner() {
   const [version, setVersion] = useState<string | null>(null)
 
