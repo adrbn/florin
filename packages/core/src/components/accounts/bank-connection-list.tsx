@@ -87,12 +87,12 @@ export function BankConnectionList({
                       {row.status === 'active' ? `${daysLeft}d left` : row.status.toUpperCase()}
                     </span>
                   </div>
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="truncate text-[11px] text-muted-foreground" title={row.lastSyncError ?? undefined}>
                     Last synced {formatRelative(row.lastSyncedAt)}
                     {row.lastSyncError && (
-                      <span className="ml-1 text-destructive" title={row.lastSyncError}>
-                        — {row.lastSyncError.length > 80
-                          ? `${row.lastSyncError.slice(0, 80)}…`
+                      <span className="ml-1 text-destructive">
+                        — {row.lastSyncError.length > 60
+                          ? `${row.lastSyncError.slice(0, 60)}…`
                           : row.lastSyncError}
                       </span>
                     )}

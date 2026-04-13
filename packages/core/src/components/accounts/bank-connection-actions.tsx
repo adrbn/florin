@@ -42,7 +42,8 @@ export function BankConnectionActions({
       const result = await onSyncBankConnection(connectionId)
       if (!result.success) {
         setIsError(true)
-        setMessage(result.error ?? 'Sync failed')
+        const err = result.error ?? 'Sync failed'
+        setMessage(err.length > 80 ? `${err.slice(0, 80)}…` : err)
         return
       }
       const { accountsSynced, transactionsInserted } = result.data ?? {
@@ -122,10 +123,11 @@ export function BankConnectionActions({
     <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:gap-2">
       {message && (
         <span
-          className={`text-[11px] leading-tight sm:max-w-[18ch] sm:text-right ${
+          className={`block max-w-full truncate text-[11px] leading-tight sm:max-w-[24ch] sm:text-right ${
             isError ? 'text-destructive' : 'text-muted-foreground'
           }`}
           role="status"
+          title={message}
         >
           {message}
         </span>
