@@ -44,8 +44,11 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@florin/db-sqlite": "workspace:*",
+    "@types/better-sqlite3": "^7.6.13",
     "@biomejs/biome": "2.4.10",
     "@tailwindcss/postcss": "^4.2.2",
+    "better-sqlite3": "^11.10.0",
     "@types/bcryptjs": "^3.0.0",
     "@types/node": "^25.5.2",
     "@types/react": "^19.2.14",
