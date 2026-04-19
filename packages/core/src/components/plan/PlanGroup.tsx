@@ -53,7 +53,7 @@ export function PlanGroup({ group, currency: _currency, onAssignedChange }: Plan
             <PlanCategoryRow
               key={c.id}
               category={c}
-              currency={currency}
+              currency={_currency}
               onAssignedChange={onAssignedChange}
             />
           ))}
