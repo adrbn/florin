@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { AccountForm } from '../accounts/account-form'
 import { Button } from '../ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
+import { useT } from '../../i18n/context'
 import type { ActionResult, CreateAccountInput, UpdateAccountInput } from '../../types/index'
 
 interface OnboardingWizardProps {
@@ -32,6 +33,7 @@ export function OnboardingWizard({
   onCreateAccount,
   onUpdateAccount,
 }: OnboardingWizardProps) {
+  const t = useT()
   const router = useRouter()
   const [step, setStep] = useState<Step>(hasAccounts ? 'categories' : 'welcome')
 
@@ -53,21 +55,13 @@ export function OnboardingWizard({
       {step === 'welcome' && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-2xl">Welcome to Florin 👋</CardTitle>
+            <CardTitle className="text-2xl">{t('onboarding.welcomeTitle', 'Welcome to Florin 👋')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 text-sm text-muted-foreground">
-            <p>
-              Florin is a self-hostable personal finance dashboard. Your data lives in your own
-              Postgres — there is no cloud, no telemetry, and no third party between you and your
-              numbers.
-            </p>
-            <p>
-              In this short walkthrough you'll create your first account, glance at the default
-              categories, and (optionally) link a bank via PSD2. The whole thing takes about a
-              minute.
-            </p>
+            <p>{t('onboarding.welcomeBody1', 'Florin is a self-hostable personal finance dashboard. Your data lives in your own Postgres — there is no cloud, no telemetry, and no third party between you and your numbers.')}</p>
+            <p>{t('onboarding.welcomeBody2', "In this short walkthrough you'll create your first account, glance at the default categories, and (optionally) link a bank via PSD2. The whole thing takes about a minute.")}</p>
             <div className="flex justify-end">
-              <Button onClick={goNext}>Get started →</Button>
+              <Button onClick={goNext}>{t('onboarding.getStarted', 'Get started →')}</Button>
             </div>
           </CardContent>
         </Card>
@@ -76,20 +70,19 @@ export function OnboardingWizard({
       {step === 'account' && (
         <Card>
           <CardHeader>
-            <CardTitle>Create your first account</CardTitle>
+            <CardTitle>{t('onboarding.createFirstAccount', 'Create your first account')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Add a checking account, a savings account, cash, or anything else you'd like to track.
-              You can add more later — this is just to get started.
+              {t('onboarding.firstAccountBody', "Add a checking account, a savings account, cash, or anything else you'd like to track. You can add more later — this is just to get started.")}
             </p>
             <AccountForm onSuccess={goNext} onCreateAccount={onCreateAccount} onUpdateAccount={onUpdateAccount} />
             <div className="flex justify-between">
               <Button variant="ghost" onClick={goPrev}>
-                ← Back
+                {t('onboarding.back', '← Back')}
               </Button>
               <Button variant="ghost" onClick={goNext}>
-                Skip for now →
+                {t('onboarding.skipForNow', 'Skip for now →')}
               </Button>
             </div>
           </CardContent>
@@ -99,32 +92,31 @@ export function OnboardingWizard({
       {step === 'categories' && (
         <Card>
           <CardHeader>
-            <CardTitle>Categories</CardTitle>
+            <CardTitle>{t('onboarding.categoriesTitle', 'Categories')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
             {hasCategories ? (
               <p className="text-muted-foreground">
-                Florin already seeded a default set of expense and income categories. You can
-                rename, reshape or extend them from the{' '}
+                {t('onboarding.categoriesAlready', 'Florin already seeded a default set of expense and income categories. You can rename, reshape or extend them from the')}{' '}
                 <Link href="/categories" className="text-primary underline underline-offset-2">
-                  Categories page
+                  {t('onboarding.categoriesPage', 'Categories page')}
                 </Link>
                 .
               </p>
             ) : (
               <p className="text-muted-foreground">
-                You haven't created any categories yet. Head to the{' '}
+                {t('onboarding.categoriesNone', "You haven't created any categories yet. Head to the")}{' '}
                 <Link href="/categories" className="text-primary underline underline-offset-2">
-                  Categories page
+                  {t('onboarding.categoriesPage', 'Categories page')}
                 </Link>{' '}
-                to add some, then come back here.
+                {t('onboarding.categoriesThenBack', 'to add some, then come back here.')}
               </p>
             )}
             <div className="flex justify-between">
               <Button variant="ghost" onClick={goPrev}>
-                ← Back
+                {t('onboarding.back', '← Back')}
               </Button>
-              <Button onClick={goNext}>Continue →</Button>
+              <Button onClick={goNext}>{t('onboarding.continue', 'Continue →')}</Button>
             </div>
           </CardContent>
         </Card>
@@ -133,36 +125,33 @@ export function OnboardingWizard({
       {step === 'bank' && (
         <Card>
           <CardHeader>
-            <CardTitle>Connect a bank (optional)</CardTitle>
+            <CardTitle>{t('onboarding.bankTitle', 'Connect a bank (optional)')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
             {bankingEnabled ? (
               <>
                 <p className="text-muted-foreground">
-                  Florin can pull live transactions from any EU bank that supports PSD2 via Enable
-                  Banking. New imports land in the Review queue — you confirm payee + category
-                  before they count.
+                  {t('onboarding.bankEnabledBody', 'Florin can pull live transactions from any EU bank that supports PSD2 via Enable Banking. New imports land in the Review queue — you confirm payee + category before they count.')}
                 </p>
                 <Link
                   href="/accounts/connect"
                   className="inline-flex items-center rounded-md border border-primary bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
                 >
-                  Link a bank →
+                  {t('onboarding.bankLinkBtn', 'Link a bank →')}
                 </Link>
               </>
             ) : (
               <p className="text-muted-foreground">
-                Bank linking is not configured on this instance. To enable it, set the
+                {t('onboarding.bankDisabledBody', 'Bank linking is not configured on this instance. To enable it, set the')}
                 <code className="mx-1 font-mono text-foreground">ENABLE_BANKING_*</code>
-                environment variables and restart. Florin works fine without bank linking — you can
-                keep tracking everything manually.
+                {t('onboarding.bankDisabledEnd', 'environment variables and restart. Florin works fine without bank linking — you can keep tracking everything manually.')}
               </p>
             )}
             <div className="flex justify-between">
               <Button variant="ghost" onClick={goPrev}>
-                ← Back
+                {t('onboarding.back', '← Back')}
               </Button>
-              <Button onClick={goNext}>Skip for now →</Button>
+              <Button onClick={goNext}>{t('onboarding.skipForNow', 'Skip for now →')}</Button>
             </div>
           </CardContent>
         </Card>
@@ -171,41 +160,40 @@ export function OnboardingWizard({
       {step === 'done' && (
         <Card>
           <CardHeader>
-            <CardTitle>You're all set 🎉</CardTitle>
+            <CardTitle>{t('onboarding.doneTitle', "You're all set 🎉")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
             <p className="text-muted-foreground">
-              That's it — you can start adding transactions, glance at the dashboard, and use the
-              Reflect tab once you have a few weeks of data. Enjoy.
+              {t('onboarding.doneBody', "That's it — you can start adding transactions, glance at the dashboard, and use the Reflect tab once you have a few weeks of data. Enjoy.")}
             </p>
             <ul className="ml-4 list-disc space-y-1 text-muted-foreground">
               <li>
                 <Link href="/" className="text-primary underline underline-offset-2">
-                  Dashboard
+                  {t('onboarding.linkDashboard', 'Dashboard')}
                 </Link>{' '}
-                — KPIs and trend lines.
+                {t('onboarding.linkDashboardSuffix', '— KPIs and trend lines.')}
               </li>
               <li>
                 <Link href="/transactions" className="text-primary underline underline-offset-2">
-                  Transactions
+                  {t('onboarding.linkTransactions', 'Transactions')}
                 </Link>{' '}
-                — full ledger.
+                {t('onboarding.linkTransactionsSuffix', '— full ledger.')}
               </li>
               <li>
                 <Link href="/reflect" className="text-primary underline underline-offset-2">
-                  Reflect
+                  {t('onboarding.linkReflect', 'Reflect')}
                 </Link>{' '}
-                — long-window analytics.
+                {t('onboarding.linkReflectSuffix', '— long-window analytics.')}
               </li>
               <li>
                 <Link href="/tools" className="text-primary underline underline-offset-2">
-                  Tools
+                  {t('onboarding.linkTools', 'Tools')}
                 </Link>{' '}
-                — loan + compound interest calculators.
+                {t('onboarding.linkToolsSuffix', '— loan + compound interest calculators.')}
               </li>
             </ul>
             <div className="flex justify-end">
-              <Button onClick={() => router.push('/')}>Open dashboard</Button>
+              <Button onClick={() => router.push('/')}>{t('onboarding.openDashboard', 'Open dashboard')}</Button>
             </div>
           </CardContent>
         </Card>
@@ -215,13 +203,14 @@ export function OnboardingWizard({
 }
 
 function ProgressBar({ step }: { step: Step }) {
+  const t = useT()
   const idx = STEPS.indexOf(step)
   const pct = ((idx + 1) / STEPS.length) * 100
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between text-[11px] uppercase tracking-wide text-muted-foreground">
         <span>
-          Step {idx + 1} of {STEPS.length}
+          {t('onboarding.stepOf', { current: idx + 1, total: STEPS.length }, `Step ${idx + 1} of ${STEPS.length}`)}
         </span>
         <span>{Math.round(pct)}%</span>
       </div>

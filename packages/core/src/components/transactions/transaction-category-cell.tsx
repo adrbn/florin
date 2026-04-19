@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useTransition } from 'react'
+import { useT } from '../../i18n/context'
 import type { ActionResult } from '../../types/index'
 
 interface CategoryOption {
@@ -36,6 +37,7 @@ export function TransactionCategoryCell({
   options,
   onUpdateTransactionCategory,
 }: TransactionCategoryCellProps) {
+  const t = useT()
   const [open, setOpen] = useState(false)
   const [filter, setFilter] = useState('')
   const [pending, startTransition] = useTransition()
@@ -92,7 +94,7 @@ export function TransactionCategoryCell({
             <span>{currentCategoryName}</span>
           </span>
         ) : (
-          <span className="italic text-muted-foreground">uncategorized</span>
+          <span className="italic text-muted-foreground">{t('txCategoryCell.uncategorized', 'uncategorized')}</span>
         )}
         <span className="text-muted-foreground/60">▾</span>
       </button>
@@ -103,7 +105,7 @@ export function TransactionCategoryCell({
             type="text"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            placeholder="Filter…"
+            placeholder={t('txCategoryCell.filter', 'Filter…')}
             className="mb-1 w-full rounded-md border border-input bg-background px-2 py-1 text-xs"
           />
           <div className="max-h-64 overflow-y-auto">
@@ -113,11 +115,11 @@ export function TransactionCategoryCell({
                 onClick={() => onPick(null)}
                 className="block w-full rounded-md px-2 py-1 text-left text-xs italic text-muted-foreground hover:bg-muted"
               >
-                ✕ Clear category
+                {t('txCategoryCell.clear', '✕ Clear category')}
               </button>
             )}
             {filtered.length === 0 ? (
-              <p className="px-2 py-1 text-xs text-muted-foreground">No matches.</p>
+              <p className="px-2 py-1 text-xs text-muted-foreground">{t('txCategoryCell.noMatches', 'No matches.')}</p>
             ) : (
               filtered.map((o) => (
                 <button

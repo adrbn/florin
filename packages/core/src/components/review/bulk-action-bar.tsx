@@ -2,6 +2,7 @@
 
 import { useTransition } from 'react'
 import { type CategoryOption, CategoryPicker } from '../ui/category-picker'
+import { useT } from '../../i18n/context'
 import type { ActionResult } from '../../types/index'
 
 interface BulkActionBarProps {
@@ -28,6 +29,7 @@ export function BulkActionBar({
   onBulkSoftDeleteTransactions,
   onBulkUpdateTransactionCategory,
 }: BulkActionBarProps) {
+  const t = useT()
   const [pending, startTransition] = useTransition()
   const count = selectedIds.length
 
@@ -47,7 +49,11 @@ export function BulkActionBar({
 
   const onDelete = () => {
     const ok = window.confirm(
-      `Delete ${count} transaction${count === 1 ? '' : 's'}? This can't be undone from the UI.`,
+      t(
+        'review.bulkDeleteConfirm',
+        { count },
+        `Delete ${count} transaction${count === 1 ? '' : 's'}? This can't be undone from the UI.`,
+      ),
     )
     if (!ok) return
     startTransition(async () => {
@@ -60,7 +66,7 @@ export function BulkActionBar({
     <div className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-2 border-b border-border bg-background/95 px-3 py-2 text-xs backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <div className="flex items-center gap-2">
         <span className="rounded-full bg-foreground/10 px-2 py-0.5 text-[11px] font-medium text-foreground">
-          {count} selected
+          {t('review.selectedCount', { count }, `${count} selected`)}
         </span>
         <button
           type="button"
@@ -68,7 +74,7 @@ export function BulkActionBar({
           disabled={pending}
           className="text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline disabled:opacity-50"
         >
-          Clear
+          {t('review.clearSelection', 'Clear')}
         </button>
       </div>
       <div className="flex flex-wrap items-center gap-2">
@@ -80,7 +86,7 @@ export function BulkActionBar({
           align="right"
           trigger={
             <span className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-[11px] font-medium text-foreground hover:bg-muted">
-              Categorize as… <span className="text-muted-foreground/60">▾</span>
+              {t('review.categorizeAs', 'Categorize as…')} <span className="text-muted-foreground/60">▾</span>
             </span>
           }
         />
@@ -90,7 +96,7 @@ export function BulkActionBar({
           disabled={pending}
           className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-[11px] font-medium text-emerald-700 hover:bg-emerald-500/20 disabled:opacity-50 dark:text-emerald-300"
         >
-          ✓ Approve
+          ✓ {t('review.approve', 'Approve')}
         </button>
         <button
           type="button"
@@ -98,7 +104,7 @@ export function BulkActionBar({
           disabled={pending}
           className="rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1 text-[11px] font-medium text-destructive hover:bg-destructive/20 disabled:opacity-50"
         >
-          Delete
+          {t('common.delete', 'Delete')}
         </button>
       </div>
     </div>

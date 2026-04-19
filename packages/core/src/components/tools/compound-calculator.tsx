@@ -16,6 +16,7 @@ import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import { calculateCompound } from '../../lib/calculators/compound'
 import { formatCurrency } from '../../lib/format/currency'
+import { useT } from '../../i18n/context'
 
 const formatEur = (v: number): string => `${Math.round(v).toLocaleString('fr-FR')} €`
 
@@ -25,6 +26,7 @@ const formatEur = (v: number): string => `${Math.round(v).toLocaleString('fr-FR'
  * the magic of compounding visually.
  */
 export function CompoundCalculator() {
+  const t = useT()
   const [initial, setInitial] = useState(10_000)
   const [monthly, setMonthly] = useState(500)
   const [rate, setRate] = useState(7)
@@ -56,13 +58,13 @@ export function CompoundCalculator() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Compound interest calculator</CardTitle>
+        <CardTitle className="text-base">{t('tools.compound.title', 'Compound interest calculator')}</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
           <form className="space-y-3" onSubmit={(e) => e.preventDefault()}>
             <div className="space-y-1.5">
-              <Label htmlFor="ci-initial">Initial deposit (EUR)</Label>
+              <Label htmlFor="ci-initial">{t('tools.compound.initial', 'Initial deposit (EUR)')}</Label>
               <Input
                 id="ci-initial"
                 type="number"
@@ -73,7 +75,7 @@ export function CompoundCalculator() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="ci-monthly">Monthly contribution (EUR)</Label>
+              <Label htmlFor="ci-monthly">{t('tools.compound.monthly', 'Monthly contribution (EUR)')}</Label>
               <Input
                 id="ci-monthly"
                 type="number"
@@ -84,7 +86,7 @@ export function CompoundCalculator() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="ci-rate">Annual return (%)</Label>
+              <Label htmlFor="ci-rate">{t('tools.compound.rate', 'Annual return (%)')}</Label>
               <Input
                 id="ci-rate"
                 type="number"
@@ -94,7 +96,7 @@ export function CompoundCalculator() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="ci-years">Years</Label>
+              <Label htmlFor="ci-years">{t('tools.compound.years', 'Years')}</Label>
               <Input
                 id="ci-years"
                 type="number"
@@ -107,19 +109,19 @@ export function CompoundCalculator() {
 
             <div className="space-y-1 rounded-md border border-border bg-muted/40 p-3 text-xs">
               <p className="flex justify-between">
-                <span className="text-muted-foreground">Final balance</span>
+                <span className="text-muted-foreground">{t('tools.compound.finalBalance', 'Final balance')}</span>
                 <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
                   {formatCurrency(summary.finalBalance)}
                 </span>
               </p>
               <p className="flex justify-between">
-                <span className="text-muted-foreground">Contributed</span>
+                <span className="text-muted-foreground">{t('tools.compound.contributed', 'Contributed')}</span>
                 <span className="font-mono text-foreground">
                   {formatCurrency(summary.totalContributed)}
                 </span>
               </p>
               <p className="flex justify-between">
-                <span className="text-muted-foreground">Interest earned</span>
+                <span className="text-muted-foreground">{t('tools.compound.interestEarned', 'Interest earned')}</span>
                 <span className="font-mono text-amber-600 dark:text-amber-400">
                   {formatCurrency(summary.totalInterest)}
                 </span>
@@ -154,14 +156,14 @@ export function CompoundCalculator() {
                     border: '1px solid hsl(var(--border))',
                   }}
                   formatter={(value, name) => [formatEur(Number(value)), String(name)]}
-                  labelFormatter={(label) => `Year ${label}`}
+                  labelFormatter={(label) => t('tools.compound.year', { label: String(label) }, `Year ${label}`)}
                 />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
                 <Area
                   type="monotone"
                   stackId="1"
                   dataKey="contributed"
-                  name="Contributed"
+                  name={t('tools.compound.legendContributed', 'Contributed')}
                   stroke="#3b82f6"
                   fill="url(#ciContrib)"
                   strokeWidth={2}
@@ -171,7 +173,7 @@ export function CompoundCalculator() {
                   type="monotone"
                   stackId="1"
                   dataKey="interest"
-                  name="Interest"
+                  name={t('tools.compound.legendInterest', 'Interest')}
                   stroke="#f59e0b"
                   fill="url(#ciInt)"
                   strokeWidth={2}

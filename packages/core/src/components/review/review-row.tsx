@@ -2,6 +2,7 @@
 
 import { useTransition } from 'react'
 import { TransactionCategoryCell } from '../transactions/transaction-category-cell'
+import { useT } from '../../i18n/context'
 import type { ActionResult } from '../../types/index'
 
 interface CategoryOption {
@@ -59,6 +60,7 @@ export function ReviewRow({
   onSoftDeleteTransaction,
   onUpdateTransactionCategory,
 }: ReviewRowProps) {
+  const t = useT()
   const [pending, startTransition] = useTransition()
   const isNegative = amount < 0
 
@@ -69,7 +71,7 @@ export function ReviewRow({
   }
 
   const onDelete = () => {
-    const ok = window.confirm('Delete this transaction?')
+    const ok = window.confirm(t('review.deleteConfirmOne', 'Delete this transaction?'))
     if (!ok) return
     startTransition(async () => {
       await onSoftDeleteTransaction(transactionId)
@@ -87,7 +89,7 @@ export function ReviewRow({
       <div className="flex min-w-0 items-center gap-2 md:contents">
         <input
           type="checkbox"
-          aria-label="Select row"
+          aria-label={t('review.selectRow', 'Select row')}
           checked={selected}
           onChange={onToggleSelect}
           className="h-3.5 w-3.5 shrink-0 cursor-pointer rounded border-border accent-foreground md:justify-self-center"
@@ -133,7 +135,7 @@ export function ReviewRow({
             onClick={onApprove}
             disabled={pending}
             className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-[11px] font-medium text-emerald-700 hover:bg-emerald-500/20 disabled:opacity-50 dark:text-emerald-300"
-            title="Mark as reviewed"
+            title={t('review.markAsReviewed', 'Mark as reviewed')}
           >
             {pending ? '…' : '✓'}
           </button>
@@ -142,8 +144,8 @@ export function ReviewRow({
             onClick={onDelete}
             disabled={pending}
             className="rounded-md border border-destructive/40 bg-destructive/10 px-1.5 py-1 text-[11px] font-medium text-destructive hover:bg-destructive/20 disabled:opacity-50"
-            title="Delete transaction"
-            aria-label="Delete transaction"
+            title={t('review.deleteTransaction', 'Delete transaction')}
+            aria-label={t('review.deleteTransaction', 'Delete transaction')}
           >
             🗑
           </button>

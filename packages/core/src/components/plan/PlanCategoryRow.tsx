@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { PlanCategory } from '@florin/core/types'
 import { formatCurrency } from '@florin/core/lib/format'
+import { useT } from '../../i18n/context'
 
 interface PlanCategoryRowProps {
   category: PlanCategory
@@ -19,6 +20,7 @@ export function PlanCategoryRow({
   onAssignedChange,
   onShowTransactions,
 }: PlanCategoryRowProps) {
+  const t = useT()
   const [draft, setDraft] = useState<string>(assignedToDraft(category.assigned))
   const [isFocused, setIsFocused] = useState(false)
   const skipCommitRef = useRef(false)
@@ -88,14 +90,14 @@ export function PlanCategoryRow({
             }
           }}
           className="w-24 text-right text-sm bg-transparent border-b border-transparent focus:border-border focus:outline-none px-1 placeholder:text-muted-foreground/50"
-          aria-label={`Assigned for ${category.name}`}
+          aria-label={t('plan.assignedAriaFor', { name: category.name }, `Assigned for ${category.name}`)}
         />
         <button
           type="button"
           onClick={() => onShowTransactions(category.id)}
           className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border w-28 justify-center cursor-pointer hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-primary/40 ${pillClass}`}
           data-testid={`available-${category.id}`}
-          aria-label={`Show ${category.name} transactions`}
+          aria-label={t('plan.showTransactionsFor', { name: category.name }, `Show ${category.name} transactions`)}
         >
           {formatCurrency(available)}
         </button>
