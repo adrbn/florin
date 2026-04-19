@@ -19,6 +19,18 @@ export async function getMonthPlanQuery(
   const start = new Date(Date.UTC(year, month - 1, 1))
   const end = new Date(Date.UTC(year, month, 1)) // month=12 → Jan 1 of year+1, JS handles rollover
 
+  // ---- 0. All expense-kind groups (including empty ones) ----
+  const expenseGroups = await db
+    .select({
+      id: categoryGroups.id,
+      name: categoryGroups.name,
+      color: categoryGroups.color,
+      displayOrder: categoryGroups.displayOrder,
+    })
+    .from(categoryGroups)
+    .where(eq(categoryGroups.kind, 'expense'))
+    .orderBy(asc(categoryGroups.displayOrder), asc(categoryGroups.name))
+
   // ---- 1. All non-archived categories with their group ----
   const catRows = await db
     .select({
@@ -27,10 +39,7 @@ export async function getMonthPlanQuery(
       catEmoji: categories.emoji,
       catDisplayOrder: categories.displayOrder,
       groupId: categoryGroups.id,
-      groupName: categoryGroups.name,
       groupKind: categoryGroups.kind,
-      groupColor: categoryGroups.color,
-      groupDisplayOrder: categoryGroups.displayOrder,
     })
     .from(categories)
     .innerJoin(categoryGroups, eq(categories.groupId, categoryGroups.id))
@@ -99,7 +108,7 @@ export async function getMonthPlanQuery(
 
   income = Math.round(income * 100) / 100
 
-  // ---- Seed group map in order (from catRows which are already sorted) ----
+  // ---- Seed group map from expenseGroups first (preserves empty groups) ----
   type GroupAcc = {
     id: string
     name: string
@@ -112,18 +121,16 @@ export async function getMonthPlanQuery(
   const groupMap = new Map<string, GroupAcc>()
   const groupOrder: string[] = []
 
-  for (const row of catRows) {
-    if (!groupMap.has(row.groupId)) {
-      groupMap.set(row.groupId, {
-        id: row.groupId,
-        name: row.groupName,
-        kind: row.groupKind,
-        color: row.groupColor,
-        displayOrder: row.groupDisplayOrder,
-        categories: [],
-      })
-      groupOrder.push(row.groupId)
-    }
+  for (const g of expenseGroups) {
+    groupMap.set(g.id, {
+      id: g.id,
+      name: g.name,
+      kind: 'expense',
+      color: g.color,
+      displayOrder: g.displayOrder,
+      categories: [],
+    })
+    groupOrder.push(g.id)
   }
 
   // ---- Populate categories into expense groups ----
