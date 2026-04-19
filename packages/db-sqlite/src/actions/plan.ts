@@ -87,12 +87,23 @@ export async function setCategoryAssignedMutation(
   }
 }
 
+const clearAssignedSchema = z.object({
+  year: z.number().int().min(1970).max(2100),
+  month: z.number().int().min(1).max(12),
+  categoryId: z.uuid(),
+})
+
 export async function clearCategoryAssignedMutation(
   db: SqliteDB,
   year: number,
   month: number,
   categoryId: string,
 ): Promise<ActionResult> {
+  const parsed = clearAssignedSchema.safeParse({ year, month, categoryId })
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues.map((i) => i.message).join(', ') }
+  }
+
   try {
     await db
       .delete(monthlyBudgets)
