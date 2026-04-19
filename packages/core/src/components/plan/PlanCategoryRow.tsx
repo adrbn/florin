@@ -42,8 +42,8 @@ export function PlanCategoryRow({ category, currency: _currency, onAssignedChang
 
   return (
     <div
-      className={`flex items-center justify-between gap-3 border-b border-border px-4 py-2.5 transition-colors ${
-        isFocused ? 'bg-muted/60' : ''
+      className={`relative flex items-center justify-between gap-3 border-b border-border px-4 py-2.5 transition-colors ${
+        isFocused ? 'bg-primary/10 ring-1 ring-inset ring-primary/30' : ''
       }`}
     >
       <div className="flex items-center gap-2 min-w-0">
