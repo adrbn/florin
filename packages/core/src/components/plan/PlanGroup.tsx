@@ -10,10 +10,16 @@ interface PlanGroupProps {
   group: PlanGroupModel
   currency: string
   onAssignedChange: (categoryId: string, amount: number) => void
+  onShowTransactions: (categoryId: string) => void
 }
 
 // currency is unused — formatCurrency reads from setCurrencyConfig singleton
-export function PlanGroup({ group, currency: _currency, onAssignedChange }: PlanGroupProps) {
+export function PlanGroup({
+  group,
+  currency: _currency,
+  onAssignedChange,
+  onShowTransactions,
+}: PlanGroupProps) {
   const [open, setOpen] = useState(true)
 
   return (
@@ -55,6 +61,7 @@ export function PlanGroup({ group, currency: _currency, onAssignedChange }: Plan
               category={c}
               currency={_currency}
               onAssignedChange={onAssignedChange}
+              onShowTransactions={onShowTransactions}
             />
           ))}
         </div>
