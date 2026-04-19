@@ -2,27 +2,24 @@
 import { useEffect } from 'react'
 import { usePrivacy } from './context'
 
-// Matches any run of digits with optional decimal/thousand separators — i.e.
-// anything that could be an amount. Currency symbol is not required since some
-// renderings show the number alone (table cells, chart axes).
-const AMOUNT_RE = /[-−]?\d[\d\s.,'\u00a0]*/
+// Only tag text nodes that clearly contain a currency amount — i.e. a digit
+// alongside a currency symbol. This avoids blurring dates, counts, IDs, or
+// payee descriptions that happen to contain numbers.
+const CURRENCY_SYMBOL_RE = /[€$£¥]/
 
 function markAmountNodes(root: Node) {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
       const text = node.nodeValue ?? ''
-      if (!AMOUNT_RE.test(text)) return NodeFilter.FILTER_REJECT
-      // Skip SCRIPT/STYLE text and nodes already inside an input/textarea.
+      if (!CURRENCY_SYMBOL_RE.test(text)) return NodeFilter.FILTER_REJECT
+      if (!/\d/.test(text)) return NodeFilter.FILTER_REJECT
       const parent = (node as Text).parentElement
       if (!parent) return NodeFilter.FILTER_REJECT
       const tag = parent.tagName
       if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'INPUT' || tag === 'TEXTAREA') {
         return NodeFilter.FILTER_REJECT
       }
-      // Heuristic: require at least 2 digits OR presence of currency symbol so
-      // things like standalone page numbers aren't blurred. Adjust over time.
-      if (/[€$£¥]/.test(text) || /\d{2,}/.test(text)) return NodeFilter.FILTER_ACCEPT
-      return NodeFilter.FILTER_REJECT
+      return NodeFilter.FILTER_ACCEPT
     },
   })
   const touched: Element[] = []

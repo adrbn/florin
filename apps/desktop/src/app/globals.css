@@ -47,18 +47,16 @@
   }
 }
 
-/* Privacy mode: blur every element marked with [data-amount] OR carrying
-   the `tabular-nums` class (used around nearly all currency outputs). */
-html.privacy-hidden [data-amount],
-html.privacy-hidden .tabular-nums {
-  filter: blur(14px) saturate(0.6);
+/* Privacy mode: blur nodes explicitly tagged as amounts. The DOM walker
+   in PrivacyBodyClass tags anything containing a currency symbol + digit. */
+html.privacy-hidden [data-amount] {
+  filter: blur(10px) saturate(0.6);
   transition: filter 120ms ease-out;
   user-select: none;
   pointer-events: none;
 }
-html.privacy-hidden [data-amount]:hover,
-html.privacy-hidden .tabular-nums:hover {
-  filter: blur(14px) saturate(0.6);
+html.privacy-hidden [data-amount]:hover {
+  filter: blur(10px) saturate(0.6);
 }
 
 @theme inline {
