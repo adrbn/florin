@@ -6,7 +6,8 @@ interface PlanBannerProps {
   currency: string
 }
 
-export function PlanBanner({ plan, currency }: PlanBannerProps) {
+// currency is unused — formatCurrency reads from setCurrencyConfig singleton
+export function PlanBanner({ plan, currency: _currency }: PlanBannerProps) {
   const overAssigned = plan.readyToAssign < 0
   const banner = overAssigned
     ? {
