@@ -6,7 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./schema": "./src/schema.ts",
-    "./src/queries/plan": "./src/queries/plan.ts"
+    "./queries/plan": "./src/queries/plan.ts"
   },
   "dependencies": {
     "@florin/core": "workspace:*",
