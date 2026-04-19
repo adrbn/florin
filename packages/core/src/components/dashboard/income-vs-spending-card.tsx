@@ -12,6 +12,7 @@ import {
 } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { NoSSR } from '../ui/no-ssr'
+import { useT } from '../../i18n/context'
 import { formatCurrency } from '../../lib/format/currency'
 
 export interface MonthlyFlow {
@@ -45,6 +46,10 @@ export function IncomeVsSpendingCard({
   title = 'Income vs spending',
   subtitle = 'Last 12 months',
 }: IncomeVsSpendingCardProps) {
+  const t = useT()
+  const incomeLabel = t('reflect.income', 'Income')
+  const spendingLabel = t('reflect.spending', 'Spending')
+  const noActivity = t('dashboard.noActivityYet', 'No activity yet.')
   const hasData = data.some((d) => d.income > 0 || d.expense > 0)
   return (
     <Card className="flex h-full flex-col">
@@ -54,7 +59,7 @@ export function IncomeVsSpendingCard({
       </CardHeader>
       <CardContent className="min-h-0 flex-1 pb-3">
         {!hasData ? (
-          <p className="text-xs text-muted-foreground">No activity yet.</p>
+          <p className="text-xs text-muted-foreground">{noActivity}</p>
         ) : (
           <NoSSR fallback={<div className="h-full w-full" />}>
             <ResponsiveContainer width="100%" height="100%">
@@ -105,8 +110,8 @@ export function IncomeVsSpendingCard({
                   iconType="circle"
                   iconSize={8}
                 />
-                <Bar dataKey="income" name="Income" fill="#10b981" radius={[3, 3, 0, 0]} />
-                <Bar dataKey="expense" name="Spending" fill="#ef4444" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="income" name={incomeLabel} fill="#10b981" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="expense" name={spendingLabel} fill="#ef4444" radius={[3, 3, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </NoSSR>

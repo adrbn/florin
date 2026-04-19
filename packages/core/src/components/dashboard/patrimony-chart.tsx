@@ -15,6 +15,7 @@ import {
 import { Button } from '../ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { NoSSR } from '../ui/no-ssr'
+import { useT } from '../../i18n/context'
 import { formatCurrency } from '../../lib/format/currency'
 
 export interface PatrimonyPoint {
@@ -177,6 +178,15 @@ export function PatrimonyChart({
   showForecastLabel = 'Show forecast',
   hideForecastLabel = 'Hide forecast',
 }: PatrimonyChartProps) {
+  const t = useT()
+  const allShort = t('dashboard.allShort', 'All')
+  const trendLabel = t('dashboard.trend', 'Trend')
+  const balanceLabel = t('dashboard.balance', 'Balance')
+  const todayLabel = t('dashboard.today', 'today')
+  const forecastedSuffix = t('dashboard.forecastedSuffix', ' · +12 months projected')
+  const noDataYet = t('dashboard.noDataYet', 'No data yet.')
+  const trendWindowAria = t('dashboard.trendLookbackWindow', 'Trend lookback window')
+  const trendWindowLegend = t('dashboard.trendWindow', 'Trend window')
   const [forecast, setForecast] = useState(false)
   const [trendWindowIdx, setTrendWindowIdx] = useState(() =>
     TREND_WINDOWS.findIndex((w) => w.days === null),
@@ -217,8 +227,10 @@ export function PatrimonyChart({
         <div className="min-w-0">
           <CardTitle className="text-sm font-medium">{title}</CardTitle>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            {trendWindow && trendWindow.days !== null ? `Last ${trendWindow.days}d` : allHistoryLabel}
-            {forecast ? ' · +12 months projected' : ''}
+            {trendWindow && trendWindow.days !== null
+              ? t('dashboard.lastNd', { n: trendWindow.days }, `Last ${trendWindow.days}d`)
+              : allHistoryLabel}
+            {forecast ? forecastedSuffix : ''}
           </p>
         </div>
         {data.length >= 2 && (
@@ -238,11 +250,12 @@ export function PatrimonyChart({
                 it stays keyboard-accessible without pulling in a UI kit. */}
             <fieldset
               className="flex items-center gap-0 rounded-md border border-border bg-background p-0.5 text-[10px]"
-              aria-label="Trend lookback window"
+              aria-label={trendWindowAria}
             >
-              <legend className="sr-only">Trend window</legend>
+              <legend className="sr-only">{trendWindowLegend}</legend>
               {TREND_WINDOWS.map((w, idx) => {
                 const active = idx === trendWindowIdx
+                const label = w.days === null ? allShort : w.label
                 return (
                   <label
                     key={w.label}
@@ -259,7 +272,7 @@ export function PatrimonyChart({
                       checked={active}
                       onChange={() => setTrendWindowIdx(idx)}
                     />
-                    {w.label}
+                    {label}
                   </label>
                 )
               })}
@@ -269,7 +282,7 @@ export function PatrimonyChart({
       </CardHeader>
       <CardContent className="min-h-0 flex-1 pb-3">
         {data.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No data yet.</p>
+          <p className="text-sm text-muted-foreground">{noDataYet}</p>
         ) : (
           <NoSSR fallback={<div className="h-full w-full" />}>
             <ResponsiveContainer width="100%" height="100%">
@@ -324,7 +337,7 @@ export function PatrimonyChart({
                   labelFormatter={(label) => fullDateLabel(Number(label))}
                   formatter={(value, name) => [
                     formatCurrency(Number(value)),
-                    name === 'trend' ? 'Trend' : 'Balance',
+                    name === 'trend' ? trendLabel : balanceLabel,
                   ]}
                 />
                 {forecast && lastRealTs !== null && (
@@ -333,7 +346,7 @@ export function PatrimonyChart({
                     stroke="var(--muted-foreground)"
                     strokeDasharray="2 2"
                     label={{
-                      value: 'today',
+                      value: todayLabel,
                       position: 'insideTopRight',
                       fontSize: 10,
                       fill: 'var(--muted-foreground)',
