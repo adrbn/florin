@@ -1,5 +1,5 @@
 export { PlanPage } from './PlanPage'
-export { PlanBanner } from './PlanBanner'
 export { PlanGroup } from './PlanGroup'
 export { PlanCategoryRow } from './PlanCategoryRow'
+export { PlanCategoryTransactionsModal } from './PlanCategoryTransactionsModal'
 export { MonthPicker } from './MonthPicker'

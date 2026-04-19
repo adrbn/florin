@@ -77,7 +77,8 @@ export interface PlanCategory {
   emoji: string | null
   /** monthly_budgets.assigned for this (year, month, category). 0 if no row. */
   assigned: number
-  /** Sum of ABS(amount) for non-transfer, non-deleted transactions this month. */
+  /** Sum of -signed(amount) for non-transfer, non-deleted transactions in this
+   * category's month. Outflows add, refunds subtract (YNAB Activity semantics). */
   spent: number
   /** assigned - spent. Negative = overspent. */
   available: number
@@ -116,6 +117,24 @@ export interface MonthPlan {
   /** Total count of overspent categories across all expense groups. */
   overspentCount: number
 }
+
+/** Minimal transaction row shown inside the Plan-category detail modal. */
+export interface PlanCategoryTransaction {
+  id: string
+  /** ISO-8601 date string (UTC). */
+  occurredAt: string
+  payee: string
+  memo: string | null
+  /** Signed amount. Negative = outflow, positive = refund/inflow. */
+  amount: number
+  currency: string
+}
+
+export type ListPlanCategoryTransactions = (
+  categoryId: string,
+  year: number,
+  month: number,
+) => Promise<PlanCategoryTransaction[]>
 
 export interface SetCategoryAssignedInput {
   year: number
