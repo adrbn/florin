@@ -10,13 +10,15 @@ interface PlanCategoryRowProps {
   onAssignedChange: (categoryId: string, amount: number) => void
 }
 
+const assignedToDraft = (value: number): string => (value === 0 ? '' : value.toString())
+
 export function PlanCategoryRow({ category, currency: _currency, onAssignedChange }: PlanCategoryRowProps) {
-  const [draft, setDraft] = useState<string>(category.assigned.toString())
+  const [draft, setDraft] = useState<string>(assignedToDraft(category.assigned))
   const [isFocused, setIsFocused] = useState(false)
   const skipCommitRef = useRef(false)
 
   useEffect(() => {
-    setDraft(category.assigned.toString())
+    setDraft(assignedToDraft(category.assigned))
   }, [category.assigned])
 
   const commit = () => {
@@ -24,21 +26,25 @@ export function PlanCategoryRow({ category, currency: _currency, onAssignedChang
       skipCommitRef.current = false
       return
     }
-    const parsed = Number(draft.replace(',', '.'))
+    const trimmed = draft.trim()
+    const parsed = trimmed === '' ? 0 : Number(trimmed.replace(',', '.'))
     if (Number.isFinite(parsed) && parsed >= 0 && parsed !== category.assigned) {
       onAssignedChange(category.id, parsed)
     } else {
-      setDraft(category.assigned.toString())
+      setDraft(assignedToDraft(category.assigned))
     }
   }
 
   const available = category.available
+  const isZero = category.assigned === 0
   // currency is unused — formatCurrency reads from setCurrencyConfig singleton
   const pillClass = available < 0
     ? 'bg-red-500/15 text-red-500 border-red-500/30'
     : available === 0
       ? 'bg-muted text-muted-foreground border-muted'
       : 'bg-green-500/15 text-green-500 border-green-500/30'
+
+  const displayValue = isFocused ? draft : (isZero ? '' : formatCurrency(category.assigned))
 
   return (
     <div
@@ -54,11 +60,14 @@ export function PlanCategoryRow({ category, currency: _currency, onAssignedChang
         <input
           type="text"
           inputMode="decimal"
-          value={isFocused ? draft : formatCurrency(category.assigned)}
+          value={displayValue}
+          placeholder="0,00 €"
           onChange={(e) => setDraft(e.target.value)}
           onFocus={(e) => {
             setIsFocused(true)
-            e.target.select()
+            const target = e.target as HTMLInputElement
+            // Select AFTER React commits the draft value (raw number vs formatted string)
+            setTimeout(() => target.select(), 0)
           }}
           onBlur={() => {
             setIsFocused(false)
@@ -68,11 +77,11 @@ export function PlanCategoryRow({ category, currency: _currency, onAssignedChang
             if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
             if (e.key === 'Escape') {
               skipCommitRef.current = true
-              setDraft(category.assigned.toString())
+              setDraft(assignedToDraft(category.assigned))
               ;(e.target as HTMLInputElement).blur()
             }
           }}
-          className="w-24 text-right text-sm bg-transparent border-b border-transparent focus:border-border focus:outline-none px-1"
+          className="w-24 text-right text-sm bg-transparent border-b border-transparent focus:border-border focus:outline-none px-1 placeholder:text-muted-foreground/50"
           aria-label={`Assigned for ${category.name}`}
         />
         <span
