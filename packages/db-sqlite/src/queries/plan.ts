@@ -113,9 +113,11 @@ export function getMonthPlanQuery(db: SqliteDB, year: number, month: number): Mo
       // income: sum amount (positive for salary txs)
       income += tx.amount
     } else if (tx.groupKind === 'expense') {
-      // spent: sum ABS(amount) for expense-kind categories
+      // YNAB Activity semantics: spent = -signed(amount). Outflows (stored
+      // negative) become +spent; refunds (stored positive) reduce spent.
+      // Math.abs was double-counting refunds as if they were expenses.
       const prev = spentMap.get(tx.categoryId) ?? 0
-      spentMap.set(tx.categoryId, prev + Math.abs(tx.amount))
+      spentMap.set(tx.categoryId, prev - tx.amount)
     }
   }
 
