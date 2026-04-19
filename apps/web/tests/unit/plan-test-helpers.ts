@@ -128,6 +128,43 @@ export function makeTestDb(): TestContext {
 }
 
 /**
+ * Same layout as seedPlanFixture but uses RFC 4122-compliant UUIDs so that
+ * mutation tests (which validate categoryId via z.uuid()) can reference them.
+ *
+ * These are deliberately non-random fixed UUIDs for test determinism.
+ */
+export function seedMutationFixture(ctx: TestContext) {
+  const { raw } = ctx
+
+  // Valid RFC 4122 v4 UUIDs (version nibble = 4, variant nibble = 8)
+  const groupSalaryId = 'a1111111-1111-4111-8111-111111111101'
+  const groupBillsId =  'a1111111-1111-4111-8111-111111111102'
+  const catSalaryId =   'b2222222-2222-4222-8222-222222222201'
+  const catRentId =     'b2222222-2222-4222-8222-222222222202'
+  const catGroceriesId ='b2222222-2222-4222-8222-222222222203'
+  const accountId =     'c3333333-3333-4333-8333-333333333301'
+
+  raw.exec(`
+    INSERT INTO category_groups (id, name, kind, display_order) VALUES
+      ('${groupSalaryId}', 'Salary', 'income', 0),
+      ('${groupBillsId}', 'Bills', 'expense', 1);
+    INSERT INTO categories (id, group_id, name, display_order) VALUES
+      ('${catSalaryId}', '${groupSalaryId}', 'Paycheck', 0),
+      ('${catRentId}', '${groupBillsId}', 'Rent', 0),
+      ('${catGroceriesId}', '${groupBillsId}', 'Groceries', 1);
+    INSERT INTO accounts (id, name, kind) VALUES
+      ('${accountId}', 'Checking', 'checking');
+    INSERT INTO transactions (id, account_id, occurred_at, amount, category_id, source, payee) VALUES
+      ('d4444444-4444-4444-8444-444444444401', '${accountId}', '2026-04-01', 3000.00, '${catSalaryId}', 'manual', 'Employer'),
+      ('d4444444-4444-4444-8444-444444444402', '${accountId}', '2026-04-05', -915.00, '${catRentId}', 'manual', 'Landlord'),
+      ('d4444444-4444-4444-8444-444444444403', '${accountId}', '2026-04-10', -50.00, '${catGroceriesId}', 'manual', 'Carrefour'),
+      ('d4444444-4444-4444-8444-444444444404', '${accountId}', '2026-04-18', -30.00, '${catGroceriesId}', 'manual', 'Monoprix');
+  `)
+
+  return { groupSalaryId, groupBillsId, catSalaryId, catRentId, catGroceriesId, accountId }
+}
+
+/**
  * Seed a basic plan-test fixture: 2 groups (one income, one expense),
  * 3 categories, and transactions in April 2026. Returns the IDs so tests
  * can reference them.
