@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import type { ActionResult, MonthPlan, SetCategoryAssignedInput } from '@florin/core/types'
@@ -20,13 +20,10 @@ export function PlanPage({ plan, currency, onSetAssigned }: PlanPageProps) {
   const [, startTransition] = useTransition()
   const [optimistic, setOptimistic] = useState<MonthPlan>(plan)
 
-  // If the server plan changes (e.g. after navigating months), reset optimistic state.
-  if (optimistic !== plan && optimistic.year === plan.year && optimistic.month === plan.month) {
-    // same month, server refreshed — ignore (our optimistic wins until next nav)
-  }
-  if (optimistic.year !== plan.year || optimistic.month !== plan.month) {
+  // Reset optimistic state whenever the server plan changes (month nav or post-save refresh).
+  useEffect(() => {
     setOptimistic(plan)
-  }
+  }, [plan])
 
   function navigate(year: number, month: number) {
     const params = new URLSearchParams(searchParams?.toString() ?? '')
