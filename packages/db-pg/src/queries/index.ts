@@ -24,6 +24,7 @@ import {
   getAgeOfMoney,
   getNetWorthSeries,
 } from './reflect'
+import { getMonthPlanQuery } from './plan'
 
 export { getNetWorth } from './dashboard'
 export { getLoanLiabilities } from './loan-liabilities'
@@ -47,6 +48,7 @@ export function createPgQueries(db: PgDB): FlorinQueries {
     getCategoryBreakdown: (days) => getCategoryBreakdown(db, days),
     getAgeOfMoney: (days) => getAgeOfMoney(db, days),
     getNetWorthSeries: (months) => getNetWorthSeries(db, months),
+    getMonthPlan: (year, month) => getMonthPlanQuery(db, year, month),
 
     // ---------- listing queries ----------
 
