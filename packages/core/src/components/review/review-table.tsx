@@ -1,6 +1,7 @@
 'use client'
 
 import { type CSSProperties, useCallback, useEffect, useMemo, useState } from 'react'
+import { useT } from '../../i18n/context'
 import type { ActionResult } from '../../types/index'
 import type { CategoryOption } from '../ui/category-picker'
 import { BulkActionBar } from './bulk-action-bar'
@@ -58,6 +59,7 @@ const STORAGE_KEY = 'florin.review.columnWidths.v2'
  * a time, not in bulk.
  */
 export function ReviewTable({ rows, categoryOptions, actions }: ReviewTableProps) {
+  const t = useT()
   const [widths, setWidths] = useState<Record<ColKey, number>>(DEFAULT_WIDTHS)
   const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set())
 
@@ -189,17 +191,36 @@ export function ReviewTable({ rows, categoryOptions, actions }: ReviewTableProps
               indeterminate={someChecked}
               onToggle={toggleAll}
               disabled={rows.length === 0}
+              ariaLabel={t('review.selectAllRows', 'Select all rows')}
             />
           </span>
-          <ResizableHeader label="Date" onStart={(e) => startResize('date', e)} />
-          <span className="truncate">Payee</span>
-          <ResizableHeader label="Account" onStart={(e) => startResize('account', e)} />
-          <ResizableHeader label="Category" onStart={(e) => startResize('category', e)} />
-          <ResizableHeader label="Amount" align="right" onStart={(e) => startResize('amount', e)} />
           <ResizableHeader
-            label="Actions"
+            label={t('review.colDate', 'Date')}
+            onStart={(e) => startResize('date', e)}
+            resizeAriaLabel={t('review.resizeColumn', { label: t('review.colDate', 'Date') }, `Resize Date column`)}
+          />
+          <span className="truncate">{t('review.colPayee', 'Payee')}</span>
+          <ResizableHeader
+            label={t('review.colAccount', 'Account')}
+            onStart={(e) => startResize('account', e)}
+            resizeAriaLabel={t('review.resizeColumn', { label: t('review.colAccount', 'Account') }, `Resize Account column`)}
+          />
+          <ResizableHeader
+            label={t('review.colCategory', 'Category')}
+            onStart={(e) => startResize('category', e)}
+            resizeAriaLabel={t('review.resizeColumn', { label: t('review.colCategory', 'Category') }, `Resize Category column`)}
+          />
+          <ResizableHeader
+            label={t('review.colAmount', 'Amount')}
+            align="right"
+            onStart={(e) => startResize('amount', e)}
+            resizeAriaLabel={t('review.resizeColumn', { label: t('review.colAmount', 'Amount') }, `Resize Amount column`)}
+          />
+          <ResizableHeader
+            label={t('review.colActions', 'Actions')}
             align="center"
             onStart={(e) => startResize('actions', e)}
+            resizeAriaLabel={t('review.resizeColumn', { label: t('review.colActions', 'Actions') }, `Resize Actions column`)}
           />
         </div>
         {rows.map((row) => (
@@ -224,15 +245,16 @@ interface HeaderCheckboxProps {
   indeterminate: boolean
   onToggle: () => void
   disabled?: boolean
+  ariaLabel: string
 }
 
-function HeaderCheckbox({ checked, indeterminate, onToggle, disabled }: HeaderCheckboxProps) {
+function HeaderCheckbox({ checked, indeterminate, onToggle, disabled, ariaLabel }: HeaderCheckboxProps) {
   // A raw <input type="checkbox"> handles the indeterminate state via a ref;
   // we keep it tiny here instead of pulling in a whole radix primitive.
   return (
     <input
       type="checkbox"
-      aria-label="Select all rows"
+      aria-label={ariaLabel}
       checked={checked}
       disabled={disabled}
       ref={(el) => {
@@ -248,6 +270,7 @@ interface ResizableHeaderProps {
   label: string
   align?: 'left' | 'right' | 'center'
   onStart: (event: React.MouseEvent) => void
+  resizeAriaLabel?: string
 }
 
 /**
@@ -255,14 +278,14 @@ interface ResizableHeaderProps {
  * The visual resizer is a hair-thin bar that brightens on hover so it stays
  * out of the way until the user reaches for it.
  */
-function ResizableHeader({ label, align = 'left', onStart }: ResizableHeaderProps) {
+function ResizableHeader({ label, align = 'left', onStart, resizeAriaLabel }: ResizableHeaderProps) {
   const alignClass = align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : ''
   return (
     <div className="relative min-w-0">
       <span className={`block truncate ${alignClass}`}>{label}</span>
       <button
         type="button"
-        aria-label={`Resize ${label} column`}
+        aria-label={resizeAriaLabel ?? `Resize ${label} column`}
         onMouseDown={onStart}
         className="group absolute -right-1.5 top-0 z-10 flex h-full w-3 cursor-col-resize items-center justify-center focus:outline-none"
       >

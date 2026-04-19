@@ -16,6 +16,7 @@ import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import { calculateLoan } from '../../lib/calculators/loan'
 import { formatCurrency } from '../../lib/format/currency'
+import { useT } from '../../i18n/context'
 
 const formatEur = (v: number): string => `${Math.round(v).toLocaleString('fr-FR')} €`
 
@@ -24,6 +25,7 @@ const formatEur = (v: number): string => `${Math.round(v).toLocaleString('fr-FR'
  * the right. Inputs are local state so the chart updates as the user types.
  */
 export function LoanCalculator() {
+  const t = useT()
   const [principal, setPrincipal] = useState(200_000)
   const [rate, setRate] = useState(3.5)
   const [years, setYears] = useState(20)
@@ -49,13 +51,13 @@ export function LoanCalculator() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Loan calculator</CardTitle>
+        <CardTitle className="text-base">{t('tools.loan.title', 'Loan calculator')}</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
           <form className="space-y-3" onSubmit={(e) => e.preventDefault()}>
             <div className="space-y-1.5">
-              <Label htmlFor="loan-principal">Principal (EUR)</Label>
+              <Label htmlFor="loan-principal">{t('tools.loan.principal', 'Principal (EUR)')}</Label>
               <Input
                 id="loan-principal"
                 type="number"
@@ -66,7 +68,7 @@ export function LoanCalculator() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="loan-rate">Annual rate (%)</Label>
+              <Label htmlFor="loan-rate">{t('tools.loan.rate', 'Annual rate (%)')}</Label>
               <Input
                 id="loan-rate"
                 type="number"
@@ -77,7 +79,7 @@ export function LoanCalculator() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="loan-years">Years</Label>
+              <Label htmlFor="loan-years">{t('tools.loan.years', 'Years')}</Label>
               <Input
                 id="loan-years"
                 type="number"
@@ -90,19 +92,19 @@ export function LoanCalculator() {
 
             <div className="space-y-1 rounded-md border border-border bg-muted/40 p-3 text-xs">
               <p className="flex justify-between">
-                <span className="text-muted-foreground">Monthly payment</span>
+                <span className="text-muted-foreground">{t('tools.loan.monthlyPayment', 'Monthly payment')}</span>
                 <span className="font-mono font-semibold text-foreground">
                   {formatCurrency(summary.monthlyPayment)}
                 </span>
               </p>
               <p className="flex justify-between">
-                <span className="text-muted-foreground">Total paid</span>
+                <span className="text-muted-foreground">{t('tools.loan.totalPaid', 'Total paid')}</span>
                 <span className="font-mono text-foreground">
                   {formatCurrency(summary.totalPaid)}
                 </span>
               </p>
               <p className="flex justify-between">
-                <span className="text-muted-foreground">Total interest</span>
+                <span className="text-muted-foreground">{t('tools.loan.totalInterest', 'Total interest')}</span>
                 <span className="font-mono text-destructive">
                   {formatCurrency(summary.totalInterest)}
                 </span>
@@ -137,13 +139,13 @@ export function LoanCalculator() {
                     border: '1px solid hsl(var(--border))',
                   }}
                   formatter={(value, name) => [formatEur(Number(value)), String(name)]}
-                  labelFormatter={(label) => `Year ${label}`}
+                  labelFormatter={(label) => t('tools.loan.year', { label: String(label) }, `Year ${label}`)}
                 />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
                 <Area
                   type="monotone"
                   dataKey="remaining"
-                  name="Remaining"
+                  name={t('tools.loan.legendRemaining', 'Remaining')}
                   stroke="#ef4444"
                   fill="url(#loanRem)"
                   strokeWidth={2}
@@ -152,7 +154,7 @@ export function LoanCalculator() {
                 <Area
                   type="monotone"
                   dataKey="paidPrincipal"
-                  name="Principal paid"
+                  name={t('tools.loan.legendPrincipalPaid', 'Principal paid')}
                   stroke="#10b981"
                   fill="url(#loanPaid)"
                   strokeWidth={2}

@@ -12,6 +12,7 @@ import type {
 import { MonthPicker } from './MonthPicker'
 import { PlanGroup } from './PlanGroup'
 import { PlanCategoryTransactionsModal } from './PlanCategoryTransactionsModal'
+import { useT } from '../../i18n/context'
 
 interface PlanPageProps {
   plan: MonthPlan
@@ -23,6 +24,7 @@ interface PlanPageProps {
 type OpenCategory = { id: string; name: string; emoji: string | null } | null
 
 export function PlanPage({ plan, currency, onSetAssigned, onListCategoryTransactions }: PlanPageProps) {
+  const t = useT()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [, startTransition] = useTransition()
@@ -52,7 +54,7 @@ export function PlanPage({ plan, currency, onSetAssigned, onListCategoryTransact
     })
 
     if (!result.success) {
-      toast.error(result.error ?? 'Failed to save assignment')
+      toast.error(result.error ?? t('plan.failedToSave', 'Failed to save assignment'))
       // Revert: ask Next.js to re-fetch the server plan.
       startTransition(() => router.refresh())
       return
@@ -76,7 +78,7 @@ export function PlanPage({ plan, currency, onSetAssigned, onListCategoryTransact
       {optimistic.overspentCount > 0 ? (
         <div className="px-4 py-2 border-b border-border">
           <span className="inline-flex items-center rounded-full bg-red-500/15 text-red-500 border border-red-500/30 px-2 py-0.5 text-xs font-medium">
-            {optimistic.overspentCount} overspent
+            {t('plan.overspent', { n: optimistic.overspentCount }, `${optimistic.overspentCount} overspent`)}
           </span>
         </div>
       ) : null}
