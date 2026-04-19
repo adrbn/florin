@@ -51,11 +51,14 @@ export function usePrivacy() {
   return useContext(PrivacyContext)
 }
 
-/**
- * Mask a formatted currency/number string by replacing digit runs with bullets
- * while preserving the currency symbol, separators, and sign. Keeps the width
- * roughly stable so layouts don't jump when toggling.
- */
+// Replace the entire number portion with a fixed placeholder so the digit
+// count doesn't leak magnitude. Currency symbol and sign stay visible.
 export function maskAmount(formatted: string): string {
-  return formatted.replace(/[\d]+/g, (run) => '•'.repeat(Math.max(run.length, 1)))
+  const hasMinus = /^\s*-/.test(formatted)
+  const symbol = formatted.match(/[€$£¥]/)?.[0] ?? ''
+  const core = '••••'
+  if (symbol) {
+    return `${hasMinus ? '-' : ''}${core} ${symbol}`.trim()
+  }
+  return `${hasMinus ? '-' : ''}${core}`
 }

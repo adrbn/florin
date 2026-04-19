@@ -23,11 +23,7 @@ export function Sidebar({ badges }: SidebarProps = {}) {
   const links = visibleNavLinks(badges)
   return (
     <aside className="hidden w-60 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground md:flex">
-      <div className="flex items-center gap-2 px-6 py-5">
-        <span
-          aria-hidden
-          className="h-2 w-2 rounded-full bg-sidebar-primary shadow-[0_0_0_3px_hsl(var(--sidebar-primary)/0.15)]"
-        />
+      <div className="flex items-center px-6 py-5">
         <h2
           className="text-3xl leading-none"
           style={{ fontFamily: "'Tuaf', ui-sans-serif, system-ui, sans-serif", letterSpacing: '-0.02em' }}
