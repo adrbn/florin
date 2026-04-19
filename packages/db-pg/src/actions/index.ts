@@ -28,6 +28,7 @@ import {
   deleteCategoryGroupMutation,
   setCategoryLoanLinkMutation,
 } from './categories'
+import { setCategoryAssignedMutation, clearCategoryAssignedMutation } from './plan'
 
 // Re-export standalone functions for callers that need them directly
 export { reconcileLoanMirrorsForCategory, recomputeAccountBalance } from './helpers'
@@ -69,5 +70,10 @@ export function createPgMutations(db: PgDB): FlorinMutations {
     deleteCategoryGroup: (id) => deleteCategoryGroupMutation(db, id),
     setCategoryLoanLink: (categoryId, loanAccountId) =>
       setCategoryLoanLinkMutation(db, categoryId, loanAccountId),
+
+    // Plan / budget
+    setCategoryAssigned: (input) => setCategoryAssignedMutation(db, input),
+    clearCategoryAssigned: (year, month, categoryId) =>
+      clearCategoryAssignedMutation(db, year, month, categoryId),
   }
 }
