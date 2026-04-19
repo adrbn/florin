@@ -44,13 +44,14 @@
    layout and currency symbols stay visible; digits are unreadable. */
 html.privacy-hidden [data-amount],
 html.privacy-hidden .tabular-nums {
-  filter: blur(6px);
+  filter: blur(14px) saturate(0.6);
   transition: filter 120ms ease-out;
   user-select: none;
+  pointer-events: none;
 }
 html.privacy-hidden [data-amount]:hover,
 html.privacy-hidden .tabular-nums:hover {
-  filter: blur(0);
+  filter: blur(14px) saturate(0.6);
 }
 
 @theme inline {
