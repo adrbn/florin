@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getMonthPlanQuery } from '@florin/db-sqlite/src/queries/plan'
+import { getMonthPlanQuery } from '@florin/db-sqlite/queries/plan'
 import { makeTestDb, seedPlanFixture } from './plan-test-helpers'
 
 describe('getMonthPlanQuery', () => {
