@@ -88,6 +88,22 @@ describe('setCategoryAssigned', () => {
     expect(result.error).toMatch(/not found/i)
   })
 
+  it('rejects amount above 99_999_999.99 (returns success: false)', async () => {
+    const ctx = makeTestDb()
+    const ids = seedMutationFixture(ctx)
+    const mutations = createSqliteMutations(ctx.db)
+
+    const result = await mutations.setCategoryAssigned({
+      year: 2026,
+      month: 4,
+      categoryId: ids.catRentId,
+      amount: 100_000_000,
+    })
+
+    expect(result.success).toBe(false)
+    expect(result.error).toBeDefined()
+  })
+
   it('rejects month outside 1..12 (returns success: false)', async () => {
     const ctx = makeTestDb()
     const ids = seedMutationFixture(ctx)
