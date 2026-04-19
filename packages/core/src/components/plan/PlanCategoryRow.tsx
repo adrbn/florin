@@ -12,6 +12,7 @@ interface PlanCategoryRowProps {
 
 export function PlanCategoryRow({ category, currency: _currency, onAssignedChange }: PlanCategoryRowProps) {
   const [draft, setDraft] = useState<string>(category.assigned.toString())
+  const [isFocused, setIsFocused] = useState(false)
   const skipCommitRef = useRef(false)
 
   useEffect(() => {
@@ -40,7 +41,11 @@ export function PlanCategoryRow({ category, currency: _currency, onAssignedChang
       : 'bg-green-500/15 text-green-500 border-green-500/30'
 
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-2.5">
+    <div
+      className={`flex items-center justify-between gap-3 border-b border-border px-4 py-2.5 transition-colors ${
+        isFocused ? 'bg-muted/60' : ''
+      }`}
+    >
       <div className="flex items-center gap-2 min-w-0">
         {category.emoji ? <span className="text-lg shrink-0">{category.emoji}</span> : null}
         <span className="truncate text-sm">{category.name}</span>
@@ -51,8 +56,14 @@ export function PlanCategoryRow({ category, currency: _currency, onAssignedChang
           inputMode="decimal"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          onFocus={(e) => e.target.select()}
-          onBlur={commit}
+          onFocus={(e) => {
+            setIsFocused(true)
+            e.target.select()
+          }}
+          onBlur={() => {
+            setIsFocused(false)
+            commit()
+          }}
           onKeyDown={(e) => {
             if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
             if (e.key === 'Escape') {
