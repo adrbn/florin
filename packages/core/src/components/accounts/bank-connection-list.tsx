@@ -28,6 +28,10 @@ interface BankConnectionListProps {
   onSyncBankConnection: (connectionId: string) => Promise<ActionResult<{ accountsSynced: number; transactionsInserted: number }>>
   onResetBankConnectionSync: (connectionId: string) => Promise<ActionResult>
   onRevokeBankConnection: (connectionId: string) => Promise<ActionResult>
+  labels?: {
+    linkedBanks?: string
+    lastSyncedPrefix?: string
+  }
 }
 
 function formatRelative(date: Date | null): string {
@@ -54,14 +58,18 @@ export function BankConnectionList({
   onSyncBankConnection,
   onResetBankConnectionSync,
   onRevokeBankConnection,
+  labels,
 }: BankConnectionListProps) {
   if (rows.length === 0) return null
+
+  const linkedBanks = labels?.linkedBanks ?? 'Linked banks'
+  const lastSyncedPrefix = labels?.lastSyncedPrefix ?? 'Last synced'
 
   return (
     <section className="space-y-1.5">
       <h2 className="flex items-center gap-2 px-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
         <Landmark className="h-3.5 w-3.5" aria-hidden />
-        Linked banks ({rows.length})
+        {linkedBanks} ({rows.length})
       </h2>
       <Card className="divide-y divide-border/60 gap-0 overflow-hidden py-0">
         <ul>
@@ -88,7 +96,7 @@ export function BankConnectionList({
                     </span>
                   </div>
                   <p className="truncate text-[11px] text-muted-foreground" title={row.lastSyncError ?? undefined}>
-                    Last synced {formatRelative(row.lastSyncedAt)}
+                    {lastSyncedPrefix} {formatRelative(row.lastSyncedAt)}
                     {row.lastSyncError && (
                       <span className="ml-1 text-destructive">
                         — {row.lastSyncError.length > 60

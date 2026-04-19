@@ -16,9 +16,10 @@ export interface CategoryDatum {
 export interface CategoryPieProps {
   data: CategoryDatum[]
   uncategorizedCount: number
+  title?: string
 }
 
-export function CategoryPie({ data, uncategorizedCount }: CategoryPieProps) {
+export function CategoryPie({ data, uncategorizedCount, title = 'This month by category' }: CategoryPieProps) {
   const emptyMessage =
     uncategorizedCount > 0
       ? `${uncategorizedCount} expense${uncategorizedCount === 1 ? '' : 's'} this month — all uncategorized. Categorize them in Transactions to see the breakdown.`
@@ -27,7 +28,7 @@ export function CategoryPie({ data, uncategorizedCount }: CategoryPieProps) {
   return (
     <Card className="flex h-full flex-col">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium">This month by category</CardTitle>
+        <CardTitle className="text-sm font-medium">{title}</CardTitle>
         <p className="mt-0.5 text-[11px] text-muted-foreground">
           {total > 0 ? `${formatCurrency(total)} across ${data.length} categories` : 'Breakdown'}
         </p>

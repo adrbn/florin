@@ -9,12 +9,13 @@ interface BurnRateCardProps {
     pathname: string
     query: Record<string, string>
   }
+  title?: string
 }
 
-export function BurnRateCard({ thisMonth, avg, href }: BurnRateCardProps) {
+export function BurnRateCard({ thisMonth, avg, href, title = 'Burn this month' }: BurnRateCardProps) {
   return (
     <KpiCard
-      title="Burn this month"
+      title={title}
       value={formatCurrency(thisMonth)}
       hint={`6-mo avg: ${formatCurrency(avg)}`}
       icon={Flame}

@@ -162,7 +162,21 @@ function buildSeries(data: ReadonlyArray<PatrimonyPoint>, forecast: boolean): Ch
   return out
 }
 
-export function PatrimonyChart({ data }: { data: PatrimonyPoint[] }) {
+interface PatrimonyChartProps {
+  data: PatrimonyPoint[]
+  title?: string
+  allHistoryLabel?: string
+  showForecastLabel?: string
+  hideForecastLabel?: string
+}
+
+export function PatrimonyChart({
+  data,
+  title = 'Patrimony',
+  allHistoryLabel = 'All history',
+  showForecastLabel = 'Show forecast',
+  hideForecastLabel = 'Hide forecast',
+}: PatrimonyChartProps) {
   const [forecast, setForecast] = useState(false)
   const [trendWindowIdx, setTrendWindowIdx] = useState(() =>
     TREND_WINDOWS.findIndex((w) => w.days === null),
@@ -201,9 +215,9 @@ export function PatrimonyChart({ data }: { data: PatrimonyPoint[] }) {
     <Card className="flex h-full flex-col">
       <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0 pb-2">
         <div className="min-w-0">
-          <CardTitle className="text-sm font-medium">Patrimony</CardTitle>
+          <CardTitle className="text-sm font-medium">{title}</CardTitle>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            {trendWindow && trendWindow.days !== null ? `Last ${trendWindow.days}d` : 'All history'}
+            {trendWindow && trendWindow.days !== null ? `Last ${trendWindow.days}d` : allHistoryLabel}
             {forecast ? ' · +12 months projected' : ''}
           </p>
         </div>
@@ -216,7 +230,7 @@ export function PatrimonyChart({ data }: { data: PatrimonyPoint[] }) {
               aria-pressed={forecast}
               className="h-7 px-2 text-[11px] font-medium text-muted-foreground hover:text-foreground"
             >
-              {forecast ? 'Hide forecast' : 'Show forecast'}
+              {forecast ? hideForecastLabel : showForecastLabel}
             </Button>
             {/* Segmented picker for the trend lookback window. Small, no labels
                 besides the days — the card subtitle explains what the series

@@ -11,14 +11,19 @@ const FR_DATETIME = new Intl.DateTimeFormat('fr-FR', {
 
 interface DataSourcePillProps {
   info: DataSourceInfo
+  labels?: {
+    bankApiLive?: string
+    bankApiOffline?: string
+    noAccounts?: string
+  }
 }
 
-export function DataSourcePill({ info }: DataSourcePillProps) {
+export function DataSourcePill({ info, labels }: DataSourcePillProps) {
   if (info.kind === 'empty') {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-muted-foreground/40 bg-muted/30 px-2.5 py-1 text-xs text-muted-foreground">
         <Database className="h-3.5 w-3.5" />
-        No accounts yet
+        {labels?.noAccounts ?? 'No accounts yet'}
       </span>
     )
   }
@@ -27,7 +32,7 @@ export function DataSourcePill({ info }: DataSourcePillProps) {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-xs text-emerald-700 dark:text-emerald-300">
         <PlugZap className="h-3.5 w-3.5" />
-        Bank API · live
+        {labels?.bankApiLive ?? 'Bank API · live'}
       </span>
     )
   }

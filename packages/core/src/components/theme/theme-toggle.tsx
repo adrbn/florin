@@ -3,6 +3,7 @@
 import { Moon, Sun } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { useEffect, useState } from 'react'
+import { useT } from '../../i18n/context'
 import { cn } from '../../lib/utils'
 
 interface ThemeToggleProps {
@@ -29,6 +30,7 @@ interface ThemeToggleProps {
 export function ThemeToggle({ variant = 'sidebar', className }: ThemeToggleProps) {
   const { resolvedTheme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
+  const t = useT()
 
   useEffect(() => {
     setMounted(true)
@@ -36,7 +38,9 @@ export function ThemeToggle({ variant = 'sidebar', className }: ThemeToggleProps
 
   const isDark = mounted && resolvedTheme === 'dark'
   const next = isDark ? 'light' : 'dark'
-  const label = isDark ? 'Switch to light mode' : 'Switch to dark mode'
+  const lightLabel = t('shell.lightMode', 'Light mode')
+  const darkLabel = t('shell.darkMode', 'Dark mode')
+  const label = isDark ? lightLabel : darkLabel
   const Icon = isDark ? Sun : Moon
 
   if (variant === 'compact') {
@@ -67,7 +71,7 @@ export function ThemeToggle({ variant = 'sidebar', className }: ThemeToggleProps
       )}
     >
       <Icon className="h-4 w-4" />
-      <span>{isDark ? 'Light mode' : 'Dark mode'}</span>
+      <span>{isDark ? lightLabel : darkLabel}</span>
     </button>
   )
 }

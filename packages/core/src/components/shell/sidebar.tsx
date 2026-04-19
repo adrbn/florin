@@ -7,6 +7,7 @@ import { signOut } from 'next-auth/react'
 import { ThemeToggle } from '../theme/theme-toggle'
 import { LocaleSwitcher } from './locale-switcher'
 import { PrivacyToggle } from '../../privacy/toggle'
+import { useT } from '../../i18n/context'
 import { cn } from '../../lib/utils'
 import { isLinkActive, type NavBadges, visibleNavLinks } from './nav-links'
 
@@ -22,6 +23,7 @@ interface SidebarProps {
 export function Sidebar({ badges }: SidebarProps = {}) {
   const pathname = usePathname()
   const links = visibleNavLinks(badges)
+  const t = useT()
   return (
     <aside className="hidden w-60 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground md:flex">
       <div className="flex items-center px-6 py-5">
@@ -51,7 +53,7 @@ export function Sidebar({ badges }: SidebarProps = {}) {
             >
               <span className="flex items-center gap-3">
                 <Icon className="h-4 w-4" />
-                {l.label}
+                {t(l.labelKey, l.label)}
               </span>
               {showBadge && (
                 <span
@@ -79,7 +81,7 @@ export function Sidebar({ badges }: SidebarProps = {}) {
           className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
         >
           <LogOut className="h-4 w-4" />
-          Sign out
+          {t('shell.signOut', 'Sign out')}
         </button>
       </div>
     </aside>

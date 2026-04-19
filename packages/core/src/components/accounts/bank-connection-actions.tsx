@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { Button } from '../ui/button'
 import { ConfirmDialog } from '../ui/confirm-dialog'
+import { useT } from '../../i18n/context'
 import type { ActionResult } from '../../types/index'
 
 interface BankConnectionActionsProps {
@@ -29,6 +30,7 @@ export function BankConnectionActions({
   onResetBankConnectionSync,
   onRevokeBankConnection,
 }: BankConnectionActionsProps) {
+  const t = useT()
   const [pending, startTransition] = useTransition()
   const [message, setMessage] = useState<string | null>(null)
   const [isError, setIsError] = useState(false)
@@ -134,13 +136,13 @@ export function BankConnectionActions({
       )}
       <div className="flex flex-wrap items-center justify-end gap-1.5">
         <Button size="sm" variant="outline" onClick={onSync} disabled={pending}>
-          {pending && !confirm ? 'Syncing…' : 'Sync now'}
+          {pending && !confirm ? t('accounts.syncing', 'Syncing…') : t('accounts.syncNow', 'Sync now')}
         </Button>
         <Button size="sm" variant="ghost" onClick={askReset} disabled={pending}>
-          Reset
+          {t('accounts.reset', 'Reset')}
         </Button>
         <Button size="sm" variant="ghost" onClick={askDisconnect} disabled={pending}>
-          Disconnect
+          {t('accounts.disconnect', 'Disconnect')}
         </Button>
       </div>
       <ConfirmDialog

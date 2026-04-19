@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { AccountForm } from '../accounts/account-form'
 import { Button } from '../ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
+import { useT } from '../../i18n/context'
 import type { ActionResult, CreateAccountInput, UpdateAccountInput } from '../../types/index'
 
 interface AddAccountCardProps {
@@ -19,13 +20,15 @@ interface AddAccountCardProps {
  * actually wants to create one. The form auto-collapses on success.
  */
 export function AddAccountCard({ onCreateAccount, onUpdateAccount }: AddAccountCardProps) {
+  const t = useT()
   const [open, setOpen] = useState(false)
+  const newAccountLabel = t('accounts.newAccount', 'New account')
 
   if (!open) {
     return (
       <Button variant="outline" className="w-full" onClick={() => setOpen(true)}>
         <Plus className="mr-2 h-4 w-4" />
-        New account
+        {newAccountLabel}
       </Button>
     )
   }
@@ -33,11 +36,11 @@ export function AddAccountCard({ onCreateAccount, onUpdateAccount }: AddAccountC
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle>New account</CardTitle>
+        <CardTitle>{newAccountLabel}</CardTitle>
         <Button
           variant="ghost"
           size="icon"
-          aria-label="Close"
+          aria-label={t('common.close', 'Close')}
           onClick={() => setOpen(false)}
         >
           <X className="h-4 w-4" />

@@ -28,12 +28,24 @@ const formatMonth = (m: string): string => {
   return d.toLocaleDateString('fr-FR', { month: 'short' })
 }
 
-export function IncomeVsSpendingChart({ data }: { data: ReadonlyArray<MonthlyFlow> }) {
+interface IncomeVsSpendingChartProps {
+  data: ReadonlyArray<MonthlyFlow>
+  title?: string
+  incomeLabel?: string
+  spendingLabel?: string
+}
+
+export function IncomeVsSpendingChart({
+  data,
+  title = 'Income vs spending',
+  incomeLabel = 'Income',
+  spendingLabel = 'Spending',
+}: IncomeVsSpendingChartProps) {
   return (
     <Card className="flex h-full flex-col">
       <CardHeader className="pb-1">
         <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
-          Income vs spending
+          {title}
         </CardTitle>
       </CardHeader>
       <CardContent className="min-h-0 flex-1 pb-3">
@@ -68,8 +80,8 @@ export function IncomeVsSpendingChart({ data }: { data: ReadonlyArray<MonthlyFlo
               labelFormatter={(label) => formatMonth(String(label))}
             />
             <Legend wrapperStyle={{ fontSize: 10, paddingTop: 4 }} iconSize={8} />
-            <Bar dataKey="income" name="Income" fill="var(--chart-2)" radius={[3, 3, 0, 0]} />
-            <Bar dataKey="expense" name="Spending" fill="var(--chart-4)" radius={[3, 3, 0, 0]} />
+            <Bar dataKey="income" name={incomeLabel} fill="var(--chart-2)" radius={[3, 3, 0, 0]} />
+            <Bar dataKey="expense" name={spendingLabel} fill="var(--chart-4)" radius={[3, 3, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </CardContent>
