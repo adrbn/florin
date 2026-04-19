@@ -12,6 +12,7 @@ import {
 } from '../ui/dialog'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
+import { useT } from '../../i18n/context'
 import type { ActionResult, AddTransactionInput } from '../../types/index'
 
 interface AccountOption {
@@ -39,9 +40,11 @@ export function AddTransactionModal({
   accounts,
   categories,
   defaultAccountId,
-  triggerLabel = 'Add transaction',
+  triggerLabel,
   onAddTransaction,
 }: AddTransactionModalProps) {
+  const t = useT()
+  const resolvedTriggerLabel = triggerLabel ?? t('transactions.add', 'Add transaction')
   const [open, setOpen] = useState(false)
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -62,7 +65,7 @@ export function AddTransactionModal({
     startTransition(async () => {
       const result = await onAddTransaction(input)
       if (!result.success) {
-        setError(result.error ?? 'Unknown error')
+        setError(result.error ?? t('txAdd.unknownError', 'Unknown error'))
         return
       }
       setOpen(false)
@@ -76,19 +79,21 @@ export function AddTransactionModal({
       <DialogTrigger
         render={
           <Button>
-            <span>{triggerLabel}</span>
+            <span>{resolvedTriggerLabel}</span>
           </Button>
         }
       />
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>New transaction</DialogTitle>
-          <DialogDescription>Negative amount = expense, positive = income.</DialogDescription>
+          <DialogTitle>{t('txAdd.title', 'New transaction')}</DialogTitle>
+          <DialogDescription>
+            {t('txAdd.description', 'Negative amount = expense, positive = income.')}
+          </DialogDescription>
         </DialogHeader>
 
         <form id="add-transaction-form" action={onSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="accountId">Account</Label>
+            <Label htmlFor="accountId">{t('txAdd.account', 'Account')}</Label>
             <select
               id="accountId"
               name="accountId"
@@ -106,36 +111,36 @@ export function AddTransactionModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="occurredAt">Date</Label>
+              <Label htmlFor="occurredAt">{t('txAdd.date', 'Date')}</Label>
               <Input id="occurredAt" name="occurredAt" type="date" defaultValue={today} required />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="amount">Amount (EUR)</Label>
+              <Label htmlFor="amount">{t('txAdd.amount', 'Amount (EUR)')}</Label>
               <Input
                 id="amount"
                 name="amount"
                 type="number"
                 step="0.01"
-                placeholder="-12.34"
+                placeholder={t('txAdd.amountPlaceholder', '-12.34')}
                 required
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="payee">Payee</Label>
+            <Label htmlFor="payee">{t('txAdd.payee', 'Payee')}</Label>
             <Input id="payee" name="payee" required maxLength={200} />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="categoryId">Category</Label>
+            <Label htmlFor="categoryId">{t('txAdd.category', 'Category')}</Label>
             <select
               id="categoryId"
               name="categoryId"
               defaultValue=""
               className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
-              <option value="">— Auto —</option>
+              <option value="">{t('txAdd.categoryAuto', '— Auto —')}</option>
               {categories.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.emoji ? `${c.emoji} ` : ''}
@@ -146,14 +151,14 @@ export function AddTransactionModal({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="memo">Memo (optional)</Label>
+            <Label htmlFor="memo">{t('txAdd.memo', 'Memo (optional)')}</Label>
             <Input id="memo" name="memo" maxLength={500} />
           </div>
 
           {error && <p className="text-sm text-destructive">{error}</p>}
 
           <Button type="submit" disabled={pending} className="w-full">
-            {pending ? 'Saving…' : 'Save transaction'}
+            {pending ? t('txAdd.submitting', 'Saving…') : t('txAdd.submit', 'Save transaction')}
           </Button>
         </form>
       </DialogContent>

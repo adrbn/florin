@@ -1,6 +1,7 @@
 'use client'
 
 import { useTransition } from 'react'
+import { useT } from '../../i18n/context'
 import type { ActionResult } from '../../types/index'
 
 interface DeleteTransactionButtonProps {
@@ -15,9 +16,10 @@ interface DeleteTransactionButtonProps {
  * user soft-delete one row with a confirm prompt.
  */
 export function DeleteTransactionButton({ transactionId, payee, onSoftDeleteTransaction }: DeleteTransactionButtonProps) {
+  const t = useT()
   const [pending, startTransition] = useTransition()
   const onDelete = () => {
-    const ok = window.confirm(`Delete "${payee}"?`)
+    const ok = window.confirm(t('txDelete.confirm', { payee }, `Delete "${payee}"?`))
     if (!ok) return
     startTransition(async () => {
       await onSoftDeleteTransaction(transactionId)
@@ -29,8 +31,8 @@ export function DeleteTransactionButton({ transactionId, payee, onSoftDeleteTran
       onClick={onDelete}
       disabled={pending}
       className="rounded-md border border-destructive/40 bg-destructive/10 px-1.5 py-0.5 text-[11px] font-medium text-destructive hover:bg-destructive/20 disabled:opacity-50"
-      title="Delete transaction"
-      aria-label="Delete transaction"
+      title={t('txDelete.deleteTransaction', 'Delete transaction')}
+      aria-label={t('txDelete.deleteTransaction', 'Delete transaction')}
     >
       {pending ? '…' : '🗑'}
     </button>

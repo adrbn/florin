@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import { NoSSR } from '../ui/no-ssr'
+import { useT } from '../../i18n/context'
 import { formatCurrency } from '../../lib/format/currency'
 import {
   buildSchedule,
@@ -123,6 +124,7 @@ export function LoanDetailsCard({
   onUpdateLoanSettings,
   onSetCategoryLoanLink,
 }: LoanDetailsCardProps) {
+  const t = useT()
   const [pending, startTransition] = useTransition()
   const [saveError, setSaveError] = useState<string | null>(null)
   const [savedAt, setSavedAt] = useState<number | null>(null)
@@ -209,15 +211,15 @@ export function LoanDetailsCard({
   // which field to fill in instead of the generic "fill the parameters".
   const missingFields = useMemo(() => {
     const missing: string[] = []
-    if (!principal || Number(principal) <= 0) missing.push('le montant initial')
-    if (ratePercent === '' || Number(ratePercent) < 0) missing.push('le taux')
-    if (!startDate) missing.push('la date de début')
+    if (!principal || Number(principal) <= 0) missing.push(t('loan.missingPrincipal', 'the original amount'))
+    if (ratePercent === '' || Number(ratePercent) < 0) missing.push(t('loan.missingRate', 'the rate'))
+    if (!startDate) missing.push(t('loan.missingStartDate', 'the start date'))
     // Term OR monthly payment — only complain if both are missing.
     const hasTerm = termMonths !== '' && Number(termMonths) > 0
     const hasMonthly = monthlyPayment !== '' && Number(monthlyPayment) > 0
-    if (!hasTerm && !hasMonthly) missing.push('la durée (mois) OU la mensualité')
+    if (!hasTerm && !hasMonthly) missing.push(t('loan.missingTermOrMonthly', 'the term (months) OR the monthly payment'))
     return missing
-  }, [principal, ratePercent, startDate, termMonths, monthlyPayment])
+  }, [principal, ratePercent, startDate, termMonths, monthlyPayment, t])
 
   const base = useMemo(() => (loanInputs ? buildSchedule(loanInputs) : null), [loanInputs])
 
@@ -300,10 +302,10 @@ export function LoanDetailsCard({
         loanAccountId: account.id,
       })
       if (!result.success) {
-        setLinkError(result.error ?? 'Failed to link')
+        setLinkError(result.error ?? t('loan.linkError', 'Failed to link'))
         return
       }
-      setLinkStatus(`Linked · ${result.data?.touched ?? 0} past payment(s) applied to loan.`)
+      setLinkStatus(t('loan.linkSuccess', { n: result.data?.touched ?? 0 }, `Linked · ${result.data?.touched ?? 0} past payment(s) applied to loan.`))
       setCategoryToLink('')
     })
   }
@@ -317,10 +319,10 @@ export function LoanDetailsCard({
         loanAccountId: null,
       })
       if (!result.success) {
-        setLinkError(result.error ?? 'Failed to unlink')
+        setLinkError(result.error ?? t('loan.unlinkError', 'Failed to unlink'))
         return
       }
-      setLinkStatus(`Unlinked · ${result.data?.touched ?? 0} mirror(s) removed.`)
+      setLinkStatus(t('loan.unlinkSuccess', { n: result.data?.touched ?? 0 }, `Unlinked · ${result.data?.touched ?? 0} mirror(s) removed.`))
     })
   }
 
@@ -337,7 +339,7 @@ export function LoanDetailsCard({
         loanMonthlyPayment: monthlyPayment === '' ? null : Number(monthlyPayment),
       })
       if (!result.success) {
-        setSaveError(result.error ?? 'Failed to save')
+        setSaveError(result.error ?? t('loan.saveError', 'Failed to save'))
         return
       }
       setSavedAt(Date.now())
@@ -352,13 +354,13 @@ export function LoanDetailsCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Loan details</CardTitle>
+        <CardTitle className="text-base">{t('loan.details', 'Loan details')}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* ============================== form ============================== */}
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-1">
-            <Label htmlFor="loan-principal">Original principal (EUR)</Label>
+            <Label htmlFor="loan-principal">{t('loan.originalPrincipal', 'Original principal (EUR)')}</Label>
             <Input
               id="loan-principal"
               type="number"
@@ -366,11 +368,11 @@ export function LoanDetailsCard({
               min="0"
               value={principal}
               onChange={(e) => setPrincipal(e.target.value)}
-              placeholder="e.g. 35000"
+              placeholder={t('loan.originalPrincipalHint', 'e.g. 35000')}
             />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="loan-rate">Annual rate (%)</Label>
+            <Label htmlFor="loan-rate">{t('loan.annualRate', 'Annual rate (%)')}</Label>
             <Input
               id="loan-rate"
               type="number"
@@ -378,11 +380,11 @@ export function LoanDetailsCard({
               min="0"
               value={ratePercent}
               onChange={(e) => setRatePercent(e.target.value)}
-              placeholder="e.g. 3.5"
+              placeholder={t('loan.annualRateHint', 'e.g. 3.5')}
             />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="loan-term">Term (months)</Label>
+            <Label htmlFor="loan-term">{t('loan.termMonths', 'Term (months)')}</Label>
             <Input
               id="loan-term"
               type="number"
@@ -390,11 +392,11 @@ export function LoanDetailsCard({
               min="1"
               value={termMonths}
               onChange={(e) => setTermMonths(e.target.value)}
-              placeholder="e.g. 240"
+              placeholder={t('loan.termMonthsHint', 'e.g. 240')}
             />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="loan-start">Start date</Label>
+            <Label htmlFor="loan-start">{t('loan.startDate', 'Start date')}</Label>
             <Input
               id="loan-start"
               type="date"
@@ -403,7 +405,7 @@ export function LoanDetailsCard({
             />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="loan-monthly">Monthly payment (EUR)</Label>
+            <Label htmlFor="loan-monthly">{t('loan.monthlyPayment', 'Monthly payment (EUR)')}</Label>
             <Input
               id="loan-monthly"
               type="number"
@@ -411,18 +413,18 @@ export function LoanDetailsCard({
               min="0"
               value={monthlyPayment}
               onChange={(e) => setMonthlyPayment(e.target.value)}
-              placeholder="optional — computed if blank"
+              placeholder={t('loan.monthlyPaymentHint', 'optional — computed if blank')}
             />
           </div>
           <div className="flex items-end">
             <Button type="button" onClick={onSave} disabled={pending} className="w-full">
-              {pending ? 'Saving…' : 'Save loan settings'}
+              {pending ? t('common.saving', 'Saving…') : t('loan.saveSettings', 'Save loan settings')}
             </Button>
           </div>
         </div>
         {saveError && <p className="text-xs text-destructive">{saveError}</p>}
         {savedAt && !saveError && (
-          <p className="text-xs text-emerald-600">Saved · loan details updated.</p>
+          <p className="text-xs text-emerald-600">{t('loan.savedOk', 'Saved · loan details updated.')}</p>
         )}
 
         {/* ============================ linked categories ============== */}
@@ -431,11 +433,10 @@ export function LoanDetailsCard({
             amortization details. */}
         <div className="space-y-2 rounded-lg border border-border/60 bg-muted/20 p-3">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Catégories liées à ce prêt
+            {t('loan.linkedCategories', 'Categories linked to this loan')}
           </h3>
           <p className="text-[11px] text-muted-foreground">
-            Les transactions catégorisées dans une catégorie liée mettent automatiquement à jour le
-            solde de ce prêt (comme un "tracking account" YNAB).
+            {t('loan.linkedCategoriesHelp', 'Transactions categorized in a linked category automatically update the balance of this loan (like a YNAB "tracking account").')}
           </p>
           {linkedCategoryIds.length > 0 && (
             <ul className="flex flex-wrap gap-1.5">
@@ -455,8 +456,8 @@ export function LoanDetailsCard({
                       onClick={() => onUnlinkCategory(id)}
                       disabled={linkPending}
                       className="ml-0.5 text-muted-foreground hover:text-destructive"
-                      title="Unlink this category from the loan"
-                      aria-label={`Unlink ${cat.name}`}
+                      title={t('loan.unlinkTitle', 'Unlink this category from the loan')}
+                      aria-label={t('loan.unlinkAriaLabel', { name: cat.name }, `Unlink ${cat.name}`)}
                     >
                       ×
                     </button>
@@ -471,15 +472,15 @@ export function LoanDetailsCard({
               onChange={(e) => setCategoryToLink(e.target.value)}
               disabled={linkPending}
               className="h-8 flex-1 rounded-md border border-border bg-background px-2 text-xs"
-              aria-label="Link a category to this loan"
+              aria-label={t('loan.linkAriaLabel', 'Link a category to this loan')}
             >
-              <option value="">Link a category…</option>
+              <option value="">{t('loan.linkCategoryPlaceholder', 'Link a category…')}</option>
               {categories
                 .filter((c) => c.linkedLoanAccountId !== account.id)
                 .map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.groupName} · {c.name}
-                    {c.linkedLoanAccountId ? ' (already linked elsewhere)' : ''}
+                    {c.linkedLoanAccountId ? ` ${t('loan.linkedElsewhere', '(already linked elsewhere)')}` : ''}
                   </option>
                 ))}
             </select>
@@ -490,19 +491,18 @@ export function LoanDetailsCard({
               disabled={linkPending || !categoryToLink}
               onClick={() => onLinkCategory(categoryToLink)}
             >
-              {linkPending ? '…' : 'Link'}
+              {linkPending ? '…' : t('loan.link', 'Link')}
             </Button>
           </div>
           {linkError && <p className="text-xs text-destructive">{linkError}</p>}
           {linkStatus && !linkError && <p className="text-xs text-emerald-600">{linkStatus}</p>}
           {linkedCategoryIds.length > 0 && (
             <p className="text-[11px] text-muted-foreground">
-              Le nombre de paiements reflète les transactions déjà catégorisées. Pour en appliquer
-              plus, catégorisez vos anciens prélèvements sur la page{' '}
+              {t('loan.updatePaymentsHint', 'The payment count reflects transactions already categorized. To apply more, categorize your past debits on the')}{' '}
               <a href="/transactions" className="underline hover:text-foreground">
-                Transactions
+                {t('loan.updatePaymentsHintLink', 'Transactions page')}
               </a>{' '}
-              — le solde du prêt se mettra à jour automatiquement.
+              {t('loan.updatePaymentsHintEnd', '— the loan balance will update automatically.')}
             </p>
           )}
         </div>
@@ -512,27 +512,27 @@ export function LoanDetailsCard({
           <>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Tile
-                label="Restant dû"
+                label={t('loan.remaining', 'Remaining')}
                 value={formatCurrency(remainingDebt)}
                 sublabel={
                   loanInputs.originalPrincipal > 0
-                    ? `${((1 - remainingDebt / loanInputs.originalPrincipal) * 100).toFixed(1)}% remboursé`
+                    ? t('loan.percentRepaid', { pct: ((1 - remainingDebt / loanInputs.originalPrincipal) * 100).toFixed(1) }, `${((1 - remainingDebt / loanInputs.originalPrincipal) * 100).toFixed(1)}% repaid`)
                     : undefined
                 }
               />
               <Tile
-                label="Mensualité"
+                label={t('loan.mensualite', 'Monthly payment')}
                 value={formatCurrency(effectiveBase.summary.monthlyPayment)}
               />
               <Tile
-                label="Mois restants"
+                label={t('loan.moisRestants', 'Months remaining')}
                 value={
                   remainingMonths !== null
-                    ? `${Math.max(0, remainingMonths - paymentsMade)} mois`
+                    ? t('loan.monthsUnit', { n: Math.max(0, remainingMonths - paymentsMade) }, `${Math.max(0, remainingMonths - paymentsMade)} months`)
                     : '—'
                 }
                 sublabel={
-                  remainingMonths !== null ? `${paymentsMade}/${remainingMonths} payés` : undefined
+                  remainingMonths !== null ? t('loan.paidOutOfTotal', { paid: paymentsMade, total: remainingMonths }, `${paymentsMade}/${remainingMonths} paid`) : undefined
                 }
                 href={
                   linkedCategoryIds[0]
@@ -541,11 +541,11 @@ export function LoanDetailsCard({
                 }
               />
               <Tile
-                label="Déjà remboursé"
+                label={t('loan.dejaRembourse', 'Already repaid')}
                 value={formatCurrency(totalPaid)}
                 sublabel={
                   principalPaid > 0 || interestPaid > 0
-                    ? `${formatCurrency(principalPaid)} capital + ${formatCurrency(interestPaid)} intérêts`
+                    ? t('loan.principalInterestSplit', { principal: formatCurrency(principalPaid), interest: formatCurrency(interestPaid) }, `${formatCurrency(principalPaid)} principal + ${formatCurrency(interestPaid)} interest`)
                     : undefined
                 }
               />
@@ -555,13 +555,13 @@ export function LoanDetailsCard({
             <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Simulateur de remboursement anticipé
+                  {t('loan.simulator', 'Early repayment simulator')}
                 </h3>
               </div>
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="space-y-1">
                   <Label htmlFor="sim-extra-monthly" className="text-[11px]">
-                    Extra mensuel (EUR)
+                    {t('loan.extraMonthly', 'Extra monthly (EUR)')}
                   </Label>
                   <Input
                     id="sim-extra-monthly"
@@ -574,7 +574,7 @@ export function LoanDetailsCard({
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="sim-lump" className="text-[11px]">
-                    Remboursement unique (EUR)
+                    {t('loan.lumpSum', 'Lump sum (EUR)')}
                   </Label>
                   <Input
                     id="sim-lump"
@@ -587,7 +587,7 @@ export function LoanDetailsCard({
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="sim-lump-month" className="text-[11px]">
-                    Appliqué au mois n°
+                    {t('loan.lumpSumMonth', 'Applied at month #')}
                   </Label>
                   <Input
                     id="sim-lump-month"
@@ -602,17 +602,17 @@ export function LoanDetailsCard({
               {comparison && (
                 <div className="grid gap-2 text-xs sm:grid-cols-3">
                   <ComparisonTile
-                    label="Mois économisés"
-                    value={`${comparison.monthsSaved} mois`}
+                    label={t('loan.monthsSaved', 'Months saved')}
+                    value={t('loan.monthsUnit', { n: comparison.monthsSaved }, `${comparison.monthsSaved} months`)}
                     highlight={comparison.monthsSaved > 0}
                   />
                   <ComparisonTile
-                    label="Intérêts économisés"
+                    label={t('loan.interestSaved', 'Interest saved')}
                     value={formatCurrency(comparison.interestSaved)}
                     highlight={comparison.interestSaved > 0}
                   />
                   <ComparisonTile
-                    label="Nouvelle fin"
+                    label={t('loan.newEnd', 'New end date')}
                     value={dateFormatter.format(comparison.newEndDate)}
                     highlight={comparison.monthsSaved > 0}
                   />
@@ -623,7 +623,7 @@ export function LoanDetailsCard({
             {/* ============================ chart =========================== */}
             <div>
               <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Encours dans le temps
+                {t('loan.balanceOverTime', 'Balance over time')}
               </h3>
               <div className="h-60">
                 <NoSSR fallback={<div className="h-full w-full" />}>
@@ -668,9 +668,9 @@ export function LoanDetailsCard({
                         }}
                         formatter={(value, name) => [
                           formatCurrency(Number(value)),
-                          name === 'base' ? 'Base' : 'Simulated',
+                          name === 'base' ? t('loan.base', 'Base') : t('loan.simulated', 'Simulated'),
                         ]}
-                        labelFormatter={(label) => `Mois ${label}`}
+                        labelFormatter={(label) => t('loan.chartMonth', { n: String(label) }, `Month ${label}`)}
                       />
                       <Area
                         type="monotone"
@@ -702,20 +702,20 @@ export function LoanDetailsCard({
                 onClick={() => setShowSchedule((v) => !v)}
                 className="h-7 px-2 text-[11px] font-medium text-muted-foreground hover:text-foreground"
               >
-                {showSchedule ? 'Hide échéancier' : 'Show échéancier'}
+                {showSchedule ? t('loan.hideSchedule', 'Hide schedule') : t('loan.showSchedule', 'Show schedule')}
               </Button>
               {showSchedule && (
                 <div className="mt-2 max-h-80 overflow-y-auto rounded-md border border-border/60">
                   <table className="w-full text-xs">
                     <thead className="sticky top-0 bg-muted/50 text-[10px] uppercase tracking-wide text-muted-foreground">
                       <tr>
-                        <th className="px-2 py-1 text-left">#</th>
-                        <th className="px-2 py-1 text-left">Date</th>
-                        <th className="px-2 py-1 text-right">Mensualité</th>
-                        <th className="px-2 py-1 text-right">Intérêts</th>
-                        <th className="px-2 py-1 text-right">Capital</th>
-                        <th className="px-2 py-1 text-right">Extra</th>
-                        <th className="px-2 py-1 text-right">Restant</th>
+                        <th className="px-2 py-1 text-left">{t('loan.scheduleCol#', '#')}</th>
+                        <th className="px-2 py-1 text-left">{t('common.date', 'Date')}</th>
+                        <th className="px-2 py-1 text-right">{t('loan.scheduleColPayment', 'Payment')}</th>
+                        <th className="px-2 py-1 text-right">{t('loan.scheduleColInterest', 'Interest')}</th>
+                        <th className="px-2 py-1 text-right">{t('loan.scheduleColPrincipal', 'Principal')}</th>
+                        <th className="px-2 py-1 text-right">{t('loan.scheduleColExtra', 'Extra')}</th>
+                        <th className="px-2 py-1 text-right">{t('loan.scheduleColBalance', 'Balance')}</th>
                       </tr>
                     </thead>
                     <tbody className="font-mono tabular-nums">
@@ -745,12 +745,12 @@ export function LoanDetailsCard({
         ) : (
           <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-200">
             <p className="font-medium">
-              Il manque {missingFields.length > 0 ? missingFields.join(', ') : 'des paramètres'}{' '}
-              pour afficher l'échéancier, le graphique et le simulateur.
+              {t('loan.missingParamsPrefix', 'Missing')}{' '}
+              {missingFields.length > 0 ? missingFields.join(', ') : t('loan.missingTermOrMonthly', 'the term (months) OR the monthly payment')}{' '}
+              {t('loan.missingParamsSuffix', 'to display the schedule, chart, and simulator.')}
             </p>
             <p className="mt-1 text-[11px] text-amber-700/90 dark:text-amber-300/80">
-              Astuce : vous n'avez besoin que de la durée <em>OU</em> de la mensualité — l'autre est
-              calculée automatiquement.
+              {t('loan.hintTermOrMonthly', 'Tip: you only need the term OR the monthly payment — the other is computed automatically.')}
             </p>
           </div>
         )}

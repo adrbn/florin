@@ -5,6 +5,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { PlanGroup as PlanGroupModel } from '@florin/core/types'
 import { formatCurrency } from '@florin/core/lib/format'
 import { PlanCategoryRow } from './PlanCategoryRow'
+import { useT } from '../../i18n/context'
 
 interface PlanGroupProps {
   group: PlanGroupModel
@@ -20,6 +21,7 @@ export function PlanGroup({
   onAssignedChange,
   onShowTransactions,
 }: PlanGroupProps) {
+  const t = useT()
   const [open, setOpen] = useState(true)
 
   return (
@@ -34,19 +36,19 @@ export function PlanGroup({
           <span className="font-semibold text-sm truncate">{group.name}</span>
           {group.overspentCount > 0 ? (
             <span className="ml-2 inline-flex items-center justify-center text-xs font-medium bg-red-500/15 text-red-500 border border-red-500/30 rounded-full px-2 py-0.5">
-              {group.overspentCount} overspent
+              {t('plan.overspent', { n: group.overspentCount }, `${group.overspentCount} overspent`)}
             </span>
           ) : null}
         </div>
         <div className="flex items-center gap-6 text-xs text-muted-foreground shrink-0">
           <div className="text-right">
-            <div className="uppercase tracking-wide">Assigned</div>
+            <div className="uppercase tracking-wide">{t('plan.assigned', 'Assigned')}</div>
             <div className="font-semibold text-foreground">
               {formatCurrency(group.assigned)}
             </div>
           </div>
           <div className="text-right">
-            <div className="uppercase tracking-wide">Available</div>
+            <div className="uppercase tracking-wide">{t('plan.available', 'Available')}</div>
             <div className={`font-semibold ${group.available < 0 ? 'text-red-500' : 'text-foreground'}`}>
               {formatCurrency(group.available)}
             </div>
