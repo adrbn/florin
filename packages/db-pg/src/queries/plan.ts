@@ -181,7 +181,7 @@ export async function getMonthPlanQuery(
   }
 
   // ---- totalAssigned = sum of ALL budget rows for this month ----
-  const totalAssigned = budgetRows.reduce((s, b) => s + parseFloat(b.assigned), 0)
+  const totalAssigned = Math.round(budgetRows.reduce((s, b) => s + parseFloat(b.assigned), 0) * 100) / 100
   const readyToAssign = Math.round((income - totalAssigned) * 100) / 100
   const overspentCount = groups.reduce((s, g) => s + g.overspentCount, 0)
 

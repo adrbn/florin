@@ -8,7 +8,7 @@ const setAssignedSchema = z.object({
   year: z.number().int().min(1970).max(2100),
   month: z.number().int().min(1).max(12),
   categoryId: z.uuid(),
-  amount: z.number().min(0),
+  amount: z.number().min(0).max(99_999_999.99),
   note: z.string().max(500).optional().nullable(),
 })
 

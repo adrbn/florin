@@ -70,6 +70,7 @@ export function PlanPage({ plan, currency, onSetAssigned }: PlanPageProps) {
 }
 
 function recomputeWithAssigned(plan: MonthPlan, categoryId: string, newAmount: number): MonthPlan {
+  const r = (x: number) => Math.round(x * 100) / 100
   let totalAssigned = 0
   let overspentCount = 0
   const groups = plan.groups.map((g) => {
@@ -77,8 +78,8 @@ function recomputeWithAssigned(plan: MonthPlan, categoryId: string, newAmount: n
     let gAvailable = 0
     let gOverspent = 0
     const categories = g.categories.map((c) => {
-      const assigned = c.id === categoryId ? newAmount : c.assigned
-      const available = assigned - c.spent
+      const assigned = r(c.id === categoryId ? newAmount : c.assigned)
+      const available = r(assigned - c.spent)
       gAssigned += assigned
       gAvailable += available
       if (available < 0) gOverspent += 1
@@ -86,13 +87,14 @@ function recomputeWithAssigned(plan: MonthPlan, categoryId: string, newAmount: n
     })
     totalAssigned += gAssigned
     overspentCount += gOverspent
-    return { ...g, categories, assigned: gAssigned, available: gAvailable, overspentCount: gOverspent }
+    return { ...g, categories, assigned: r(gAssigned), available: r(gAvailable), overspentCount: gOverspent }
   })
+  const roundedTotal = r(totalAssigned)
   return {
     ...plan,
     groups,
-    totalAssigned,
-    readyToAssign: plan.income - totalAssigned,
+    totalAssigned: roundedTotal,
+    readyToAssign: r(plan.income - roundedTotal),
     overspentCount,
   }
 }
