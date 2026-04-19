@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Command, Search, ArrowRight, Wallet, Tag, Receipt } from 'lucide-react'
-import { formatCurrencySigned } from '@florin/core/lib/format'
+import { Search, ArrowRight, Wallet, Tag, Receipt } from 'lucide-react'
+import { formatCurrencySigned } from '../../lib/format/currency'
 
 const NAV_SHORTCUTS: Record<string, string> = {
   '1': '/',
@@ -59,6 +59,16 @@ interface SearchResults {
   categories: SearchCategory[]
 }
 
+/**
+ * Global keyboard shortcut + command palette. Mounted once in the dashboard
+ * shell on both desktop and web. Cmd/Ctrl+K opens the palette; Cmd/Ctrl+N
+ * creates a transaction; Cmd/Ctrl+1..7 navigates between primary pages.
+ *
+ * The palette fetches from `/api/search?q=` which each app mounts against
+ * its own database. Hard navigation (`window.location.href`) keeps things
+ * simple and bypasses RSC diffing overhead, which helps on Electron and
+ * costs little on web.
+ */
 export function KeyboardShortcuts() {
   const router = useRouter()
   const [searchOpen, setSearchOpen] = useState(false)
@@ -68,14 +78,17 @@ export function KeyboardShortcuts() {
   const [loading, setLoading] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Build the flat list of navigable items
-  const allItems: Array<{ label: string; sublabel?: string; href: string; section: string; icon?: string }> = []
+  const allItems: Array<{
+    label: string
+    sublabel?: string
+    href: string
+    section: string
+    icon?: string
+  }> = []
 
   if (searchQuery.trim().length < 2) {
-    // Show pages when no query
     PAGE_ITEMS.forEach((p) => allItems.push(p))
   } else {
-    // Filter matching pages
     const matchingPages = PAGE_ITEMS.filter((p) =>
       p.label.toLowerCase().includes(searchQuery.toLowerCase()),
     )
@@ -112,7 +125,6 @@ export function KeyboardShortcuts() {
     }
   }
 
-  // Fetch search results with debounce
   useEffect(() => {
     if (!searchOpen) return
     if (searchQuery.trim().length < 2) {
@@ -141,15 +153,11 @@ export function KeyboardShortcuts() {
     }
   }, [searchQuery, searchOpen])
 
-  const navigate = useCallback(
-    (href: string) => {
-      setSearchOpen(false)
-      setSearchQuery('')
-      // Hard navigation is faster in Electron (no RSC diffing overhead)
-      window.location.href = href
-    },
-    [],
-  )
+  const navigate = useCallback((href: string) => {
+    setSearchOpen(false)
+    setSearchQuery('')
+    window.location.href = href
+  }, [])
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -169,13 +177,13 @@ export function KeyboardShortcuts() {
 
       if (meta && e.key === 'n') {
         e.preventDefault()
-        router.push('/transactions?action=add')
+        router.push('/transactions?action=add' as never)
         return
       }
 
       if (meta && e.key === ',') {
         e.preventDefault()
-        router.push('/settings')
+        router.push('/settings' as never)
         return
       }
 
@@ -189,7 +197,7 @@ export function KeyboardShortcuts() {
 
       if (meta && NAV_SHORTCUTS[e.key]) {
         e.preventDefault()
-        router.push(NAV_SHORTCUTS[e.key]!)
+        router.push(NAV_SHORTCUTS[e.key] as never)
       }
     },
     [router, searchOpen],
@@ -209,7 +217,6 @@ export function KeyboardShortcuts() {
     return <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
   }
 
-  // Group items by section for display
   const sections: Record<string, typeof allItems> = {}
   allItems.forEach((item) => {
     if (!sections[item.section]) sections[item.section] = []
@@ -279,13 +286,17 @@ export function KeyboardShortcuts() {
                       onMouseEnter={() => setSelectedIndex(idx)}
                       onClick={() => navigate(item.href)}
                       className={`flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${
-                        isSelected ? 'bg-accent text-accent-foreground' : 'text-foreground hover:bg-accent/50'
+                        isSelected
+                          ? 'bg-accent text-accent-foreground'
+                          : 'text-foreground hover:bg-accent/50'
                       }`}
                     >
                       {iconFor(item.icon)}
                       <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
                       {item.sublabel && (
-                        <span className="shrink-0 text-xs text-muted-foreground">{item.sublabel}</span>
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {item.sublabel}
+                        </span>
                       )}
                     </button>
                   )

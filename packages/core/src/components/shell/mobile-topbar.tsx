@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from 'next-auth/react'
 import { ThemeToggle } from '../theme/theme-toggle'
+import { PrivacyToggle } from '../../privacy/toggle'
 import { cn } from '../../lib/utils'
 import { isLinkActive, type NavBadges, visibleNavLinks } from './nav-links'
 
@@ -34,9 +35,15 @@ export function MobileTopBar({ badges }: MobileTopBarProps = {}) {
       <div className="flex items-center justify-between px-4 py-2.5">
         <div className="flex items-center gap-2">
           <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-sidebar-primary" />
-          <span className="text-sm font-semibold tracking-tight">Florin</span>
+          <span
+            className="text-xl leading-none"
+            style={{ fontFamily: "'Tuaf', ui-sans-serif, system-ui, sans-serif", letterSpacing: '-0.02em' }}
+          >
+            Florin
+          </span>
         </div>
         <div className="flex items-center gap-1">
+          <PrivacyToggle variant="compact" />
           <ThemeToggle variant="compact" />
           <button
             type="button"

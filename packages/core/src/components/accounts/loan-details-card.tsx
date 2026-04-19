@@ -534,6 +534,11 @@ export function LoanDetailsCard({
                 sublabel={
                   remainingMonths !== null ? `${paymentsMade}/${remainingMonths} payés` : undefined
                 }
+                href={
+                  linkedCategoryIds[0]
+                    ? `/transactions?categoryId=${linkedCategoryIds[0]}`
+                    : undefined
+                }
               />
               <Tile
                 label="Déjà remboursé"
@@ -754,14 +759,35 @@ export function LoanDetailsCard({
   )
 }
 
-function Tile({ label, value, sublabel }: { label: string; value: string; sublabel?: string }) {
-  return (
-    <div className="rounded-md border border-border/60 bg-background p-3">
+function Tile({
+  label,
+  value,
+  sublabel,
+  href,
+}: {
+  label: string
+  value: string
+  sublabel?: string
+  href?: string
+}) {
+  const content = (
+    <>
       <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="mt-0.5 text-lg font-semibold">{value}</p>
       {sublabel && <p className="mt-0.5 text-[10px] text-muted-foreground">{sublabel}</p>}
-    </div>
+    </>
   )
+  if (href) {
+    return (
+      <a
+        href={href}
+        className="block rounded-md border border-border/60 bg-background p-3 transition-colors hover:border-primary/40 hover:bg-muted/40"
+      >
+        {content}
+      </a>
+    )
+  }
+  return <div className="rounded-md border border-border/60 bg-background p-3">{content}</div>
 }
 
 function ComparisonTile({

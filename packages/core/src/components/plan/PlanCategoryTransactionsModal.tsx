@@ -66,7 +66,7 @@ export function PlanCategoryTransactionsModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[80vh] flex flex-col overflow-hidden">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 pr-8">
             {category?.emoji ? <span>{category.emoji}</span> : null}
             <span>{category?.name ?? 'Category'}</span>
             <span className="ml-auto text-xs font-normal text-muted-foreground">{monthLabel}</span>

@@ -8,9 +8,23 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@font-face {
+  font-family: 'Tuaf';
+  src: url('/fonts/TuafTrial-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 @theme {
   --font-sans:
     ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-brand: 'Tuaf', ui-sans-serif, system-ui, sans-serif;
+}
+
+.font-brand {
+  font-family: 'Tuaf', var(--font-sans);
+  letter-spacing: -0.02em;
 }
 
 @layer base {
@@ -23,6 +37,20 @@
   html {
     @apply font-sans;
   }
+}
+
+/* Privacy mode: blur every element marked with [data-amount] OR carrying
+   the `tabular-nums` class (used around nearly all currency outputs). The
+   layout and currency symbols stay visible; digits are unreadable. */
+html.privacy-hidden [data-amount],
+html.privacy-hidden .tabular-nums {
+  filter: blur(6px);
+  transition: filter 120ms ease-out;
+  user-select: none;
+}
+html.privacy-hidden [data-amount]:hover,
+html.privacy-hidden .tabular-nums:hover {
+  filter: blur(0);
 }
 
 @theme inline {

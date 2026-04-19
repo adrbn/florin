@@ -28,6 +28,7 @@ import {
 } from '@/db/schema'
 import { matchRule, type Rule } from '@/lib/categorization/engine'
 import { normalizePayee } from '@/lib/categorization/normalize-payee'
+import { extractTrueDateFromText } from '@florin/core/lib/transactions'
 import { getAccountDetails, getBalances, getSession, getTransactions } from './enable-banking'
 import type { AccountDetails, BankTransaction } from './types'
 
@@ -65,14 +66,17 @@ function pickPayee(t: BankTransaction): string {
   return t.bank_transaction_code?.description ?? '(unknown)'
 }
 
-function pickOccurredAt(t: BankTransaction): Date {
-  // Prefer value_date (economic effect) over booking_date (when bank recorded
-  // it). Fall back to today if both missing — should not happen but some
-  // banks return junk.
+function pickOccurredAt(t: BankTransaction, payeeText: string): Date {
+  // Prefer value_date (economic effect) over booking_date. Then, if the
+  // payee line embeds a date (common with French bank card purchases like
+  // "ACHAT CB 14.04.26"), use that when it's within ±14 days of the booked
+  // date — it's the true transaction moment, not the next-business-day
+  // posting.
   const raw = t.value_date ?? t.booking_date
-  if (!raw) return new Date()
-  const parsed = new Date(raw)
-  return Number.isNaN(parsed.getTime()) ? new Date() : parsed
+  const booked = raw ? new Date(raw) : new Date()
+  const bookedOk = !Number.isNaN(booked.getTime()) ? booked : new Date()
+  const fromText = extractTrueDateFromText(payeeText, bookedOk)
+  return fromText?.date ?? bookedOk
 }
 
 function signedAmount(t: BankTransaction): string {
@@ -192,7 +196,7 @@ async function syncAccountTransactions(
         )
         return {
           accountId: florinAccountId,
-          occurredAt: pickOccurredAt(t),
+          occurredAt: pickOccurredAt(t, payee),
           amount,
           currency: t.transaction_amount.currency,
           payee,

@@ -1,5 +1,6 @@
 import { MobileTopBar } from '@florin/core/components/shell/mobile-topbar'
 import { Sidebar } from '@florin/core/components/shell/sidebar'
+import { KeyboardShortcuts } from '@florin/core/components/shortcuts/keyboard-shortcuts'
 import { countNeedsReview } from '@/server/actions/transactions'
 import { ensureAutoSyncScheduler } from '@/server/banking/scheduler'
 
@@ -33,6 +34,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <main className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 lg:p-8">
         {children}
       </main>
+      <KeyboardShortcuts />
     </div>
   )
 }
