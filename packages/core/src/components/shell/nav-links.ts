@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   LineChart,
   type LucideIcon,
+  PiggyBank,
   Settings,
   Tags,
   Wallet,
@@ -28,6 +29,7 @@ export interface NavLink {
 export const NAV_LINKS: ReadonlyArray<NavLink> = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/review', label: 'Review', icon: Inbox, badgeKey: 'review', hideWhenEmpty: true },
+  { href: '/plan', label: 'Plan', icon: PiggyBank },
   { href: '/accounts', label: 'Accounts', icon: Wallet },
   { href: '/transactions', label: 'Transactions', icon: ArrowLeftRight },
   { href: '/reflect', label: 'Reflect', icon: LineChart },
