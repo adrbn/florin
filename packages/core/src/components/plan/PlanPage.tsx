@@ -3,22 +3,31 @@
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
-import type { ActionResult, MonthPlan, SetCategoryAssignedInput } from '@florin/core/types'
+import type {
+  ActionResult,
+  ListPlanCategoryTransactions,
+  MonthPlan,
+  SetCategoryAssignedInput,
+} from '@florin/core/types'
 import { MonthPicker } from './MonthPicker'
-import { PlanBanner } from './PlanBanner'
 import { PlanGroup } from './PlanGroup'
+import { PlanCategoryTransactionsModal } from './PlanCategoryTransactionsModal'
 
 interface PlanPageProps {
   plan: MonthPlan
   currency: string
   onSetAssigned: (input: SetCategoryAssignedInput) => Promise<ActionResult>
+  onListCategoryTransactions: ListPlanCategoryTransactions
 }
 
-export function PlanPage({ plan, currency, onSetAssigned }: PlanPageProps) {
+type OpenCategory = { id: string; name: string; emoji: string | null } | null
+
+export function PlanPage({ plan, currency, onSetAssigned, onListCategoryTransactions }: PlanPageProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [, startTransition] = useTransition()
   const [optimistic, setOptimistic] = useState<MonthPlan>(plan)
+  const [openCategory, setOpenCategory] = useState<OpenCategory>(null)
 
   // Reset optimistic state whenever the server plan changes (month nav or post-save refresh).
   useEffect(() => {
@@ -51,10 +60,26 @@ export function PlanPage({ plan, currency, onSetAssigned }: PlanPageProps) {
     startTransition(() => router.refresh())
   }
 
+  function handleShowTransactions(categoryId: string) {
+    for (const g of optimistic.groups) {
+      const c = g.categories.find((c) => c.id === categoryId)
+      if (c) {
+        setOpenCategory({ id: c.id, name: c.name, emoji: c.emoji })
+        return
+      }
+    }
+  }
+
   return (
     <div className="flex flex-col h-full min-h-0">
       <MonthPicker year={optimistic.year} month={optimistic.month} onChange={navigate} />
-      <PlanBanner plan={optimistic} currency={currency} />
+      {optimistic.overspentCount > 0 ? (
+        <div className="px-4 py-2 border-b border-border">
+          <span className="inline-flex items-center rounded-full bg-red-500/15 text-red-500 border border-red-500/30 px-2 py-0.5 text-xs font-medium">
+            {optimistic.overspentCount} overspent
+          </span>
+        </div>
+      ) : null}
       <div className="flex-1 overflow-y-auto">
         {optimistic.groups.map((g) => (
           <PlanGroup
@@ -62,9 +87,20 @@ export function PlanPage({ plan, currency, onSetAssigned }: PlanPageProps) {
             group={g}
             currency={currency}
             onAssignedChange={handleAssignedChange}
+            onShowTransactions={handleShowTransactions}
           />
         ))}
       </div>
+      <PlanCategoryTransactionsModal
+        open={openCategory !== null}
+        onOpenChange={(v) => {
+          if (!v) setOpenCategory(null)
+        }}
+        category={openCategory}
+        year={optimistic.year}
+        month={optimistic.month}
+        onListTransactions={onListCategoryTransactions}
+      />
     </div>
   )
 }
