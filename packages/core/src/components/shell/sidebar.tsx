@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from 'next-auth/react'
 import { ThemeToggle } from '../theme/theme-toggle'
+import { LocaleSwitcher } from './locale-switcher'
 import { PrivacyToggle } from '../../privacy/toggle'
 import { cn } from '../../lib/utils'
 import { isLinkActive, type NavBadges, visibleNavLinks } from './nav-links'
@@ -70,6 +71,7 @@ export function Sidebar({ badges }: SidebarProps = {}) {
       </nav>
       <div className="space-y-0.5 p-3">
         <PrivacyToggle />
+        <LocaleSwitcher />
         <ThemeToggle />
         <button
           type="button"
