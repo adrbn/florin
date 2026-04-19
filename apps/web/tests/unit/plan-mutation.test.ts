@@ -189,6 +189,16 @@ describe('clearCategoryAssigned', () => {
     const result = await mutations.clearCategoryAssigned(2026, 4, ids.catRentId)
     expect(result.success).toBe(true)
   })
+
+  it('rejects invalid month (0) — returns success: false', async () => {
+    const ctx = makeTestDb()
+    const ids = seedMutationFixture(ctx)
+    const mutations = createSqliteMutations(ctx.db)
+
+    const result = await mutations.clearCategoryAssigned(2026, 0, ids.catRentId)
+    expect(result.success).toBe(false)
+    expect(result.error).toBeDefined()
+  })
 })
 
 describe('setCategoryAssigned + getMonthPlan integration', () => {
@@ -217,10 +227,11 @@ describe('setCategoryAssigned + getMonthPlan integration', () => {
     expect(plan.totalAssigned).toBe(1200)
     expect(plan.readyToAssign).toBe(1800)
 
-    const rent = plan.groups[0].categories.find((c) => c.id === ids.catRentId)!
+    const billsGroup = plan.groups.find((g) => g.id === ids.groupBillsId)!
+    const rent = billsGroup.categories.find((c) => c.id === ids.catRentId)!
     expect(rent.assigned).toBe(1000)
 
-    const groc = plan.groups[0].categories.find((c) => c.id === ids.catGroceriesId)!
+    const groc = billsGroup.categories.find((c) => c.id === ids.catGroceriesId)!
     expect(groc.assigned).toBe(200)
   })
 })
