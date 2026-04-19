@@ -139,7 +139,7 @@ export function TransactionsFilterBar({ accounts, categories }: TransactionsFilt
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search payee… (e.g. POSTALE, ETUDIANT)"
+            placeholder="Search payee…"
             className="h-8 pl-8"
             aria-label="Search payee"
           />

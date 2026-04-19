@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from 'next-auth/react'
 import { ThemeToggle } from '../theme/theme-toggle'
+import { PrivacyToggle } from '../../privacy/toggle'
 import { cn } from '../../lib/utils'
 import { isLinkActive, type NavBadges, visibleNavLinks } from './nav-links'
 
@@ -27,7 +28,12 @@ export function Sidebar({ badges }: SidebarProps = {}) {
           aria-hidden
           className="h-2 w-2 rounded-full bg-sidebar-primary shadow-[0_0_0_3px_hsl(var(--sidebar-primary)/0.15)]"
         />
-        <h2 className="text-lg font-semibold tracking-tight">Florin</h2>
+        <h2
+          className="text-3xl leading-none"
+          style={{ fontFamily: "'Tuaf', ui-sans-serif, system-ui, sans-serif", letterSpacing: '-0.02em' }}
+        >
+          Florin
+        </h2>
       </div>
       <nav className="flex-1 space-y-0.5 px-3">
         {links.map((l) => {
@@ -67,6 +73,7 @@ export function Sidebar({ badges }: SidebarProps = {}) {
         })}
       </nav>
       <div className="space-y-0.5 p-3">
+        <PrivacyToggle />
         <ThemeToggle />
         <button
           type="button"

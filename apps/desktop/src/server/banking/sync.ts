@@ -28,6 +28,7 @@ import {
 } from '@florin/core/banking'
 import type { AccountDetails, BankTransaction } from '@florin/core/banking'
 import { matchRule, type Rule, normalizePayee } from '@florin/core/lib/categorization'
+import { extractTrueDateFromText } from '@florin/core/lib/transactions'
 import { db } from '@/db/client'
 import {
   accounts,
@@ -93,11 +94,15 @@ function pickPayee(t: BankTransaction): string {
   return t.bank_transaction_code?.description ?? '(unknown)'
 }
 
-function pickOccurredAt(t: BankTransaction): string {
+function pickOccurredAt(t: BankTransaction, payeeText: string): string {
   const raw = t.value_date ?? t.booking_date
-  if (!raw) return new Date().toISOString()
-  const parsed = new Date(raw)
-  return Number.isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString()
+  const booked = raw ? new Date(raw) : new Date()
+  const bookedOk = !Number.isNaN(booked.getTime()) ? booked : new Date()
+  // Prefer the date embedded in the free-text payee line when it's within
+  // ±14 days of the booked date — banks book card purchases on the next
+  // business day, so the booked date drifts across months/weekends.
+  const fromText = extractTrueDateFromText(payeeText, bookedOk)
+  return (fromText?.date ?? bookedOk).toISOString()
 }
 
 function signedAmount(t: BankTransaction): number {
@@ -213,7 +218,7 @@ async function syncAccountTransactions(
         )
         return {
           accountId: florinAccountId,
-          occurredAt: pickOccurredAt(t),
+          occurredAt: pickOccurredAt(t, payee),
           amount,
           currency: t.transaction_amount.currency,
           payee,

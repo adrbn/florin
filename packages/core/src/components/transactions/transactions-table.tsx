@@ -1,8 +1,9 @@
 'use client'
 
-import { type CSSProperties, useCallback, useEffect, useState } from 'react'
+import { type CSSProperties, useCallback, useEffect, useMemo, useState } from 'react'
 import { DeleteTransactionButton } from '../transactions/delete-transaction-button'
 import { TransactionCategoryCell } from '../transactions/transaction-category-cell'
+import { TxBulkActionBar } from './tx-bulk-action-bar'
 import type { ActionResult } from '../../types/index'
 import type { CategoryOption } from '../ui/category-picker'
 import { formatCurrencySigned } from '../../lib/format/currency'
@@ -19,8 +20,18 @@ export interface TransactionRowData {
 }
 
 export interface TransactionsTableActions {
-  onUpdateTransactionCategory: (transactionId: string, categoryId: string | null) => Promise<ActionResult>
+  onUpdateTransactionCategory: (
+    transactionId: string,
+    categoryId: string | null,
+  ) => Promise<ActionResult>
   onSoftDeleteTransaction: (id: string) => Promise<ActionResult>
+  onBulkUpdateTransactionCategory?: (
+    ids: ReadonlyArray<string>,
+    categoryId: string | null,
+  ) => Promise<ActionResult<{ updated: number }>>
+  onBulkSoftDeleteTransactions?: (
+    ids: ReadonlyArray<string>,
+  ) => Promise<ActionResult<{ deleted: number }>>
 }
 
 interface TransactionsTableProps {
@@ -44,16 +55,36 @@ const MAX_WIDTH = 400
 const STORAGE_KEY = 'florin.transactions.columnWidths.v1'
 
 /**
- * Transactions table. Mirrors ReviewTable's resizable grid so the two pages
- * share the same look and feel:
- *   - desktop: CSS grid with custom property column widths, header shows
- *     draggable resize handles, no horizontal overflow
- *   - mobile: stacked two-row card layout so nothing clips
- * Unlike Review, there's no checkbox column (the page is read-only aside from
- * category edits + delete), so the grid template is one track shorter.
+ * Transactions table. Mirrors ReviewTable's resizable grid + checkbox
+ * selection so the two pages share the same look and feel. When bulk
+ * actions are wired (both onBulk* props provided), the checkbox column
+ * activates and a sticky TxBulkActionBar appears whenever a row is picked.
  */
-export function TransactionsTable({ rows, categoryOptions, emptyMessage, actions }: TransactionsTableProps) {
+export function TransactionsTable({
+  rows,
+  categoryOptions,
+  emptyMessage,
+  actions,
+}: TransactionsTableProps) {
   const [widths, setWidths] = useState<Record<ColKey, number>>(DEFAULT_WIDTHS)
+  const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set())
+  const selectable = Boolean(
+    actions.onBulkUpdateTransactionCategory && actions.onBulkSoftDeleteTransactions,
+  )
+
+  useEffect(() => {
+    if (!selectable) return
+    setSelected((prev) => {
+      const alive = new Set(rows.map((r) => r.id))
+      let changed = false
+      const next = new Set<string>()
+      for (const id of prev) {
+        if (alive.has(id)) next.add(id)
+        else changed = true
+      }
+      return changed ? next : prev
+    })
+  }, [rows, selectable])
 
   useEffect(() => {
     try {
@@ -108,6 +139,30 @@ export function TransactionsTable({ rows, categoryOptions, emptyMessage, actions
     [widths],
   )
 
+  const toggleOne = useCallback((id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
+
+  const toggleAll = useCallback(() => {
+    setSelected((prev) => {
+      if (prev.size === rows.length) return new Set()
+      return new Set(rows.map((r) => r.id))
+    })
+  }, [rows])
+
+  const clearSelection = useCallback(() => {
+    setSelected(new Set())
+  }, [])
+
+  const selectedIds = useMemo(() => Array.from(selected), [selected])
+  const allChecked = rows.length > 0 && selected.size === rows.length
+  const someChecked = selected.size > 0 && selected.size < rows.length
+
   const style = {
     '--col-date': `${widths.date}px`,
     '--col-account': `${widths.account}px`,
@@ -120,20 +175,57 @@ export function TransactionsTable({ rows, categoryOptions, emptyMessage, actions
     return <div className="py-12 text-center text-sm text-muted-foreground">{emptyMessage}</div>
   }
 
+  const gridCols = selectable
+    ? 'md:grid-cols-[32px_var(--col-date)_minmax(0,1fr)_var(--col-account)_var(--col-category)_var(--col-amount)_var(--col-actions)]'
+    : 'md:grid-cols-[var(--col-date)_minmax(0,1fr)_var(--col-account)_var(--col-category)_var(--col-amount)_var(--col-actions)]'
+
   return (
     <div style={style}>
+      {selectable && selected.size > 0 && (
+        <TxBulkActionBar
+          selectedIds={selectedIds}
+          categoryOptions={categoryOptions}
+          onDone={clearSelection}
+          onBulkSoftDeleteTransactions={actions.onBulkSoftDeleteTransactions!}
+          onBulkUpdateTransactionCategory={actions.onBulkUpdateTransactionCategory!}
+        />
+      )}
       <div className="divide-y divide-border/60">
-        {/* Header row — desktop only. */}
-        <div className="hidden border-b border-border bg-muted/40 px-3 py-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground md:grid md:grid-cols-[var(--col-date)_minmax(0,1fr)_var(--col-account)_var(--col-category)_var(--col-amount)_var(--col-actions)] md:items-center md:gap-3">
+        <div
+          className={`hidden border-b border-border bg-muted/40 px-3 py-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground md:grid md:items-center md:gap-3 ${gridCols}`}
+        >
+          {selectable && (
+            <span className="flex items-center justify-center">
+              <HeaderCheckbox
+                checked={allChecked}
+                indeterminate={someChecked}
+                onToggle={toggleAll}
+                disabled={rows.length === 0}
+              />
+            </span>
+          )}
           <ResizableHeader label="Date" onStart={(e) => startResize('date', e)} />
           <span className="truncate">Payee</span>
           <ResizableHeader label="Account" onStart={(e) => startResize('account', e)} />
           <ResizableHeader label="Category" onStart={(e) => startResize('category', e)} />
-          <ResizableHeader label="Amount" align="right" onStart={(e) => startResize('amount', e)} />
+          <ResizableHeader
+            label="Amount"
+            align="right"
+            onStart={(e) => startResize('amount', e)}
+          />
           <span className="text-center" aria-label="Actions" />
         </div>
         {rows.map((row) => (
-          <TransactionRow key={row.id} row={row} categoryOptions={categoryOptions} actions={actions} />
+          <TransactionRow
+            key={row.id}
+            row={row}
+            categoryOptions={categoryOptions}
+            actions={actions}
+            selectable={selectable}
+            selected={selected.has(row.id)}
+            onToggleSelect={() => toggleOne(row.id)}
+            gridCols={gridCols}
+          />
         ))}
       </div>
     </div>
@@ -144,14 +236,49 @@ interface TransactionRowProps {
   row: TransactionRowData
   categoryOptions: ReadonlyArray<CategoryOption>
   actions: TransactionsTableActions
+  selectable: boolean
+  selected: boolean
+  onToggleSelect: () => void
+  gridCols: string
 }
 
-function TransactionRow({ row, categoryOptions, actions }: TransactionRowProps) {
+function TransactionRow({
+  row,
+  categoryOptions,
+  actions,
+  selectable,
+  selected,
+  onToggleSelect,
+  gridCols,
+}: TransactionRowProps) {
   const isNegative = row.amount < 0
   return (
-    <div className="flex flex-col gap-1.5 px-3 py-2.5 text-xs hover:bg-muted/40 md:grid md:grid-cols-[var(--col-date)_minmax(0,1fr)_var(--col-account)_var(--col-category)_var(--col-amount)_var(--col-actions)] md:items-center md:gap-3 md:py-2">
-      {/* Line 1 (mobile) / flattened onto the grid (desktop) */}
+    <div
+      className={`flex flex-col gap-1.5 px-3 py-2.5 text-xs hover:bg-muted/40 md:grid md:items-center md:gap-3 md:py-2 ${gridCols} ${
+        selected ? 'bg-muted/30' : ''
+      }`}
+    >
+      {selectable && (
+        <span className="hidden md:flex md:items-center md:justify-center">
+          <input
+            type="checkbox"
+            aria-label={`Select ${row.payee}`}
+            checked={selected}
+            onChange={onToggleSelect}
+            className="h-3.5 w-3.5 cursor-pointer rounded border-border accent-foreground"
+          />
+        </span>
+      )}
       <div className="flex min-w-0 items-center gap-2 md:contents">
+        {selectable && (
+          <input
+            type="checkbox"
+            aria-label={`Select ${row.payee}`}
+            checked={selected}
+            onChange={onToggleSelect}
+            className="h-3.5 w-3.5 shrink-0 cursor-pointer rounded border-border accent-foreground md:hidden"
+          />
+        )}
         <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground md:text-xs">
           {row.date}
         </span>
@@ -168,7 +295,6 @@ function TransactionRow({ row, categoryOptions, actions }: TransactionRowProps) 
           {row.accountName}
         </span>
       </div>
-      {/* Line 2 (mobile) / continuation of the grid (desktop) */}
       <div className="flex min-w-0 items-center justify-between gap-2 md:contents">
         <div className="min-w-0">
           <TransactionCategoryCell
@@ -199,16 +325,35 @@ function TransactionRow({ row, categoryOptions, actions }: TransactionRowProps) 
   )
 }
 
+interface HeaderCheckboxProps {
+  checked: boolean
+  indeterminate: boolean
+  onToggle: () => void
+  disabled?: boolean
+}
+
+function HeaderCheckbox({ checked, indeterminate, onToggle, disabled }: HeaderCheckboxProps) {
+  return (
+    <input
+      type="checkbox"
+      aria-label="Select all rows"
+      checked={checked}
+      disabled={disabled}
+      ref={(el) => {
+        if (el) el.indeterminate = indeterminate
+      }}
+      onChange={onToggle}
+      className="h-3.5 w-3.5 cursor-pointer rounded border-border accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
+    />
+  )
+}
+
 interface ResizableHeaderProps {
   label: string
   align?: 'left' | 'right' | 'center'
   onStart: (event: React.MouseEvent) => void
 }
 
-/**
- * Column header label with a draggable hit area pinned to its right edge.
- * Copied from ReviewTable so the two tables feel identical under the hand.
- */
 function ResizableHeader({ label, align = 'left', onStart }: ResizableHeaderProps) {
   const alignClass = align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : ''
   return (
