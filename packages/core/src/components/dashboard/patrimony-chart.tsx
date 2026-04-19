@@ -359,6 +359,7 @@ export function PatrimonyChart({
                   stroke="var(--chart-1)"
                   strokeWidth={2}
                   fill="url(#patriGrad)"
+                  baseValue={yMin}
                   isAnimationActive={false}
                   connectNulls={false}
                   dot={false}
