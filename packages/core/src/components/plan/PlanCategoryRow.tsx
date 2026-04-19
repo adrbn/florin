@@ -54,7 +54,7 @@ export function PlanCategoryRow({ category, currency: _currency, onAssignedChang
         <input
           type="text"
           inputMode="decimal"
-          value={draft}
+          value={isFocused ? draft : formatCurrency(category.assigned)}
           onChange={(e) => setDraft(e.target.value)}
           onFocus={(e) => {
             setIsFocused(true)
