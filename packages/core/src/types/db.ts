@@ -68,6 +68,63 @@ export interface NetWorthPoint {
   cumulative: number
 }
 
+// ============ Plan tab ============
+
+export interface PlanCategory {
+  /** categories.id */
+  id: string
+  name: string
+  emoji: string | null
+  /** monthly_budgets.assigned for this (year, month, category). 0 if no row. */
+  assigned: number
+  /** Sum of ABS(amount) for non-transfer, non-deleted transactions this month. */
+  spent: number
+  /** assigned - spent. Negative = overspent. */
+  available: number
+  /** monthly_budgets.note. null if no row. */
+  note: string | null
+}
+
+export interface PlanGroup {
+  /** category_groups.id */
+  id: string
+  name: string
+  kind: 'income' | 'expense'
+  color: string | null
+  categories: PlanCategory[]
+  /** Sum of child .assigned. */
+  assigned: number
+  /** Sum of child .spent. */
+  spent: number
+  /** Sum of child .available. */
+  available: number
+  /** Count of child categories with available < 0. */
+  overspentCount: number
+}
+
+export interface MonthPlan {
+  year: number
+  month: number
+  /** Only expense groups appear here — income groups feed `income` below. */
+  groups: PlanGroup[]
+  /** Sum of all transactions in income-kind categories this month, transfers/soft-deletes excluded. */
+  income: number
+  /** Sum of .assigned across every PlanCategory. */
+  totalAssigned: number
+  /** income - totalAssigned. Negative = "Assigned Too Much". */
+  readyToAssign: number
+  /** Total count of overspent categories across all expense groups. */
+  overspentCount: number
+}
+
+export interface SetCategoryAssignedInput {
+  year: number
+  month: number
+  categoryId: string
+  amount: number
+  note?: string | null
+}
+
 export type TransactionDirection = 'all' | 'expense' | 'income'
 
 export interface ListTransactionsOptions {
@@ -134,6 +191,7 @@ export interface FlorinQueries {
     }>
   >
   listCategorizationRules(): Promise<CategorizationRule[]>
+  getMonthPlan(year: number, month: number): Promise<MonthPlan>
 }
 
 // ============ Action input types ============
@@ -228,4 +286,11 @@ export interface FlorinMutations {
     categoryId: string,
     loanAccountId: string | null,
   ): Promise<ActionResult<{ touched: number }>>
+
+  setCategoryAssigned(input: SetCategoryAssignedInput): Promise<ActionResult>
+  clearCategoryAssigned(
+    year: number,
+    month: number,
+    categoryId: string,
+  ): Promise<ActionResult>
 }
