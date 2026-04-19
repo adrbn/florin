@@ -43,6 +43,13 @@
       "when": 1775730926067,
       "tag": "0005_bright_captain_flint",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1776613157159,
+      "tag": "0006_eminent_nebula",
+      "breakpoints": true
     }
   ]
 }
