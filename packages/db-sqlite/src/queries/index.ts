@@ -38,6 +38,7 @@ import {
   getAgeOfMoney,
   getNetWorthSeries,
 } from './reflect'
+import { getMonthPlanQuery } from './plan'
 
 export { getNetWorth } from './dashboard'
 export { getLoanLiabilities } from './loan-liabilities'
@@ -163,6 +164,7 @@ export function createSqliteQueries(db: SqliteDB): FlorinQueries {
     getCategoryBreakdown: (days) => getCategoryBreakdown(db, days),
     getAgeOfMoney: (days) => getAgeOfMoney(db, days),
     getNetWorthSeries: (months) => getNetWorthSeries(db, months),
+    getMonthPlan: async (year, month) => getMonthPlanQuery(db, year, month),
 
     // ---------- listing queries ----------
 
