@@ -16,6 +16,12 @@ import {
 export interface NavLink {
   href: string
   label: string
+  /**
+   * i18n key for the nav label. Paired with `label` as the English fallback
+   * so existing server-side rendering keeps working if the provider is
+   * missing or the key isn't in the dictionary yet.
+   */
+  labelKey: string
   icon: LucideIcon
   badgeKey?: 'review'
   /**
@@ -27,15 +33,15 @@ export interface NavLink {
 }
 
 export const NAV_LINKS: ReadonlyArray<NavLink> = [
-  { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/review', label: 'Review', icon: Inbox, badgeKey: 'review', hideWhenEmpty: true },
-  { href: '/plan', label: 'Plan', icon: PiggyBank },
-  { href: '/accounts', label: 'Accounts', icon: Wallet },
-  { href: '/transactions', label: 'Transactions', icon: ArrowLeftRight },
-  { href: '/reflect', label: 'Reflect', icon: LineChart },
-  { href: '/tools', label: 'Tools', icon: Calculator },
-  { href: '/categories', label: 'Categories', icon: Tags },
-  { href: '/settings', label: 'Settings', icon: Settings },
+  { href: '/', label: 'Dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
+  { href: '/review', label: 'Review', labelKey: 'nav.review', icon: Inbox, badgeKey: 'review', hideWhenEmpty: true },
+  { href: '/plan', label: 'Plan', labelKey: 'nav.plan', icon: PiggyBank },
+  { href: '/accounts', label: 'Accounts', labelKey: 'nav.accounts', icon: Wallet },
+  { href: '/transactions', label: 'Transactions', labelKey: 'nav.transactions', icon: ArrowLeftRight },
+  { href: '/reflect', label: 'Reflect', labelKey: 'nav.reflect', icon: LineChart },
+  { href: '/tools', label: 'Tools', labelKey: 'nav.tools', icon: Calculator },
+  { href: '/categories', label: 'Categories', labelKey: 'nav.categories', icon: Tags },
+  { href: '/settings', label: 'Settings', labelKey: 'nav.settings', icon: Settings },
 ]
 
 export interface NavBadges {

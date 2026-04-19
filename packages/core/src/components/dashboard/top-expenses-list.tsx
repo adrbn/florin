@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
+import { useT } from '../../i18n/context'
 import { formatCurrency } from '../../lib/format/currency'
 
 interface SerializedExpense {
@@ -29,6 +30,7 @@ export interface TopExpensesListProps {
 const DAY_OPTIONS = [7, 30, 60, 90, 180, 365] as const
 
 export function TopExpensesList({ initial, categories, defaultDays, onFetchTopExpenses }: TopExpensesListProps) {
+  const t = useT()
   const [days, setDays] = useState<number>(defaultDays)
   const [categoryId, setCategoryId] = useState<string>('') // '' = all
   const [items, setItems] = useState<ReadonlyArray<SerializedExpense>>(initial)
@@ -57,19 +59,19 @@ export function TopExpensesList({ initial, categories, defaultDays, onFetchTopEx
     <Card className="flex h-full flex-col">
       <CardHeader className="space-y-2 pb-2">
         <div className="flex items-center justify-between gap-2">
-          <CardTitle className="text-base">Top 5 expenses</CardTitle>
+          <CardTitle className="text-base">{t('dashboard.top5Expenses', 'Top 5 expenses')}</CardTitle>
         </div>
         <div className="flex flex-wrap gap-2">
           <select
             value={days}
             onChange={onDaysChange}
             disabled={pending}
-            aria-label="Time window"
+            aria-label={t('dashboard.timeWindow', 'Time window')}
             className="h-7 rounded-md border border-input bg-transparent px-2 text-xs outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-50"
           >
             {DAY_OPTIONS.map((d) => (
               <option key={d} value={d}>
-                Last {d} days
+                {t('dashboard.lastNDays', { n: d }, `Last ${d} days`)}
               </option>
             ))}
           </select>
@@ -80,7 +82,7 @@ export function TopExpensesList({ initial, categories, defaultDays, onFetchTopEx
             aria-label="Category filter"
             className="h-7 min-w-0 flex-1 rounded-md border border-input bg-transparent px-2 text-xs outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-50"
           >
-            <option value="">All categories</option>
+            <option value="">{t('transactions.allCategories', 'All categories')}</option>
             {categories.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.emoji ? `${c.emoji} ` : ''}
@@ -93,21 +95,21 @@ export function TopExpensesList({ initial, categories, defaultDays, onFetchTopEx
       <CardContent className="min-h-0 flex-1 overflow-auto pb-3">
         {items.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            {pending ? 'Loading…' : 'Nothing in this window.'}
+            {pending ? t('dashboard.loadingShort', 'Loading…') : t('dashboard.emptyWindow', 'Nothing in this window.')}
           </p>
         ) : (
           <ul className={`space-y-2 ${pending ? 'opacity-50' : ''}`}>
-            {items.map((t) => (
-              <li key={t.id} className="flex items-center justify-between gap-2 text-sm">
+            {items.map((tx) => (
+              <li key={tx.id} className="flex items-center justify-between gap-2 text-sm">
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{t.payee || '(no payee)'}</p>
+                  <p className="truncate font-medium">{tx.payee || t('dashboard.noPayee', '(no payee)')}</p>
                   <p className="truncate text-xs text-muted-foreground">
-                    {new Date(t.date).toLocaleDateString('fr-FR')} ·{' '}
-                    {t.categoryName ?? 'Uncategorized'}
+                    {new Date(tx.date).toLocaleDateString('fr-FR')} ·{' '}
+                    {tx.categoryName ?? t('dashboard.uncategorizedShort', 'Uncategorized')}
                   </p>
                 </div>
                 <span className="shrink-0 tabular-nums text-destructive">
-                  −{formatCurrency(t.amount)}
+                  −{formatCurrency(tx.amount)}
                 </span>
               </li>
             ))}

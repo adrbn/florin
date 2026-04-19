@@ -34,13 +34,23 @@ const formatMonth = (m: string): string => {
  * as the patrimony and category pie cards so the dashboard reads as one
  * coherent surface rather than a patchwork.
  */
-export function IncomeVsSpendingCard({ data }: { data: ReadonlyArray<MonthlyFlow> }) {
+interface IncomeVsSpendingCardProps {
+  data: ReadonlyArray<MonthlyFlow>
+  title?: string
+  subtitle?: string
+}
+
+export function IncomeVsSpendingCard({
+  data,
+  title = 'Income vs spending',
+  subtitle = 'Last 12 months',
+}: IncomeVsSpendingCardProps) {
   const hasData = data.some((d) => d.income > 0 || d.expense > 0)
   return (
     <Card className="flex h-full flex-col">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium">Income vs spending</CardTitle>
-        <p className="mt-0.5 text-[11px] text-muted-foreground">Last 12 months</p>
+        <CardTitle className="text-sm font-medium">{title}</CardTitle>
+        <p className="mt-0.5 text-[11px] text-muted-foreground">{subtitle}</p>
       </CardHeader>
       <CardContent className="min-h-0 flex-1 pb-3">
         {!hasData ? (

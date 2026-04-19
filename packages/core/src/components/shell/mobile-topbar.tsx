@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { signOut } from 'next-auth/react'
 import { ThemeToggle } from '../theme/theme-toggle'
 import { PrivacyToggle } from '../../privacy/toggle'
+import { useT } from '../../i18n/context'
 import { cn } from '../../lib/utils'
 import { isLinkActive, type NavBadges, visibleNavLinks } from './nav-links'
 
@@ -30,6 +31,7 @@ interface MobileTopBarProps {
 export function MobileTopBar({ badges }: MobileTopBarProps = {}) {
   const pathname = usePathname()
   const links = visibleNavLinks(badges)
+  const t = useT()
   return (
     <header className="sticky top-0 z-30 flex shrink-0 flex-col border-b bg-sidebar/95 text-sidebar-foreground backdrop-blur supports-[backdrop-filter]:bg-sidebar/80 md:hidden">
       <div className="flex items-center justify-between px-4 py-2.5">
@@ -49,7 +51,7 @@ export function MobileTopBar({ badges }: MobileTopBarProps = {}) {
             type="button"
             onClick={() => signOut({ callbackUrl: '/login' })}
             className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-            aria-label="Sign out"
+            aria-label={t('shell.signOut', 'Sign out')}
           >
             <LogOut className="h-3.5 w-3.5" />
           </button>
@@ -77,7 +79,7 @@ export function MobileTopBar({ badges }: MobileTopBarProps = {}) {
               )}
             >
               <Icon className="h-3.5 w-3.5" />
-              <span>{l.label}</span>
+              <span>{t(l.labelKey, l.label)}</span>
               {showBadge && (
                 <span
                   className={cn(

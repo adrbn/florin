@@ -22,6 +22,7 @@ import { useRouter } from 'next/navigation'
 import { startTransition, useEffect, useRef, useState } from 'react'
 import { AccountRowLink } from '../accounts/account-row-link'
 import { Card } from '../ui/card'
+import { useT } from '../../i18n/context'
 import { formatCurrency } from '../../lib/format/currency'
 import type { ActionResult } from '../../types/index'
 
@@ -88,8 +89,16 @@ function bucketize(accounts: ReadonlyArray<GroupedAccount>): GroupBucket[] {
  * can't drag a Cash account into the Loan section (that'd change its kind,
  * which is a separate concern handled by the edit form).
  */
+const BUCKET_LABEL_KEYS: Record<string, { key: string; fallback: string }> = {
+  Comptes: { key: 'accounts.groupAccounts', fallback: 'Accounts' },
+  Investing: { key: 'accounts.groupInvesting', fallback: 'Investing' },
+  Loan: { key: 'accounts.groupLoan', fallback: 'Loan' },
+  Other: { key: 'accounts.groupOther', fallback: 'Other' },
+}
+
 export function AccountsGroupedList({ accounts, onReorderAccounts }: AccountsGroupedListProps) {
   const router = useRouter()
+  const t = useT()
   // Mirror the server prop into local state so optimistic reorders feel
   // instant. `accounts` can change on revalidation (new data, archive, etc.)
   // so we re-sync whenever it does.
@@ -213,7 +222,10 @@ export function AccountsGroupedList({ accounts, onReorderAccounts }: AccountsGro
                 }`}
               />
               <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                {bucket.label}
+                {(() => {
+                  const map = BUCKET_LABEL_KEYS[bucket.label]
+                  return map ? t(map.key, map.fallback) : bucket.label
+                })()}
               </span>
               <span
                 className={`ml-auto text-sm font-semibold ${

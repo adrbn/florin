@@ -16,6 +16,8 @@ interface Props {
   data: ReadonlyArray<CategoryShare>
   /** Window label rendered in the title — purely cosmetic. */
   windowLabel: string
+  titlePrefix?: string
+  emptyMessage?: string
 }
 
 /**
@@ -23,7 +25,12 @@ interface Props {
  * Bottom legend lists every slice with its share so the user can read
  * the chart even when the slices get small.
  */
-export function CategoryBreakdownChart({ data, windowLabel }: Props) {
+export function CategoryBreakdownChart({
+  data,
+  windowLabel,
+  titlePrefix = 'Spending breakdown',
+  emptyMessage = 'No categorized spending in this window.',
+}: Props) {
   const total = data.reduce((s, d) => s + d.total, 0)
   const top = [...data].sort((a, b) => b.total - a.total).slice(0, 10)
   const chartData = top.map((d, i) => ({
@@ -36,13 +43,13 @@ export function CategoryBreakdownChart({ data, windowLabel }: Props) {
     <Card className="flex h-full flex-col">
       <CardHeader className="pb-1">
         <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
-          Spending breakdown — {windowLabel}
+          {titlePrefix} — {windowLabel}
         </CardTitle>
       </CardHeader>
       <CardContent className="min-h-0 flex-1 pb-3">
         {chartData.length === 0 ? (
           <p className="py-6 text-center text-xs text-muted-foreground">
-            No categorized spending in this window.
+            {emptyMessage}
           </p>
         ) : (
           <div className="grid h-full min-h-0 grid-cols-1 gap-3 md:grid-cols-2">

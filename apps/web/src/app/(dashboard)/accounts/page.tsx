@@ -4,6 +4,7 @@ import { AddAccountCard } from '@florin/core/components/accounts/add-account-car
 import { BankConnectionList } from '@florin/core/components/accounts/bank-connection-list'
 import { buttonVariants } from '@florin/core/components/ui/button'
 import { queries, db } from '@/db/client'
+import { getServerT } from '@/lib/locale'
 import { getLoanLiabilities } from '@florin/db-pg'
 import { isEnableBankingConfigured } from '@/server/banking/enable-banking'
 import { reorderAccounts, createAccount, updateAccount } from '@/server/actions/accounts'
@@ -54,6 +55,7 @@ function BankLinkBanner({
 export default async function AccountsPage({ searchParams }: AccountsPageProps) {
   const params = await searchParams
   const showArchived = params.show_archived === '1'
+  const t = await getServerT()
   const rawAccounts = await queries.listAccounts({ includeArchived: showArchived })
   const bankingEnabled = isEnableBankingConfigured()
 
@@ -72,22 +74,26 @@ export default async function AccountsPage({ searchParams }: AccountsPageProps) 
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Accounts</h1>
-          <p className="text-xs text-muted-foreground">Bank accounts, cash, brokers, and loans</p>
+          <h1 className="text-2xl font-bold tracking-tight">{t('accounts.title', 'Accounts')}</h1>
+          <p className="text-xs text-muted-foreground">
+            {t('accounts.subtitle', 'Bank accounts, cash, brokers, and loans')}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <Link
             href={showArchived ? ('/accounts' as never) : ('/accounts?show_archived=1' as never)}
             className={buttonVariants({ variant: 'ghost', size: 'sm' })}
           >
-            {showArchived ? 'Hide archived' : 'Show archived'}
+            {showArchived
+              ? t('accounts.hideArchived', 'Hide archived')
+              : t('accounts.showArchived', 'Show archived')}
           </Link>
           {bankingEnabled && (
             <Link
               href="/accounts/connect"
               className={buttonVariants({ variant: 'default', size: 'sm' })}
             >
-              + Connect bank
+              + {t('accounts.connectBank', 'Connect bank')}
             </Link>
           )}
         </div>
@@ -106,6 +112,9 @@ export default async function AccountsPage({ searchParams }: AccountsPageProps) 
           onSyncBankConnection={syncBankConnection}
           onResetBankConnectionSync={resetBankConnectionSync}
           onRevokeBankConnection={revokeBankConnection}
+          labels={{
+            linkedBanks: t('accounts.linkedBanks', 'Linked banks'),
+          }}
         />
       )}
     </div>

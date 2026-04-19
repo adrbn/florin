@@ -7,21 +7,35 @@ interface NetWorthCardProps {
   gross: number
   liability: number
   net: number
+  title?: string
+  grossLabel?: string
+  debtLabel?: string
 }
 
-export function NetWorthCard({ gross, liability, net }: NetWorthCardProps) {
+export function NetWorthCard({
+  gross,
+  liability,
+  net,
+  title = 'Net worth',
+  grossLabel = 'Gross',
+  debtLabel = '− Debt',
+}: NetWorthCardProps) {
   const hint: ReactNode =
     liability > 0 ? (
       <span className="flex flex-col leading-tight tabular-nums">
-        <span>Gross {formatCurrency(gross)}</span>
-        <span>− Debt {formatCurrency(liability)}</span>
+        <span>
+          {grossLabel} {formatCurrency(gross)}
+        </span>
+        <span>
+          {debtLabel} {formatCurrency(liability)}
+        </span>
       </span>
     ) : (
-      `Gross ${formatCurrency(gross)}`
+      `${grossLabel} ${formatCurrency(gross)}`
     )
   return (
     <KpiCard
-      title="Net worth"
+      title={title}
       value={formatCurrency(net)}
       hint={hint}
       icon={Wallet}
