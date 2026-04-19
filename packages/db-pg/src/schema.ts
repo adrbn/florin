@@ -239,6 +239,27 @@ export const categorizationRules = pgTable('categorization_rules', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
+// ============ monthly_budgets ============
+export const monthlyBudgets = pgTable(
+  'monthly_budgets',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    year: integer('year').notNull(),
+    month: integer('month').notNull(),
+    categoryId: uuid('category_id')
+      .notNull()
+      .references(() => categories.id, { onDelete: 'cascade' }),
+    assigned: numeric('assigned', { precision: 12, scale: 2 }).notNull().default('0'),
+    note: text('note'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('monthly_budgets_ymc_unique').on(t.year, t.month, t.categoryId),
+    index('monthly_budgets_ym_idx').on(t.year, t.month),
+  ],
+)
+
 // Export inferred types
 export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
@@ -253,6 +274,8 @@ export type NewTransaction = typeof transactions.$inferInsert
 export type BalanceSnapshot = typeof balanceSnapshots.$inferSelect
 export type CategorizationRule = typeof categorizationRules.$inferSelect
 export type NewCategorizationRule = typeof categorizationRules.$inferInsert
+export type MonthlyBudget = typeof monthlyBudgets.$inferSelect
+export type NewMonthlyBudget = typeof monthlyBudgets.$inferInsert
 
 // ============ Relations ============
 export const accountsRelations = relations(accounts, ({ many, one }) => ({
@@ -282,9 +305,17 @@ export const categoryGroupsRelations = relations(categoryGroups, ({ many }) => (
   categories: many(categories),
 }))
 
-export const categoriesRelations = relations(categories, ({ one }) => ({
+export const categoriesRelations = relations(categories, ({ one, many }) => ({
   group: one(categoryGroups, {
     fields: [categories.groupId],
     references: [categoryGroups.id],
+  }),
+  monthlyBudgets: many(monthlyBudgets),
+}))
+
+export const monthlyBudgetsRelations = relations(monthlyBudgets, ({ one }) => ({
+  category: one(categories, {
+    fields: [monthlyBudgets.categoryId],
+    references: [categories.id],
   }),
 }))
