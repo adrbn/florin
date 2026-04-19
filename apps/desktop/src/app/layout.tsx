@@ -4,6 +4,7 @@ import { Geist } from 'next/font/google'
 import { eq } from 'drizzle-orm'
 import { ThemeProvider } from '@florin/core/components/theme/theme-provider'
 import { I18nProvider } from '@florin/core/i18n/context'
+import { PrivacyProvider, PrivacyBodyClass } from '@florin/core/privacy'
 import { setCurrencyConfig } from '@florin/core/lib/format'
 import { cn } from '@florin/core/lib/utils'
 import { UpdateBanner } from '@/components/update-banner'
@@ -47,9 +48,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           enableSystem
           disableTransitionOnChange
         >
-          <I18nProvider locale="en">
-            {children}
-            <UpdateBanner />
+          <I18nProvider locale={locale}>
+            <PrivacyProvider>
+              <PrivacyBodyClass />
+              {children}
+              <UpdateBanner />
+            </PrivacyProvider>
           </I18nProvider>
         </ThemeProvider>
       </body>

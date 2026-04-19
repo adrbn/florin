@@ -190,6 +190,7 @@ export interface FlorinQueries {
   getMonthlyFlows(months?: number): Promise<MonthlyFlow[]>
   getCategoryBreakdown(days?: number): Promise<CategoryShare[]>
   getAgeOfMoney(days?: number): Promise<number | null>
+  getAgeOfMoneyHistory(months?: number): Promise<{ month: string; age: number | null }[]>
   getNetWorthSeries(months?: number): Promise<NetWorthPoint[]>
   listTransactions(options?: ListTransactionsOptions): Promise<TransactionWithRelations[]>
   countTransactions(options?: ListTransactionsOptions): Promise<number>

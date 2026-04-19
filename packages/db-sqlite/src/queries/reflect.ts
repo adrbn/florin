@@ -2,6 +2,11 @@ import { and, asc, eq, gte, isNull, sql } from 'drizzle-orm'
 import type { SqliteDB } from '../client'
 import { accounts, categories, categoryGroups, transactions } from '../schema'
 import { getNetWorth } from './dashboard'
+import {
+  computeAgeOfMoney,
+  computeAgeOfMoneyHistory,
+  type AomTx,
+} from '@florin/core/lib/reflect/age-of-money'
 
 import type { MonthlyFlow, CategoryShare, NetWorthPoint } from '@florin/core/types'
 
@@ -77,8 +82,8 @@ export async function getCategoryBreakdown(db: SqliteDB, days = 90): Promise<Cat
     .filter((r) => r.total > 0)
 }
 
-export async function getAgeOfMoney(db: SqliteDB, days = 90): Promise<number | null> {
-  const start = formatDate(new Date(Date.now() - days * 24 * 60 * 60 * 1000))
+async function loadAomTxs(db: SqliteDB, lookbackDays: number): Promise<AomTx[]> {
+  const start = formatDate(new Date(Date.now() - lookbackDays * 86400000))
   const rows = await db
     .select({
       occurredAt: transactions.occurredAt,
@@ -92,38 +97,32 @@ export async function getAgeOfMoney(db: SqliteDB, days = 90): Promise<number | n
         gte(transactions.occurredAt, start),
         sql`${transactions.transferPairId} IS NULL`,
         eq(accounts.isArchived, false),
+        sql`${accounts.kind} <> 'loan'`,
       ),
     )
     .orderBy(asc(transactions.occurredAt))
 
-  const inflows: { date: Date; remaining: number }[] = []
-  const matches: { spendDate: Date; inflowDate: Date; amount: number }[] = []
-  for (const row of rows) {
-    const amount = Number(row.amount)
-    const date = new Date(row.occurredAt)
-    if (amount > 0) {
-      inflows.push({ date, remaining: amount })
-    } else if (amount < 0) {
-      let needed = Math.abs(amount)
-      while (needed > 0 && inflows.length > 0) {
-        const head = inflows[0]
-        if (!head) break
-        const take = Math.min(head.remaining, needed)
-        matches.push({ spendDate: date, inflowDate: head.date, amount: take })
-        head.remaining -= take
-        needed -= take
-        if (head.remaining <= 0.01) inflows.shift()
-      }
-    }
+  return rows.map((r) => ({ date: new Date(r.occurredAt), amount: Number(r.amount) }))
+}
+
+export async function getAgeOfMoney(db: SqliteDB, _days = 90): Promise<number | null> {
+  const txs = await loadAomTxs(db, 365)
+  return computeAgeOfMoney(txs)
+}
+
+export async function getAgeOfMoneyHistory(
+  db: SqliteDB,
+  months = 12,
+): Promise<{ month: string; age: number | null }[]> {
+  const txs = await loadAomTxs(db, 365 * 2)
+  const keys: string[] = []
+  for (let i = months - 1; i >= 0; i--) {
+    const d = addMonths(new Date(), -i)
+    keys.push(
+      `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`,
+    )
   }
-  if (matches.length === 0) return null
-  const totalAmount = matches.reduce((s, m) => s + m.amount, 0)
-  if (totalAmount === 0) return null
-  const weighted = matches.reduce((s, m) => {
-    const ageDays = (m.spendDate.getTime() - m.inflowDate.getTime()) / 86400000
-    return s + ageDays * m.amount
-  }, 0)
-  return weighted / totalAmount
+  return computeAgeOfMoneyHistory(txs, keys)
 }
 
 export async function getNetWorthSeries(db: SqliteDB, months = 24): Promise<NetWorthPoint[]> {

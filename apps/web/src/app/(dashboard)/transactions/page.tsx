@@ -1,5 +1,6 @@
 import { asc, eq } from 'drizzle-orm'
 import { AddTransactionModal } from '@florin/core/components/transactions/add-transaction-modal'
+import { ActiveFilterSummary } from '@florin/core/components/transactions/active-filter-summary'
 import { TransactionsFilterBar } from '@florin/core/components/transactions/transactions-filter-bar'
 import { TransactionsPager } from '@florin/core/components/transactions/transactions-pager'
 import {
@@ -9,10 +10,11 @@ import {
 import { Card } from '@florin/core/components/ui/card'
 import { db } from '@/db/client'
 import { categories, categoryGroups } from '@/db/schema'
-import { formatCurrencySigned } from '@florin/core/lib/format'
 import { listAccounts } from '@/server/actions/accounts'
 import {
   addTransaction,
+  bulkSoftDeleteTransactions,
+  bulkUpdateTransactionCategory,
   countTransactions,
   listTransactions,
   softDeleteTransaction,
@@ -164,51 +166,29 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
       <TransactionsFilterBar accounts={filterBarAccounts} categories={filterBarCategories} />
 
       {hasFilter && (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
-          <span className="font-semibold uppercase tracking-wide">Active filter</span>
-          {direction !== 'all' && (
-            <span
-              className={
-                direction === 'expense'
-                  ? 'rounded-full border border-destructive/40 bg-destructive/10 px-2 py-0.5 font-medium text-destructive'
-                  : 'rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 font-medium text-emerald-700 dark:text-emerald-300'
-              }
-            >
-              {direction === 'expense' ? 'Expenses only' : 'Income only'}
-            </span>
-          )}
-          {startDate && (
-            <span>
-              from{' '}
-              <span className="font-medium text-foreground">
-                {longDateFormatter.format(startDate)}
-              </span>
-            </span>
-          )}
-          {endOfDay && (
-            <span>
-              to{' '}
-              <span className="font-medium text-foreground">
-                {longDateFormatter.format(endOfDay)}
-              </span>
-            </span>
-          )}
-          <span>
-            ·{' '}
-            <span className="font-medium text-foreground tabular-nums">
-              {totalCount.toLocaleString('fr-FR')}
-            </span>{' '}
-            matching tx{' '}
-            {filteredTotal !== null && (
-              <>
-                · current page totals{' '}
-                <span className="font-mono font-medium text-foreground tabular-nums">
-                  {formatCurrencySigned(filteredTotal)}
-                </span>
-              </>
-            )}
-          </span>
-        </div>
+        <ActiveFilterSummary
+          totalCount={totalCount}
+          pageTotal={filteredTotal}
+          direction={direction}
+          startLabel={startDate ? longDateFormatter.format(startDate) : null}
+          endLabel={endOfDay ? longDateFormatter.format(endOfDay) : null}
+          payeeSearch={payeeSearch ?? null}
+          accountName={
+            accountIdFilter
+              ? accountsList.find((a) => a.id === accountIdFilter)?.name ?? null
+              : null
+          }
+          categoryLabel={
+            categoryFilter === 'none'
+              ? 'Uncategorized'
+              : categoryFilter
+                ? categoryList.find((c) => c.id === categoryFilter)?.name ?? null
+                : null
+          }
+          minAmount={minAmount ?? null}
+          maxAmount={maxAmount ?? null}
+          excludeTransfers={excludeTransfers}
+        />
       )}
 
       <Card className="p-0">
@@ -234,6 +214,8 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
           actions={{
             onUpdateTransactionCategory: updateTransactionCategory,
             onSoftDeleteTransaction: softDeleteTransaction,
+            onBulkUpdateTransactionCategory: bulkUpdateTransactionCategory,
+            onBulkSoftDeleteTransactions: bulkSoftDeleteTransactions,
           }}
         />
         <TransactionsPager page={pageNum} pageSize={PAGE_SIZE} totalCount={totalCount} />
