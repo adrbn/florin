@@ -51,6 +51,7 @@ export function PlanCategoryRow({ category, currency: _currency, onAssignedChang
           inputMode="decimal"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
+          onFocus={(e) => e.target.select()}
           onBlur={commit}
           onKeyDown={(e) => {
             if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
