@@ -101,8 +101,11 @@ export async function getMonthPlanQuery(
     if (tx.groupKind === 'income') {
       income += amount
     } else if (tx.groupKind === 'expense') {
+      // YNAB Activity semantics: spent = -signed(amount). Expense outflows
+      // (stored negative → +50 spent), refunds/reimbursements (stored positive
+      // → -33.30 reducing spent). Math.abs was double-counting refunds.
       const prev = spentMap.get(tx.categoryId) ?? 0
-      spentMap.set(tx.categoryId, prev + Math.abs(amount))
+      spentMap.set(tx.categoryId, prev - amount)
     }
   }
 

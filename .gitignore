@@ -56,3 +56,9 @@ secrets/
 apps/*/secrets/
 *.pem
 *.key
+
+# Local finance notes / scratchpad (private to the author)
+modifs_FINANCES/
+
+# Claude Code local state
+.claude/
