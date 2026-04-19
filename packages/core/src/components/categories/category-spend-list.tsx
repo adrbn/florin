@@ -9,23 +9,29 @@ interface CategorySpendListProps {
     total: number
     color: string | null
   }>
+  title?: string
+  emptyMessage?: string
 }
 
 /**
  * Compact "spend by category this month" sidebar widget. Each row gets a
  * proportional bar so the user can eyeball where money is going at a glance.
  */
-export function CategorySpendList({ items }: CategorySpendListProps) {
+export function CategorySpendList({
+  items,
+  title = 'This month — by category',
+  emptyMessage = 'No categorized expenses this month yet.',
+}: CategorySpendListProps) {
   const max = items.reduce((m, i) => Math.max(m, i.total), 0)
 
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm">This month — by category</CardTitle>
+        <CardTitle className="text-sm">{title}</CardTitle>
       </CardHeader>
       <CardContent>
         {items.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No categorized expenses this month yet.</p>
+          <p className="text-xs text-muted-foreground">{emptyMessage}</p>
         ) : (
           <ul className="space-y-2">
             {items.slice(0, 10).map((item) => {

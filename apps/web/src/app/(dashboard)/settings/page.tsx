@@ -3,6 +3,7 @@ import { ExportButton } from '@florin/core/components/settings/export-button'
 import { Card, CardContent, CardHeader, CardTitle } from '@florin/core/components/ui/card'
 import { db } from '@/db/client'
 import { accounts, bankConnections, categories, transactions } from '@/db/schema'
+import { getServerT } from '@/lib/locale'
 import { exportAllData } from '@/server/actions/export'
 import { auth } from '@/server/auth'
 import { isEnableBankingConfigured } from '@/server/banking/enable-banking'
@@ -24,6 +25,7 @@ interface Stat {
  *   - guidance for rotating secrets / open-sourcing
  */
 export default async function SettingsPage() {
+  const t = await getServerT()
   const session = await auth()
   const bankingEnabled = isEnableBankingConfigured()
 
@@ -55,21 +57,21 @@ export default async function SettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+        <h1 className="text-3xl font-bold tracking-tight">{t('settings.title', 'Settings')}</h1>
         <p className="text-muted-foreground">
-          Operational diagnostics and exports for your Florin instance.
+          {t('settings.subtitle', 'Operational diagnostics and exports for your Florin instance.')}
         </p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Profile</CardTitle>
+            <CardTitle className="text-base">{t('settings.profile', 'Profile')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             <Row label="Signed in as" value={session?.user?.email ?? '—'} />
-            <Row label="Locale" value="fr-FR" />
-            <Row label="Base currency" value="EUR" />
+            <Row label={t('settings.locale', 'Language')} value="fr-FR" />
+            <Row label={t('settings.baseCurrency', 'Base currency')} value="EUR" />
             <p className="pt-2 text-[11px] text-muted-foreground">
               Florin is single-tenant — profile values come from environment variables. To change
               them, edit <code className="font-mono">.env</code> and restart.
@@ -79,7 +81,7 @@ export default async function SettingsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Data</CardTitle>
+            <CardTitle className="text-base">{t('settings.data', 'Data')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <p className="text-muted-foreground">
@@ -96,10 +98,15 @@ export default async function SettingsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Bank connections (Enable Banking)</CardTitle>
+            <CardTitle className="text-base">
+              {t('accounts.bankConnections', 'Bank connections')} (Enable Banking)
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <Row label="Status" value={bankingEnabled ? '✅ Configured' : '❌ Not configured'} />
+            <Row
+              label={t('common.status', 'Status')}
+              value={bankingEnabled ? '✅ Configured' : '❌ Not configured'}
+            />
             <Row label="App ID" value={env.ENABLE_BANKING_APP_ID ?? '—'} />
             <Row label="Redirect URL" value={env.ENABLE_BANKING_REDIRECT_URL} />
             <p className="pt-2 text-[11px] text-muted-foreground">
@@ -110,7 +117,7 @@ export default async function SettingsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Storage</CardTitle>
+            <CardTitle className="text-base">{t('settings.storage', 'Storage')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             {stats.map((s) => (

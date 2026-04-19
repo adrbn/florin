@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
+import { useT } from '../../i18n/context'
 
 export interface FilterBarAccountOption {
   id: string
@@ -43,6 +44,7 @@ const SEARCH_DEBOUNCE_MS = 250
  * state.
  */
 export function TransactionsFilterBar({ accounts, categories }: TransactionsFilterBarProps) {
+  const t = useT()
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -139,9 +141,9 @@ export function TransactionsFilterBar({ accounts, categories }: TransactionsFilt
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search payee…"
+            placeholder={t('transactions.searchPlaceholder', 'Search payee…')}
             className="h-8 pl-8"
-            aria-label="Search payee"
+            aria-label={t('transactions.searchPlaceholder', 'Search payee…')}
           />
         </div>
 
@@ -150,9 +152,9 @@ export function TransactionsFilterBar({ accounts, categories }: TransactionsFilt
           value={currentAccount}
           onChange={(e) => pushWithPatch({ accountId: e.target.value || null })}
           className="h-8 rounded-md border border-border bg-background px-2 text-xs"
-          aria-label="Filter by account"
+          aria-label={t('transactions.filterByAccount', 'Filter by account')}
         >
-          <option value="">All accounts</option>
+          <option value="">{t('transactions.allAccounts', 'All accounts')}</option>
           {accounts.map((a) => (
             <option key={a.id} value={a.id}>
               {a.name}
@@ -165,10 +167,10 @@ export function TransactionsFilterBar({ accounts, categories }: TransactionsFilt
           value={currentCategory}
           onChange={(e) => pushWithPatch({ categoryId: e.target.value || null })}
           className="h-8 rounded-md border border-border bg-background px-2 text-xs"
-          aria-label="Filter by category"
+          aria-label={t('transactions.filterByCategory', 'Filter by category')}
         >
-          <option value="">All categories</option>
-          <option value="none">— Uncategorized —</option>
+          <option value="">{t('transactions.allCategories', 'All categories')}</option>
+          <option value="none">{t('transactions.uncategorized', '— Uncategorized —')}</option>
           {categoriesByGroup.map(([group, cats]) => (
             <optgroup key={group} label={group}>
               {cats.map((c) => (
@@ -186,11 +188,11 @@ export function TransactionsFilterBar({ accounts, categories }: TransactionsFilt
           value={currentDirection}
           onChange={(e) => pushWithPatch({ direction: e.target.value === 'all' ? null : e.target.value })}
           className="h-8 rounded-md border border-border bg-background px-2 text-xs"
-          aria-label="Filter by direction"
+          aria-label={t('transactions.filterByDirection', 'Filter by direction')}
         >
-          <option value="all">All</option>
-          <option value="expense">Expenses</option>
-          <option value="income">Income</option>
+          <option value="all">{t('transactions.directionAll', 'All')}</option>
+          <option value="expense">{t('transactions.directionExpenses', 'Expenses')}</option>
+          <option value="income">{t('transactions.directionIncome', 'Income')}</option>
         </select>
 
         {/* Advanced toggle */}
@@ -202,7 +204,7 @@ export function TransactionsFilterBar({ accounts, categories }: TransactionsFilt
           onClick={() => setAdvancedOpen((v) => !v)}
         >
           <SlidersHorizontal className="mr-1 h-3.5 w-3.5" />
-          Advanced
+          {t('transactions.advanced', 'Advanced')}
         </Button>
 
         {hasAnyFilter && (
@@ -214,7 +216,7 @@ export function TransactionsFilterBar({ accounts, categories }: TransactionsFilt
             onClick={clearAll}
           >
             <X className="mr-1 h-3.5 w-3.5" />
-            Clear
+            {t('common.clear', 'Clear')}
           </Button>
         )}
       </div>
@@ -223,27 +225,27 @@ export function TransactionsFilterBar({ accounts, categories }: TransactionsFilt
       {advancedOpen && (
         <div className="grid gap-2 rounded-lg border border-border/80 bg-muted/20 px-3 py-2 text-xs md:grid-cols-[auto_auto_auto_auto_auto_1fr]">
           <label className="flex items-center gap-1">
-            <span className="text-muted-foreground">From</span>
+            <span className="text-muted-foreground">{t('common.from', 'From')}</span>
             <Input
               type="date"
               value={currentFrom}
               onChange={(e) => pushWithPatch({ from: e.target.value || null })}
               className="h-7 w-[140px]"
-              aria-label="Filter from date"
+              aria-label={t('common.from', 'From')}
             />
           </label>
           <label className="flex items-center gap-1">
-            <span className="text-muted-foreground">To</span>
+            <span className="text-muted-foreground">{t('common.to', 'To')}</span>
             <Input
               type="date"
               value={currentTo}
               onChange={(e) => pushWithPatch({ to: e.target.value || null })}
               className="h-7 w-[140px]"
-              aria-label="Filter to date"
+              aria-label={t('common.to', 'To')}
             />
           </label>
           <label className="flex items-center gap-1">
-            <span className="text-muted-foreground">Min €</span>
+            <span className="text-muted-foreground">{t('transactions.min', 'Min')} €</span>
             <Input
               type="number"
               step="0.01"
@@ -251,11 +253,11 @@ export function TransactionsFilterBar({ accounts, categories }: TransactionsFilt
               onChange={(e) => pushWithPatch({ minAmount: e.target.value || null })}
               placeholder="e.g. -136"
               className="h-7 w-[100px]"
-              aria-label="Minimum amount"
+              aria-label={t('transactions.min', 'Min')}
             />
           </label>
           <label className="flex items-center gap-1">
-            <span className="text-muted-foreground">Max €</span>
+            <span className="text-muted-foreground">{t('transactions.max', 'Max')} €</span>
             <Input
               type="number"
               step="0.01"
@@ -263,7 +265,7 @@ export function TransactionsFilterBar({ accounts, categories }: TransactionsFilt
               onChange={(e) => pushWithPatch({ maxAmount: e.target.value || null })}
               placeholder="e.g. -135"
               className="h-7 w-[100px]"
-              aria-label="Maximum amount"
+              aria-label={t('transactions.max', 'Max')}
             />
           </label>
           <label className="flex items-center gap-1 text-muted-foreground">
@@ -273,7 +275,7 @@ export function TransactionsFilterBar({ accounts, categories }: TransactionsFilt
               onChange={(e) => pushWithPatch({ excludeTransfers: e.target.checked ? '1' : null })}
               className="h-3.5 w-3.5"
             />
-            Exclude transfers
+            {t('transactions.excludeTransfers', 'Exclude transfers')}
           </label>
         </div>
       )}

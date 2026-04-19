@@ -3,6 +3,7 @@
 import { Check, RefreshCw } from 'lucide-react'
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { Button } from '../ui/button'
+import { useT } from '../../i18n/context'
 import { cn } from '../../lib/utils'
 
 interface SyncResult {
@@ -18,6 +19,7 @@ interface SyncAllButtonProps {
 const SUCCESS_HOLD_MS = 5000
 
 export function SyncAllButton({ onSyncAllBanks }: SyncAllButtonProps) {
+  const t = useT()
   const [pending, startTransition] = useTransition()
   const [feedback, setFeedback] = useState<string | null>(null)
   const [isError, setIsError] = useState(false)
@@ -92,7 +94,7 @@ export function SyncAllButton({ onSyncAllBanks }: SyncAllButtonProps) {
         ) : (
           <RefreshCw className={cn('h-3.5 w-3.5', pending && 'animate-spin')} />
         )}
-        {pending ? 'Syncing…' : showCheck ? 'Synced' : 'Sync now'}
+        {pending ? t('accounts.syncing', 'Syncing…') : showCheck ? t('common.saved', 'Synced') : t('dashboard.syncNow', 'Sync now')}
       </Button>
     </div>
   )

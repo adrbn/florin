@@ -43,7 +43,25 @@ const formatMonth = (m: string): string => {
  *   - Y axis is dropped entirely because the headline + tooltip already
  *     carry the absolute values; the shape of the curve is what matters.
  */
-export function NetWorthChart({ data }: { data: ReadonlyArray<NetWorthPoint> }) {
+interface NetWorthChartProps {
+  data: ReadonlyArray<NetWorthPoint>
+  title?: string
+  netWorthTooltipLabel?: string
+  startLabel?: string
+  minLabel?: string
+  maxLabel?: string
+  monthsLabel?: string
+}
+
+export function NetWorthChart({
+  data,
+  title = 'Net worth',
+  netWorthTooltipLabel = 'Net worth',
+  startLabel = 'start',
+  minLabel = 'min',
+  maxLabel = 'max',
+  monthsLabel = 'months',
+}: NetWorthChartProps) {
   const points = [...data]
   const first = points[0]?.cumulative ?? 0
   const last = points[points.length - 1]?.cumulative ?? 0
@@ -60,7 +78,7 @@ export function NetWorthChart({ data }: { data: ReadonlyArray<NetWorthPoint> }) 
       <CardHeader className="flex flex-row items-start justify-between gap-2 pb-1">
         <div className="min-w-0">
           <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
-            Net worth
+            {title}
           </CardTitle>
           <p className="mt-1 text-2xl font-bold tabular-nums">{formatEur(last)}</p>
         </div>
@@ -111,7 +129,7 @@ export function NetWorthChart({ data }: { data: ReadonlyArray<NetWorthPoint> }) 
                 fontSize: 12,
                 color: 'var(--popover-foreground)',
               }}
-              formatter={(value) => [formatEur(Number(value)), 'Net worth']}
+              formatter={(value) => [formatEur(Number(value)), netWorthTooltipLabel]}
               labelFormatter={(label) => formatMonth(String(label))}
             />
             <ReferenceLine
@@ -120,7 +138,7 @@ export function NetWorthChart({ data }: { data: ReadonlyArray<NetWorthPoint> }) 
               strokeOpacity={0.4}
               strokeDasharray="2 4"
               label={{
-                value: `start ${formatEur(first)}`,
+                value: `${startLabel} ${formatEur(first)}`,
                 position: 'insideTopLeft',
                 fontSize: 9,
                 fill: 'var(--muted-foreground)',
@@ -138,9 +156,9 @@ export function NetWorthChart({ data }: { data: ReadonlyArray<NetWorthPoint> }) 
           </AreaChart>
         </ResponsiveContainer>
         <div className="mt-2 flex items-center justify-between text-[10px] text-muted-foreground tabular-nums">
-          <span>min {formatEur(min)}</span>
-          <span>{points.length} months</span>
-          <span>max {formatEur(max)}</span>
+          <span>{minLabel} {formatEur(min)}</span>
+          <span>{points.length} {monthsLabel}</span>
+          <span>{maxLabel} {formatEur(max)}</span>
         </div>
       </CardContent>
     </Card>

@@ -10,6 +10,7 @@ import { SyncAllButton } from '@florin/core/components/dashboard/sync-all-button
 import { TopExpensesCard } from '@florin/core/components/dashboard/top-expenses-card'
 import { OnboardingBanner } from '@florin/core/components/onboarding/onboarding-banner'
 import { queries } from '@/db/client'
+import { getServerT } from '@/lib/locale'
 import { syncAllBanks } from '@/server/actions/banking'
 import { fetchTopExpenses } from '@/server/actions/dashboard'
 
@@ -32,22 +33,40 @@ async function SyncAllButtonServer() {
 }
 
 async function DataSourcePillServer() {
-  const info = await queries.getDataSourceInfo()
-  return <DataSourcePill info={info} />
+  const [info, t] = await Promise.all([queries.getDataSourceInfo(), getServerT()])
+  return (
+    <DataSourcePill
+      info={info}
+      labels={{
+        bankApiLive: t('dashboard.bankApiLive', 'Bank API · live'),
+        bankApiOffline: t('dashboard.bankApiOffline', 'Bank API · offline'),
+      }}
+    />
+  )
 }
 
 async function NetWorthCardServer() {
-  const nw = await queries.getNetWorth()
-  return <NetWorthCard gross={nw.gross} liability={nw.liability} net={nw.net} />
+  const [nw, t] = await Promise.all([queries.getNetWorth(), getServerT()])
+  return (
+    <NetWorthCard
+      gross={nw.gross}
+      liability={nw.liability}
+      net={nw.net}
+      title={t('kpi.netWorth', 'Net worth')}
+      grossLabel={t('kpi.grossPrefix', 'Gross')}
+      debtLabel={t('kpi.debtPrefix', '− Debt')}
+    />
+  )
 }
 
 async function BurnRateCardServer() {
   const now = new Date()
   const month = String(now.getMonth() + 1).padStart(2, '0')
   const year = now.getFullYear()
-  const [thisMonth, avg] = await Promise.all([
+  const [thisMonth, avg, t] = await Promise.all([
     queries.getMonthBurn(),
     queries.getAvgMonthlyBurn(6),
+    getServerT(),
   ])
   return (
     <BurnRateCard
@@ -57,16 +76,26 @@ async function BurnRateCardServer() {
         pathname: '/transactions',
         query: { from: `${year}-${month}-01`, direction: 'expense' },
       }}
+      title={t('kpi.burnThisMonth', 'Burn this month')}
     />
   )
 }
 
 async function SafetyGaugeCardServer() {
-  const [nw, avgBurn] = await Promise.all([
+  const [nw, avgBurn, t] = await Promise.all([
     queries.getNetWorth(),
     queries.getAvgMonthlyBurn(6),
+    getServerT(),
   ])
-  return <SafetyGaugeCard net={nw.net} avgBurn={avgBurn} />
+  return (
+    <SafetyGaugeCard
+      net={nw.net}
+      avgBurn={avgBurn}
+      title={t('kpi.safetyGauge', 'Safety gauge')}
+      hint={t('kpi.safetyGaugeHint', 'How long net worth covers your average burn rate')}
+      monthsLabel={t('kpi.months', 'months')}
+    />
+  )
 }
 
 async function TopExpensesCardServer() {
@@ -98,24 +127,46 @@ async function TopExpensesCardServer() {
 }
 
 async function PatrimonyChartServer() {
-  const data = await queries.getPatrimonyTimeSeries(12)
-  return <PatrimonyChart data={data} />
+  const [data, t] = await Promise.all([queries.getPatrimonyTimeSeries(12), getServerT()])
+  return (
+    <PatrimonyChart
+      data={data}
+      title={t('dashboard.patrimony', 'Patrimony')}
+      allHistoryLabel={t('dashboard.allHistory', 'All history')}
+      showForecastLabel={t('dashboard.showForecast', 'Show forecast')}
+      hideForecastLabel={t('dashboard.hideForecast', 'Hide forecast')}
+    />
+  )
 }
 
 async function IncomeVsSpendingServer() {
-  const data = await queries.getMonthlyFlows(12)
-  return <IncomeVsSpendingCard data={data} />
+  const [data, t] = await Promise.all([queries.getMonthlyFlows(12), getServerT()])
+  return (
+    <IncomeVsSpendingCard
+      data={data}
+      title={t('dashboard.incomeVsSpending', 'Income vs spending')}
+      subtitle={t('dashboard.last12Months', 'Last 12 months')}
+    />
+  )
 }
 
 async function CategoryPieServer() {
-  const [data, uncategorizedCount] = await Promise.all([
+  const [data, uncategorizedCount, t] = await Promise.all([
     queries.getMonthByCategory(),
     queries.countUncategorizedExpensesThisMonth(),
+    getServerT(),
   ])
-  return <CategoryPie data={data} uncategorizedCount={uncategorizedCount} />
+  return (
+    <CategoryPie
+      data={data}
+      uncategorizedCount={uncategorizedCount}
+      title={t('dashboard.byCategory', 'This month by category')}
+    />
+  )
 }
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const t = await getServerT()
   return (
     <div className="flex min-h-0 flex-col gap-3 lg:h-full">
       <Suspense fallback={null}>
@@ -123,8 +174,12 @@ export default function DashboardPage() {
       </Suspense>
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Dashboard</h1>
-          <p className="mt-0.5 text-xs text-muted-foreground">Your money, in one screen</p>
+          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
+            {t('dashboard.title', 'Dashboard')}
+          </h1>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {t('dashboard.subtitle', 'Your money, in one screen')}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <SyncAllButtonServer />

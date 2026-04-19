@@ -4,6 +4,7 @@ import { NetWorthChart } from '@florin/core/components/reflect/net-worth-chart'
 import { Card, CardContent, CardHeader, CardTitle } from '@florin/core/components/ui/card'
 import { formatCurrency } from '@florin/core/lib/format'
 import { queries } from '@/db/client'
+import { getServerT } from '@/lib/locale'
 
 // Reflect reads from the database on every render — never prerender it at
 // build time, otherwise the user would see frozen numbers from the moment
@@ -18,6 +19,7 @@ export const dynamic = 'force-dynamic'
  * On mobile we fall back to a natural vertical scroll.
  */
 export default async function ReflectPage() {
+  const t = await getServerT()
   const [flows, categoryShare, ageOfMoney, netWorthSeries, netWorth] = await Promise.all([
     queries.getMonthlyFlows(12),
     queries.getCategoryBreakdown(90),
@@ -39,9 +41,11 @@ export default async function ReflectPage() {
   return (
     <div className="flex min-h-0 flex-col gap-3 lg:h-full">
       <header className="min-w-0">
-        <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Reflect</h1>
+        <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
+          {t('reflect.title', 'Reflect')}
+        </h1>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          Long-window analytics — how your money has actually moved.
+          {t('reflect.subtitle', 'Long-window analytics — how your money has actually moved.')}
         </p>
       </header>
 
@@ -49,20 +53,20 @@ export default async function ReflectPage() {
         <Card className="gap-1 py-3">
           <CardHeader className="px-4 py-0">
             <CardTitle className="text-[10px] uppercase tracking-wide text-muted-foreground">
-              Net worth
+              {t('reflect.netWorth', 'Net worth')}
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 py-0">
             <p className="text-xl font-bold tabular-nums">{formatCurrency(netWorth.net)}</p>
             <p className="mt-0.5 text-[10px] text-muted-foreground">
-              Gross {formatCurrency(netWorth.gross)}
+              {t('kpi.grossPrefix', 'Gross')} {formatCurrency(netWorth.gross)}
             </p>
           </CardContent>
         </Card>
         <Card className="gap-1 py-3">
           <CardHeader className="px-4 py-0">
             <CardTitle className="text-[10px] uppercase tracking-wide text-muted-foreground">
-              Income (12mo)
+              {t('reflect.income12mo', 'Income (12mo)')}
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 py-0">
@@ -74,7 +78,7 @@ export default async function ReflectPage() {
         <Card className="gap-1 py-3">
           <CardHeader className="px-4 py-0">
             <CardTitle className="text-[10px] uppercase tracking-wide text-muted-foreground">
-              Spending (12mo)
+              {t('reflect.spending12mo', 'Spending (12mo)')}
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 py-0">
@@ -86,16 +90,18 @@ export default async function ReflectPage() {
         <Card className="gap-1 py-3">
           <CardHeader className="px-4 py-0">
             <CardTitle className="text-[10px] uppercase tracking-wide text-muted-foreground">
-              Age of money
+              {t('reflect.ageOfMoney', 'Age of money')}
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 py-0">
             <p className="text-xl font-bold tabular-nums">
-              {ageOfMoney === null ? '—' : `${Math.round(ageOfMoney)} d`}
+              {ageOfMoney === null ? '—' : `${Math.round(ageOfMoney)} ${t('reflect.days', 'd')}`}
             </p>
             <p className="mt-0.5 text-[10px] text-muted-foreground">
-              {savingsRate >= 0 ? '+' : ''}
-              {savingsRate.toFixed(0)}% savings rate
+              {t('reflect.savingsRateHint', '{pct} savings rate').replace(
+                '{pct}',
+                `${savingsRate >= 0 ? '+' : ''}${savingsRate.toFixed(0)}%`,
+              )}
             </p>
           </CardContent>
         </Card>
@@ -109,13 +115,26 @@ export default async function ReflectPage() {
       */}
       <div className="grid min-h-0 grid-cols-1 gap-3 lg:flex-1 lg:grid-cols-12 lg:grid-rows-2">
         <div className="min-h-[240px] lg:col-span-7 lg:min-h-0">
-          <IncomeVsSpendingChart data={flows} />
+          <IncomeVsSpendingChart
+            data={flows}
+            title={t('reflect.incomeVsSpending', 'Income vs spending')}
+            incomeLabel={t('transactions.directionIncome', 'Income')}
+            spendingLabel={t('transactions.directionExpenses', 'Spending')}
+          />
         </div>
         <div className="min-h-[240px] lg:col-span-5 lg:min-h-0">
-          <NetWorthChart data={netWorthSeries} />
+          <NetWorthChart
+            data={netWorthSeries}
+            title={t('reflect.netWorth', 'Net worth')}
+            netWorthTooltipLabel={t('reflect.netWorth', 'Net worth')}
+          />
         </div>
         <div className="min-h-[240px] lg:col-span-12 lg:min-h-0">
-          <CategoryBreakdownChart data={categoryShare} windowLabel="last 90 days" />
+          <CategoryBreakdownChart
+            data={categoryShare}
+            windowLabel={t('dashboard.lastNDays', 'Last {n} days').replace('{n}', '90')}
+            titlePrefix={t('reflect.spendingBreakdown', 'Spending breakdown — last 90 days').split(' — ')[0] ?? 'Spending breakdown'}
+          />
         </div>
       </div>
     </div>

@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { Button } from '../ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Input } from '../ui/input'
+import { useT } from '../../i18n/context'
 import type {
   ActionResult,
   CreateCategoryInput,
@@ -47,13 +48,16 @@ interface CategoriesEditorProps {
  * revalidate `/categories` and Next.js re-renders the page.
  */
 export function CategoriesEditor({ groups, actions }: CategoriesEditorProps) {
+  const t = useT()
   const [showNewGroup, setShowNewGroup] = useState(false)
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-end">
         <Button size="sm" variant="default" onClick={() => setShowNewGroup((v) => !v)}>
-          {showNewGroup ? 'Cancel' : '+ New group'}
+          {showNewGroup
+            ? t('common.cancel', 'Cancel')
+            : `+ ${t('categories.newGroup', 'New group')}`}
         </Button>
       </div>
 
@@ -77,6 +81,7 @@ export function CategoriesEditor({ groups, actions }: CategoriesEditorProps) {
 }
 
 function GroupCard({ group, actions }: { group: GroupRow; actions: CategoryActions }) {
+  const t = useT()
   const [editing, setEditing] = useState(false)
   const [adding, setAdding] = useState(false)
   const [pending, startTransition] = useTransition()
@@ -110,15 +115,17 @@ function GroupCard({ group, actions }: { group: GroupRow; actions: CategoryActio
                     : 'bg-rose-500/15 text-rose-700 dark:text-rose-300'
                 }`}
               >
-                {group.kind}
+                {group.kind === 'income'
+                  ? t('categories.income', 'INCOME')
+                  : t('categories.expense', 'EXPENSE')}
               </span>
             </div>
             <div className="flex items-center gap-1">
               <Button size="xs" variant="ghost" onClick={() => setEditing(true)}>
-                Edit
+                {t('common.edit', 'Edit')}
               </Button>
               <Button size="xs" variant="ghost" onClick={onDelete} disabled={pending}>
-                Delete
+                {t('common.delete', 'Delete')}
               </Button>
             </div>
           </>
@@ -144,7 +151,7 @@ function GroupCard({ group, actions }: { group: GroupRow; actions: CategoryActio
             className="w-full justify-start text-muted-foreground"
             onClick={() => setAdding(true)}
           >
-            + Add category
+            + {t('categories.addCategory', 'Add category')}
           </Button>
         )}
       </CardContent>
@@ -153,6 +160,7 @@ function GroupCard({ group, actions }: { group: GroupRow; actions: CategoryActio
 }
 
 function CategoryItem({ category, actions }: { category: CategoryRow; actions: CategoryActions }) {
+  const t = useT()
   const [editing, setEditing] = useState(false)
   const [pending, startTransition] = useTransition()
 
@@ -185,16 +193,16 @@ function CategoryItem({ category, actions }: { category: CategoryRow; actions: C
         <span className="text-foreground">{category.name}</span>
         {category.isFixed && (
           <span className="rounded-full bg-sky-500/15 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-sky-700 dark:text-sky-300">
-            fixed
+            {t('categories.fixed', 'FIXED')}
           </span>
         )}
       </span>
       <span className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
         <Button size="xs" variant="ghost" onClick={() => setEditing(true)}>
-          Edit
+          {t('common.edit', 'Edit')}
         </Button>
         <Button size="xs" variant="ghost" onClick={onDelete} disabled={pending}>
-          Delete
+          {t('common.delete', 'Delete')}
         </Button>
       </span>
     </li>
