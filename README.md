@@ -40,12 +40,15 @@ take:
 - Multi-account tracking: checking, savings, cash, loans, brokerage
 - Manual transaction entry + inline category editing
 - YNAB-style category hierarchy with auto-categorization rules
-- Dashboard: net worth, burn rate, safety gauge, 12-month patrimony chart with
-  EWMA trend and forecast, category pie, top expenses
+- Dashboard: net worth, burn rate, safety gauge, monthly margin (auto-detected
+  salary), 12-month patrimony chart with EWMA trend and forecast, category pie,
+  top expenses
 - Review queue for bank-imported transactions (approve / recategorize / delete
   in bulk)
-- Reflect analytics: income vs spending, net worth over time, category breakdown,
-  recurring expense detection with predicted next dates
+- Reflect analytics: 52-week GitHub-style spending heatmap (click a day to
+  jump to its transactions, filter out categories like rent), rolling savings
+  rate (3/6/12 mo), subscriptions radar, "if I stopped X" counterfactual
+  savings explorer, income vs spending, net worth over time, category breakdown
 - CSV / OFX / QFX drag-and-drop import for bank statements
 - PDF monthly summary export
 - Keyboard shortcuts (Cmd+K search, Cmd+N new transaction, Cmd+, settings)
@@ -238,7 +241,8 @@ florin/
 │       └── assets/          # Tray icons
 ├── packages/
 │   ├── core/                # Shared UI components, types, i18n, formatters
-│   └── db-sqlite/           # SQLite client, queries, mutations (drizzle-orm)
+│   ├── db-pg/               # PostgreSQL client, queries, mutations (web)
+│   └── db-sqlite/           # SQLite client, queries, mutations (desktop)
 ├── compose.yaml             # Web: db + web services
 ├── Makefile                 # Convenience targets
 └── .env.example
