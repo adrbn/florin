@@ -31,6 +31,10 @@ import {
   getTopExpenses,
   countUncategorizedExpensesThisMonth,
   getDataSourceInfo,
+  getLeftToSpendThisMonth,
+  getDailySpend,
+  getSavingsRates,
+  getSubscriptions,
 } from './dashboard'
 import {
   getMonthlyFlows,
@@ -167,6 +171,10 @@ export function createSqliteQueries(db: SqliteDB): FlorinQueries {
     getAgeOfMoneyHistory: (months) => getAgeOfMoneyHistory(db, months),
     getNetWorthSeries: (months) => getNetWorthSeries(db, months),
     getMonthPlan: async (year, month) => getMonthPlanQuery(db, year, month),
+    getLeftToSpendThisMonth: () => getLeftToSpendThisMonth(db),
+    getDailySpend: (days) => getDailySpend(db, days),
+    getSavingsRates: () => getSavingsRates(db),
+    getSubscriptions: () => getSubscriptions(db),
 
     // ---------- listing queries ----------
 

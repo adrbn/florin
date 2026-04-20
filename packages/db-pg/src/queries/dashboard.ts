@@ -1,7 +1,8 @@
-import { and, desc, eq, gte, isNull, lte, sql } from 'drizzle-orm'
+import { and, desc, eq, gte, isNotNull, isNull, lte, sql } from 'drizzle-orm'
 import type { PgDB } from '../client'
 import { accounts, categories, categoryGroups, transactions } from '../schema'
 import { getLoanLiabilities } from './loan-liabilities'
+import { detectSubscriptions } from '@florin/core/lib/transactions'
 
 import type {
   NetWorth,
@@ -10,6 +11,10 @@ import type {
   CategoryBreakdownItem,
   TopExpense,
   DataSourceInfo,
+  LeftToSpend,
+  DailySpend,
+  SavingsRates,
+  SubscriptionMatch,
 } from '@florin/core/types'
 
 export async function getNetWorth(db: PgDB): Promise<NetWorth> {
@@ -276,6 +281,185 @@ export async function getDataSourceInfo(db: PgDB): Promise<DataSourceInfo> {
     legacyAccounts,
     manualAccounts,
   }
+}
+
+/**
+ * Minimum amount that counts as a salary hit when detecting the user's
+ * "salary category". French SMIC net is ≈ 1450€, so anything above 500€ in
+ * a single positive transaction is a safe floor that catches part-time
+ * income too.
+ */
+const SALARY_MIN_AMOUNT = 500
+
+/**
+ * Find the category the user gets paid into by looking at the latest large
+ * positive transaction (>= 500€) in the last 90 days. That category's income
+ * this month becomes the "monthly ceiling"; subtract burn to get "left to
+ * spend". Returns zeros + null ids when the user hasn't been paid recently
+ * (e.g. fresh Florin install).
+ */
+export async function getLeftToSpendThisMonth(db: PgDB): Promise<LeftToSpend> {
+  const lookback = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
+  const latest = await db
+    .select({ categoryId: transactions.categoryId, categoryName: categories.name })
+    .from(transactions)
+    .innerJoin(accounts, eq(transactions.accountId, accounts.id))
+    .leftJoin(categories, eq(transactions.categoryId, categories.id))
+    .where(
+      and(
+        isNull(transactions.deletedAt),
+        isNotNull(transactions.categoryId),
+        gte(transactions.occurredAt, lookback),
+        sql`${transactions.amount} >= ${SALARY_MIN_AMOUNT}`,
+        sql`${transactions.transferPairId} IS NULL`,
+        eq(accounts.isArchived, false),
+      ),
+    )
+    .orderBy(desc(transactions.occurredAt))
+    .limit(1)
+
+  const salaryCategoryId = latest[0]?.categoryId ?? null
+  const salaryCategoryName = latest[0]?.categoryName ?? null
+
+  const start = startOfMonth(new Date())
+  const end = endOfMonth(new Date())
+
+  let monthIncome = 0
+  if (salaryCategoryId) {
+    const rows = await db
+      .select({ total: sql<string>`COALESCE(SUM(${transactions.amount}), 0)` })
+      .from(transactions)
+      .innerJoin(accounts, eq(transactions.accountId, accounts.id))
+      .where(
+        and(
+          isNull(transactions.deletedAt),
+          eq(transactions.categoryId, salaryCategoryId),
+          gte(transactions.occurredAt, start),
+          lte(transactions.occurredAt, end),
+          sql`${transactions.amount} > 0`,
+          sql`${transactions.transferPairId} IS NULL`,
+          eq(accounts.isArchived, false),
+        ),
+      )
+    monthIncome = Number(rows[0]?.total ?? '0')
+  }
+
+  const monthSpent = await getMonthBurn(db)
+  return {
+    salaryCategoryId,
+    salaryCategoryName,
+    monthIncome,
+    monthSpent,
+    leftToSpend: monthIncome - monthSpent,
+  }
+}
+
+/**
+ * Per-day spending total for the heatmap. Days with no spending return 0;
+ * the caller pads missing days so the grid stays contiguous.
+ */
+export async function getDailySpend(db: PgDB, days = 91): Promise<DailySpend[]> {
+  const start = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+  const rows = await db
+    .select({
+      day: sql<string>`to_char(${transactions.occurredAt}, 'YYYY-MM-DD')`,
+      total: sql<string>`COALESCE(SUM(${transactions.amount}), 0)`,
+    })
+    .from(transactions)
+    .innerJoin(accounts, eq(transactions.accountId, accounts.id))
+    .leftJoin(categories, eq(transactions.categoryId, categories.id))
+    .leftJoin(categoryGroups, eq(categories.groupId, categoryGroups.id))
+    .where(
+      and(
+        isNull(transactions.deletedAt),
+        gte(transactions.occurredAt, start),
+        sql`${transactions.amount} < 0`,
+        sql`${transactions.transferPairId} IS NULL`,
+        eq(accounts.isArchived, false),
+        sql`(${categoryGroups.kind} IS NULL OR ${categoryGroups.kind} <> 'income')`,
+      ),
+    )
+    .groupBy(sql`to_char(${transactions.occurredAt}, 'YYYY-MM-DD')`)
+
+  return rows.map((r) => ({ date: r.day, amount: Math.abs(Number(r.total)) }))
+}
+
+/**
+ * Rolling savings rates — income minus expense over 3/6/12 months, divided
+ * by income. Returns null for windows with no income so the UI can render a
+ * placeholder instead of a misleading -100%.
+ */
+export async function getSavingsRates(db: PgDB): Promise<SavingsRates> {
+  const windows: Array<{ key: keyof SavingsRates; months: number }> = [
+    { key: 'threeMonth', months: 3 },
+    { key: 'sixMonth', months: 6 },
+    { key: 'twelveMonth', months: 12 },
+  ]
+  const out: SavingsRates = { threeMonth: null, sixMonth: null, twelveMonth: null }
+  for (const w of windows) {
+    const start = startOfMonth(addMonths(new Date(), -w.months + 1))
+    const end = endOfMonth(new Date())
+    const rows = await db
+      .select({
+        income: sql<string>`COALESCE(SUM(CASE WHEN ${categoryGroups.kind} = 'income' THEN ${transactions.amount} ELSE 0 END), 0)`,
+        expense: sql<string>`COALESCE(SUM(CASE WHEN ${categoryGroups.kind} <> 'income' AND ${transactions.amount} < 0 THEN ${transactions.amount} ELSE 0 END), 0)`,
+      })
+      .from(transactions)
+      .innerJoin(accounts, eq(transactions.accountId, accounts.id))
+      .leftJoin(categories, eq(transactions.categoryId, categories.id))
+      .leftJoin(categoryGroups, eq(categories.groupId, categoryGroups.id))
+      .where(
+        and(
+          isNull(transactions.deletedAt),
+          gte(transactions.occurredAt, start),
+          lte(transactions.occurredAt, end),
+          sql`${transactions.transferPairId} IS NULL`,
+          eq(accounts.isArchived, false),
+        ),
+      )
+    const income = Number(rows[0]?.income ?? '0')
+    const expense = Math.abs(Number(rows[0]?.expense ?? '0'))
+    out[w.key] = income > 0 ? ((income - expense) / income) * 100 : null
+  }
+  return out
+}
+
+/**
+ * Subscriptions radar — scan the last 180 days of transactions and return
+ * payees that repeat at roughly the same negative amount every 28±7 or
+ * 7±2 days. Each group needs at least 3 samples to count.
+ */
+export async function getSubscriptions(db: PgDB): Promise<SubscriptionMatch[]> {
+  const start = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000)
+  const rows = await db
+    .select({
+      payee: transactions.normalizedPayee,
+      amount: transactions.amount,
+      occurredAt: transactions.occurredAt,
+      categoryName: categories.name,
+    })
+    .from(transactions)
+    .innerJoin(accounts, eq(transactions.accountId, accounts.id))
+    .leftJoin(categories, eq(transactions.categoryId, categories.id))
+    .where(
+      and(
+        isNull(transactions.deletedAt),
+        gte(transactions.occurredAt, start),
+        sql`${transactions.amount} < 0`,
+        sql`${transactions.transferPairId} IS NULL`,
+        eq(accounts.isArchived, false),
+      ),
+    )
+    .orderBy(transactions.occurredAt)
+
+  return detectSubscriptions(
+    rows.map((r) => ({
+      payee: r.payee,
+      amount: Number(r.amount),
+      occurredAt: new Date(r.occurredAt).toISOString(),
+      categoryName: r.categoryName,
+    })),
+  )
 }
 
 // ============ date helpers ============
