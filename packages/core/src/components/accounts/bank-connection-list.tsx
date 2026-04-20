@@ -7,7 +7,12 @@
  *
  * Mobile layout stacks info above actions; from `sm:` up, they sit on the
  * same row with actions right-aligned.
+ *
+ * Client component because it calls `useT()` to localize the relative time
+ * label — the parent accounts page is a server component.
  */
+'use client'
+
 import { Landmark } from 'lucide-react'
 import { Card } from '../ui/card'
 import type { ActionResult } from '../../types/index'
