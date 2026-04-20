@@ -108,18 +108,27 @@ export function setupTray(_port: number) {
 
 function positionTrayWindow() {
   if (!tray || !trayWindow) return
-  const trayBounds = tray.getBounds()
   const windowBounds = trayWindow.getBounds()
-  const display = screen.getPrimaryDisplay().workArea
-  const hasTrayBounds = trayBounds.width > 0 && trayBounds.height > 0
 
-  // When the tray icon is hidden by macOS (overflow, Stage Manager) getBounds
-  // returns zeros. Fall back to the top-right corner of the menu bar so the
-  // popup stays reachable instead of sliding to the screen origin.
-  const anchorX = hasTrayBounds
-    ? trayBounds.x + trayBounds.width / 2
-    : display.x + display.width - windowBounds.width / 2 - 8
-  const anchorY = hasTrayBounds ? trayBounds.y + trayBounds.height : display.y + 4
+  // Prefer the cursor position at click time over tray.getBounds(): on
+  // multi-display setups and when the tray icon is pushed into the overflow
+  // menu (Bartender, Stage Manager, small notch), getBounds() returns either
+  // zeros or stale values from the wrong display — and the popup drifts to
+  // the top-left of the primary screen. The cursor is always on the display
+  // that owns the menu bar the user just clicked.
+  const cursor = screen.getCursorScreenPoint()
+  const activeDisplay = screen.getDisplayNearestPoint(cursor)
+  const display = activeDisplay.workArea
+
+  const trayBounds = tray.getBounds()
+  const hasSensibleBounds =
+    trayBounds.width > 0 &&
+    trayBounds.height > 0 &&
+    trayBounds.x >= display.x &&
+    trayBounds.x + trayBounds.width <= display.x + display.width
+
+  const anchorX = hasSensibleBounds ? trayBounds.x + trayBounds.width / 2 : cursor.x
+  const anchorY = hasSensibleBounds ? trayBounds.y + trayBounds.height : display.y + 4
 
   const x = Math.round(Math.min(
     display.x + display.width - windowBounds.width - 4,
