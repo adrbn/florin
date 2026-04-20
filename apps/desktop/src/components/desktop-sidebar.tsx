@@ -4,6 +4,7 @@ import { Info } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { ThemeToggle } from '@florin/core/components/theme/theme-toggle'
+import { LocaleSwitcher } from '@florin/core/components/shell/locale-switcher'
 import { cn } from '@florin/core/lib/utils'
 import { useT } from '@florin/core/i18n/context'
 import { isLinkActive, type NavBadges, visibleNavLinks } from '@florin/core/components/shell/nav-links'
@@ -23,7 +24,12 @@ export function DesktopSidebar({ badges }: DesktopSidebarProps) {
           aria-hidden
           className="h-2.5 w-2.5 rounded-full bg-sidebar-primary shadow-[0_0_6px_2px_hsl(var(--sidebar-primary)/0.3)]"
         />
-        <h2 className="text-2xl font-black tracking-tighter">Florin</h2>
+        <h2
+          className="text-2xl font-bold leading-none"
+          style={{ fontFamily: "'Tuaf', ui-sans-serif, system-ui, sans-serif", letterSpacing: '-0.02em' }}
+        >
+          Florin
+        </h2>
       </div>
       <nav className="flex-1 space-y-0.5 px-3">
         {links.map((l) => {
@@ -63,6 +69,7 @@ export function DesktopSidebar({ badges }: DesktopSidebarProps) {
         })}
       </nav>
       <div className="space-y-0.5 p-3">
+        <LocaleSwitcher endpoint="/api/settings/locale" />
         <ThemeToggle />
         <Link
           href="/about"

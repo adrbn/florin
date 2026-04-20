@@ -8,6 +8,7 @@ files:
   - .next/**
   - assets/**
   - tray-ui/**
+  - public/**
   - package.json
   - next.config.mjs
   - "node_modules/**"
