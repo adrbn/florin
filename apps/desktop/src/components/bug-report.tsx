@@ -2,8 +2,14 @@
 
 import { useState } from 'react'
 import { Bug, Send, CheckCircle } from 'lucide-react'
+import { useT } from '@florin/core/i18n/context'
 
-export function BugReport() {
+interface BugReportProps {
+  version: string
+}
+
+export function BugReport({ version }: BugReportProps) {
+  const t = useT()
   const [message, setMessage] = useState('')
   const [sent, setSent] = useState(false)
 
@@ -11,10 +17,10 @@ export function BugReport() {
     e.preventDefault()
     if (!message.trim()) return
 
-    const logs = collectLogs()
+    const logs = collectLogs(version)
     const body = `${message}\n\n--- System Info ---\n${logs}`
     const mailto = `mailto:bug@labr.studio?subject=${encodeURIComponent(
-      `[Florin Bug] ${message.slice(0, 60)}`
+      `[Florin Bug] ${message.slice(0, 60)}`,
     )}&body=${encodeURIComponent(body)}`
 
     window.open(mailto, '_blank')
@@ -26,36 +32,39 @@ export function BugReport() {
   }
 
   return (
-    <div className="rounded-lg border bg-card p-6 space-y-4">
+    <div className="space-y-4 rounded-lg border bg-card p-6">
       <div className="flex items-center gap-2">
         <Bug className="h-4 w-4 text-muted-foreground" />
-        <h2 className="text-sm font-semibold">Report a Bug</h2>
+        <h2 className="text-sm font-semibold">{t('about.bugTitle', 'Report a bug')}</h2>
       </div>
 
       {sent ? (
         <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400">
           <CheckCircle className="h-4 w-4" />
-          Email client opened — thanks for the report!
+          {t('about.bugSent', 'Email client opened — thanks for the report!')}
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-3">
           <textarea
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            placeholder="Describe what happened and what you expected…"
+            placeholder={t('about.bugPlaceholder', 'Describe what happened and what you expected…')}
             rows={3}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+            className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           />
           <button
             type="submit"
             disabled={!message.trim()}
-            className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Send className="h-3.5 w-3.5" />
-            Send Bug Report
+            {t('about.bugSubmit', 'Send bug report')}
           </button>
           <p className="text-[11px] text-muted-foreground">
-            Opens your email client with system info attached. No data leaves your machine without your confirmation.
+            {t(
+              'about.bugDisclaimer',
+              'Opens your email client with system info attached. No data leaves your machine without your confirmation.',
+            )}
           </p>
         </form>
       )}
@@ -63,9 +72,9 @@ export function BugReport() {
   )
 }
 
-function collectLogs(): string {
+function collectLogs(version: string): string {
   const lines = [
-    `App: Florin v0.1.0`,
+    `App: Florin v${version}`,
     `Platform: ${navigator.platform}`,
     `User Agent: ${navigator.userAgent}`,
     `Screen: ${screen.width}x${screen.height} @ ${devicePixelRatio}x`,
