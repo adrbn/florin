@@ -205,7 +205,7 @@
   "reflect.year": "an",
   "reflect.noSpendingData": "Pas encore assez d'historique de dépenses.",
 
-  "kpi.leftToSpend": "Reste à dépenser",
+  "kpi.leftToSpend": "Marge du mois",
   "kpi.leftToSpendCategory": "Basé sur « {category} »",
   "kpi.leftToSpendNoIncome": "Aucun salaire détecté sur les 90 derniers jours.",
 
