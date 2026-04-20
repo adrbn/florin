@@ -177,13 +177,15 @@
   "reflect.noIncome": "no income",
 
   "reflect.heatmap.title": "Spending heatmap",
-  "reflect.heatmap.subtitle": "Cooler days = lower spend. Greyed cells are in the future.",
+  "reflect.heatmap.subtitle": "Cooler days = lower spend. Click a cell to inspect that day.",
   "reflect.heatmap.mon": "Mon",
   "reflect.heatmap.wed": "Wed",
   "reflect.heatmap.fri": "Fri",
   "reflect.heatmap.sun": "Sun",
   "reflect.heatmap.less": "Less",
   "reflect.heatmap.more": "More",
+  "reflect.heatmap.noSpend": "No spending",
+  "reflect.heatmap.viewTxs": "View transactions",
 
   "reflect.subscriptions": "Subscriptions radar",
   "reflect.subscriptionsSubtitle": "Recurring charges detected in the last 6 months.",

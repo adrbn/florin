@@ -16,7 +16,8 @@ import { getServerT } from '@/lib/locale'
 // the image was built.
 export const dynamic = 'force-dynamic'
 
-const HEATMAP_WINDOW_DAYS = 91 // 13 weeks
+const HEATMAP_WEEKS = 52
+const HEATMAP_WINDOW_DAYS = HEATMAP_WEEKS * 7 + 7 // pad so the oldest column is full
 const COUNTERFACTUAL_WINDOW_DAYS = 90
 
 export default async function ReflectPage() {
@@ -152,7 +153,7 @@ export default async function ReflectPage() {
         />
       </div>
 
-      <WeeklyHeatmap rows={dailySpend} weeks={13} />
+      <WeeklyHeatmap rows={dailySpend} weeks={HEATMAP_WEEKS} />
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <SubscriptionsList

@@ -177,13 +177,15 @@
   "reflect.noIncome": "pas de revenus",
 
   "reflect.heatmap.title": "Carte des dépenses",
-  "reflect.heatmap.subtitle": "Jours plus frais = moins de dépenses. Les cellules grises sont dans le futur.",
+  "reflect.heatmap.subtitle": "Jours plus frais = moins de dépenses. Clique une case pour voir ce jour.",
   "reflect.heatmap.mon": "Lun",
   "reflect.heatmap.wed": "Mer",
   "reflect.heatmap.fri": "Ven",
   "reflect.heatmap.sun": "Dim",
   "reflect.heatmap.less": "Moins",
   "reflect.heatmap.more": "Plus",
+  "reflect.heatmap.noSpend": "Aucune dépense",
+  "reflect.heatmap.viewTxs": "Voir les transactions",
 
   "reflect.subscriptions": "Radar des abonnements",
   "reflect.subscriptionsSubtitle": "Charges récurrentes détectées sur 6 mois.",
