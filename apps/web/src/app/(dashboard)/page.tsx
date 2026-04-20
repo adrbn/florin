@@ -3,6 +3,7 @@ import { BurnRateCard } from '@florin/core/components/dashboard/burn-rate-card'
 import { CategoryPie } from '@florin/core/components/dashboard/category-pie'
 import { DataSourcePill } from '@florin/core/components/dashboard/data-source-pill'
 import { IncomeVsSpendingCard } from '@florin/core/components/dashboard/income-vs-spending-card'
+import { LeftToSpendCard } from '@florin/core/components/dashboard/left-to-spend-card'
 import { NetWorthCard } from '@florin/core/components/dashboard/net-worth-card'
 import { PatrimonyChart } from '@florin/core/components/dashboard/patrimony-chart'
 import { SafetyGaugeCard } from '@florin/core/components/dashboard/safety-gauge-card'
@@ -94,6 +95,28 @@ async function SafetyGaugeCardServer() {
       title={t('kpi.safetyGauge', 'Safety gauge')}
       hint={t('kpi.safetyGaugeHint', 'How long net worth covers your average burn rate')}
       monthsLabel={t('kpi.months', 'months')}
+    />
+  )
+}
+
+async function LeftToSpendCardServer() {
+  const [lts, t] = await Promise.all([queries.getLeftToSpendThisMonth(), getServerT()])
+  return (
+    <LeftToSpendCard
+      title={t('kpi.leftToSpend', 'Left to spend')}
+      monthIncome={lts.monthIncome}
+      monthSpent={lts.monthSpent}
+      leftToSpend={lts.leftToSpend}
+      hintCategory={
+        lts.salaryCategoryName
+          ? t(
+              'kpi.leftToSpendCategory',
+              { category: lts.salaryCategoryName },
+              'Based on “{category}”',
+            )
+          : undefined
+      }
+      hintNoIncome={t('kpi.leftToSpendNoIncome', 'No salary detected in the last 90 days.')}
     />
   )
 }
@@ -193,12 +216,15 @@ export default async function DashboardPage() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
         <Suspense fallback={<CardSkeleton className="h-[120px]" />}>
           <NetWorthCardServer />
         </Suspense>
         <Suspense fallback={<CardSkeleton className="h-[120px]" />}>
           <BurnRateCardServer />
+        </Suspense>
+        <Suspense fallback={<CardSkeleton className="h-[120px]" />}>
+          <LeftToSpendCardServer />
         </Suspense>
         <Suspense fallback={<CardSkeleton className="h-[120px]" />}>
           <SafetyGaugeCardServer />
