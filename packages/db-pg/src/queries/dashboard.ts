@@ -322,26 +322,37 @@ export async function getLeftToSpendThisMonth(db: PgDB): Promise<LeftToSpend> {
   const salaryCategoryName = latest[0]?.categoryName ?? null
 
   const start = startOfMonth(new Date())
-  const end = endOfMonth(new Date())
 
   let monthIncome = 0
   if (salaryCategoryId) {
+    // Sum salary income for the current month. If this month hasn't been
+    // paid yet (typical early in the month — salaries often land on the
+    // 25th-28th), fall back to the most recent calendar month that did
+    // see a salary hit so the "left to spend" ceiling stays meaningful.
     const rows = await db
-      .select({ total: sql<string>`COALESCE(SUM(${transactions.amount}), 0)` })
+      .select({
+        month: sql<string>`to_char(${transactions.occurredAt}, 'YYYY-MM')`,
+        total: sql<string>`COALESCE(SUM(${transactions.amount}), 0)`,
+      })
       .from(transactions)
       .innerJoin(accounts, eq(transactions.accountId, accounts.id))
       .where(
         and(
           isNull(transactions.deletedAt),
           eq(transactions.categoryId, salaryCategoryId),
-          gte(transactions.occurredAt, start),
-          lte(transactions.occurredAt, end),
+          gte(transactions.occurredAt, lookback),
           sql`${transactions.amount} > 0`,
           sql`${transactions.transferPairId} IS NULL`,
           eq(accounts.isArchived, false),
         ),
       )
-    monthIncome = Number(rows[0]?.total ?? '0')
+      .groupBy(sql`to_char(${transactions.occurredAt}, 'YYYY-MM')`)
+      .orderBy(sql`to_char(${transactions.occurredAt}, 'YYYY-MM') DESC`)
+
+    const currentKey = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}`
+    const currentRow = rows.find((r) => r.month === currentKey)
+    const fallbackRow = rows[0]
+    monthIncome = Number((currentRow ?? fallbackRow)?.total ?? '0')
   }
 
   const monthSpent = await getMonthBurn(db)
