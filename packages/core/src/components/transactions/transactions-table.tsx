@@ -285,6 +285,7 @@ function TransactionRow({
         <span
           className="min-w-0 flex-1 truncate font-medium text-foreground md:flex-initial"
           title={row.payee}
+          data-amount="manual"
         >
           {row.payee}
         </span>

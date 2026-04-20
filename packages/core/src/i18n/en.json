@@ -66,6 +66,7 @@
   "dashboard.bankApiLive": "Bank API · live",
   "dashboard.bankApiOffline": "Bank API · offline",
   "dashboard.syncNow": "Sync now",
+  "dashboard.synced": "Synced",
   "dashboard.top5Expenses": "Top 5 expenses",
   "dashboard.timeWindow": "Time window",
   "dashboard.lastNDays": "Last {n} days",
