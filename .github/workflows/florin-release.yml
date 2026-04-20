@@ -1,9 +1,9 @@
-name: Desktop Release
+name: Florin Release
 
 on:
   push:
     tags:
-      - 'desktop-v*'
+      - 'Florin-v*'
 
 permissions:
   contents: write
@@ -27,7 +27,23 @@ jobs:
         run: cd apps/desktop && pnpm exec electron-builder --mac
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Upload to Release
+      - name: Upload desktop DMGs to Release
         uses: softprops/action-gh-release@v2
         with:
           files: apps/desktop/dist/*.dmg
+
+  attach-server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package server deployment bundle
+        run: |
+          mkdir -p server-bundle
+          cp compose.yaml server-bundle/
+          cp apps/web/Dockerfile server-bundle/Dockerfile.web
+          cp -r apps/web/drizzle server-bundle/drizzle
+          tar -czf florin-server-${GITHUB_REF_NAME}.tar.gz server-bundle
+      - name: Upload server bundle to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: florin-server-*.tar.gz
