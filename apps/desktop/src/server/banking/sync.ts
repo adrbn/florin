@@ -377,7 +377,6 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
 
   const rules = await loadActiveRules()
   const errors: { accountUid: string; message: string }[] = []
-  const balanceInfos: string[] = []
   let totalInserted = 0
   let accountsSynced = 0
 
@@ -402,9 +401,8 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
     // (common for certain account types) must not prevent the balance from
     // updating. Each operation records its own error.
     let balanceOk = false
-    let balanceDebug = ''
     try {
-      balanceDebug = await syncAccountBalance(ebConfig, florinAccountId, uid)
+      await syncAccountBalance(ebConfig, florinAccountId, uid)
       balanceOk = true
     } catch (error: unknown) {
       errors.push({ accountUid: uid, message: shortError('balance', error) })
@@ -442,7 +440,6 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
     // Count as synced if at least the balance updated
     if (balanceOk) {
       accountsSynced += 1
-      if (balanceDebug) balanceInfos.push(balanceDebug)
     }
   }
 
@@ -450,11 +447,7 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
     .update(bankConnections)
     .set({
       lastSyncedAt: new Date().toISOString(),
-      lastSyncError: errors.length > 0
-        ? errors.map((e) => e.message).join('; ')
-        : balanceInfos.length > 0
-          ? `[info] ${balanceInfos.join(' | ')}`
-          : null,
+      lastSyncError: errors.length > 0 ? errors.map((e) => e.message).join('; ') : null,
       updatedAt: new Date().toISOString(),
     })
     .where(eq(bankConnections.id, connectionId))

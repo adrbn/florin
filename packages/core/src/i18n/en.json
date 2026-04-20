@@ -434,6 +434,12 @@
   "onboarding.wizard.finish": "Finish",
   "onboarding.wizard.back": "← Back",
 
+  "bankSync.never": "never",
+  "bankSync.justNow": "just now",
+  "bankSync.minAgo": "{n} min ago",
+  "bankSync.hAgo": "{n} h ago",
+  "bankSync.dAgo": "{n} d ago",
+
   "tray.syncNow": "Sync Now",
   "tray.addTransaction": "Add Transaction",
   "tray.openDashboard": "Open Dashboard",

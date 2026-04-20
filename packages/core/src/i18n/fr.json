@@ -434,6 +434,12 @@
   "onboarding.wizard.finish": "Terminer",
   "onboarding.wizard.back": "← Retour",
 
+  "bankSync.never": "jamais",
+  "bankSync.justNow": "à l'instant",
+  "bankSync.minAgo": "il y a {n} min",
+  "bankSync.hAgo": "il y a {n} h",
+  "bankSync.dAgo": "il y a {n} j",
+
   "tray.syncNow": "Synchroniser",
   "tray.addTransaction": "Ajouter une transaction",
   "tray.openDashboard": "Ouvrir le tableau de bord",
