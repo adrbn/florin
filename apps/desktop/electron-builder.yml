@@ -34,6 +34,10 @@ mac:
 dmg:
   title: Florin
   artifactName: Florin-${version}-${arch}.dmg
+# electron-updater reads this to discover new releases. We do NOT use
+# electron-builder's own publisher (it auto-creates phantom "1.0.0" draft
+# releases) — builds pass `--publish never` and CI uploads DMGs via
+# softprops/action-gh-release.
 publish:
   provider: github
   owner: adrbn

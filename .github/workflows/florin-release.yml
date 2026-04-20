@@ -24,9 +24,7 @@ jobs:
       - name: Build main process + Next.js
         run: cd apps/desktop && pnpm build
       - name: Build DMG
-        run: cd apps/desktop && pnpm exec electron-builder --mac
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: cd apps/desktop && pnpm exec electron-builder --mac --publish never
       - name: Upload desktop DMGs to Release
         uses: softprops/action-gh-release@v2
         with:
