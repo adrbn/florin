@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, ArrowRight, Wallet, Tag, Receipt } from 'lucide-react'
 import { formatCurrencySigned } from '../../lib/format/currency'
+import { useT } from '../../i18n/context'
 
 const NAV_SHORTCUTS: Record<string, string> = {
   '1': '/',
@@ -15,22 +16,18 @@ const NAV_SHORTCUTS: Record<string, string> = {
   '7': '/settings',
 }
 
+// Section keys used internally to group items. Display labels are resolved
+// via i18n at render time (see sectionLabel()).
+const SECTION_PAGES = 'pages'
+const SECTION_ACCOUNTS = 'accounts'
+const SECTION_TRANSACTIONS = 'transactions'
+const SECTION_CATEGORIES = 'categories'
+
 interface PageResult {
   label: string
   href: string
   section: string
 }
-
-const PAGE_ITEMS: PageResult[] = [
-  { label: 'Dashboard', href: '/', section: 'Pages' },
-  { label: 'Accounts', href: '/accounts', section: 'Pages' },
-  { label: 'Transactions', href: '/transactions', section: 'Pages' },
-  { label: 'Reflect', href: '/reflect', section: 'Pages' },
-  { label: 'Tools', href: '/tools', section: 'Pages' },
-  { label: 'Categories', href: '/categories', section: 'Pages' },
-  { label: 'Settings', href: '/settings', section: 'Pages' },
-  { label: 'About', href: '/about', section: 'Pages' },
-]
 
 interface SearchTransaction {
   id: string
@@ -71,12 +68,35 @@ interface SearchResults {
  */
 export function KeyboardShortcuts() {
   const router = useRouter()
+  const t = useT()
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [results, setResults] = useState<SearchResults | null>(null)
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [loading, setLoading] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const pageItems: PageResult[] = useMemo(
+    () => [
+      { label: t('nav.dashboard', 'Dashboard'), href: '/', section: SECTION_PAGES },
+      { label: t('nav.accounts', 'Accounts'), href: '/accounts', section: SECTION_PAGES },
+      { label: t('nav.transactions', 'Transactions'), href: '/transactions', section: SECTION_PAGES },
+      { label: t('nav.reflect', 'Reflect'), href: '/reflect', section: SECTION_PAGES },
+      { label: t('nav.tools', 'Tools'), href: '/tools', section: SECTION_PAGES },
+      { label: t('nav.categories', 'Categories'), href: '/categories', section: SECTION_PAGES },
+      { label: t('nav.settings', 'Settings'), href: '/settings', section: SECTION_PAGES },
+      { label: t('nav.about', 'About'), href: '/about', section: SECTION_PAGES },
+    ],
+    [t],
+  )
+
+  const sectionLabel = (section: string): string => {
+    if (section === SECTION_PAGES) return t('cmdk.sectionPages', 'Pages')
+    if (section === SECTION_ACCOUNTS) return t('cmdk.sectionAccounts', 'Accounts')
+    if (section === SECTION_TRANSACTIONS) return t('cmdk.sectionTransactions', 'Transactions')
+    if (section === SECTION_CATEGORIES) return t('cmdk.sectionCategories', 'Categories')
+    return section
+  }
 
   const allItems: Array<{
     label: string
@@ -87,9 +107,9 @@ export function KeyboardShortcuts() {
   }> = []
 
   if (searchQuery.trim().length < 2) {
-    PAGE_ITEMS.forEach((p) => allItems.push(p))
+    pageItems.forEach((p) => allItems.push(p))
   } else {
-    const matchingPages = PAGE_ITEMS.filter((p) =>
+    const matchingPages = pageItems.filter((p) =>
       p.label.toLowerCase().includes(searchQuery.toLowerCase()),
     )
     matchingPages.forEach((p) => allItems.push(p))
@@ -100,16 +120,16 @@ export function KeyboardShortcuts() {
           label: a.name,
           sublabel: a.kind,
           href: `/accounts/${a.id}`,
-          section: 'Accounts',
+          section: SECTION_ACCOUNTS,
           icon: 'wallet',
         }),
       )
-      results.transactions.forEach((t) =>
+      results.transactions.forEach((tx) =>
         allItems.push({
-          label: t.payee || '(no payee)',
-          sublabel: formatCurrencySigned(t.amount),
-          href: `/transactions?highlight=${t.id}`,
-          section: 'Transactions',
+          label: tx.payee || t('cmdk.noPayee', '(no payee)'),
+          sublabel: formatCurrencySigned(tx.amount),
+          href: `/transactions?highlight=${tx.id}`,
+          section: SECTION_TRANSACTIONS,
           icon: 'receipt',
         }),
       )
@@ -118,7 +138,7 @@ export function KeyboardShortcuts() {
           label: `${c.emoji ? c.emoji + ' ' : ''}${c.name}`,
           sublabel: c.groupName,
           href: `/transactions?categoryId=${c.id}`,
-          section: 'Categories',
+          section: SECTION_CATEGORIES,
           icon: 'tag',
         }),
       )
@@ -255,7 +275,7 @@ export function KeyboardShortcuts() {
                 setSearchOpen(false)
               }
             }}
-            placeholder="Search pages, transactions, accounts, categories..."
+            placeholder={t('cmdk.placeholder', 'Search pages, transactions, accounts, categories...')}
             className="flex-1 border-0 bg-transparent py-3 text-sm text-foreground outline-none placeholder:text-muted-foreground"
           />
           {loading && (
@@ -268,13 +288,13 @@ export function KeyboardShortcuts() {
         <div className="max-h-[360px] overflow-y-auto p-1.5">
           {allItems.length === 0 ? (
             <p className="px-2 py-6 text-center text-sm text-muted-foreground">
-              {loading ? 'Searching…' : 'No results found'}
+              {loading ? t('cmdk.searching', 'Searching…') : t('cmdk.noResults', 'No results found')}
             </p>
           ) : (
             Object.entries(sections).map(([section, items]) => (
               <div key={section}>
                 <p className="px-3 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                  {section}
+                  {sectionLabel(section)}
                 </p>
                 {items.map((item) => {
                   const idx = flatIndex++
@@ -307,14 +327,16 @@ export function KeyboardShortcuts() {
         </div>
         <div className="flex items-center gap-4 border-t border-border px-4 py-2 text-[10px] text-muted-foreground">
           <span>
-            <kbd className="rounded border border-border bg-muted px-1 py-0.5">↑↓</kbd> Navigate
+            <kbd className="rounded border border-border bg-muted px-1 py-0.5">↑↓</kbd>{' '}
+            {t('cmdk.hintNavigate', 'Navigate')}
           </span>
           <span>
-            <kbd className="rounded border border-border bg-muted px-1 py-0.5">↵</kbd> Open
+            <kbd className="rounded border border-border bg-muted px-1 py-0.5">↵</kbd>{' '}
+            {t('cmdk.hintOpen', 'Open')}
           </span>
           <span>
-            <kbd className="rounded border border-border bg-muted px-1 py-0.5">⌘N</kbd> New
-            transaction
+            <kbd className="rounded border border-border bg-muted px-1 py-0.5">⌘N</kbd>{' '}
+            {t('cmdk.hintNewTransaction', 'New transaction')}
           </span>
         </div>
       </div>
