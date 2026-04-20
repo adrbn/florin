@@ -29,7 +29,7 @@ export default async function ReflectPage() {
     netWorthSeries,
     netWorth,
     leftToSpend,
-    dailySpend,
+    dailyByCategory,
     savingsRates,
     subscriptions,
   ] = await Promise.all([
@@ -39,7 +39,7 @@ export default async function ReflectPage() {
     queries.getNetWorthSeries(24),
     queries.getNetWorth(),
     queries.getLeftToSpendThisMonth(),
-    queries.getDailySpend(HEATMAP_WINDOW_DAYS),
+    queries.getDailySpendByCategory(HEATMAP_WINDOW_DAYS),
     queries.getSavingsRates(),
     queries.getSubscriptions(),
   ])
@@ -153,7 +153,7 @@ export default async function ReflectPage() {
         />
       </div>
 
-      <WeeklyHeatmap rows={dailySpend} weeks={HEATMAP_WEEKS} />
+      <WeeklyHeatmap rows={dailyByCategory} weeks={HEATMAP_WEEKS} />
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <SubscriptionsList

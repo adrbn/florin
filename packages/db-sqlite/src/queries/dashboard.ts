@@ -13,6 +13,7 @@ import type {
   DataSourceInfo,
   LeftToSpend,
   DailySpend,
+  DailyCategorySpend,
   SavingsRates,
   SubscriptionMatch,
 } from '@florin/core/types'
@@ -394,6 +395,49 @@ export async function getDailySpend(db: SqliteDB, days = 91): Promise<DailySpend
     .groupBy(sql`strftime('%Y-%m-%d', ${transactions.occurredAt})`)
 
   return rows.map((r) => ({ date: r.day, amount: Math.abs(Number(r.total)) }))
+}
+
+export async function getDailySpendByCategory(
+  db: SqliteDB,
+  days = 91,
+): Promise<DailyCategorySpend[]> {
+  const start = formatDate(new Date(Date.now() - days * 24 * 60 * 60 * 1000))
+  const rows = await db
+    .select({
+      day: sql<string>`strftime('%Y-%m-%d', ${transactions.occurredAt})`,
+      categoryId: categories.id,
+      categoryName: categories.name,
+      groupName: categoryGroups.name,
+      total: sql<number>`COALESCE(SUM(${transactions.amount}), 0)`,
+    })
+    .from(transactions)
+    .innerJoin(accounts, eq(transactions.accountId, accounts.id))
+    .leftJoin(categories, eq(transactions.categoryId, categories.id))
+    .leftJoin(categoryGroups, eq(categories.groupId, categoryGroups.id))
+    .where(
+      and(
+        isNull(transactions.deletedAt),
+        gte(transactions.occurredAt, start),
+        sql`${transactions.amount} < 0`,
+        sql`${transactions.transferPairId} IS NULL`,
+        eq(accounts.isArchived, false),
+        sql`(${categoryGroups.kind} IS NULL OR ${categoryGroups.kind} <> 'income')`,
+      ),
+    )
+    .groupBy(
+      sql`strftime('%Y-%m-%d', ${transactions.occurredAt})`,
+      categories.id,
+      categories.name,
+      categoryGroups.name,
+    )
+
+  return rows.map((r) => ({
+    date: r.day,
+    categoryId: r.categoryId ?? null,
+    categoryName: r.categoryName ?? null,
+    groupName: r.groupName ?? null,
+    amount: Math.abs(Number(r.total)),
+  }))
 }
 
 /**

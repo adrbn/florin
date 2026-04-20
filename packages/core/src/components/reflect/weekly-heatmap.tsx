@@ -2,22 +2,34 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Filter } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
+import { Button } from '../ui/button'
 import { formatCurrency } from '../../lib/format/currency'
 import { useT } from '../../i18n/context'
-import type { DailySpend } from '../../types/index'
+import type { DailyCategorySpend } from '../../types/index'
+
+interface CategoryOption {
+  categoryId: string
+  categoryName: string
+  groupName: string | null
+}
+
+interface FilterPreset {
+  id: string
+  label: string
+  /** Returns the set of categoryIds to EXCLUDE for this preset. */
+  match: (cats: ReadonlyArray<CategoryOption>) => Set<string>
+}
 
 interface WeeklyHeatmapProps {
-  /** Raw per-day spend from the query. Missing days are rendered as 0. */
-  rows: ReadonlyArray<DailySpend>
+  /** Per-day per-category spend rows; heatmap aggregates client-side. */
+  rows: ReadonlyArray<DailyCategorySpend>
   /** How many weeks (including the current one) to show. */
   weeks?: number
   title?: string
   subtitle?: string
-  /**
-   * Locale for month/day formatting. Defaults to the browser/user locale.
-   * Passing it from the page keeps SSR output stable.
-   */
+  /** BCP47 locale for formatting date labels and months. */
   locale?: string
 }
 
@@ -34,22 +46,63 @@ export function WeeklyHeatmap({
     subtitle ??
     t('reflect.heatmap.subtitle', 'Cooler days = lower spend. Click a cell to inspect that day.')
 
-  const { matrix, stats, monthLabels } = useMemo(
-    () => buildMatrix(rows, weeks, locale),
-    [rows, weeks, locale],
+  const categories = useMemo(() => {
+    const map = new Map<string, CategoryOption>()
+    for (const r of rows) {
+      if (!r.categoryId) continue
+      if (!map.has(r.categoryId)) {
+        map.set(r.categoryId, {
+          categoryId: r.categoryId,
+          categoryName: r.categoryName ?? '—',
+          groupName: r.groupName ?? null,
+        })
+      }
+    }
+    return Array.from(map.values()).sort((a, b) =>
+      a.categoryName.localeCompare(b.categoryName),
+    )
+  }, [rows])
+
+  const presets: FilterPreset[] = useMemo(
+    () => [
+      {
+        id: 'no-rent',
+        label: t('reflect.heatmap.presetNoRent', 'Without rent'),
+        match: (cats) => {
+          const out = new Set<string>()
+          for (const c of cats) {
+            const n = c.categoryName.toLowerCase()
+            const g = (c.groupName ?? '').toLowerCase()
+            if (/(loyer|rent|hypoth)/.test(n) || /(housing|logement)/.test(g)) {
+              out.add(c.categoryId)
+            }
+          }
+          return out
+        },
+      },
+    ],
+    [t],
   )
 
-  const dayLabels = [
-    t('reflect.heatmap.mon', 'Mon'),
-    '',
-    t('reflect.heatmap.wed', 'Wed'),
-    '',
-    t('reflect.heatmap.fri', 'Fri'),
-    '',
-    t('reflect.heatmap.sun', 'Sun'),
-  ]
+  const [excluded, setExcluded] = useState<Set<string>>(new Set())
+  const [filterOpen, setFilterOpen] = useState(false)
+
+  const dailyTotals = useMemo(() => {
+    const by = new Map<string, number>()
+    for (const r of rows) {
+      if (r.categoryId && excluded.has(r.categoryId)) continue
+      by.set(r.date, (by.get(r.date) ?? 0) + r.amount)
+    }
+    return by
+  }, [rows, excluded])
+
+  const { matrix, stats, monthLabels } = useMemo(
+    () => buildMatrix(dailyTotals, weeks, locale),
+    [dailyTotals, weeks, locale],
+  )
 
   const [selected, setSelected] = useState<SelectedCell | null>(null)
+  const [hovered, setHovered] = useState<HoveredCell | null>(null)
   const gridRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -66,89 +119,240 @@ export function WeeklyHeatmap({
     [locale],
   )
 
+  const dayLabels = [
+    t('reflect.heatmap.mon', 'Mon'),
+    '',
+    t('reflect.heatmap.wed', 'Wed'),
+    '',
+    t('reflect.heatmap.fri', 'Fri'),
+    '',
+    t('reflect.heatmap.sun', 'Sun'),
+  ]
+
+  const activeExcludedCount = excluded.size
+  const clearLabel = t('common.clear', 'Clear')
+  const filterLabel = t('reflect.heatmap.filter', 'Filter')
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{effectiveTitle}</CardTitle>
-        <p className="text-sm text-muted-foreground">{effectiveSubtitle}</p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <CardTitle>{effectiveTitle}</CardTitle>
+            <p className="text-sm text-muted-foreground">{effectiveSubtitle}</p>
+          </div>
+          <div className="relative">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => setFilterOpen((v) => !v)}
+            >
+              <Filter className="h-3.5 w-3.5" />
+              {filterLabel}
+              {activeExcludedCount > 0 ? (
+                <span className="rounded-full bg-foreground px-1.5 text-[10px] font-medium text-background">
+                  −{activeExcludedCount}
+                </span>
+              ) : null}
+            </Button>
+            {filterOpen ? (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setFilterOpen(false)}
+                  aria-hidden="true"
+                />
+                <div className="absolute right-0 top-full z-50 mt-2 max-h-[400px] w-72 overflow-auto rounded-lg border bg-popover p-3 text-xs shadow-lg ring-1 ring-foreground/5">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <span className="text-sm font-medium">
+                      {t('reflect.heatmap.excludeCategories', 'Exclude categories')}
+                    </span>
+                    {excluded.size > 0 ? (
+                      <button
+                        type="button"
+                        className="text-[11px] text-muted-foreground hover:text-foreground"
+                        onClick={() => setExcluded(new Set())}
+                      >
+                        {clearLabel}
+                      </button>
+                    ) : null}
+                  </div>
+                  <div className="mb-3 flex flex-wrap gap-1.5">
+                    {presets.map((p) => {
+                      const presetIds = p.match(categories)
+                      const active =
+                        presetIds.size > 0 &&
+                        [...presetIds].every((id) => excluded.has(id))
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() =>
+                            setExcluded((prev) => {
+                              const next = new Set(prev)
+                              if (active) {
+                                for (const id of presetIds) next.delete(id)
+                              } else {
+                                for (const id of presetIds) next.add(id)
+                              }
+                              return next
+                            })
+                          }
+                          className={`rounded-full border px-2 py-0.5 text-[11px] transition-colors ${
+                            active
+                              ? 'border-foreground bg-foreground text-background'
+                              : 'border-border hover:border-foreground/40'
+                          }`}
+                        >
+                          {p.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <ul className="space-y-1">
+                    {categories.length === 0 ? (
+                      <li className="text-muted-foreground">
+                        {t('reflect.heatmap.noCategories', 'No categorised spending in range.')}
+                      </li>
+                    ) : (
+                      categories.map((c) => {
+                        const on = excluded.has(c.categoryId)
+                        return (
+                          <li key={c.categoryId}>
+                            <label className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-muted/40">
+                              <input
+                                type="checkbox"
+                                checked={on}
+                                onChange={() =>
+                                  setExcluded((prev) => {
+                                    const next = new Set(prev)
+                                    if (next.has(c.categoryId)) next.delete(c.categoryId)
+                                    else next.add(c.categoryId)
+                                    return next
+                                  })
+                                }
+                              />
+                              <span className="min-w-0 flex-1 truncate">{c.categoryName}</span>
+                              {c.groupName ? (
+                                <span className="text-[10px] text-muted-foreground">
+                                  {c.groupName}
+                                </span>
+                              ) : null}
+                            </label>
+                          </li>
+                        )
+                      })
+                    )}
+                  </ul>
+                </div>
+              </>
+            ) : null}
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="relative" ref={gridRef}>
-          <div className="flex items-start gap-1.5">
-            <div className="flex flex-col justify-between gap-[2px] pt-5 text-[10px] text-muted-foreground">
+          {/* Month labels row, sized to match the grid column width. */}
+          <div
+            className="mb-1 grid h-3 pl-7 text-[10px] text-muted-foreground"
+            style={{ gridTemplateColumns: `repeat(${weeks}, minmax(0, 1fr))` }}
+          >
+            {monthLabels.map((m, i) => (
+              <div key={i} className="relative leading-none">
+                {m ? <span className="absolute left-0 top-0 whitespace-nowrap">{m}</span> : null}
+              </div>
+            ))}
+          </div>
+          <div className="flex items-stretch gap-1">
+            {/* Day labels: grid-rows-7 so each label aligns with the cell row it describes. */}
+            <div className="grid w-6 grid-rows-7 gap-[2px] text-[10px] leading-none text-muted-foreground">
               {dayLabels.map((lbl, i) => (
-                <div key={i} className="flex-1 leading-none">
+                <div key={i} className="flex items-center">
                   {lbl}
                 </div>
               ))}
             </div>
-            <div className="min-w-0 flex-1">
-              <div
-                className="relative grid h-4 text-[10px] text-muted-foreground"
-                style={{ gridTemplateColumns: `repeat(${weeks}, minmax(0, 1fr))` }}
-              >
-                {monthLabels.map((m, i) =>
-                  m ? (
-                    <span
-                      key={i}
-                      className="pointer-events-none absolute top-0 leading-none"
-                      style={{ left: `calc((100% / ${weeks}) * ${i})` }}
-                    >
-                      {m}
-                    </span>
-                  ) : null,
-                )}
-              </div>
-              <div
-                className="grid gap-[2px]"
-                style={{ gridTemplateColumns: `repeat(${weeks}, minmax(0, 1fr))` }}
-              >
-                {matrix.map((col, colIdx) => (
-                  <div key={colIdx} className="grid grid-rows-7 gap-[2px]">
-                    {col.map((cell, rowIdx) => {
-                      const isFocused =
-                        selected && cell.date && selected.date === cell.date
-                      return (
-                        <button
-                          type="button"
-                          key={rowIdx}
-                          disabled={cell.future || !cell.date}
-                          onClick={(e) => {
-                            if (cell.future || !cell.date) return
-                            const rect = e.currentTarget.getBoundingClientRect()
-                            const parentRect =
-                              gridRef.current?.getBoundingClientRect() ?? rect
-                            setSelected({
-                              date: cell.date,
-                              amount: cell.amount,
-                              x: rect.left - parentRect.left + rect.width / 2,
-                              y: rect.bottom - parentRect.top + 6,
-                            })
-                          }}
-                          title={
-                            cell.future || !cell.date
-                              ? ''
-                              : `${dateFmt.format(new Date(cell.date))} · ${formatCurrency(cell.amount)}`
-                          }
-                          className={`aspect-square w-full rounded-[3px] transition-[outline] outline-offset-1 ${
-                            isFocused
-                              ? 'outline outline-2 outline-foreground'
-                              : 'hover:outline hover:outline-1 hover:outline-foreground/40'
-                          } ${cell.future || !cell.date ? 'cursor-default' : 'cursor-pointer'}`}
-                          style={{ backgroundColor: cellColor(cell, stats) }}
-                          aria-label={
-                            cell.future || !cell.date
-                              ? undefined
-                              : `${dateFmt.format(new Date(cell.date))} ${formatCurrency(cell.amount)}`
-                          }
-                        />
-                      )
-                    })}
-                  </div>
-                ))}
-              </div>
+            <div
+              className="grid min-w-0 flex-1 gap-[2px]"
+              style={{ gridTemplateColumns: `repeat(${weeks}, minmax(0, 1fr))` }}
+            >
+              {matrix.map((col, colIdx) => (
+                <div key={colIdx} className="grid grid-rows-7 gap-[2px]">
+                  {col.map((cell, rowIdx) => {
+                    const isFocused =
+                      selected && cell.date && selected.date === cell.date
+                    return (
+                      <button
+                        type="button"
+                        key={rowIdx}
+                        disabled={cell.future || !cell.date}
+                        onMouseEnter={(e) => {
+                          if (cell.future || !cell.date) return
+                          const rect = e.currentTarget.getBoundingClientRect()
+                          const parentRect =
+                            gridRef.current?.getBoundingClientRect() ?? rect
+                          setHovered({
+                            date: cell.date,
+                            amount: cell.amount,
+                            x: rect.left - parentRect.left + rect.width / 2,
+                            y: rect.top - parentRect.top,
+                          })
+                        }}
+                        onMouseLeave={() => setHovered(null)}
+                        onClick={(e) => {
+                          if (cell.future || !cell.date) return
+                          const rect = e.currentTarget.getBoundingClientRect()
+                          const parentRect =
+                            gridRef.current?.getBoundingClientRect() ?? rect
+                          const gridHeight = parentRect.height
+                          const cellBottomInParent = rect.bottom - parentRect.top
+                          const cellTopInParent = rect.top - parentRect.top
+                          const cellWidth = rect.width
+                          // Anchor below by default; flip above if we'd overflow the card
+                          const below = gridHeight - cellBottomInParent > 120
+                          const cellCenterX = rect.left - parentRect.left + cellWidth / 2
+                          setSelected({
+                            date: cell.date,
+                            amount: cell.amount,
+                            x: cellCenterX,
+                            y: below ? cellBottomInParent + 6 : cellTopInParent - 6,
+                            below,
+                          })
+                          setHovered(null)
+                        }}
+                        className={`aspect-square w-full rounded-[3px] outline-offset-1 ${
+                          isFocused
+                            ? 'outline outline-2 outline-foreground'
+                            : 'hover:outline hover:outline-1 hover:outline-foreground/40'
+                        } ${cell.future || !cell.date ? 'cursor-default' : 'cursor-pointer'}`}
+                        style={{ backgroundColor: cellColor(cell, stats) }}
+                        aria-label={
+                          cell.future || !cell.date
+                            ? undefined
+                            : `${dateFmt.format(new Date(cell.date))} ${formatCurrency(cell.amount)}`
+                        }
+                      />
+                    )
+                  })}
+                </div>
+              ))}
             </div>
           </div>
+
+          {hovered && !selected ? (
+            <div
+              className="pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-full rounded-md border bg-popover px-2 py-1 text-[11px] shadow-md ring-1 ring-foreground/5"
+              style={{ left: hovered.x, top: hovered.y - 4 }}
+            >
+              <div className="font-medium">{dateFmt.format(new Date(hovered.date))}</div>
+              <div className="tabular-nums text-muted-foreground">
+                {hovered.amount > 0
+                  ? formatCurrency(hovered.amount)
+                  : t('reflect.heatmap.noSpend', 'No spending')}
+              </div>
+            </div>
+          ) : null}
 
           {selected ? (
             <>
@@ -159,7 +363,13 @@ export function WeeklyHeatmap({
               />
               <div
                 className="absolute z-50 w-56 -translate-x-1/2 rounded-lg border bg-popover p-3 text-xs shadow-lg ring-1 ring-foreground/5"
-                style={{ left: selected.x, top: selected.y }}
+                style={{
+                  left: selected.x,
+                  top: selected.y,
+                  transform: selected.below
+                    ? 'translate(-50%, 0)'
+                    : 'translate(-50%, -100%)',
+                }}
                 role="dialog"
               >
                 <div className="mb-1 text-sm font-medium">
@@ -215,25 +425,28 @@ interface SelectedCell {
   amount: number
   x: number
   y: number
+  below: boolean
+}
+
+interface HoveredCell {
+  date: string
+  amount: number
+  x: number
+  y: number
 }
 
 function buildMatrix(
-  rows: ReadonlyArray<DailySpend>,
+  byDate: Map<string, number>,
   weeks: number,
   locale: string | undefined,
 ): { matrix: Cell[][]; stats: Stats; monthLabels: string[] } {
-  const byDate = new Map<string, number>()
-  for (const r of rows) byDate.set(r.date, r.amount)
-
   const today = new Date()
   const todayIso = toIso(today)
-  // Anchor the grid on the Saturday of the current week so each column is
-  // Mon..Sun and "today" lives in the rightmost column.
   const daysToSaturday = 6 - today.getDay()
   const anchor = new Date(today)
   anchor.setDate(anchor.getDate() + daysToSaturday)
   const startCol = new Date(anchor)
-  startCol.setDate(startCol.getDate() - 7 * (weeks - 1) - 6) // Monday of oldest week
+  startCol.setDate(startCol.getDate() - 7 * (weeks - 1) - 6)
 
   const monthFmt = new Intl.DateTimeFormat(locale, { month: 'short' })
   const matrix: Cell[][] = []
@@ -252,7 +465,6 @@ function buildMatrix(
         future,
       })
     }
-    // Column "owns" the month of its Monday (first cell)
     const colMonth = new Date(startCol)
     colMonth.setDate(startCol.getDate() + w * 7)
     const m = colMonth.getMonth()
