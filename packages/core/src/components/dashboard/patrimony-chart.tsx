@@ -15,7 +15,7 @@ import {
 import { Button } from '../ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { NoSSR } from '../ui/no-ssr'
-import { useT } from '../../i18n/context'
+import { useLocale, useT } from '../../i18n/context'
 import { formatCurrency } from '../../lib/format/currency'
 
 export interface PatrimonyPoint {
@@ -45,6 +45,16 @@ const TREND_WINDOWS: ReadonlyArray<TrendWindow> = [
   { label: '365d', days: 365 },
   { label: 'All', days: null },
 ]
+
+const DAY_UNIT_BY_LOCALE: Record<string, string> = {
+  fr: 'j',
+}
+
+function localizeWindowLabel(label: string, locale: string): string {
+  const unit = DAY_UNIT_BY_LOCALE[locale.toLowerCase().slice(0, 2)]
+  if (!unit) return label
+  return label.replace(/d$/, unit)
+}
 
 const dateLabel = (ts: number) =>
   new Date(ts).toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' })
@@ -133,6 +143,7 @@ function buildSeries(data: ReadonlyArray<PatrimonyPoint>, forecast: boolean): Ch
   // (in day space) that we then evaluate at every history and forecast
   // point. Rendered as one clean line across both ranges.
   const firstTs = new Date(data[0]?.date ?? '').getTime()
+  const lastTs = new Date(data[data.length - 1]?.date ?? '').getTime()
   const points = data.map((d) => ({
     x: (new Date(d.date).getTime() - firstTs) / DAY_MS,
     y: d.balance,
@@ -140,10 +151,27 @@ function buildSeries(data: ReadonlyArray<PatrimonyPoint>, forecast: boolean): Ch
   const fit = fitLinear(points) ?? { slope: 0, intercept: data[0]?.balance ?? 0 }
   const trendAt = (ts: number) => fit.intercept + fit.slope * ((ts - firstTs) / DAY_MS)
 
-  const out: ChartPoint[] = data.map((point) => {
-    const ts = new Date(point.date).getTime()
-    return { ts, balance: point.balance, trend: trendAt(ts) }
-  })
+  // Resample history to one point per day using carry-forward on balance.
+  // Without this, a sparse input (e.g. a balance only every Sunday) makes
+  // the Recharts tooltip snap weekly instead of daily — so hovering
+  // Tuesday shows Sunday's value. With a per-day series the hover cursor
+  // lines up on whatever day the user is pointing at.
+  const out: ChartPoint[] = []
+  const sorted = [...data].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+  )
+  let sortedIdx = 0
+  let currentBalance = sorted[0]?.balance ?? 0
+  for (let ts = firstTs; ts <= lastTs; ts += DAY_MS) {
+    while (
+      sortedIdx < sorted.length &&
+      new Date(sorted[sortedIdx]?.date ?? '').getTime() <= ts
+    ) {
+      currentBalance = sorted[sortedIdx]?.balance ?? currentBalance
+      sortedIdx += 1
+    }
+    out.push({ ts, balance: currentBalance, trend: trendAt(ts) })
+  }
 
   if (!forecast) return out
 
@@ -179,6 +207,7 @@ export function PatrimonyChart({
   hideForecastLabel = 'Hide forecast',
 }: PatrimonyChartProps) {
   const t = useT()
+  const locale = useLocale()
   const allShort = t('dashboard.allShort', 'All')
   const trendLabel = t('dashboard.trend', 'Trend')
   const balanceLabel = t('dashboard.balance', 'Balance')
@@ -255,7 +284,7 @@ export function PatrimonyChart({
               <legend className="sr-only">{trendWindowLegend}</legend>
               {TREND_WINDOWS.map((w, idx) => {
                 const active = idx === trendWindowIdx
-                const label = w.days === null ? allShort : w.label
+                const label = w.days === null ? allShort : localizeWindowLabel(w.label, locale)
                 return (
                   <label
                     key={w.label}

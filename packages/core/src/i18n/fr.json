@@ -66,6 +66,7 @@
   "dashboard.bankApiLive": "Synchro bancaire active",
   "dashboard.bankApiOffline": "Synchro bancaire indisponible",
   "dashboard.syncNow": "Synchroniser",
+  "dashboard.synced": "Synchronisé",
   "dashboard.top5Expenses": "Top 5 des dépenses",
   "dashboard.timeWindow": "Période",
   "dashboard.lastNDays": "{n} derniers jours",

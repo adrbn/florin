@@ -94,7 +94,7 @@ export function SyncAllButton({ onSyncAllBanks }: SyncAllButtonProps) {
         ) : (
           <RefreshCw className={cn('h-3.5 w-3.5', pending && 'animate-spin')} />
         )}
-        {pending ? t('accounts.syncing', 'Syncing…') : showCheck ? t('common.saved', 'Synced') : t('dashboard.syncNow', 'Sync now')}
+        {pending ? t('accounts.syncing', 'Syncing…') : showCheck ? t('dashboard.synced', 'Synced') : t('dashboard.syncNow', 'Sync now')}
       </Button>
     </div>
   )

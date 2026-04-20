@@ -14,6 +14,17 @@ export interface CurrencyFormatter {
   formatSigned: (amount: number | string | null | undefined) => string
 }
 
+/**
+ * French Intl.NumberFormat uses U+202F (NARROW NO-BREAK SPACE) between
+ * thousands, which renders as a barely-visible hair gap at large sizes
+ * ("18000€" instead of "18 000 €"). Replace it with U+00A0 (NO-BREAK
+ * SPACE) so thousands groups actually read as grouped, and currency/sign
+ * markers stay on the same line.
+ */
+function widenGroupSeparator(s: string): string {
+  return s.replace(/\u202F/g, '\u00A0')
+}
+
 export function createCurrencyFormatter(locale: string, currency: string): CurrencyFormatter {
   const formatter = new Intl.NumberFormat(locale, { style: 'currency', currency })
   const signedFormatter = new Intl.NumberFormat(locale, {
@@ -22,9 +33,10 @@ export function createCurrencyFormatter(locale: string, currency: string): Curre
     signDisplay: 'always',
   })
   return {
-    format: (amount: number | string | null | undefined) => formatter.format(toNumber(amount)),
+    format: (amount: number | string | null | undefined) =>
+      widenGroupSeparator(formatter.format(toNumber(amount))),
     formatSigned: (amount: number | string | null | undefined) =>
-      signedFormatter.format(toNumber(amount)),
+      widenGroupSeparator(signedFormatter.format(toNumber(amount))),
   }
 }
 
