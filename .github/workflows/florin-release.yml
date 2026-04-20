@@ -36,12 +36,17 @@ jobs:
       - uses: actions/checkout@v4
       - name: Package server deployment bundle
         run: |
+          # Strip the "Florin-v" prefix from the tag to get a plain version
+          # (e.g. Florin-v1.0.0 -> 1.0.0) so the asset matches the DMG naming:
+          # Florin-<version>-arm64.dmg, Florin-<version>-x64.dmg,
+          # Florin-<version>-server.tar.gz.
+          VERSION="${GITHUB_REF_NAME#Florin-v}"
           mkdir -p server-bundle
           cp compose.yaml server-bundle/
           cp apps/web/Dockerfile server-bundle/Dockerfile.web
           cp -r apps/web/drizzle server-bundle/drizzle
-          tar -czf florin-server-${GITHUB_REF_NAME}.tar.gz server-bundle
+          tar -czf "Florin-${VERSION}-server.tar.gz" server-bundle
       - name: Upload server bundle to Release
         uses: softprops/action-gh-release@v2
         with:
-          files: florin-server-*.tar.gz
+          files: Florin-*-server.tar.gz
