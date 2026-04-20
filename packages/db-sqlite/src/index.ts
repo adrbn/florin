@@ -1,4 +1,5 @@
 export { createSqliteClient, type SqliteDB } from './client'
+export { ensureSchema } from './migrations'
 export { createSqliteQueries, getNetWorth, getLoanLiabilities } from './queries'
 export {
   createSqliteMutations,

@@ -1,6 +1,8 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
 contextBridge.exposeInMainWorld('florin', {
+  getLocaleStrings: () =>
+    ipcRenderer.invoke('tray:get-locale-strings') as Promise<Record<string, string>>,
   getTrayData: () => ipcRenderer.invoke('tray:get-data'),
   syncAll: () => ipcRenderer.invoke('tray:sync-all'),
   getSyncStatus: () => ipcRenderer.invoke('tray:sync-status'),

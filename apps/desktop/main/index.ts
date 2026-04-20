@@ -1,6 +1,6 @@
 import { app, BrowserWindow } from 'electron'
 import path from 'node:path'
-import { createSqliteClient, createSqliteQueries, createSqliteMutations, schema } from '@florin/db-sqlite'
+import { createSqliteClient, createSqliteQueries, createSqliteMutations, ensureSchema, schema } from '@florin/db-sqlite'
 import { eq } from 'drizzle-orm'
 import { createWindow, getMainWindow, syncPinCookie } from './window'
 import { setupTray, getTrayWindow } from './tray'
@@ -43,9 +43,12 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
 
 app.whenReady().then(async () => {
   // Initialize SQLite database — createSqliteClient enables WAL mode and
-  // foreign keys automatically. The schema tables are created lazily by
-  // drizzle-kit push (dev) or pre-built migrations (production).
+  // foreign keys automatically. ensureSchema runs CREATE TABLE IF NOT EXISTS
+  // for every table on every boot, so users upgrading from older desktop
+  // builds automatically get tables added since their install (e.g.
+  // monthly_budgets, added for the Plan tab).
   const db = createSqliteClient(DB_PATH)
+  ensureSchema(db)
   const queries = createSqliteQueries(db)
   const mutations = createSqliteMutations(db)
 
@@ -92,7 +95,7 @@ app.whenReady().then(async () => {
   }
 
   // Register IPC handlers for tray widget data fetching and sync
-  registerIpcHandlers(queries, mutations, syncAllFn)
+  registerIpcHandlers(db, queries, mutations, syncAllFn)
 
   // Start background bank sync scheduler (2min warmup, then every 6h).
   // After each sync, refresh the tray widget and the main window so data
