@@ -1,6 +1,11 @@
 import { CategoryBreakdownChart } from '@florin/core/components/reflect/category-breakdown-chart'
+import { CounterfactualCard } from '@florin/core/components/reflect/counterfactual-card'
 import { IncomeVsSpendingChart } from '@florin/core/components/reflect/income-vs-spending-chart'
 import { NetWorthChart } from '@florin/core/components/reflect/net-worth-chart'
+import { SavingsRateRolling } from '@florin/core/components/reflect/savings-rate-rolling'
+import { SubscriptionsList } from '@florin/core/components/reflect/subscriptions-list'
+import { WeeklyHeatmap } from '@florin/core/components/reflect/weekly-heatmap'
+import { LeftToSpendCard } from '@florin/core/components/dashboard/left-to-spend-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@florin/core/components/ui/card'
 import { formatCurrency } from '@florin/core/lib/format'
 import { queries } from '@/db/client'
@@ -11,21 +16,31 @@ import { getServerT } from '@/lib/locale'
 // the image was built.
 export const dynamic = 'force-dynamic'
 
-/**
- * Reflect — analytics tab. Lays out a KPI strip plus three charts (income
- * vs spending, net worth, category breakdown). The whole page is designed
- * to fit in a single viewport on desktop — same min-h-0 / flex pattern as
- * the Dashboard — so the user doesn't have to scroll to see everything.
- * On mobile we fall back to a natural vertical scroll.
- */
+const HEATMAP_WINDOW_DAYS = 91 // 13 weeks
+const COUNTERFACTUAL_WINDOW_DAYS = 90
+
 export default async function ReflectPage() {
   const t = await getServerT()
-  const [flows, categoryShare, ageOfMoney, netWorthSeries, netWorth] = await Promise.all([
+  const [
+    flows,
+    categoryShare,
+    ageOfMoney,
+    netWorthSeries,
+    netWorth,
+    leftToSpend,
+    dailySpend,
+    savingsRates,
+    subscriptions,
+  ] = await Promise.all([
     queries.getMonthlyFlows(12),
-    queries.getCategoryBreakdown(90),
+    queries.getCategoryBreakdown(COUNTERFACTUAL_WINDOW_DAYS),
     queries.getAgeOfMoney(90),
     queries.getNetWorthSeries(24),
     queries.getNetWorth(),
+    queries.getLeftToSpendThisMonth(),
+    queries.getDailySpend(HEATMAP_WINDOW_DAYS),
+    queries.getSavingsRates(),
+    queries.getSubscriptions(),
   ])
 
   const last12 = flows.reduce(
@@ -39,7 +54,7 @@ export default async function ReflectPage() {
     last12.income > 0 ? ((last12.income - last12.expense) / last12.income) * 100 : 0
 
   return (
-    <div className="flex min-h-0 flex-col gap-3 lg:h-full">
+    <div className="flex min-h-0 flex-col gap-3">
       <header className="min-w-0">
         <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
           {t('reflect.title', 'Reflect')}
@@ -107,13 +122,64 @@ export default async function ReflectPage() {
         </Card>
       </div>
 
-      {/*
-        Desktop layout: 12-column grid, two rows.
-          row 1 (flex-1): IncomeVsSpending (7 cols) + NetWorth (5 cols)
-          row 2 (flex-1): CategoryBreakdown (full width)
-        On mobile everything stacks naturally.
-      */}
-      <div className="grid min-h-0 grid-cols-1 gap-3 lg:flex-1 lg:grid-cols-12 lg:grid-rows-2">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <LeftToSpendCard
+          title={t('kpi.leftToSpend', 'Left to spend')}
+          monthIncome={leftToSpend.monthIncome}
+          monthSpent={leftToSpend.monthSpent}
+          leftToSpend={leftToSpend.leftToSpend}
+          hintCategory={
+            leftToSpend.salaryCategoryName
+              ? t(
+                  'kpi.leftToSpendCategory',
+                  { category: leftToSpend.salaryCategoryName },
+                  'Based on “{category}”',
+                )
+              : undefined
+          }
+          hintNoIncome={t('kpi.leftToSpendNoIncome', 'No salary detected in the last 90 days.')}
+        />
+        <SavingsRateRolling
+          rates={savingsRates}
+          title={t('reflect.savingsRolling', 'Savings rate — rolling')}
+          subtitle={t('reflect.savingsRollingSubtitle', 'Saved ÷ income over 3, 6, 12 months.')}
+          labels={{
+            threeMonth: t('reflect.threeMonth', '3 mo'),
+            sixMonth: t('reflect.sixMonth', '6 mo'),
+            twelveMonth: t('reflect.twelveMonth', '12 mo'),
+            noData: t('reflect.noIncome', 'no income'),
+          }}
+        />
+      </div>
+
+      <WeeklyHeatmap rows={dailySpend} weeks={13} />
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <SubscriptionsList
+          rows={subscriptions}
+          title={t('reflect.subscriptions', 'Subscriptions radar')}
+          subtitle={t('reflect.subscriptionsSubtitle', 'Recurring charges detected in the last 6 months.')}
+          empty={t('reflect.subscriptionsEmpty', 'No recurring charges detected yet.')}
+          annualLabel={t('reflect.annualCostLabel', 'Annual cost of detected subscriptions')}
+          cadenceMonthly={t('reflect.cadenceMonthly', 'monthly')}
+          cadenceWeekly={t('reflect.cadenceWeekly', 'weekly')}
+          cadenceOther={(n) => t('reflect.cadenceOther', { n }, 'every {n} days')}
+        />
+        <CounterfactualCard
+          categories={categoryShare}
+          windowDays={COUNTERFACTUAL_WINDOW_DAYS}
+          title={t('reflect.counterfactual', 'If I stopped…')}
+          subtitle={t(
+            'reflect.counterfactualSubtitle',
+            'Tick categories you could cut. Projected from the last 90 days.',
+          )}
+          suggestion={t('reflect.counterfactualSavings', 'You’d save')}
+          yearLabel={t('reflect.year', 'year')}
+          noDataLabel={t('reflect.noSpendingData', 'Not enough spending history yet.')}
+        />
+      </div>
+
+      <div className="grid min-h-0 grid-cols-1 gap-3 lg:grid-cols-12">
         <div className="min-h-[240px] lg:col-span-7 lg:min-h-0">
           <IncomeVsSpendingChart
             data={flows}

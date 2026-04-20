@@ -68,6 +68,44 @@ export interface NetWorthPoint {
   cumulative: number
 }
 
+/**
+ * "Left to spend this month" — derived from the salary tx category. We find
+ * the category of the most recent large positive transaction (a user's
+ * paycheck), then use the sum of income in that category this month as the
+ * ceiling, minus this month's burn.
+ */
+export interface LeftToSpend {
+  salaryCategoryId: string | null
+  salaryCategoryName: string | null
+  monthIncome: number
+  monthSpent: number
+  leftToSpend: number
+}
+
+/** Per-day spend used by the Reflect heatmap. Amount is abs(negative sum). */
+export interface DailySpend {
+  date: string
+  amount: number
+}
+
+/** Rolling savings rate (percentage, -100 to +100) across windows. */
+export interface SavingsRates {
+  threeMonth: number | null
+  sixMonth: number | null
+  twelveMonth: number | null
+}
+
+/** One detected subscription — a recurring payee+amount pattern. */
+export interface SubscriptionMatch {
+  payee: string
+  amount: number
+  cadenceDays: number
+  samples: number
+  lastSeen: string
+  annualCost: number
+  categoryName: string | null
+}
+
 // ============ Plan tab ============
 
 export interface PlanCategory {
@@ -192,6 +230,10 @@ export interface FlorinQueries {
   getAgeOfMoney(days?: number): Promise<number | null>
   getAgeOfMoneyHistory(months?: number): Promise<{ month: string; age: number | null }[]>
   getNetWorthSeries(months?: number): Promise<NetWorthPoint[]>
+  getLeftToSpendThisMonth(): Promise<LeftToSpend>
+  getDailySpend(days?: number): Promise<DailySpend[]>
+  getSavingsRates(): Promise<SavingsRates>
+  getSubscriptions(): Promise<SubscriptionMatch[]>
   listTransactions(options?: ListTransactionsOptions): Promise<TransactionWithRelations[]>
   countTransactions(options?: ListTransactionsOptions): Promise<number>
   countNeedsReview(): Promise<number>

@@ -9,7 +9,7 @@
     "./lib/format": "./src/lib/format/currency.ts",
     "./lib/categorization": "./src/lib/categorization/index.ts",
     "./lib/loan": "./src/lib/loan/liability.ts",
-    "./lib/transactions": "./src/lib/transactions/extract-date.ts",
+    "./lib/transactions": "./src/lib/transactions/index.ts",
     "./lib/reflect/age-of-money": "./src/lib/reflect/age-of-money.ts",
     "./lib/utils": "./src/lib/utils.ts",
     "./lib/chart/palette": "./src/lib/chart/palette.ts",

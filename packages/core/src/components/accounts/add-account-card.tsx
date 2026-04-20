@@ -1,10 +1,10 @@
 'use client'
 
-import { Plus, X } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { useState } from 'react'
 import { AccountForm } from '../accounts/account-form'
 import { Button } from '../ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog'
 import { useT } from '../../i18n/context'
 import type { ActionResult, CreateAccountInput, UpdateAccountInput } from '../../types/index'
 
@@ -13,42 +13,29 @@ interface AddAccountCardProps {
   onUpdateAccount: (input: UpdateAccountInput) => Promise<ActionResult>
 }
 
-/**
- * Collapsible "New account" card. The full form is heavy (kind picker, icon
- * picker, color picker, starting balance) and takes a lot of vertical space,
- * so we hide it behind a single "+ New account" button until the user
- * actually wants to create one. The form auto-collapses on success.
- */
 export function AddAccountCard({ onCreateAccount, onUpdateAccount }: AddAccountCardProps) {
   const t = useT()
   const [open, setOpen] = useState(false)
   const newAccountLabel = t('accounts.newAccount', 'New account')
 
-  if (!open) {
-    return (
+  return (
+    <>
       <Button variant="outline" className="w-full" onClick={() => setOpen(true)}>
         <Plus className="mr-2 h-4 w-4" />
         {newAccountLabel}
       </Button>
-    )
-  }
-
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle>{newAccountLabel}</CardTitle>
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label={t('common.close', 'Close')}
-          onClick={() => setOpen(false)}
-        >
-          <X className="h-4 w-4" />
-        </Button>
-      </CardHeader>
-      <CardContent>
-        <AccountForm onSuccess={() => setOpen(false)} onCreateAccount={onCreateAccount} onUpdateAccount={onUpdateAccount} />
-      </CardContent>
-    </Card>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{newAccountLabel}</DialogTitle>
+          </DialogHeader>
+          <AccountForm
+            onSuccess={() => setOpen(false)}
+            onCreateAccount={onCreateAccount}
+            onUpdateAccount={onUpdateAccount}
+          />
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
