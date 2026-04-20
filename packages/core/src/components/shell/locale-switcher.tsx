@@ -2,20 +2,22 @@
 
 import { useTransition } from 'react'
 import { Languages } from 'lucide-react'
+import { useLocale } from '../../i18n/context'
 
 const LOCALES: Array<{ code: 'en' | 'fr'; label: string }> = [
   { code: 'fr', label: 'FR' },
   { code: 'en', label: 'EN' },
 ]
 
-// Reads and writes the locale via an app-specific endpoint (default `/api/locale`)
-// so web and desktop can share this component while each controls its own
-// cookie/storage. On success the page is reloaded so server components pick up
-// the new locale.
+// Reads the active locale from the React context — seeded server-side from
+// the user's cookie — and writes updates via an app-specific endpoint
+// (default `/api/locale`). Using context instead of `document.documentElement.lang`
+// guarantees the highlighted button matches the rendered content, even during
+// the short window before hydration has reconciled the <html> attribute.
 export function LocaleSwitcher({ endpoint = '/api/locale' }: { endpoint?: string }) {
   const [pending, startTransition] = useTransition()
-
-  const current = readLocaleFromDocument()
+  const ctxLocale = useLocale()
+  const current: 'en' | 'fr' = ctxLocale.toLowerCase().startsWith('fr') ? 'fr' : 'en'
 
   const onPick = (locale: 'en' | 'fr') => {
     if (locale === current) return
@@ -41,6 +43,7 @@ export function LocaleSwitcher({ endpoint = '/api/locale' }: { endpoint?: string
               type="button"
               onClick={() => onPick(l.code)}
               disabled={pending}
+              aria-pressed={active}
               className={
                 'rounded px-1.5 py-0.5 text-xs font-medium transition-colors ' +
                 (active
@@ -55,10 +58,4 @@ export function LocaleSwitcher({ endpoint = '/api/locale' }: { endpoint?: string
       </div>
     </div>
   )
-}
-
-function readLocaleFromDocument(): 'en' | 'fr' {
-  if (typeof document === 'undefined') return 'en'
-  const lang = document.documentElement.lang?.toLowerCase() ?? ''
-  return lang.startsWith('fr') ? 'fr' : 'en'
 }
