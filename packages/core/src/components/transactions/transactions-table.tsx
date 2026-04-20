@@ -7,6 +7,7 @@ import { TxBulkActionBar } from './tx-bulk-action-bar'
 import type { ActionResult } from '../../types/index'
 import type { CategoryOption } from '../ui/category-picker'
 import { formatCurrencySigned } from '../../lib/format/currency'
+import { useT } from '../../i18n/context'
 
 export interface TransactionRowData {
   id: string
@@ -66,6 +67,7 @@ export function TransactionsTable({
   emptyMessage,
   actions,
 }: TransactionsTableProps) {
+  const t = useT()
   const [widths, setWidths] = useState<Record<ColKey, number>>(DEFAULT_WIDTHS)
   const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set())
   const selectable = Boolean(
@@ -122,7 +124,10 @@ export function TransactionsTable({
       const startWidth = widths[col]
       const onMove = (e: MouseEvent) => {
         const dx = e.clientX - startX
-        const next = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startWidth + dx))
+        // Flip dx so dragging LEFT narrows the column on the right of the handle
+        // (which is what users instinctively expect when the handle sits between
+        // two columns and they pull it toward the one they want to shrink).
+        const next = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startWidth - dx))
         setWidths((prev) => (prev[col] === next ? prev : { ...prev, [col]: next }))
       }
       const onUp = () => {
@@ -204,16 +209,16 @@ export function TransactionsTable({
               />
             </span>
           )}
-          <ResizableHeader label="Date" onStart={(e) => startResize('date', e)} />
-          <span className="truncate">Payee</span>
-          <ResizableHeader label="Account" onStart={(e) => startResize('account', e)} />
-          <ResizableHeader label="Category" onStart={(e) => startResize('category', e)} />
+          <ResizableHeader label={t('review.colDate', 'Date')} onStart={(e) => startResize('date', e)} />
+          <span className="truncate">{t('transactions.payee', 'Payee')}</span>
+          <ResizableHeader label={t('transactions.account', 'Account')} onStart={(e) => startResize('account', e)} />
+          <ResizableHeader label={t('transactions.category', 'Category')} onStart={(e) => startResize('category', e)} />
           <ResizableHeader
-            label="Amount"
+            label={t('review.colAmount', 'Amount')}
             align="right"
             onStart={(e) => startResize('amount', e)}
           />
-          <span className="text-center" aria-label="Actions" />
+          <span className="text-center" aria-label={t('transactions.actions', 'Actions')} />
         </div>
         {rows.map((row) => (
           <TransactionRow

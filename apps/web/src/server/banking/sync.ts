@@ -324,7 +324,6 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
 
   const rules = await loadActiveRules()
   const errors: { accountUid: string; message: string }[] = []
-  const balanceInfos: string[] = []
   let totalInserted = 0
   let accountsSynced = 0
 
@@ -349,9 +348,8 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
     // Balance and transactions sync independently — a 422 on transactions
     // must not prevent the balance from updating.
     let balanceOk = false
-    let balanceDebug = ''
     try {
-      balanceDebug = await syncAccountBalance(florinAccountId, uid)
+      await syncAccountBalance(florinAccountId, uid)
       balanceOk = true
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'unknown error'
@@ -383,7 +381,6 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
 
     if (balanceOk) {
       accountsSynced += 1
-      if (balanceDebug) balanceInfos.push(balanceDebug)
     }
   }
 
@@ -391,11 +388,7 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
     .update(bankConnections)
     .set({
       lastSyncedAt: new Date(),
-      lastSyncError: errors.length > 0
-        ? errors.map((e) => e.message).join('; ')
-        : balanceInfos.length > 0
-          ? `[info] ${balanceInfos.join(' | ')}`
-          : null,
+      lastSyncError: errors.length > 0 ? errors.map((e) => e.message).join('; ') : null,
       updatedAt: new Date(),
     })
     .where(eq(bankConnections.id, connectionId))

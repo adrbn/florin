@@ -8,6 +8,7 @@ import { ThemeToggle } from '../theme/theme-toggle'
 import { PrivacyToggle } from '../../privacy/toggle'
 import { useT } from '../../i18n/context'
 import { cn } from '../../lib/utils'
+import { LocaleSwitcher } from './locale-switcher'
 import { isLinkActive, type NavBadges, visibleNavLinks } from './nav-links'
 
 interface MobileTopBarProps {
@@ -47,6 +48,7 @@ export function MobileTopBar({ badges }: MobileTopBarProps = {}) {
         <div className="flex items-center gap-1">
           <PrivacyToggle variant="compact" />
           <ThemeToggle variant="compact" />
+          <LocaleSwitcher variant="compact" />
           <button
             type="button"
             onClick={() => signOut({ callbackUrl: '/login' })}
