@@ -323,27 +323,37 @@ export async function getLeftToSpendThisMonth(db: SqliteDB): Promise<LeftToSpend
   const salaryCategoryId = latest[0]?.categoryId ?? null
   const salaryCategoryName = latest[0]?.categoryName ?? null
 
-  const start = formatDate(startOfMonth(new Date()))
-  const end = formatDate(endOfMonth(new Date()))
+  const startDate = startOfMonth(new Date())
 
   let monthIncome = 0
   if (salaryCategoryId) {
+    // Sum salary income per calendar month over the lookback window. Prefer
+    // the current month; if it hasn't been paid yet (e.g. salary lands on the
+    // 25th-28th), fall back to the most recent month that saw a hit.
     const rows = await db
-      .select({ total: sql<number>`COALESCE(SUM(${transactions.amount}), 0)` })
+      .select({
+        month: sql<string>`strftime('%Y-%m', ${transactions.occurredAt})`,
+        total: sql<number>`COALESCE(SUM(${transactions.amount}), 0)`,
+      })
       .from(transactions)
       .innerJoin(accounts, eq(transactions.accountId, accounts.id))
       .where(
         and(
           isNull(transactions.deletedAt),
           eq(transactions.categoryId, salaryCategoryId),
-          gte(transactions.occurredAt, start),
-          lte(transactions.occurredAt, end),
+          gte(transactions.occurredAt, lookback),
           sql`${transactions.amount} > 0`,
           sql`${transactions.transferPairId} IS NULL`,
           eq(accounts.isArchived, false),
         ),
       )
-    monthIncome = Number(rows[0]?.total ?? 0)
+      .groupBy(sql`strftime('%Y-%m', ${transactions.occurredAt})`)
+      .orderBy(sql`strftime('%Y-%m', ${transactions.occurredAt}) DESC`)
+
+    const currentKey = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}`
+    const currentRow = rows.find((r) => r.month === currentKey)
+    const fallbackRow = rows[0]
+    monthIncome = Number((currentRow ?? fallbackRow)?.total ?? 0)
   }
 
   const monthSpent = await getMonthBurn(db)
