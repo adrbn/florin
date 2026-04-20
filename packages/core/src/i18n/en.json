@@ -205,7 +205,7 @@
   "reflect.year": "year",
   "reflect.noSpendingData": "Not enough spending history yet.",
 
-  "kpi.leftToSpend": "Left to spend",
+  "kpi.leftToSpend": "Monthly margin",
   "kpi.leftToSpendCategory": "Based on “{category}”",
   "kpi.leftToSpendNoIncome": "No salary detected in the last 90 days.",
 
