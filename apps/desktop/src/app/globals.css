@@ -173,3 +173,18 @@ html.privacy-hidden [data-amount]:hover {
   --sidebar-border: oklch(1 0 0 / 14%);
   --sidebar-ring: oklch(0.7 0.18 260);
 }
+
+/* Recharts adds tabindex to SVG groups; the browser draws a giant focus
+   rectangle around the whole chart on click. Keep focus-visible (keyboard)
+   but kill the mouse-click outline. */
+.recharts-wrapper:focus,
+.recharts-wrapper *:focus,
+.recharts-surface:focus,
+.recharts-surface *:focus {
+  outline: none !important;
+}
+.recharts-wrapper:focus-visible,
+.recharts-surface:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
