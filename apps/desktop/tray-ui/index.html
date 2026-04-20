@@ -374,13 +374,13 @@
       </div>
       <div class="sync-status">
         <div class="sync-dot" id="syncDot"></div>
-        <span id="syncLabel">Synced</span>
+        <span id="syncLabel" data-i18n="tray.synced">Synced</span>
       </div>
     </div>
 
     <div id="content">
       <div class="net-worth-section">
-        <div class="section-label">Net Worth</div>
+        <div class="section-label" data-i18n="tray.netWorth">Net Worth</div>
         <div class="net-worth-value" id="netWorthValue">
           <span class="skeleton skeleton-value"></span>
         </div>
@@ -388,7 +388,7 @@
 
       <div class="burn-section">
         <div class="burn-header">
-          <div class="burn-label">Monthly Burn</div>
+          <div class="burn-label" data-i18n="tray.monthlyBurn">Monthly Burn</div>
           <span class="burn-value" id="burnValue">
             <span class="skeleton skeleton-text"></span>
           </span>
@@ -396,42 +396,42 @@
       </div>
 
       <div class="transactions-section">
-        <div class="section-label" style="margin-bottom: 8px;">Recent Expenses</div>
+        <div class="section-label" data-i18n="tray.recentExpenses" style="margin-bottom: 8px;">Recent Expenses</div>
         <div class="transactions-list" id="transactionsList">
-          <div style="font-size:11px;color:#475569;padding:4px 0;">Loading…</div>
+          <div style="font-size:11px;color:#475569;padding:4px 0;" data-i18n="tray.loading">Loading…</div>
         </div>
       </div>
 
       <!-- Inline add transaction form -->
       <div class="add-form" id="addForm">
-        <div class="section-label" style="margin-bottom: 8px;">Quick Add</div>
+        <div class="section-label" data-i18n="tray.quickAdd" style="margin-bottom: 8px;">Quick Add</div>
         <div class="form-row">
-          <input class="form-input flex-1" id="inputPayee" type="text" placeholder="Payee" />
-          <input class="form-input" id="inputAmount" type="number" step="0.01" placeholder="Amount" style="width:90px;" />
+          <input class="form-input flex-1" id="inputPayee" type="text" data-i18n-placeholder="tray.payeePlaceholder" placeholder="Payee" />
+          <input class="form-input" id="inputAmount" type="number" step="0.01" data-i18n-placeholder="tray.amountPlaceholder" placeholder="Amount" style="width:90px;" />
         </div>
         <div class="form-row">
           <select class="form-select" id="inputAccount">
-            <option value="">Loading accounts…</option>
+            <option value="" data-i18n="tray.loadingAccounts">Loading accounts…</option>
           </select>
         </div>
         <div class="form-row">
           <select class="form-select" id="inputCategory">
-            <option value="">No category</option>
+            <option value="" data-i18n="tray.noCategory">No category</option>
           </select>
-          <button class="btn btn-submit" id="btnSubmitTx">Add</button>
+          <button class="btn btn-submit" id="btnSubmitTx" data-i18n="tray.addButton">Add</button>
           <button class="btn btn-cancel" id="btnCancelTx">✕</button>
         </div>
         <div class="form-msg" id="formMsg"></div>
       </div>
 
       <div class="actions">
-        <button class="btn btn-primary" id="btnSync">Sync Now</button>
-        <button class="btn btn-secondary" id="btnAdd">+ Transaction</button>
-        <button class="btn btn-secondary" id="btnDashboard">Dashboard</button>
+        <button class="btn btn-primary" id="btnSync" data-i18n="tray.syncNow">Sync Now</button>
+        <button class="btn btn-secondary" id="btnAdd" data-i18n="tray.addTransaction">+ Transaction</button>
+        <button class="btn btn-secondary" id="btnDashboard" data-i18n="tray.openDashboard">Dashboard</button>
       </div>
 
       <div class="footer">
-        <button class="footer-link" id="btnQuit">Quit Florin</button>
+        <button class="footer-link" id="btnQuit" data-i18n="tray.quit">Quit Florin</button>
       </div>
     </div>
   </div>
@@ -442,6 +442,31 @@
       '#f97316', '#eab308', '#22c55e', '#14b8a6',
       '#06b6d4', '#3b82f6',
     ]
+
+    // Translations are fetched from the main process (which reads the user's
+    // locale from the settings table). Until they arrive we render with the
+    // English defaults already baked into the HTML.
+    let i18n = {}
+    function tr(key, fallback) {
+      return i18n[key] ?? fallback ?? key
+    }
+
+    async function applyTranslations() {
+      if (!window.florin?.getLocaleStrings) return
+      try {
+        i18n = await window.florin.getLocaleStrings()
+      } catch {
+        i18n = {}
+      }
+      document.querySelectorAll('[data-i18n]').forEach((el) => {
+        const key = el.getAttribute('data-i18n')
+        if (key && i18n[key]) el.textContent = i18n[key]
+      })
+      document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
+        const key = el.getAttribute('data-i18n-placeholder')
+        if (key && i18n[key]) el.setAttribute('placeholder', i18n[key])
+      })
+    }
 
     function formatCurrency(amount) {
       if (amount === null || amount === undefined || isNaN(amount)) return '—'
@@ -465,12 +490,12 @@
       dot.className = 'sync-dot'
       if (state === 'syncing') {
         dot.classList.add('syncing')
-        label.textContent = 'Syncing…'
+        label.textContent = tr('tray.syncing', 'Syncing…')
       } else if (state === 'error') {
         dot.classList.add('error')
-        label.textContent = 'Error'
+        label.textContent = tr('tray.error', 'Error')
       } else {
-        label.textContent = 'Synced'
+        label.textContent = tr('tray.synced', 'Synced')
       }
     }
 
@@ -489,7 +514,7 @@
       if (topExpenses && topExpenses.length > 0) {
         list.innerHTML = topExpenses.map((tx, i) => {
           const isIncome = (tx.amount ?? 0) > 0
-          const payee = tx.payee ?? 'Unknown'
+          const payee = tx.payee ?? tr('tray.unknown', 'Unknown')
           const category = tx.categoryName ?? ''
           return `
             <div class="transaction-item">
@@ -503,7 +528,7 @@
           `
         }).join('')
       } else {
-        list.innerHTML = '<div style="font-size:11px;color:#475569;padding:4px 0;">No recent expenses</div>'
+        list.innerHTML = `<div style="font-size:11px;color:#475569;padding:4px 0;">${escapeHtml(tr('tray.noRecentExpenses', 'No recent expenses'))}</div>`
       }
     }
 
@@ -522,7 +547,7 @@
       if (!window.florin) return
       const btn = document.getElementById('btnSync')
       setSyncState('syncing')
-      btn.textContent = 'Syncing…'
+      btn.textContent = tr('tray.syncing', 'Syncing…')
       btn.disabled = true
       try {
         const result = await window.florin.syncAll()
@@ -541,7 +566,7 @@
       } catch {
         setSyncState('error')
       } finally {
-        btn.textContent = 'Sync Now'
+        btn.textContent = tr('tray.syncNow', 'Sync Now')
         btn.disabled = false
       }
     })
@@ -567,7 +592,8 @@
       try {
         const cats = await window.florin.listCategories()
         const sel = document.getElementById('inputCategory')
-        sel.innerHTML = '<option value="">No category</option>' + cats.map(c =>
+        const noneLabel = escapeHtml(tr('tray.noCategory', 'No category'))
+        sel.innerHTML = `<option value="">${noneLabel}</option>` + cats.map(c =>
           `<option value="${c.id}">${c.emoji ? c.emoji + ' ' : ''}${escapeHtml(c.groupName)} / ${escapeHtml(c.name)}</option>`
         ).join('')
         categoriesLoaded = true
@@ -605,14 +631,14 @@
       const msg = document.getElementById('formMsg')
 
       if (!payee || !amountStr || !accountId) {
-        msg.textContent = 'Fill in all fields'
+        msg.textContent = tr('tray.fillAllFields', 'Fill in all fields')
         msg.className = 'form-msg error'
         return
       }
 
       const amount = -Math.abs(parseFloat(amountStr))
       if (isNaN(amount)) {
-        msg.textContent = 'Invalid amount'
+        msg.textContent = tr('tray.invalidAmount', 'Invalid amount')
         msg.className = 'form-msg error'
         return
       }
@@ -622,10 +648,10 @@
         if (categoryId) txInput.categoryId = categoryId
         const result = await window.florin.addTransaction(txInput)
         if (result?.success === false) {
-          msg.textContent = result.error || 'Failed'
+          msg.textContent = result.error || tr('tray.failed', 'Failed')
           msg.className = 'form-msg error'
         } else {
-          msg.textContent = 'Added!'
+          msg.textContent = tr('tray.added', 'Added!')
           msg.className = 'form-msg success'
           document.getElementById('inputPayee').value = ''
           document.getElementById('inputAmount').value = ''
@@ -637,7 +663,7 @@
           }, 1200)
         }
       } catch {
-        msg.textContent = 'Failed to add'
+        msg.textContent = tr('tray.failedToAdd', 'Failed to add')
         msg.className = 'form-msg error'
       }
     })
@@ -654,10 +680,13 @@
 
     // --- Refresh on tray click ---
     if (window.florin) {
-      window.florin.onRefresh(() => loadData())
+      window.florin.onRefresh(async () => {
+        await applyTranslations()
+        loadData()
+      })
     }
 
-    loadData()
+    applyTranslations().then(loadData)
   </script>
 </body>
 </html>
