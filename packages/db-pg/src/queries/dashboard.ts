@@ -13,6 +13,7 @@ import type {
   DataSourceInfo,
   LeftToSpend,
   DailySpend,
+  DailyCategorySpend,
   SavingsRates,
   SubscriptionMatch,
 } from '@florin/core/types'
@@ -393,6 +394,54 @@ export async function getDailySpend(db: PgDB, days = 91): Promise<DailySpend[]> 
     .groupBy(sql`to_char(${transactions.occurredAt}, 'YYYY-MM-DD')`)
 
   return rows.map((r) => ({ date: r.day, amount: Math.abs(Number(r.total)) }))
+}
+
+/**
+ * Per-day spending broken down by category. Powers the heatmap's "exclude
+ * category" filter (one row per (day, category) pair; uncategorised
+ * expenses land in a single null-category row per day).
+ */
+export async function getDailySpendByCategory(
+  db: PgDB,
+  days = 91,
+): Promise<DailyCategorySpend[]> {
+  const start = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+  const rows = await db
+    .select({
+      day: sql<string>`to_char(${transactions.occurredAt}, 'YYYY-MM-DD')`,
+      categoryId: categories.id,
+      categoryName: categories.name,
+      groupName: categoryGroups.name,
+      total: sql<string>`COALESCE(SUM(${transactions.amount}), 0)`,
+    })
+    .from(transactions)
+    .innerJoin(accounts, eq(transactions.accountId, accounts.id))
+    .leftJoin(categories, eq(transactions.categoryId, categories.id))
+    .leftJoin(categoryGroups, eq(categories.groupId, categoryGroups.id))
+    .where(
+      and(
+        isNull(transactions.deletedAt),
+        gte(transactions.occurredAt, start),
+        sql`${transactions.amount} < 0`,
+        sql`${transactions.transferPairId} IS NULL`,
+        eq(accounts.isArchived, false),
+        sql`(${categoryGroups.kind} IS NULL OR ${categoryGroups.kind} <> 'income')`,
+      ),
+    )
+    .groupBy(
+      sql`to_char(${transactions.occurredAt}, 'YYYY-MM-DD')`,
+      categories.id,
+      categories.name,
+      categoryGroups.name,
+    )
+
+  return rows.map((r) => ({
+    date: r.day,
+    categoryId: r.categoryId ?? null,
+    categoryName: r.categoryName ?? null,
+    groupName: r.groupName ?? null,
+    amount: Math.abs(Number(r.total)),
+  }))
 }
 
 /**

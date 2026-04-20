@@ -88,6 +88,14 @@ export interface DailySpend {
   amount: number
 }
 
+export interface DailyCategorySpend {
+  date: string
+  categoryId: string | null
+  categoryName: string | null
+  groupName: string | null
+  amount: number
+}
+
 /** Rolling savings rate (percentage, -100 to +100) across windows. */
 export interface SavingsRates {
   threeMonth: number | null
@@ -232,6 +240,7 @@ export interface FlorinQueries {
   getNetWorthSeries(months?: number): Promise<NetWorthPoint[]>
   getLeftToSpendThisMonth(): Promise<LeftToSpend>
   getDailySpend(days?: number): Promise<DailySpend[]>
+  getDailySpendByCategory(days?: number): Promise<DailyCategorySpend[]>
   getSavingsRates(): Promise<SavingsRates>
   getSubscriptions(): Promise<SubscriptionMatch[]>
   listTransactions(options?: ListTransactionsOptions): Promise<TransactionWithRelations[]>

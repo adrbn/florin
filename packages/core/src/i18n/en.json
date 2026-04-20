@@ -186,6 +186,10 @@
   "reflect.heatmap.more": "More",
   "reflect.heatmap.noSpend": "No spending",
   "reflect.heatmap.viewTxs": "View transactions",
+  "reflect.heatmap.filter": "Filter",
+  "reflect.heatmap.excludeCategories": "Exclude categories",
+  "reflect.heatmap.presetNoRent": "Without rent",
+  "reflect.heatmap.noCategories": "No categorised spending in range.",
 
   "reflect.subscriptions": "Subscriptions radar",
   "reflect.subscriptionsSubtitle": "Recurring charges detected in the last 6 months.",
