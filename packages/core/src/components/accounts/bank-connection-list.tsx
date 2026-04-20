@@ -11,6 +11,8 @@
 import { Landmark } from 'lucide-react'
 import { Card } from '../ui/card'
 import type { ActionResult } from '../../types/index'
+import { useT } from '../../i18n/context'
+import type { TFunction } from '../../i18n'
 import { BankConnectionActions } from './bank-connection-actions'
 
 export interface BankConnectionRow {
@@ -34,16 +36,16 @@ interface BankConnectionListProps {
   }
 }
 
-function formatRelative(date: Date | null): string {
-  if (!date) return 'never'
+function formatRelative(date: Date | null, t: TFunction): string {
+  if (!date) return t('bankSync.never', 'never')
   const diff = Date.now() - date.getTime()
   const minutes = Math.round(diff / 60000)
-  if (minutes < 1) return 'just now'
-  if (minutes < 60) return `${minutes} min ago`
+  if (minutes < 1) return t('bankSync.justNow', 'just now')
+  if (minutes < 60) return t('bankSync.minAgo', { n: minutes }, '{n} min ago')
   const hours = Math.round(minutes / 60)
-  if (hours < 24) return `${hours} h ago`
+  if (hours < 24) return t('bankSync.hAgo', { n: hours }, '{n} h ago')
   const days = Math.round(hours / 24)
-  return `${days} d ago`
+  return t('bankSync.dAgo', { n: days }, '{n} d ago')
 }
 
 function statusTone(status: string, validUntil: Date): string {
@@ -60,6 +62,7 @@ export function BankConnectionList({
   onRevokeBankConnection,
   labels,
 }: BankConnectionListProps) {
+  const t = useT()
   if (rows.length === 0) return null
 
   const linkedBanks = labels?.linkedBanks ?? 'Linked banks'
@@ -96,8 +99,8 @@ export function BankConnectionList({
                     </span>
                   </div>
                   <p className="truncate text-[11px] text-muted-foreground" title={row.lastSyncError ?? undefined}>
-                    {lastSyncedPrefix} {formatRelative(row.lastSyncedAt)}
-                    {row.lastSyncError && (
+                    {lastSyncedPrefix} {formatRelative(row.lastSyncedAt, t)}
+                    {row.lastSyncError && !row.lastSyncError.startsWith('[info]') && (
                       <span className="ml-1 text-destructive">
                         — {row.lastSyncError.length > 60
                           ? `${row.lastSyncError.slice(0, 60)}…`
