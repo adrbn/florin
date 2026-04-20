@@ -1,14 +1,65 @@
 import { app, dialog, ipcMain, shell } from 'electron'
 import { copyFile } from 'node:fs/promises'
 import path from 'node:path'
+import { eq } from 'drizzle-orm'
 import type { FlorinQueries, FlorinMutations } from '@florin/core/types'
+import { createT, normalizeLocale } from '@florin/core/i18n'
+import { type SqliteDB, schema } from '@florin/db-sqlite'
 import { getSyncStatus } from './scheduler'
 
+const TRAY_STRING_KEYS = [
+  'tray.synced',
+  'tray.syncing',
+  'tray.error',
+  'tray.netWorth',
+  'tray.monthlyBurn',
+  'tray.recentExpenses',
+  'tray.loading',
+  'tray.noRecentExpenses',
+  'tray.quickAdd',
+  'tray.payeePlaceholder',
+  'tray.amountPlaceholder',
+  'tray.loadingAccounts',
+  'tray.noCategory',
+  'tray.addButton',
+  'tray.syncNow',
+  'tray.addTransaction',
+  'tray.openDashboard',
+  'tray.quit',
+  'tray.unknown',
+  'tray.fillAllFields',
+  'tray.invalidAmount',
+  'tray.added',
+  'tray.failed',
+  'tray.failedToAdd',
+] as const
+
+function readUserLocale(db: SqliteDB): 'en' | 'fr' {
+  try {
+    const row = db
+      .select({ value: schema.settings.value })
+      .from(schema.settings)
+      .where(eq(schema.settings.key, 'user_locale'))
+      .get()
+    return normalizeLocale(row?.value)
+  } catch {
+    return 'en'
+  }
+}
+
 export function registerIpcHandlers(
+  db: SqliteDB,
   queries: FlorinQueries,
   mutations: FlorinMutations,
   syncAllFn: () => Promise<void>,
 ) {
+  ipcMain.handle('tray:get-locale-strings', () => {
+    const t = createT(readUserLocale(db))
+    const strings: Record<string, string> = {}
+    for (const key of TRAY_STRING_KEYS) strings[key] = t(key)
+    return strings
+  })
+
   ipcMain.handle('tray:get-data', async () => {
     const [netWorth, burn, topExpenses, reviewCount] = await Promise.all([
       queries.getNetWorth(),

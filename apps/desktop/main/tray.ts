@@ -1,4 +1,4 @@
-import { Tray, BrowserWindow, nativeImage, ipcMain } from 'electron'
+import { Tray, BrowserWindow, nativeImage, ipcMain, screen } from 'electron'
 import path from 'node:path'
 import { getMainWindow, showMainWindow } from './window'
 
@@ -7,12 +7,14 @@ let trayWindow: BrowserWindow | null = null
 
 export function setupTray(_port: number) {
   const iconPath = path.join(__dirname, '../assets/tray-iconTemplate.png')
-  let icon: Electron.NativeImage
-  try {
-    icon = nativeImage.createFromPath(iconPath)
-  } catch {
-    icon = nativeImage.createEmpty()
-  }
+  // createFromPath returns an empty image on failure (it doesn't throw), and an
+  // empty image hands macOS an invisible tray — then tray.getBounds() returns
+  // {0,0,0,0} and the popup ends up parked at the top-left of the screen.
+  // Resize to the menu-bar height explicitly and mark as template so macOS
+  // renders it in the right place and invert-colors in dark menu bars.
+  const raw = nativeImage.createFromPath(iconPath)
+  const icon = raw.isEmpty() ? nativeImage.createEmpty() : raw.resize({ width: 16, height: 16 })
+  icon.setTemplateImage(true)
 
   tray = new Tray(icon)
   tray.setToolTip('Florin')
@@ -108,8 +110,22 @@ function positionTrayWindow() {
   if (!tray || !trayWindow) return
   const trayBounds = tray.getBounds()
   const windowBounds = trayWindow.getBounds()
-  const x = Math.round(trayBounds.x + trayBounds.width / 2 - windowBounds.width / 2)
-  const y = Math.round(trayBounds.y + trayBounds.height)
+  const display = screen.getPrimaryDisplay().workArea
+  const hasTrayBounds = trayBounds.width > 0 && trayBounds.height > 0
+
+  // When the tray icon is hidden by macOS (overflow, Stage Manager) getBounds
+  // returns zeros. Fall back to the top-right corner of the menu bar so the
+  // popup stays reachable instead of sliding to the screen origin.
+  const anchorX = hasTrayBounds
+    ? trayBounds.x + trayBounds.width / 2
+    : display.x + display.width - windowBounds.width / 2 - 8
+  const anchorY = hasTrayBounds ? trayBounds.y + trayBounds.height : display.y + 4
+
+  const x = Math.round(Math.min(
+    display.x + display.width - windowBounds.width - 4,
+    Math.max(display.x + 4, anchorX - windowBounds.width / 2),
+  ))
+  const y = Math.round(anchorY)
   trayWindow.setPosition(x, y, false)
 }
 
