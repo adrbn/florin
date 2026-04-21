@@ -21,6 +21,7 @@ import { db } from '@/db/client'
 import { categories, categoryGroups } from '@/db/schema'
 import { formatCurrency, formatCurrencySigned } from '@florin/core/lib/format'
 import { computeLoanLiability } from '@/lib/loan/liability'
+import { getServerT, getUserLocale } from '@/lib/locale'
 import {
   getAccountById,
   listAccounts,
@@ -39,17 +40,19 @@ import {
   updateTransactionCategory,
 } from '@/server/actions/transactions'
 
-const dateFormatter = new Intl.DateTimeFormat('fr-FR', {
-  day: '2-digit',
-  month: '2-digit',
-  year: 'numeric',
-})
-
 interface AccountDetailPageProps {
   params: Promise<{ id: string }>
 }
 
 export default async function AccountDetailPage({ params }: AccountDetailPageProps) {
+  const t = await getServerT()
+  const locale = await getUserLocale()
+  const localeTag = locale === 'fr' ? 'fr-FR' : 'en-US'
+  const dateFormatter = new Intl.DateTimeFormat(localeTag, {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
   const { id } = await params
   const account = await getAccountById(id)
   if (!account) notFound()
@@ -104,7 +107,7 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
             href="/accounts"
             className="text-xs uppercase tracking-wide text-muted-foreground hover:text-foreground"
           >
-            ← Accounts
+            {t('accounts.backToAccounts', '← Accounts')}
           </Link>
           <h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight">
             {account.displayIcon && <span aria-hidden>{account.displayIcon}</span>}
@@ -116,7 +119,7 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
             {account.iban && <span className="font-mono">{account.iban}</span>}
             {account.isArchived && (
               <span className="rounded-full border border-muted-foreground/30 bg-muted/30 px-2 py-0.5 text-[10px] font-medium uppercase">
-                Archived
+                {t('accounts.archived', 'Archived')}
               </span>
             )}
           </div>
@@ -126,7 +129,7 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
             accounts={accountOptions}
             categories={categoryList}
             defaultAccountId={account.id}
-            triggerLabel="+ Add transaction"
+            triggerLabel={t('account.addTransactionTrigger', '+ Add transaction')}
             onAddTransaction={addTransaction}
             onAddTransfer={addTransfer}
           />
@@ -134,7 +137,7 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
             href={`/accounts/${account.id}/edit`}
             className={buttonVariants({ variant: 'outline', size: 'sm' })}
           >
-            Edit
+            {t('common.edit', 'Edit')}
           </Link>
         </div>
       </div>
@@ -144,14 +147,18 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
-                Restant à rembourser
+                {t('account.loanRemaining', 'Remaining to repay')}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-3xl font-bold">{formatCurrency(loanRemainingDebt)}</p>
               {loanPrincipal > 0 && (
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  {((1 - loanRemainingDebt / loanPrincipal) * 100).toFixed(1)}% remboursé
+                  {t(
+                    'account.loanRepaidPercent',
+                    { percent: ((1 - loanRemainingDebt / loanPrincipal) * 100).toFixed(1) },
+                    '{percent}% repaid',
+                  )}
                 </p>
               )}
             </CardContent>
@@ -159,18 +166,28 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
-                Déjà remboursé
+                {t('account.loanRepaid', 'Already repaid')}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-3xl font-bold text-emerald-600">{formatCurrency(loanTotalPaid)}</p>
               <p className="mt-1 text-[11px] text-muted-foreground">
-                {loanOriginPayments.length} paiement(s) appliqué(s)
+                {t(
+                  'account.loanPaymentsApplied',
+                  { count: loanOriginPayments.length },
+                  '{count} payment(s) applied',
+                )}
               </p>
               {(loanPrincipalPaid > 0 || loanInterestPaid > 0) && (
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  {formatCurrency(loanPrincipalPaid)} capital + {formatCurrency(loanInterestPaid)}{' '}
-                  intérêts
+                  {t(
+                    'account.loanPrincipalInterest',
+                    {
+                      principal: formatCurrency(loanPrincipalPaid),
+                      interest: formatCurrency(loanInterestPaid),
+                    },
+                    '{principal} principal + {interest} interest',
+                  )}
                 </p>
               )}
             </CardContent>
@@ -178,7 +195,7 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
-                Montant initial
+                {t('account.loanInitial', 'Original amount')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -187,7 +204,11 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
               </p>
               {account.loanInterestRate && (
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  Taux {(Number(account.loanInterestRate) * 100).toFixed(2)} %
+                  {t(
+                    'account.loanInterestRate',
+                    { rate: (Number(account.loanInterestRate) * 100).toFixed(2) },
+                    'Rate {rate} %',
+                  )}
                 </p>
               )}
             </CardContent>
@@ -198,14 +219,18 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
-                Current balance
+                {t('accounts.currentBalance', 'Current balance')}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-3xl font-bold">{formatCurrency(account.currentBalance)}</p>
               {account.lastSyncedAt && (
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  Last synced {new Date(account.lastSyncedAt).toLocaleString('fr-FR')}
+                  {t(
+                    'accounts.lastSynced',
+                    { date: new Date(account.lastSyncedAt).toLocaleString(localeTag) },
+                    'Last synced {date}',
+                  )}
                 </p>
               )}
             </CardContent>
@@ -213,7 +238,7 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
-                Inflow (last {transactionList.length} tx)
+                {t('accounts.inflow', { n: transactionList.length }, 'Inflow (last {n} tx)')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -223,7 +248,7 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
-                Outflow (last {transactionList.length} tx)
+                {t('accounts.outflow', { n: transactionList.length }, 'Outflow (last {n} tx)')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -258,12 +283,16 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">
-            {isLoan ? 'Paiements sur ce prêt' : 'Transactions'}
+            {isLoan
+              ? t('account.loanTitle', 'Loan payments')
+              : t('account.transactions', 'Transactions')}
           </CardTitle>
           {isLoan && (
             <p className="text-[11px] text-muted-foreground">
-              Transactions catégorisées dans une catégorie liée à ce prêt, plus les ajustements
-              manuels sur le compte prêt lui-même.
+              {t(
+                'account.loanHint',
+                'Transactions categorized in a category linked to this loan, plus manual adjustments on the loan account itself.',
+              )}
             </p>
           )}
         </CardHeader>
@@ -271,46 +300,53 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
           {transactionList.length === 0 ? (
             <p className="px-4 py-12 text-center text-sm text-muted-foreground">
               {isLoan
-                ? 'Aucun paiement pour le moment. Liez une catégorie ci-dessus et catégorisez vos paiements pour les voir ici.'
-                : 'No transactions yet. Click "+ Add transaction" above to record one.'}
+                ? t(
+                    'account.loanNoPayments',
+                    'No payments yet. Link a category above and categorize your payments to see them here.',
+                  )
+                : t(
+                    'account.noTransactions',
+                    'No transactions yet. Click "+ Add transaction" above to record one.',
+                  )}
             </p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-28">Date</TableHead>
-                  <TableHead>Payee</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                  <TableHead className="w-12" aria-label="Actions" />
+                  <TableHead className="w-28">{t('common.date', 'Date')}</TableHead>
+                  <TableHead>{t('transactions.payee', 'Payee')}</TableHead>
+                  <TableHead>{t('transactions.category', 'Category')}</TableHead>
+                  <TableHead className="text-right">{t('common.amount', 'Amount')}</TableHead>
+                  <TableHead className="w-12" aria-label={t('transactions.actions', 'Actions')} />
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {transactionList.map((t) => {
-                  const amount = Number(t.amount)
+                {transactionList.map((tx) => {
+                  const amount = Number(tx.amount)
                   const isNegative = amount < 0
+                  const noPayeeLabel = t('account.noPayee', '(no payee)')
                   return (
-                    <TableRow key={t.id}>
+                    <TableRow key={tx.id}>
                       <TableCell className="font-mono text-xs text-muted-foreground">
-                        {dateFormatter.format(t.occurredAt)}
+                        {dateFormatter.format(tx.occurredAt)}
                       </TableCell>
                       <TableCell className="font-medium">
-                        {t.payee || '(no payee)'}
-                        {t.needsReview && (
+                        {tx.payee || noPayeeLabel}
+                        {tx.needsReview && (
                           <span
                             className="ml-2 rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-amber-700 dark:text-amber-300"
-                            title="Pending review on /review"
+                            title={t('account.reviewBadgeTitle', 'Pending review on /review')}
                           >
-                            Review
+                            {t('account.reviewBadge', 'Review')}
                           </span>
                         )}
                       </TableCell>
                       <TableCell>
                         <TransactionCategoryCell
-                          transactionId={t.id}
-                          currentCategoryId={t.category?.id ?? null}
-                          currentCategoryName={t.category?.name ?? null}
-                          currentCategoryEmoji={t.category?.emoji ?? null}
+                          transactionId={tx.id}
+                          currentCategoryId={tx.category?.id ?? null}
+                          currentCategoryName={tx.category?.name ?? null}
+                          currentCategoryEmoji={tx.category?.emoji ?? null}
                           options={categoryList}
                           onUpdateTransactionCategory={updateTransactionCategory}
                         />
@@ -324,8 +360,8 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
                       </TableCell>
                       <TableCell className="text-right">
                         <DeleteTransactionButton
-                          transactionId={t.id}
-                          payee={t.payee || '(no payee)'}
+                          transactionId={tx.id}
+                          payee={tx.payee || noPayeeLabel}
                           onSoftDeleteTransaction={softDeleteTransaction}
                         />
                       </TableCell>
@@ -340,7 +376,7 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Manage</CardTitle>
+          <CardTitle className="text-base">{t('accounts.manage', 'Manage')}</CardTitle>
         </CardHeader>
         <CardContent>
           <AccountCardActions

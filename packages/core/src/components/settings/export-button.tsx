@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { Button } from '../ui/button'
+import { useT } from '../../i18n/context'
 
 /**
  * Triggers a JSON download of every Florin table. Done client-side because
@@ -13,6 +14,7 @@ interface ExportButtonProps {
 }
 
 export function ExportButton({ onExportAllData }: ExportButtonProps) {
+  const t = useT()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
@@ -34,7 +36,7 @@ export function ExportButton({ onExportAllData }: ExportButtonProps) {
         a.remove()
         URL.revokeObjectURL(url)
       } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : 'Export failed'
+        const message = err instanceof Error ? err.message : t('settings.exportFailed', 'Export failed')
         setError(message)
       }
     })
@@ -43,7 +45,9 @@ export function ExportButton({ onExportAllData }: ExportButtonProps) {
   return (
     <div className="space-y-1">
       <Button onClick={onClick} disabled={pending} variant="outline" size="sm">
-        {pending ? 'Exporting…' : 'Export all data (JSON)'}
+        {pending
+          ? t('settings.exporting', 'Exporting…')
+          : t('settings.exportButton', 'Export all data (JSON)')}
       </Button>
       {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
