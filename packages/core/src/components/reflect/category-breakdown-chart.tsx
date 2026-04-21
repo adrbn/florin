@@ -4,6 +4,7 @@ import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { CATEGORICAL_PALETTE } from '../../lib/chart/palette'
 import { formatCurrency } from '../../lib/format/currency'
+import { usePlayOnce } from '../../lib/use-play-once'
 
 interface CategoryShare {
   groupName: string
@@ -31,6 +32,7 @@ export function CategoryBreakdownChart({
   titlePrefix = 'Spending breakdown',
   emptyMessage = 'No categorized spending in this window.',
 }: Props) {
+  const shouldAnimate = usePlayOnce('reflect:categoryBreakdown')
   const total = data.reduce((s, d) => s + d.total, 0)
   const top = [...data].sort((a, b) => b.total - a.total).slice(0, 10)
   const chartData = top.map((d, i) => ({
@@ -63,7 +65,7 @@ export function CategoryBreakdownChart({
                     innerRadius="55%"
                     outerRadius="85%"
                     paddingAngle={2}
-                    isAnimationActive
+                    isAnimationActive={shouldAnimate}
                     animationDuration={900}
                     animationEasing="ease-out"
                   >
