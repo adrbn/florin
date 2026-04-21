@@ -44,7 +44,9 @@ export function PrivacyBodyClass() {
     const el = document.documentElement
     if (!hidden) {
       el.classList.remove('privacy-hidden')
-      clearAutoMarkers()
+      // Keep data-amount markers in place so the CSS transition can
+      // interpolate filter back to none. Stripping mid-transition cuts
+      // the un-blur animation off instantly.
       return
     }
     el.classList.add('privacy-hidden')

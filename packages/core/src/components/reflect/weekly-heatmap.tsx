@@ -134,7 +134,7 @@ export function WeeklyHeatmap({
   const filterLabel = t('reflect.heatmap.filter', 'Filter')
 
   return (
-    <Card>
+    <Card className="overflow-visible">
       <CardHeader>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">

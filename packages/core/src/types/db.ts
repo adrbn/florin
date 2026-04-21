@@ -32,6 +32,7 @@ export interface PatrimonyPoint {
 }
 
 export interface CategoryBreakdownItem {
+  categoryId: string
   groupName: string
   categoryName: string
   emoji: string | null

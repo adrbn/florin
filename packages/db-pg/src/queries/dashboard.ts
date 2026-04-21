@@ -196,6 +196,7 @@ export async function getMonthByCategory(db: PgDB): Promise<CategoryBreakdownIte
   const end = endOfMonth(new Date())
   const rows = await db
     .select({
+      categoryId: categories.id,
       categoryName: categories.name,
       emoji: categories.emoji,
       groupName: categoryGroups.name,
@@ -228,6 +229,7 @@ export async function getMonthByCategory(db: PgDB): Promise<CategoryBreakdownIte
 
   return rows
     .map((r) => ({
+      categoryId: r.categoryId,
       groupName: r.groupName,
       categoryName: r.categoryName,
       emoji: r.emoji,

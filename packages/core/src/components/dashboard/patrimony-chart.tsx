@@ -389,7 +389,9 @@ export function PatrimonyChart({
                   strokeWidth={2}
                   fill="url(#patriGrad)"
                   baseValue={yMin}
-                  isAnimationActive={false}
+                  isAnimationActive
+                  animationDuration={1200}
+                  animationEasing="ease-out"
                   connectNulls={false}
                   dot={false}
                 />
@@ -400,7 +402,10 @@ export function PatrimonyChart({
                   strokeWidth={1.5}
                   strokeDasharray="4 4"
                   dot={false}
-                  isAnimationActive={false}
+                  isAnimationActive
+                  animationBegin={400}
+                  animationDuration={1200}
+                  animationEasing="ease-out"
                 />
               </ComposedChart>
             </ResponsiveContainer>

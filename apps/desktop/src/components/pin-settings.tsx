@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { PinInput } from './pin-input'
 import { setPin, removePin } from '@/server/actions/pin'
+import { useT } from '@florin/core/i18n/context'
 
 interface PinSettingsProps {
   pinEnabled: boolean
@@ -11,6 +12,7 @@ interface PinSettingsProps {
 type View = 'idle' | 'set-pin' | 'confirm-remove'
 
 export function PinSettings({ pinEnabled }: PinSettingsProps) {
+  const t = useT()
   const [enabled, setEnabled] = useState(pinEnabled)
   const [view, setView] = useState<View>('idle')
   const [status, setStatus] = useState<string | null>(null)
@@ -20,7 +22,7 @@ export function PinSettings({ pinEnabled }: PinSettingsProps) {
       await setPin(pin)
       setEnabled(true)
       setView('idle')
-      setStatus('PIN set successfully.')
+      setStatus(t('pin.setSuccess', 'PIN set successfully.'))
       return true
     } catch {
       return false
@@ -32,9 +34,9 @@ export function PinSettings({ pinEnabled }: PinSettingsProps) {
       await removePin()
       setEnabled(false)
       setView('idle')
-      setStatus('PIN removed.')
+      setStatus(t('pin.removedSuccess', 'PIN removed.'))
     } catch {
-      setStatus('Failed to remove PIN.')
+      setStatus(t('pin.removeFailed', 'Failed to remove PIN.'))
     }
   }
 
@@ -42,8 +44,9 @@ export function PinSettings({ pinEnabled }: PinSettingsProps) {
     return (
       <div className="space-y-4">
         <p className="text-sm text-muted-foreground">
-          Choose a {enabled ? 'new' : ''} 4-digit PIN. You will be prompted for it each time you
-          open Florin.
+          {enabled
+            ? t('pin.chooseNewPrompt', 'Choose a new 4-digit PIN. You will be prompted for it each time you open Florin.')
+            : t('pin.choosePrompt', 'Choose a 4-digit PIN. You will be prompted for it each time you open Florin.')}
         </p>
         <PinInput onSubmit={handleSetPin} />
         <button
@@ -51,7 +54,7 @@ export function PinSettings({ pinEnabled }: PinSettingsProps) {
           onClick={() => setView('idle')}
           className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
         >
-          Cancel
+          {t('common.cancel', 'Cancel')}
         </button>
       </div>
     )
@@ -61,7 +64,7 @@ export function PinSettings({ pinEnabled }: PinSettingsProps) {
     return (
       <div className="space-y-3">
         <p className="text-sm text-muted-foreground">
-          Remove the PIN? Florin will open without a lock screen.
+          {t('pin.removeConfirm', 'Remove the PIN? Florin will open without a lock screen.')}
         </p>
         <div className="flex gap-2">
           <button
@@ -69,14 +72,14 @@ export function PinSettings({ pinEnabled }: PinSettingsProps) {
             onClick={handleRemovePin}
             className="rounded-md bg-destructive/10 px-3 py-1.5 text-sm font-medium text-destructive hover:bg-destructive/20"
           >
-            Remove PIN
+            {t('pin.removeButton', 'Remove PIN')}
           </button>
           <button
             type="button"
             onClick={() => setView('idle')}
             className="rounded-md border border-border px-3 py-1.5 text-sm font-medium hover:bg-muted"
           >
-            Cancel
+            {t('common.cancel', 'Cancel')}
           </button>
         </div>
       </div>
@@ -90,8 +93,8 @@ export function PinSettings({ pinEnabled }: PinSettingsProps) {
       )}
       <p className="text-sm text-muted-foreground">
         {enabled
-          ? 'PIN protection is active. Florin prompts for a PIN on each launch.'
-          : 'No PIN set. Florin opens without a lock screen.'}
+          ? t('pin.enabledHint', 'PIN protection is active. Florin prompts for a PIN on each launch.')
+          : t('pin.disabledHint', 'No PIN set. Florin opens without a lock screen.')}
       </p>
       <div className="flex gap-2">
         <button
@@ -99,7 +102,7 @@ export function PinSettings({ pinEnabled }: PinSettingsProps) {
           onClick={() => { setStatus(null); setView('set-pin') }}
           className="rounded-md border border-border px-3 py-1.5 text-sm font-medium hover:bg-muted"
         >
-          {enabled ? 'Change PIN' : 'Set PIN'}
+          {enabled ? t('pin.changeButton', 'Change PIN') : t('pin.setButton', 'Set PIN')}
         </button>
         {enabled && (
           <button
@@ -107,7 +110,7 @@ export function PinSettings({ pinEnabled }: PinSettingsProps) {
             onClick={() => { setStatus(null); setView('confirm-remove') }}
             className="rounded-md bg-destructive/10 px-3 py-1.5 text-sm font-medium text-destructive hover:bg-destructive/20"
           >
-            Remove PIN
+            {t('pin.removeButton', 'Remove PIN')}
           </button>
         )}
       </div>

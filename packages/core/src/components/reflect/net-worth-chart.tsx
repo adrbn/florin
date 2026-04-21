@@ -150,7 +150,9 @@ export function NetWorthChart({
               stroke="var(--chart-1)"
               strokeWidth={2.5}
               fill="url(#nwGrad)"
-              isAnimationActive={false}
+              isAnimationActive
+              animationDuration={1200}
+              animationEasing="ease-out"
               activeDot={{ r: 4, strokeWidth: 0, fill: 'var(--chart-1)' }}
             />
           </AreaChart>

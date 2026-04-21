@@ -51,7 +51,9 @@ export function CategoryPie({ data, uncategorizedCount, title = 'This month by c
                   paddingAngle={1.5}
                   stroke="var(--card)"
                   strokeWidth={1.5}
-                  isAnimationActive={false}
+                  isAnimationActive
+                  animationDuration={900}
+                  animationEasing="ease-out"
                 >
                   {data.map((d, i) => (
                     <Cell

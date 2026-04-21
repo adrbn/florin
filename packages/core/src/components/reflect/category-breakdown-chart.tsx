@@ -63,7 +63,9 @@ export function CategoryBreakdownChart({
                     innerRadius="55%"
                     outerRadius="85%"
                     paddingAngle={2}
-                    isAnimationActive={false}
+                    isAnimationActive
+                    animationDuration={900}
+                    animationEasing="ease-out"
                   >
                     {chartData.map((entry) => (
                       <Cell key={entry.name} fill={entry.fill} />

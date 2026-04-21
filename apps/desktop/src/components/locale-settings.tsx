@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useT } from '@florin/core/i18n/context'
 
 const LOCALES = [
   { value: 'en', label: 'English' },
@@ -35,6 +36,7 @@ interface LocaleSettingsProps {
 
 export function LocaleSettings({ currentLocale, currentCurrency }: LocaleSettingsProps) {
   const router = useRouter()
+  const t = useT()
   const [locale, setLocale] = useState(currentLocale)
   const [currency, setCurrency] = useState(currentCurrency)
   const [saving, setSaving] = useState(false)
@@ -72,7 +74,7 @@ export function LocaleSettings({ currentLocale, currentCurrency }: LocaleSetting
   return (
     <div className="space-y-2">
       <div className="flex items-baseline justify-between gap-3 border-b border-border/40 pb-1.5">
-        <span className="text-xs uppercase tracking-wide text-muted-foreground">Locale</span>
+        <span className="text-xs uppercase tracking-wide text-muted-foreground">{t('settings.locale', 'Language')}</span>
         <select
           value={locale}
           onChange={(e) => handleLocaleChange(e.target.value)}
@@ -85,7 +87,7 @@ export function LocaleSettings({ currentLocale, currentCurrency }: LocaleSetting
         </select>
       </div>
       <div className="flex items-baseline justify-between gap-3 border-b border-border/40 pb-1.5">
-        <span className="text-xs uppercase tracking-wide text-muted-foreground">Base currency</span>
+        <span className="text-xs uppercase tracking-wide text-muted-foreground">{t('settings.baseCurrency', 'Base currency')}</span>
         <select
           value={currency}
           onChange={(e) => handleCurrencyChange(e.target.value)}
