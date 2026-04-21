@@ -210,6 +210,7 @@
   "kpi.leftToSpendNoIncome": "Aucun salaire détecté sur les 90 derniers jours.",
   "kpi.dailyAvg": "/jour en moy.",
   "kpi.dailyRemaining": "/jour · {days} j restants",
+  "kpi.perDay": "/jour",
   "kpi.vsLastMonth": "vs mois dernier",
 
   "categories.title": "Catégories",

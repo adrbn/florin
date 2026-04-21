@@ -142,10 +142,7 @@ export default async function ReflectPage() {
               : undefined
           }
           hintNoIncome={t('kpi.leftToSpendNoIncome', 'No salary detected in the last 90 days.')}
-          dailyAvgLabel={t('kpi.dailyAvg', '/day avg')}
-          dailyRemainingLabel={(days) =>
-            t('kpi.dailyRemaining', { days }, '/day · {days} days left')
-          }
+          perDayLabel={t('kpi.perDay', '/day')}
         />
         <SavingsRateRolling
           rates={savingsRates}
