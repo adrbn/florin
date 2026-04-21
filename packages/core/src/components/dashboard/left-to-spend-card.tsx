@@ -18,10 +18,12 @@ interface LeftToSpendCardProps {
   /** Hint fragments prebuilt by the caller so translations stay in the page. */
   hintCategory?: string
   hintNoIncome?: string
-  /** e.g. "/day avg" */
+  /** e.g. "/day avg" (unused since v1.0.1 — kept for back-compat). */
   dailyAvgLabel?: string
-  /** e.g. "/day for {n} days" */
+  /** e.g. "/day for {n} days" (unused since v1.0.1 — kept for back-compat). */
   dailyRemainingLabel?: (days: number) => string
+  /** Short label shown next to the daily budget, e.g. "/day". */
+  perDayLabel?: string
 }
 
 /**
@@ -32,43 +34,23 @@ interface LeftToSpendCardProps {
 export function LeftToSpendCard({
   title,
   monthIncome,
-  monthSpent,
   leftToSpend,
-  dailyAvgSpent,
   dailyBudgetRemaining,
   daysRemaining,
-  hintCategory,
   hintNoIncome,
-  dailyAvgLabel = '/day avg',
-  dailyRemainingLabel = (n) => `/day · ${n} days left`,
+  perDayLabel = '/day',
 }: LeftToSpendCardProps) {
   const hasIncome = monthIncome > 0
   const tone = !hasIncome ? 'default' : leftToSpend < 0 ? 'negative' : 'positive'
 
-  const dailyLine = hasIncome ? (
-    <div className="tabular-nums">
-      {formatCurrency(dailyAvgSpent)} {dailyAvgLabel}
-      {dailyBudgetRemaining !== null && daysRemaining > 0 ? (
-        <>
-          {' · '}
-          {formatCurrency(Math.max(0, dailyBudgetRemaining))}{' '}
-          {dailyRemainingLabel(daysRemaining)}
-        </>
-      ) : null}
-    </div>
-  ) : null
-
-  const hint = hasIncome ? (
-    <div className="space-y-0.5">
-      {hintCategory ? <div>{hintCategory}</div> : null}
+  const hint =
+    hasIncome && dailyBudgetRemaining !== null && daysRemaining > 0 ? (
       <div className="tabular-nums">
-        {formatCurrency(monthIncome)} − {formatCurrency(monthSpent)}
+        {formatCurrency(Math.max(0, dailyBudgetRemaining))} {perDayLabel}
       </div>
-      {dailyLine}
-    </div>
-  ) : (
-    <div>{hintNoIncome ?? 'No salary detected in the last 90 days.'}</div>
-  )
+    ) : !hasIncome ? (
+      <div>{hintNoIncome ?? 'No salary detected in the last 90 days.'}</div>
+    ) : null
 
   return (
     <KpiCard
