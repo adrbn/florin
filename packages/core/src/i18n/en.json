@@ -211,6 +211,7 @@
   "kpi.dailyAvg": "/day avg",
   "kpi.dailyRemaining": "/day · {days} days left",
   "kpi.perDay": "/day",
+  "kpi.sixMoAvg": "6-mo avg: {amount}",
   "kpi.vsLastMonth": "vs last month",
 
   "categories.title": "Categories",
