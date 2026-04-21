@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
+import { ArrowLeftRight } from 'lucide-react'
 import { Button } from '../ui/button'
 import {
   Dialog,
@@ -61,6 +62,19 @@ export function AddTransactionModal({
   const [mode, setMode] = useState<Mode>('transaction')
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const fromAccountRef = useRef<HTMLSelectElement>(null)
+  const toAccountRef = useRef<HTMLSelectElement>(null)
+
+  // Swap the two select values without touching state — the form is
+  // uncontrolled and reads via FormData, so a direct DOM swap is enough.
+  const swapTransferAccounts = () => {
+    const fromEl = fromAccountRef.current
+    const toEl = toAccountRef.current
+    if (!fromEl || !toEl) return
+    const tmp = fromEl.value
+    fromEl.value = toEl.value
+    toEl.value = tmp
+  }
 
   const today = new Date().toISOString().slice(0, 10)
   const canTransfer = Boolean(onAddTransfer) && accounts.length >= 2
@@ -191,13 +205,14 @@ export function AddTransactionModal({
         <form id="add-transaction-form" action={onSubmit} className="space-y-4">
           {mode === 'transfer' ? (
             <>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-3">
                 <div className="space-y-2">
                   <Label htmlFor="fromAccountId">{t('txAdd.fromAccount', 'From')}</Label>
                   <select
                     id="fromAccountId"
                     name="fromAccountId"
                     required
+                    ref={fromAccountRef}
                     defaultValue={defaultAccountId ?? accounts[0]?.id ?? ''}
                     className={selectClass}
                   >
@@ -208,12 +223,24 @@ export function AddTransactionModal({
                     ))}
                   </select>
                 </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={swapTransferAccounts}
+                  aria-label={t('txAdd.swapAccounts', 'Swap accounts')}
+                  title={t('txAdd.swapAccounts', 'Swap accounts')}
+                  className="mb-0.5 h-9 w-9 shrink-0 p-0"
+                >
+                  <ArrowLeftRight className="h-4 w-4" />
+                </Button>
                 <div className="space-y-2">
                   <Label htmlFor="toAccountId">{t('txAdd.toAccount', 'To')}</Label>
                   <select
                     id="toAccountId"
                     name="toAccountId"
                     required
+                    ref={toAccountRef}
                     defaultValue={
                       accounts.find((a) => a.id !== (defaultAccountId ?? accounts[0]?.id))?.id ??
                       ''
