@@ -4,6 +4,7 @@ import { useTransition } from 'react'
 import { TransactionCategoryCell } from '../transactions/transaction-category-cell'
 import { useT } from '../../i18n/context'
 import type { ActionResult } from '../../types/index'
+import { MarkAsTransferButton, type AccountOption } from './mark-as-transfer-button'
 
 interface CategoryOption {
   id: string
@@ -16,6 +17,7 @@ interface ReviewRowProps {
   transactionId: string
   date: string
   payee: string
+  accountId: string | null
   accountName: string
   amount: number
   amountFormatted: string
@@ -23,11 +25,16 @@ interface ReviewRowProps {
   currentCategoryName: string | null
   currentCategoryEmoji: string | null
   categoryOptions: ReadonlyArray<CategoryOption>
+  accountOptions: ReadonlyArray<AccountOption>
   selected: boolean
   onToggleSelect: () => void
   onApproveTransaction: (id: string) => Promise<ActionResult>
   onSoftDeleteTransaction: (id: string) => Promise<ActionResult>
   onUpdateTransactionCategory: (transactionId: string, categoryId: string | null) => Promise<ActionResult>
+  onLinkAsInternalTransfer?: (
+    transactionId: string,
+    counterpartAccountId: string,
+  ) => Promise<ActionResult<{ transferPairId: string; mode: 'paired' | 'created' }>>
 }
 
 /**
@@ -47,6 +54,7 @@ export function ReviewRow({
   transactionId,
   date,
   payee,
+  accountId,
   accountName,
   amount,
   amountFormatted,
@@ -54,11 +62,13 @@ export function ReviewRow({
   currentCategoryName,
   currentCategoryEmoji,
   categoryOptions,
+  accountOptions,
   selected,
   onToggleSelect,
   onApproveTransaction,
   onSoftDeleteTransaction,
   onUpdateTransactionCategory,
+  onLinkAsInternalTransfer,
 }: ReviewRowProps) {
   const t = useT()
   const [pending, startTransition] = useTransition()
@@ -139,6 +149,14 @@ export function ReviewRow({
           >
             {pending ? '…' : '✓'}
           </button>
+          {onLinkAsInternalTransfer && (
+            <MarkAsTransferButton
+              transactionId={transactionId}
+              currentAccountId={accountId}
+              accountOptions={accountOptions}
+              onLinkAsInternalTransfer={onLinkAsInternalTransfer}
+            />
+          )}
           <button
             type="button"
             onClick={onDelete}
