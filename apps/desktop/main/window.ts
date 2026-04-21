@@ -1,8 +1,25 @@
-import { BrowserWindow, app, session } from 'electron'
+import { BrowserWindow, app, session, shell } from 'electron'
 import path from 'node:path'
 
 let mainWindow: BrowserWindow | null = null
 let mainPort: number = 0
+
+/**
+ * Treat any URL not pointing at our local Next.js server as external and
+ * hand it off to the OS default browser.
+ */
+function isExternalUrl(url: string, port: number): boolean {
+  if (!url) return false
+  if (url.startsWith('about:') || url === 'about:blank') return false
+  try {
+    const parsed = new URL(url)
+    if (parsed.hostname === '127.0.0.1' && parsed.port === String(port)) return false
+    if (parsed.protocol === 'file:') return false
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
 
 export function createWindow(port: number) {
   mainPort = port
@@ -22,6 +39,23 @@ export function createWindow(port: number) {
   })
 
   mainWindow.loadURL(`https://127.0.0.1:${port}`)
+
+  // Route target=_blank and window.open to the OS default browser.
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (isExternalUrl(url, port)) {
+      shell.openExternal(url)
+      return { action: 'deny' }
+    }
+    return { action: 'allow' }
+  })
+
+  // Catch plain <a href> clicks that would navigate the frame away.
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (isExternalUrl(url, port)) {
+      event.preventDefault()
+      shell.openExternal(url)
+    }
+  })
 
   // Keep the window title as "Florin" regardless of page <title> changes
   mainWindow.on('page-title-updated', (event) => {

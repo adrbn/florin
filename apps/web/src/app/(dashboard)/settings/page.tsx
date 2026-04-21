@@ -47,11 +47,26 @@ export default async function SettingsPage() {
   ])
 
   const stats: Stat[] = [
-    { label: 'Accounts (active)', value: String(accountCountRow[0]?.value ?? 0) },
-    { label: 'Transactions (alive)', value: String(transactionCountRow[0]?.value ?? 0) },
-    { label: 'Categories', value: String(categoryCountRow[0]?.value ?? 0) },
-    { label: 'Bank connections', value: String(activeBankRow[0]?.value ?? 0) },
-    { label: 'Bank-API transactions', value: String(activeTransactionRow[0]?.value ?? 0) },
+    {
+      label: t('settings.storageAccountsActive', 'Accounts (active)'),
+      value: String(accountCountRow[0]?.value ?? 0),
+    },
+    {
+      label: t('settings.storageTransactionsAlive', 'Transactions (alive)'),
+      value: String(transactionCountRow[0]?.value ?? 0),
+    },
+    {
+      label: t('settings.storageCategories', 'Categories'),
+      value: String(categoryCountRow[0]?.value ?? 0),
+    },
+    {
+      label: t('settings.storageBankConnections', 'Bank connections'),
+      value: String(activeBankRow[0]?.value ?? 0),
+    },
+    {
+      label: t('settings.storageBankApiTransactions', 'Bank-API transactions'),
+      value: String(activeTransactionRow[0]?.value ?? 0),
+    },
   ]
 
   return (
@@ -69,12 +84,17 @@ export default async function SettingsPage() {
             <CardTitle className="text-base">{t('settings.profile', 'Profile')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <Row label="Signed in as" value={session?.user?.email ?? '—'} />
+            <Row
+              label={t('settings.signedInAs', 'Signed in as')}
+              value={session?.user?.email ?? '—'}
+            />
             <Row label={t('settings.locale', 'Language')} value="fr-FR" />
             <Row label={t('settings.baseCurrency', 'Base currency')} value="EUR" />
             <p className="pt-2 text-[11px] text-muted-foreground">
-              Florin is single-tenant — profile values come from environment variables. To change
-              them, edit <code className="font-mono">.env</code> and restart.
+              {t(
+                'settings.profileHintWeb',
+                'Florin is single-tenant — profile values come from environment variables. To change them, edit .env and restart.',
+              )}
             </p>
           </CardContent>
         </Card>
@@ -85,13 +105,17 @@ export default async function SettingsPage() {
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <p className="text-muted-foreground">
-              Download every table as a single JSON file. Bank consent tokens are stripped from the
-              export so the file is safe to share.
+              {t(
+                'settings.dataHintWeb',
+                'Download every table as a single JSON file. Bank consent tokens are stripped from the export so the file is safe to share.',
+              )}
             </p>
             <ExportButton onExportAllData={exportAllData} />
             <p className="text-[11px] text-muted-foreground">
-              Tip: schedule <code className="font-mono">pg_dump</code> separately for backups that
-              include indexes + history.
+              {t(
+                'settings.dataHintPgDump',
+                'Tip: schedule pg_dump separately for backups that include indexes + history.',
+              )}
             </p>
           </CardContent>
         </Card>
@@ -105,12 +129,22 @@ export default async function SettingsPage() {
           <CardContent className="space-y-2 text-sm">
             <Row
               label={t('common.status', 'Status')}
-              value={bankingEnabled ? '✅ Configured' : '❌ Not configured'}
+              value={
+                bankingEnabled
+                  ? `✅ ${t('settings.bankStatusConfigured', 'Configured')}`
+                  : `❌ ${t('settings.bankStatusNotConfigured', 'Not configured')}`
+              }
             />
-            <Row label="App ID" value={env.ENABLE_BANKING_APP_ID ?? '—'} />
-            <Row label="Redirect URL" value={env.ENABLE_BANKING_REDIRECT_URL} />
+            <Row
+              label={t('settings.bankAppId', 'App ID')}
+              value={env.ENABLE_BANKING_APP_ID ?? '—'}
+            />
+            <Row
+              label={t('settings.bankRedirectUrl', 'Redirect URL')}
+              value={env.ENABLE_BANKING_REDIRECT_URL}
+            />
             <p className="pt-2 text-[11px] text-muted-foreground">
-              Manage individual bank links from the Accounts page.
+              {t('settings.bankLinksHint', 'Manage individual bank links from the Accounts page.')}
             </p>
           </CardContent>
         </Card>
@@ -128,30 +162,45 @@ export default async function SettingsPage() {
 
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle className="text-base">Self-hosting tips</CardTitle>
+            <CardTitle className="text-base">
+              {t('settings.selfHostTitle', 'Self-hosting tips')}
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
             <p>
-              <strong className="text-foreground">Rotate secrets:</strong> regenerate{' '}
-              <code className="font-mono">NEXTAUTH_SECRET</code> with{' '}
-              <code className="font-mono">openssl rand -base64 48</code> if you ever suspect
-              leakage. Restart the app afterwards — sessions will be invalidated.
+              <strong className="text-foreground">
+                {t('settings.rotateSecretsLabel', 'Rotate secrets:')}
+              </strong>{' '}
+              {t(
+                'settings.rotateSecretsDesc',
+                'regenerate NEXTAUTH_SECRET with openssl rand -base64 48 if you ever suspect leakage. Restart the app afterwards — sessions will be invalidated.',
+              )}
             </p>
             <p>
-              <strong className="text-foreground">Database backups:</strong>{' '}
+              <strong className="text-foreground">
+                {t('settings.dbBackupsLabel', 'Database backups:')}
+              </strong>{' '}
               <code className="font-mono">
                 docker compose exec db pg_dump -U postgres florin &gt; backup.sql
               </code>
             </p>
             <p>
-              <strong className="text-foreground">Bank API quota:</strong> Enable Banking's free
-              tier caps live data at 90 days unattended. Past that the app falls back to whatever
-              was previously synced.
+              <strong className="text-foreground">
+                {t('settings.bankQuotaLabel', 'Bank API quota:')}
+              </strong>{' '}
+              {t(
+                'settings.bankQuotaDesc',
+                "Enable Banking's free tier caps live data at 90 days unattended. Past that the app falls back to whatever was previously synced.",
+              )}
             </p>
             <p>
-              <strong className="text-foreground">Open source posture:</strong> there is no
-              telemetry, no analytics, no third-party scripts. Everything runs against your own
-              Postgres.
+              <strong className="text-foreground">
+                {t('settings.openSourceLabel', 'Open source posture:')}
+              </strong>{' '}
+              {t(
+                'settings.openSourceDesc',
+                'there is no telemetry, no analytics, no third-party scripts. Everything runs against your own Postgres.',
+              )}
             </p>
           </CardContent>
         </Card>
