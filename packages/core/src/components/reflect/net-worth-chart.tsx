@@ -13,6 +13,7 @@ import {
 } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { cn } from '../../lib/utils'
+import { usePlayOnce } from '../../lib/use-play-once'
 
 interface NetWorthPoint {
   month: string
@@ -62,6 +63,7 @@ export function NetWorthChart({
   maxLabel = 'max',
   monthsLabel = 'months',
 }: NetWorthChartProps) {
+  const shouldAnimate = usePlayOnce('reflect:netWorth')
   const points = [...data]
   const first = points[0]?.cumulative ?? 0
   const last = points[points.length - 1]?.cumulative ?? 0
@@ -150,7 +152,7 @@ export function NetWorthChart({
               stroke="var(--chart-1)"
               strokeWidth={2.5}
               fill="url(#nwGrad)"
-              isAnimationActive
+              isAnimationActive={shouldAnimate}
               animationDuration={1200}
               animationEasing="ease-out"
               activeDot={{ r: 4, strokeWidth: 0, fill: 'var(--chart-1)' }}

@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { NoSSR } from '../ui/no-ssr'
 import { useLocale, useT } from '../../i18n/context'
 import { formatCurrency } from '../../lib/format/currency'
+import { usePlayOnce } from '../../lib/use-play-once'
 
 export interface PatrimonyPoint {
   date: string
@@ -220,6 +221,7 @@ export function PatrimonyChart({
   const [trendWindowIdx, setTrendWindowIdx] = useState(() =>
     TREND_WINDOWS.findIndex((w) => w.days === null),
   )
+  const shouldAnimate = usePlayOnce('dashboard:patrimony')
   const trendWindow = TREND_WINDOWS[trendWindowIdx] ?? TREND_WINDOWS[TREND_WINDOWS.length - 1]
   // Filter the raw history to the picked trend window BEFORE building the
   // series so both the visible area and the regression fit reflect the
@@ -251,7 +253,13 @@ export function PatrimonyChart({
   const yMax = Math.ceil((rawMax + pad) / 500) * 500
 
   return (
-    <Card className="flex h-full flex-col animate-in fade-in-0 slide-in-from-bottom-2 duration-700">
+    <Card
+      className={
+        shouldAnimate
+          ? 'flex h-full flex-col animate-in fade-in-0 slide-in-from-bottom-2 duration-700'
+          : 'flex h-full flex-col'
+      }
+    >
       <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0 pb-2">
         <div className="min-w-0">
           <CardTitle className="text-sm font-medium">{title}</CardTitle>
@@ -389,7 +397,7 @@ export function PatrimonyChart({
                   strokeWidth={2}
                   fill="url(#patriGrad)"
                   baseValue={yMin}
-                  isAnimationActive
+                  isAnimationActive={shouldAnimate}
                   animationDuration={1200}
                   animationEasing="ease-out"
                   connectNulls={false}
@@ -402,7 +410,7 @@ export function PatrimonyChart({
                   strokeWidth={1.5}
                   strokeDasharray="4 4"
                   dot={false}
-                  isAnimationActive
+                  isAnimationActive={shouldAnimate}
                   animationBegin={400}
                   animationDuration={1200}
                   animationEasing="ease-out"

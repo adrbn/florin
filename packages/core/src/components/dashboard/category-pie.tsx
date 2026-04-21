@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { NoSSR } from '../ui/no-ssr'
 import { CATEGORICAL_PALETTE } from '../../lib/chart/palette'
 import { formatCurrency } from '../../lib/format/currency'
+import { usePlayOnce } from '../../lib/use-play-once'
 
 export interface CategoryDatum {
   categoryName: string
@@ -20,6 +21,7 @@ export interface CategoryPieProps {
 }
 
 export function CategoryPie({ data, uncategorizedCount, title = 'This month by category' }: CategoryPieProps) {
+  const shouldAnimate = usePlayOnce('dashboard:categoryPie')
   const emptyMessage =
     uncategorizedCount > 0
       ? `${uncategorizedCount} expense${uncategorizedCount === 1 ? '' : 's'} this month — all uncategorized. Categorize them in Transactions to see the breakdown.`
@@ -51,7 +53,7 @@ export function CategoryPie({ data, uncategorizedCount, title = 'This month by c
                   paddingAngle={1.5}
                   stroke="var(--card)"
                   strokeWidth={1.5}
-                  isAnimationActive
+                  isAnimationActive={shouldAnimate}
                   animationDuration={900}
                   animationEasing="ease-out"
                 >
