@@ -412,6 +412,7 @@
   "txAdd.modeTransfer": "Virement",
   "txAdd.fromAccount": "De",
   "txAdd.toAccount": "Vers",
+  "txAdd.swapAccounts": "Inverser les comptes",
   "txAdd.transferAmount": "Montant (EUR)",
   "txAdd.submitTransfer": "Enregistrer le virement",
   "txAdd.transferSameAccount": "Source et destination doivent différer.",
