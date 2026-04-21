@@ -251,7 +251,7 @@ export function PatrimonyChart({
   const yMax = Math.ceil((rawMax + pad) / 500) * 500
 
   return (
-    <Card className="flex h-full flex-col">
+    <Card className="flex h-full flex-col animate-in fade-in-0 slide-in-from-bottom-2 duration-700">
       <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0 pb-2">
         <div className="min-w-0">
           <CardTitle className="text-sm font-medium">{title}</CardTitle>
