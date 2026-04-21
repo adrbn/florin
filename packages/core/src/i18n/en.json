@@ -412,6 +412,7 @@
   "txAdd.modeTransfer": "Transfer",
   "txAdd.fromAccount": "From",
   "txAdd.toAccount": "To",
+  "txAdd.swapAccounts": "Swap accounts",
   "txAdd.transferAmount": "Amount (EUR)",
   "txAdd.submitTransfer": "Save transfer",
   "txAdd.transferSameAccount": "Source and destination must differ.",
