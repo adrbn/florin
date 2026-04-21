@@ -9,6 +9,7 @@ import { PatrimonyChart } from '@florin/core/components/dashboard/patrimony-char
 import { SafetyGaugeCard } from '@florin/core/components/dashboard/safety-gauge-card'
 import { SyncAllButton } from '@florin/core/components/dashboard/sync-all-button'
 import { TopExpensesCard } from '@florin/core/components/dashboard/top-expenses-card'
+import { formatCurrency } from '@florin/core/lib/format'
 import { OnboardingBanner } from '@florin/core/components/onboarding/onboarding-banner'
 import { queries } from '@/db/client'
 import { getServerT } from '@/lib/locale'
@@ -80,6 +81,7 @@ async function BurnRateCardServer() {
         query: { from: `${year}-${month}-01`, direction: 'expense' },
       }}
       title={t('kpi.burnThisMonth', 'Burn this month')}
+      hint={t('kpi.sixMoAvg', { amount: formatCurrency(avg) }, '6-mo avg: {amount}')}
     />
   )
 }
