@@ -357,6 +357,17 @@ export interface FlorinMutations {
   addTransfer(
     input: AddTransferInput,
   ): Promise<ActionResult<{ transferPairId: string }>>
+  /**
+   * Convert an existing transaction (usually review-pending) into one leg of an
+   * internal transfer. If a matching counterpart already exists on
+   * `counterpartAccountId` (opposite sign, same |amount|, within ±5 days), both
+   * rows are linked; otherwise a synthetic counterpart leg is inserted so the
+   * books stay balanced.
+   */
+  linkAsInternalTransfer(
+    transactionId: string,
+    counterpartAccountId: string,
+  ): Promise<ActionResult<{ transferPairId: string; mode: 'paired' | 'created' }>>
   updateTransactionCategory(
     transactionId: string,
     categoryId: string | null,

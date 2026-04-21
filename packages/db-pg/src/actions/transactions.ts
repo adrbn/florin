@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
+import { and, desc, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { matchRule, normalizePayee, type Rule } from '@florin/core/lib/categorization'
 import type {
@@ -163,6 +163,138 @@ export async function addTransferMutation(
     return { success: true, data: { transferPairId } }
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to add transfer'
+    return { success: false, error: message }
+  }
+}
+
+/**
+ * Promote an imported transaction into an internal-transfer leg.
+ *
+ * Accepts an existing (usually review-pending) transaction and a counterpart
+ * account. Strategy:
+ *   1. Look for a matching counterpart row on `counterpartAccountId` — same
+ *      absolute amount, opposite sign, within ±5 days, no existing
+ *      `transferPairId`. If found, both rows are linked via a shared
+ *      `transferPairId` and cleared from review (`needsReview=false`).
+ *   2. If no match, create a synthetic counterpart row on the target account
+ *      (opposite sign, same date, payee "Transfer from/to …") so the books
+ *      stay balanced. Both rows share the new `transferPairId`.
+ *
+ * Either way, balances on both accounts are recomputed. Any loan-mirror tied
+ * to the source row is cleaned up because transfers never belong to a
+ * category (loan mirrors are driven by category).
+ */
+export async function linkAsInternalTransferMutation(
+  db: PgDB,
+  transactionId: string,
+  counterpartAccountId: string,
+): Promise<ActionResult<{ transferPairId: string; mode: 'paired' | 'created' }>> {
+  const idParse = z.uuid().safeParse(transactionId)
+  if (!idParse.success) return { success: false, error: 'Invalid transaction id' }
+  const acctParse = z.uuid().safeParse(counterpartAccountId)
+  if (!acctParse.success) return { success: false, error: 'Invalid counterpart account id' }
+
+  try {
+    const src = await db.query.transactions.findFirst({
+      where: and(eq(transactions.id, transactionId), isNull(transactions.deletedAt)),
+    })
+    if (!src) return { success: false, error: 'Transaction not found' }
+    if (!src.accountId) {
+      return { success: false, error: 'Transaction has no account' }
+    }
+    if (src.accountId === counterpartAccountId) {
+      return { success: false, error: 'Counterpart must be a different account' }
+    }
+    if (src.transferPairId) {
+      return { success: false, error: 'Transaction is already part of a transfer' }
+    }
+
+    const counterpartAcc = await db.query.accounts.findFirst({
+      where: eq(accounts.id, counterpartAccountId),
+    })
+    if (!counterpartAcc) return { success: false, error: 'Counterpart account not found' }
+
+    const sourceAcc = await db.query.accounts.findFirst({
+      where: eq(accounts.id, src.accountId),
+    })
+
+    const srcAmount = Number(src.amount)
+    const expectedCounterpart = (-srcAmount).toFixed(2)
+    const windowMs = 5 * 24 * 60 * 60 * 1000
+    const windowStart = new Date(src.occurredAt.getTime() - windowMs)
+    const windowEnd = new Date(src.occurredAt.getTime() + windowMs)
+
+    const match = await db.query.transactions.findFirst({
+      where: and(
+        eq(transactions.accountId, counterpartAccountId),
+        isNull(transactions.transferPairId),
+        isNull(transactions.deletedAt),
+        eq(transactions.amount, expectedCounterpart),
+        gte(transactions.occurredAt, windowStart),
+        lte(transactions.occurredAt, windowEnd),
+      ),
+    })
+
+    const transferPairId = randomUUID()
+    const now = new Date()
+
+    // Clear any stale loan mirror on the source — transfers never belong to a category.
+    const touchedLoanIds = await deleteLoanMirrorFor(db, transactionId)
+
+    await db
+      .update(transactions)
+      .set({
+        transferPairId,
+        needsReview: false,
+        categoryId: null,
+        updatedAt: now,
+      })
+      .where(eq(transactions.id, transactionId))
+
+    let mode: 'paired' | 'created'
+    if (match) {
+      await db
+        .update(transactions)
+        .set({
+          transferPairId,
+          needsReview: false,
+          categoryId: null,
+          updatedAt: now,
+        })
+        .where(eq(transactions.id, match.id))
+      await deleteLoanMirrorFor(db, match.id)
+      mode = 'paired'
+    } else {
+      const counterpartPayee = srcAmount < 0
+        ? `Transfer to ${counterpartAcc.name}`
+        : `Transfer from ${counterpartAcc.name}`
+      // The shadow leg uses the opposite sign so the sum stays at zero.
+      const amountStr = (-srcAmount).toFixed(2)
+      await db.insert(transactions).values({
+        accountId: counterpartAccountId,
+        occurredAt: src.occurredAt,
+        amount: amountStr,
+        payee: counterpartPayee,
+        normalizedPayee: normalizePayee(counterpartPayee),
+        memo: sourceAcc ? `Paired leg of ${sourceAcc.name}` : null,
+        categoryId: null,
+        source: 'manual',
+        transferPairId,
+        needsReview: false,
+      })
+      mode = 'created'
+    }
+
+    await recomputeAccountBalance(db, src.accountId)
+    await recomputeAccountBalance(db, counterpartAccountId)
+    for (const loanId of touchedLoanIds) {
+      await recomputeAccountBalance(db, loanId)
+    }
+
+    return { success: true, data: { transferPairId, mode } }
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error ? error.message : 'Failed to mark as internal transfer'
     return { success: false, error: message }
   }
 }
