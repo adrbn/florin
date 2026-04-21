@@ -10,16 +10,35 @@ import {
 import type {
   ActionResult,
   AddTransactionInput,
+  AddTransferInput,
   ListTransactionsOptions,
   TransactionDirection,
 } from '@florin/core/types'
 
-export type { AddTransactionInput, ActionResult, TransactionDirection, ListTransactionsOptions }
+export type {
+  AddTransactionInput,
+  AddTransferInput,
+  ActionResult,
+  TransactionDirection,
+  ListTransactionsOptions,
+}
 
 export async function addTransaction(
   input: AddTransactionInput,
 ): Promise<ActionResult<{ id: string }>> {
   const result = await mutations.addTransaction(input)
+  if (result.success) {
+    revalidatePath('/transactions')
+    revalidatePath('/accounts')
+    revalidatePath('/')
+  }
+  return result
+}
+
+export async function addTransfer(
+  input: AddTransferInput,
+): Promise<ActionResult<{ transferPairId: string }>> {
+  const result = await mutations.addTransfer(input)
   if (result.success) {
     revalidatePath('/transactions')
     revalidatePath('/accounts')

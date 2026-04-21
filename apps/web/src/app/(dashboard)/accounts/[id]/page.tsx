@@ -34,6 +34,7 @@ import {
   listLoanPaymentsForAccount,
   listTransactionsForAccount,
   addTransaction,
+  addTransfer,
   softDeleteTransaction,
   updateTransactionCategory,
 } from '@/server/actions/transactions'
@@ -127,6 +128,7 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
             defaultAccountId={account.id}
             triggerLabel="+ Add transaction"
             onAddTransaction={addTransaction}
+            onAddTransfer={addTransfer}
           />
           <Link
             href={`/accounts/${account.id}/edit`}

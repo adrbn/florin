@@ -9,10 +9,12 @@ import {
 } from '@florin/core/components/transactions/transactions-table'
 import { Card } from '@florin/core/components/ui/card'
 import { db } from '@/db/client'
+import { getServerT } from '@/lib/locale'
 import { categories, categoryGroups } from '@/db/schema'
 import { listAccounts } from '@/server/actions/accounts'
 import {
   addTransaction,
+  addTransfer,
   bulkSoftDeleteTransactions,
   bulkUpdateTransactionCategory,
   countTransactions,
@@ -72,6 +74,7 @@ interface TransactionsPageProps {
 }
 
 export default async function TransactionsPage({ searchParams }: TransactionsPageProps) {
+  const tr = await getServerT()
   const sp = await searchParams
   const startDate = parseIsoDate(sp.from)
   const endOfDay = parseIsoDate(sp.to)
@@ -153,13 +156,18 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Transactions</h1>
-          <p className="text-muted-foreground">Recent activity across all accounts.</p>
+          <h1 className="text-3xl font-bold tracking-tight">
+            {tr('transactions.title', 'Transactions')}
+          </h1>
+          <p className="text-muted-foreground">
+            {tr('transactions.subtitle', 'Recent activity across all accounts.')}
+          </p>
         </div>
         <AddTransactionModal
           accounts={accountOptions}
           categories={categoryOptions}
           onAddTransaction={addTransaction}
+          onAddTransfer={addTransfer}
         />
       </div>
 

@@ -1,6 +1,7 @@
 import { CategoriesEditor } from '@florin/core/components/categories/categories-editor'
 import { CategorySpendList } from '@florin/core/components/categories/category-spend-list'
 import { queries } from '@/db/client'
+import { getServerT } from '@/lib/locale'
 import {
   createCategory,
   updateCategory,
@@ -11,6 +12,7 @@ import {
 } from '@/server/actions/categories'
 
 export default async function CategoriesPage() {
+  const t = await getServerT()
   const [groups, monthBreakdown] = await Promise.all([
     queries.listCategoriesByGroup(),
     queries.getMonthByCategory(),
@@ -32,10 +34,12 @@ export default async function CategoriesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Categories</h1>
+        <h1 className="text-3xl font-bold tracking-tight">{t('categories.title', 'Categories')}</h1>
         <p className="text-muted-foreground">
-          Organize spending into buckets. Edit names, recolor groups, mark recurring categories as
-          fixed, or delete the ones you don't use.
+          {t(
+            'categories.subtitle',
+            "Organize spending into buckets. Edit names, recolor groups, mark recurring categories as fixed, or delete the ones you don't use.",
+          )}
         </p>
       </div>
 
@@ -54,7 +58,10 @@ export default async function CategoriesPage() {
           />
         </div>
         <div>
-          <CategorySpendList items={monthBreakdown} />
+          <CategorySpendList
+            items={monthBreakdown}
+            title={t('categories.thisMonth', 'This month — by category')}
+          />
         </div>
       </div>
     </div>

@@ -34,7 +34,60 @@ export async function getNetWorth(db: SqliteDB): Promise<NetWorth> {
     }
   }
 
-  return { gross, liability, net: gross - liability }
+  const net = gross - liability
+  const netMonthAgo = await computeNetMonthAgo(db, net)
+  return { gross, liability, net, netMonthAgo }
+}
+
+/**
+ * Walk non-loan, included-in-NW transactions backward from today to the same
+ * day of the previous month. Returns null when the oldest transaction in scope
+ * is newer than the target date (history too short to compare).
+ */
+async function computeNetMonthAgo(db: SqliteDB, currentNet: number): Promise<number | null> {
+  const today = new Date()
+  const target = new Date(
+    Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 1, today.getUTCDate()),
+  )
+  const targetIso = formatDate(target)
+  const todayIso = formatDate(today)
+
+  const [oldestRow] = await db
+    .select({ oldest: sql<string>`MIN(${transactions.occurredAt})` })
+    .from(transactions)
+    .innerJoin(accounts, eq(transactions.accountId, accounts.id))
+    .where(
+      and(
+        isNull(transactions.deletedAt),
+        sql`${transactions.transferPairId} IS NULL`,
+        eq(accounts.isArchived, false),
+        eq(accounts.isIncludedInNetWorth, true),
+        sql`${accounts.kind} <> 'loan'`,
+      ),
+    )
+
+  const oldest = oldestRow?.oldest ?? null
+  if (!oldest || oldest > targetIso) {
+    return null
+  }
+
+  const [sumRow] = await db
+    .select({ total: sql<number>`COALESCE(SUM(${transactions.amount}), 0)` })
+    .from(transactions)
+    .innerJoin(accounts, eq(transactions.accountId, accounts.id))
+    .where(
+      and(
+        isNull(transactions.deletedAt),
+        sql`${transactions.transferPairId} IS NULL`,
+        eq(accounts.isArchived, false),
+        eq(accounts.isIncludedInNetWorth, true),
+        sql`${accounts.kind} <> 'loan'`,
+        sql`${transactions.occurredAt} > ${targetIso}`,
+        lte(transactions.occurredAt, todayIso),
+      ),
+    )
+  const delta = Number(sumRow?.total ?? 0)
+  return currentNet - delta
 }
 
 /**
@@ -358,12 +411,26 @@ export async function getLeftToSpendThisMonth(db: SqliteDB): Promise<LeftToSpend
   }
 
   const monthSpent = await getMonthBurn(db)
+  const leftToSpend = monthIncome - monthSpent
+
+  const today = new Date()
+  const daysElapsed = today.getUTCDate()
+  const daysInMonth = endOfMonth(today).getUTCDate()
+  const daysRemaining = Math.max(0, daysInMonth - daysElapsed)
+  const dailyAvgSpent = daysElapsed > 0 ? monthSpent / daysElapsed : 0
+  const dailyBudgetRemaining =
+    salaryCategoryId && daysRemaining > 0 ? leftToSpend / daysRemaining : null
+
   return {
     salaryCategoryId,
     salaryCategoryName,
     monthIncome,
     monthSpent,
-    leftToSpend: monthIncome - monthSpent,
+    leftToSpend,
+    dailyAvgSpent,
+    dailyBudgetRemaining,
+    daysElapsed,
+    daysRemaining,
   }
 }
 

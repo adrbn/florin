@@ -1,7 +1,12 @@
+import { randomUUID } from 'node:crypto'
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { matchRule, normalizePayee, type Rule } from '@florin/core/lib/categorization'
-import type { ActionResult, AddTransactionInput } from '@florin/core/types'
+import type {
+  ActionResult,
+  AddTransactionInput,
+  AddTransferInput,
+} from '@florin/core/types'
 import type { SqliteDB } from '../client'
 import { accounts, categories, categorizationRules, transactions } from '../schema'
 import {
@@ -84,6 +89,85 @@ export async function addTransactionMutation(
     return { success: true, data: { id: row?.id ?? '' } }
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to add transaction'
+    return { success: false, error: message }
+  }
+}
+
+const addTransferSchema = z
+  .object({
+    fromAccountId: z.uuid(),
+    toAccountId: z.uuid(),
+    amount: z.coerce.number().positive(),
+    occurredAt: z.coerce.date(),
+    memo: z.string().max(500).optional().nullable(),
+  })
+  .refine((v) => v.fromAccountId !== v.toAccountId, {
+    message: 'Source and destination accounts must differ',
+  })
+
+/**
+ * Record an internal transfer between two user-owned accounts. Creates two
+ * paired rows sharing a `transferPairId` so burn/income metrics ignore them
+ * automatically (existing queries already filter by `transferPairId IS NULL`).
+ */
+export async function addTransferMutation(
+  db: SqliteDB,
+  input: AddTransferInput,
+): Promise<ActionResult<{ transferPairId: string }>> {
+  const parsed = addTransferSchema.safeParse(input)
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.issues.map((i) => i.message).join(', '),
+    }
+  }
+  const data = parsed.data
+
+  try {
+    const [fromAcc, toAcc] = await Promise.all([
+      db.query.accounts.findFirst({ where: eq(accounts.id, data.fromAccountId) }),
+      db.query.accounts.findFirst({ where: eq(accounts.id, data.toAccountId) }),
+    ])
+    if (!fromAcc || !toAcc) {
+      return { success: false, error: 'Account not found' }
+    }
+
+    const transferPairId = randomUUID()
+    const dateIso = data.occurredAt.toISOString().slice(0, 10)
+
+    await db.insert(transactions).values([
+      {
+        accountId: data.fromAccountId,
+        occurredAt: dateIso,
+        amount: -Math.abs(data.amount),
+        payee: `Transfer to ${toAcc.name}`,
+        normalizedPayee: normalizePayee(`Transfer to ${toAcc.name}`),
+        memo: data.memo || null,
+        categoryId: null,
+        source: 'manual',
+        transferPairId,
+        needsReview: false,
+      },
+      {
+        accountId: data.toAccountId,
+        occurredAt: dateIso,
+        amount: Math.abs(data.amount),
+        payee: `Transfer from ${fromAcc.name}`,
+        normalizedPayee: normalizePayee(`Transfer from ${fromAcc.name}`),
+        memo: data.memo || null,
+        categoryId: null,
+        source: 'manual',
+        transferPairId,
+        needsReview: false,
+      },
+    ])
+
+    await recomputeAccountBalance(db, data.fromAccountId)
+    await recomputeAccountBalance(db, data.toAccountId)
+
+    return { success: true, data: { transferPairId } }
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to add transfer'
     return { success: false, error: message }
   }
 }

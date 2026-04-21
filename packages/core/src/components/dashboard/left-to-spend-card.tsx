@@ -10,9 +10,18 @@ interface LeftToSpendCardProps {
   monthSpent: number
   /** monthIncome - monthSpent. Negative when overspent. */
   leftToSpend: number
+  /** Average daily spend so far this month. */
+  dailyAvgSpent: number
+  /** leftToSpend / daysRemaining. Null when no salary or month is over. */
+  dailyBudgetRemaining: number | null
+  daysRemaining: number
   /** Hint fragments prebuilt by the caller so translations stay in the page. */
   hintCategory?: string
   hintNoIncome?: string
+  /** e.g. "/day avg" */
+  dailyAvgLabel?: string
+  /** e.g. "/day for {n} days" */
+  dailyRemainingLabel?: (days: number) => string
 }
 
 /**
@@ -25,11 +34,29 @@ export function LeftToSpendCard({
   monthIncome,
   monthSpent,
   leftToSpend,
+  dailyAvgSpent,
+  dailyBudgetRemaining,
+  daysRemaining,
   hintCategory,
   hintNoIncome,
+  dailyAvgLabel = '/day avg',
+  dailyRemainingLabel = (n) => `/day · ${n} days left`,
 }: LeftToSpendCardProps) {
   const hasIncome = monthIncome > 0
   const tone = !hasIncome ? 'default' : leftToSpend < 0 ? 'negative' : 'positive'
+
+  const dailyLine = hasIncome ? (
+    <div className="tabular-nums">
+      {formatCurrency(dailyAvgSpent)} {dailyAvgLabel}
+      {dailyBudgetRemaining !== null && daysRemaining > 0 ? (
+        <>
+          {' · '}
+          {formatCurrency(Math.max(0, dailyBudgetRemaining))}{' '}
+          {dailyRemainingLabel(daysRemaining)}
+        </>
+      ) : null}
+    </div>
+  ) : null
 
   const hint = hasIncome ? (
     <div className="space-y-0.5">
@@ -37,6 +64,7 @@ export function LeftToSpendCard({
       <div className="tabular-nums">
         {formatCurrency(monthIncome)} − {formatCurrency(monthSpent)}
       </div>
+      {dailyLine}
     </div>
   ) : (
     <div>{hintNoIncome ?? 'No salary detected in the last 90 days.'}</div>

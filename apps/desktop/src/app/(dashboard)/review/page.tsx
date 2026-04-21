@@ -3,6 +3,7 @@ import { ApproveAllButton } from '@florin/core/components/review/approve-all-but
 import { ReviewTable } from '@florin/core/components/review/review-table'
 import { Card, CardContent, CardHeader, CardTitle } from '@florin/core/components/ui/card'
 import { db } from '@/db/client'
+import { getServerT } from '@/lib/locale'
 import { categories, categoryGroups } from '@/db/schema'
 import { formatCurrencySigned } from '@florin/core/lib/format'
 import {
@@ -23,6 +24,7 @@ const dateFormatter = new Intl.DateTimeFormat('fr-FR', {
 })
 
 export default async function ReviewPage() {
+  const t = await getServerT()
   const [pending, categoryList] = await Promise.all([
     listTransactions({ needsReviewOnly: true, limit: 500 }),
     db
@@ -41,9 +43,12 @@ export default async function ReviewPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Review</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t('review.title', 'Review')}</h1>
           <p className="text-muted-foreground">
-            New imports waiting for approval. Confirm payee + category before they count.
+            {t(
+              'review.subtitle',
+              'New imports waiting for approval. Confirm payee + category before they count.',
+            )}
           </p>
         </div>
         {pending.length > 0 && (
@@ -57,28 +62,30 @@ export default async function ReviewPage() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm">
-            {pending.length === 0 ? 'Nothing waiting for review' : `${pending.length} pending`}
+            {pending.length === 0
+              ? t('review.nothingWaiting', 'Nothing waiting for review')
+              : t('review.pendingCount', { count: pending.length })}
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {pending.length === 0 ? (
             <p className="px-4 py-8 text-center text-sm text-muted-foreground">
-              All caught up. Bank imports will appear here next time.
+              {t('review.allCaughtUp', 'All caught up. Bank imports will appear here next time.')}
             </p>
           ) : (
             <ReviewTable
-              rows={pending.map((t) => {
-                const amount = Number(t.amount)
+              rows={pending.map((tx) => {
+                const amount = Number(tx.amount)
                 return {
-                  transactionId: t.id,
-                  date: dateFormatter.format(t.occurredAt),
-                  payee: t.payee || '(no payee)',
-                  accountName: t.account?.name ?? '—',
+                  transactionId: tx.id,
+                  date: dateFormatter.format(tx.occurredAt),
+                  payee: tx.payee || t('review.noPayee', '(no payee)'),
+                  accountName: tx.account?.name ?? '—',
                   amount,
                   amountFormatted: formatCurrencySigned(amount),
-                  currentCategoryId: t.category?.id ?? null,
-                  currentCategoryName: t.category?.name ?? null,
-                  currentCategoryEmoji: t.category?.emoji ?? null,
+                  currentCategoryId: tx.category?.id ?? null,
+                  currentCategoryName: tx.category?.name ?? null,
+                  currentCategoryEmoji: tx.category?.emoji ?? null,
                 }
               })}
               categoryOptions={categoryList}

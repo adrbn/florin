@@ -13,7 +13,12 @@ import {
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import { useT } from '../../i18n/context'
-import type { ActionResult, AddTransactionInput } from '../../types/index'
+import { cn } from '../../lib/utils'
+import type {
+  ActionResult,
+  AddTransactionInput,
+  AddTransferInput,
+} from '../../types/index'
 
 interface AccountOption {
   id: string
@@ -34,7 +39,13 @@ interface AddTransactionModalProps {
   /** Optional override for the trigger button label. */
   triggerLabel?: string
   onAddTransaction: (input: AddTransactionInput) => Promise<ActionResult<{ id: string }>>
+  /** Optional — when provided, the modal offers a "transfer" mode. */
+  onAddTransfer?: (
+    input: AddTransferInput,
+  ) => Promise<ActionResult<{ transferPairId: string }>>
 }
+
+type Mode = 'transaction' | 'transfer'
 
 export function AddTransactionModal({
   accounts,
@@ -42,17 +53,49 @@ export function AddTransactionModal({
   defaultAccountId,
   triggerLabel,
   onAddTransaction,
+  onAddTransfer,
 }: AddTransactionModalProps) {
   const t = useT()
   const resolvedTriggerLabel = triggerLabel ?? t('transactions.add', 'Add transaction')
   const [open, setOpen] = useState(false)
+  const [mode, setMode] = useState<Mode>('transaction')
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
   const today = new Date().toISOString().slice(0, 10)
+  const canTransfer = Boolean(onAddTransfer) && accounts.length >= 2
 
   const onSubmit = (formData: FormData) => {
     setError(null)
+    if (mode === 'transfer' && onAddTransfer) {
+      const fromAccountId = String(formData.get('fromAccountId') ?? '')
+      const toAccountId = String(formData.get('toAccountId') ?? '')
+      if (fromAccountId === toAccountId) {
+        setError(t('txAdd.transferSameAccount', 'Source and destination must differ.'))
+        return
+      }
+      const input: AddTransferInput = {
+        fromAccountId,
+        toAccountId,
+        amount: Math.abs(Number(formData.get('amount') ?? 0)),
+        occurredAt: new Date(String(formData.get('occurredAt') ?? today)),
+        memo: String(formData.get('memo') ?? '') || null,
+      }
+      startTransition(async () => {
+        const result = await onAddTransfer(input)
+        if (!result.success) {
+          setError(result.error ?? t('txAdd.unknownError', 'Unknown error'))
+          return
+        }
+        setOpen(false)
+        const form = document.getElementById(
+          'add-transaction-form',
+        ) as HTMLFormElement | null
+        form?.reset()
+      })
+      return
+    }
+
     const input: AddTransactionInput = {
       accountId: String(formData.get('accountId') ?? ''),
       occurredAt: new Date(String(formData.get('occurredAt') ?? today)),
@@ -74,6 +117,9 @@ export function AddTransactionModal({
     })
   }
 
+  const selectClass =
+    'flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
@@ -85,29 +131,122 @@ export function AddTransactionModal({
       />
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{t('txAdd.title', 'New transaction')}</DialogTitle>
+          <DialogTitle>
+            {mode === 'transfer'
+              ? t('txAdd.transferTitle', 'New transfer')
+              : t('txAdd.title', 'New transaction')}
+          </DialogTitle>
           <DialogDescription>
-            {t('txAdd.description', 'Negative amount = expense, positive = income.')}
+            {mode === 'transfer'
+              ? t(
+                  'txAdd.transferDescription',
+                  'Move money between your own accounts. Excluded from income and burn.',
+                )
+              : t('txAdd.description', 'Negative amount = expense, positive = income.')}
           </DialogDescription>
         </DialogHeader>
 
-        <form id="add-transaction-form" action={onSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="accountId">{t('txAdd.account', 'Account')}</Label>
-            <select
-              id="accountId"
-              name="accountId"
-              required
-              defaultValue={defaultAccountId ?? accounts[0]?.id ?? ''}
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        {canTransfer ? (
+          <div
+            role="tablist"
+            className="inline-flex rounded-md border border-input p-0.5 text-xs self-start"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === 'transaction'}
+              onClick={() => {
+                setMode('transaction')
+                setError(null)
+              }}
+              className={cn(
+                'rounded-sm px-3 py-1.5 transition-colors',
+                mode === 'transaction'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
             >
-              {accounts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                </option>
-              ))}
-            </select>
+              {t('txAdd.modeTransaction', 'Transaction')}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === 'transfer'}
+              onClick={() => {
+                setMode('transfer')
+                setError(null)
+              }}
+              className={cn(
+                'rounded-sm px-3 py-1.5 transition-colors',
+                mode === 'transfer'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {t('txAdd.modeTransfer', 'Transfer')}
+            </button>
           </div>
+        ) : null}
+
+        <form id="add-transaction-form" action={onSubmit} className="space-y-4">
+          {mode === 'transfer' ? (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="fromAccountId">{t('txAdd.fromAccount', 'From')}</Label>
+                  <select
+                    id="fromAccountId"
+                    name="fromAccountId"
+                    required
+                    defaultValue={defaultAccountId ?? accounts[0]?.id ?? ''}
+                    className={selectClass}
+                  >
+                    {accounts.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="toAccountId">{t('txAdd.toAccount', 'To')}</Label>
+                  <select
+                    id="toAccountId"
+                    name="toAccountId"
+                    required
+                    defaultValue={
+                      accounts.find((a) => a.id !== (defaultAccountId ?? accounts[0]?.id))?.id ??
+                      ''
+                    }
+                    className={selectClass}
+                  >
+                    {accounts.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="accountId">{t('txAdd.account', 'Account')}</Label>
+              <select
+                id="accountId"
+                name="accountId"
+                required
+                defaultValue={defaultAccountId ?? accounts[0]?.id ?? ''}
+                className={selectClass}
+              >
+                {accounts.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -115,40 +254,51 @@ export function AddTransactionModal({
               <Input id="occurredAt" name="occurredAt" type="date" defaultValue={today} required />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="amount">{t('txAdd.amount', 'Amount (EUR)')}</Label>
+              <Label htmlFor="amount">
+                {mode === 'transfer'
+                  ? t('txAdd.transferAmount', 'Amount (EUR)')
+                  : t('txAdd.amount', 'Amount (EUR)')}
+              </Label>
               <Input
                 id="amount"
                 name="amount"
                 type="number"
                 step="0.01"
-                placeholder={t('txAdd.amountPlaceholder', '-12.34')}
+                min={mode === 'transfer' ? '0.01' : undefined}
+                placeholder={
+                  mode === 'transfer' ? '100.00' : t('txAdd.amountPlaceholder', '-12.34')
+                }
                 required
               />
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="payee">{t('txAdd.payee', 'Payee')}</Label>
-            <Input id="payee" name="payee" required maxLength={200} />
-          </div>
+          {mode === 'transaction' ? (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="payee">{t('txAdd.payee', 'Payee')}</Label>
+                <Input id="payee" name="payee" required maxLength={200} />
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="categoryId">{t('txAdd.category', 'Category')}</Label>
-            <select
-              id="categoryId"
-              name="categoryId"
-              defaultValue=""
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            >
-              <option value="">{t('txAdd.categoryAuto', '— Auto —')}</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.emoji ? `${c.emoji} ` : ''}
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
+              <div className="space-y-2">
+                <Label htmlFor="categoryId">{t('txAdd.category', 'Category')}</Label>
+                <select
+                  id="categoryId"
+                  name="categoryId"
+                  defaultValue=""
+                  className={selectClass}
+                >
+                  <option value="">{t('txAdd.categoryAuto', '— Auto —')}</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.emoji ? `${c.emoji} ` : ''}
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </>
+          ) : null}
 
           <div className="space-y-2">
             <Label htmlFor="memo">{t('txAdd.memo', 'Memo (optional)')}</Label>
@@ -158,7 +308,11 @@ export function AddTransactionModal({
           {error && <p className="text-sm text-destructive">{error}</p>}
 
           <Button type="submit" disabled={pending} className="w-full">
-            {pending ? t('txAdd.submitting', 'Saving…') : t('txAdd.submit', 'Save transaction')}
+            {pending
+              ? t('txAdd.submitting', 'Saving…')
+              : mode === 'transfer'
+                ? t('txAdd.submitTransfer', 'Save transfer')
+                : t('txAdd.submit', 'Save transaction')}
           </Button>
         </form>
       </DialogContent>
