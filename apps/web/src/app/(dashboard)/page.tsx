@@ -53,9 +53,11 @@ async function NetWorthCardServer() {
       gross={nw.gross}
       liability={nw.liability}
       net={nw.net}
+      netMonthAgo={nw.netMonthAgo}
       title={t('kpi.netWorth', 'Net worth')}
       grossLabel={t('kpi.grossPrefix', 'Gross')}
       debtLabel={t('kpi.debtPrefix', '− Debt')}
+      vsLastMonthLabel={t('kpi.vsLastMonth', 'vs last month')}
     />
   )
 }
@@ -107,6 +109,9 @@ async function LeftToSpendCardServer() {
       monthIncome={lts.monthIncome}
       monthSpent={lts.monthSpent}
       leftToSpend={lts.leftToSpend}
+      dailyAvgSpent={lts.dailyAvgSpent}
+      dailyBudgetRemaining={lts.dailyBudgetRemaining}
+      daysRemaining={lts.daysRemaining}
       hintCategory={
         lts.salaryCategoryName
           ? t(
@@ -117,6 +122,10 @@ async function LeftToSpendCardServer() {
           : undefined
       }
       hintNoIncome={t('kpi.leftToSpendNoIncome', 'No salary detected in the last 90 days.')}
+      dailyAvgLabel={t('kpi.dailyAvg', '/day avg')}
+      dailyRemainingLabel={(days) =>
+        t('kpi.dailyRemaining', { days }, '/day · {days} days left')
+      }
     />
   )
 }

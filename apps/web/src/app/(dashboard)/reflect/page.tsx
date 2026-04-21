@@ -129,6 +129,9 @@ export default async function ReflectPage() {
           monthIncome={leftToSpend.monthIncome}
           monthSpent={leftToSpend.monthSpent}
           leftToSpend={leftToSpend.leftToSpend}
+          dailyAvgSpent={leftToSpend.dailyAvgSpent}
+          dailyBudgetRemaining={leftToSpend.dailyBudgetRemaining}
+          daysRemaining={leftToSpend.daysRemaining}
           hintCategory={
             leftToSpend.salaryCategoryName
               ? t(
@@ -139,6 +142,10 @@ export default async function ReflectPage() {
               : undefined
           }
           hintNoIncome={t('kpi.leftToSpendNoIncome', 'No salary detected in the last 90 days.')}
+          dailyAvgLabel={t('kpi.dailyAvg', '/day avg')}
+          dailyRemainingLabel={(days) =>
+            t('kpi.dailyRemaining', { days }, '/day · {days} days left')
+          }
         />
         <SavingsRateRolling
           rates={savingsRates}

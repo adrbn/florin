@@ -70,8 +70,8 @@ export function BankConnectionList({
   const t = useT()
   if (rows.length === 0) return null
 
-  const linkedBanks = labels?.linkedBanks ?? 'Linked banks'
-  const lastSyncedPrefix = labels?.lastSyncedPrefix ?? 'Last synced'
+  const linkedBanks = labels?.linkedBanks ?? t('accounts.linkedBanks', 'Linked banks')
+  const lastSyncedPrefix = labels?.lastSyncedPrefix ?? t('bankSync.lastSyncedPrefix', 'Last synced')
 
   return (
     <section className="space-y-1.5">
@@ -100,7 +100,9 @@ export function BankConnectionList({
                       className={`inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${tone}`}
                       title={`Consent valid until ${row.validUntil.toLocaleDateString()}`}
                     >
-                      {row.status === 'active' ? `${daysLeft}d left` : row.status.toUpperCase()}
+                      {row.status === 'active'
+                        ? t('bankSync.daysLeft', { n: daysLeft }, '{n}d left')
+                        : row.status.toUpperCase()}
                     </span>
                   </div>
                   <p className="truncate text-[11px] text-muted-foreground" title={row.lastSyncError ?? undefined}>

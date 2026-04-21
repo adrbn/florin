@@ -1,6 +1,7 @@
 import { count, eq, isNull } from 'drizzle-orm'
 import { Card, CardContent, CardHeader, CardTitle } from '@florin/core/components/ui/card'
 import { db } from '@/db/client'
+import { getServerT } from '@/lib/locale'
 import { accounts, categories, settings, transactions } from '@/db/schema'
 import { isPinEnabled } from '@/server/actions/pin'
 import { PinSettings } from '@/components/pin-settings'
@@ -19,6 +20,7 @@ interface Stat {
  * maintaining the local SQLite database.
  */
 export default async function SettingsPage() {
+  const t = await getServerT()
   const [
     accountCountRow,
     transactionCountRow,
@@ -43,37 +45,55 @@ export default async function SettingsPage() {
   const currentCurrency = currencyRow?.value ?? 'EUR'
 
   const stats: Stat[] = [
-    { label: 'Accounts (active)', value: String(accountCountRow[0]?.value ?? 0) },
-    { label: 'Transactions (alive)', value: String(transactionCountRow[0]?.value ?? 0) },
-    { label: 'Categories', value: String(categoryCountRow[0]?.value ?? 0) },
+    {
+      label: t('settings.storageAccountsActive', 'Accounts (active)'),
+      value: String(accountCountRow[0]?.value ?? 0),
+    },
+    {
+      label: t('settings.storageTransactionsAlive', 'Transactions (alive)'),
+      value: String(transactionCountRow[0]?.value ?? 0),
+    },
+    {
+      label: t('settings.storageCategories', 'Categories'),
+      value: String(categoryCountRow[0]?.value ?? 0),
+    },
   ]
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+        <h1 className="text-3xl font-bold tracking-tight">{t('settings.title', 'Settings')}</h1>
         <p className="text-muted-foreground">
-          Operational diagnostics and exports for your Florin instance.
+          {t(
+            'settings.subtitle',
+            'Operational diagnostics and exports for your Florin instance.',
+          )}
         </p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Profile</CardTitle>
+            <CardTitle className="text-base">{t('settings.profile', 'Profile')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
-            <Row label="Mode" value="Desktop (SQLite)" />
+            <Row
+              label={t('settings.mode', 'Mode')}
+              value={t('settings.modeDesktopValue', 'Desktop (SQLite)')}
+            />
             <LocaleSettings currentLocale={currentLocale} currentCurrency={currentCurrency} />
             <p className="pt-1 text-[11px] text-muted-foreground">
-              Florin Desktop stores all data locally in a SQLite database. No server, no cloud.
+              {t(
+                'settings.modeDesktopHint',
+                'Florin Desktop stores all data locally in a SQLite database. No server, no cloud.',
+              )}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Bank Sync</CardTitle>
+            <CardTitle className="text-base">{t('settings.bankSync', 'Bank Sync')}</CardTitle>
           </CardHeader>
           <CardContent>
             <BankingSettings configured={bankingConfigured} currentAppId={bankingAppId} />
@@ -82,19 +102,21 @@ export default async function SettingsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Data</CardTitle>
+            <CardTitle className="text-base">{t('settings.data', 'Data')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <p className="text-muted-foreground">
-              Download every table as a single JSON file. The export is safe to share — no secrets
-              are included.
+              {t(
+                'settings.dataHint',
+                'Download every table as a single JSON file. The export is safe to share — no secrets are included.',
+              )}
             </p>
             <a
               href="/api/export/json"
               download
               className="inline-flex h-8 items-center rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
             >
-              Export all data (JSON)
+              {t('settings.exportAll', 'Export all data (JSON)')}
             </a>
             <div className="border-t border-border/40 pt-3">
               <ImportData />
@@ -104,7 +126,7 @@ export default async function SettingsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">PIN Lock</CardTitle>
+            <CardTitle className="text-base">{t('settings.pinLock', 'PIN Lock')}</CardTitle>
           </CardHeader>
           <CardContent>
             <PinSettings pinEnabled={pinEnabled} />
@@ -113,7 +135,7 @@ export default async function SettingsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Storage</CardTitle>
+            <CardTitle className="text-base">{t('settings.storage', 'Storage')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             {stats.map((s) => (
@@ -124,19 +146,26 @@ export default async function SettingsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">About</CardTitle>
+            <CardTitle className="text-base">{t('settings.about', 'About')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
             <p>
-              <strong className="text-foreground">Database:</strong> SQLite with WAL mode. Your data
-              lives in{' '}
+              <strong className="text-foreground">
+                {t('settings.aboutDatabaseLabel', 'Database:')}
+              </strong>{' '}
+              {t('settings.aboutDatabaseDesc', 'SQLite with WAL mode. Your data lives in')}{' '}
               <code className="tabular-nums">
                 {process.env.FLORIN_DB_PATH || '~/Library/Application Support/Florin/florin.db'}
               </code>
             </p>
             <p>
-              <strong className="text-foreground">Privacy:</strong> there is no telemetry, no
-              analytics, no third-party scripts. Everything runs on your machine.
+              <strong className="text-foreground">
+                {t('settings.aboutPrivacyLabel', 'Privacy:')}
+              </strong>{' '}
+              {t(
+                'settings.aboutPrivacyDesc',
+                'there is no telemetry, no analytics, no third-party scripts. Everything runs on your machine.',
+              )}
             </p>
           </CardContent>
         </Card>
