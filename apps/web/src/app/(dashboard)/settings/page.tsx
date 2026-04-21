@@ -1,5 +1,6 @@
 import { count, eq, isNull } from 'drizzle-orm'
 import { ExportButton } from '@florin/core/components/settings/export-button'
+import { SyncLogCard } from '@florin/core/components/settings/sync-log-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@florin/core/components/ui/card'
 import { db } from '@/db/client'
 import { accounts, bankConnections, categories, transactions } from '@/db/schema'
@@ -7,6 +8,7 @@ import { getServerT } from '@/lib/locale'
 import { exportAllData } from '@/server/actions/export'
 import { auth } from '@/server/auth'
 import { isEnableBankingConfigured } from '@/server/banking/enable-banking'
+import { listSyncLogRuns } from '@/server/banking/sync-log'
 import { env } from '@/server/env'
 
 interface Stat {
@@ -35,6 +37,7 @@ export default async function SettingsPage() {
     categoryCountRow,
     activeBankRow,
     activeTransactionRow,
+    syncLogRuns,
   ] = await Promise.all([
     db.select({ value: count() }).from(accounts).where(eq(accounts.isArchived, false)),
     db.select({ value: count() }).from(transactions).where(isNull(transactions.deletedAt)),
@@ -44,6 +47,7 @@ export default async function SettingsPage() {
       .select({ value: count() })
       .from(transactions)
       .where(eq(transactions.source, 'enable_banking')),
+    listSyncLogRuns(),
   ])
 
   const stats: Stat[] = [
@@ -159,6 +163,10 @@ export default async function SettingsPage() {
             ))}
           </CardContent>
         </Card>
+
+        <div className="lg:col-span-2">
+          <SyncLogCard runs={syncLogRuns} />
+        </div>
 
         <Card className="lg:col-span-2">
           <CardHeader>

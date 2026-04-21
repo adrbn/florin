@@ -33,11 +33,40 @@ import { db } from '@/db/client'
 import {
   accounts,
   bankConnections,
+  bankSyncAccountResults,
+  bankSyncRuns,
   categorizationRules,
   type NewTransaction,
   transactions,
 } from '@/db/schema'
 import { getEnableBankingConfig } from './config'
+
+export type SyncTrigger = 'manual' | 'scheduler' | 'initial'
+
+/** Per-account result accumulator used while a run is in progress. */
+interface AccountLog {
+  accountUid: string
+  accountId: string | null
+  balanceFetched: boolean
+  balanceError: string | null
+  detailsError: string | null
+  txFetched: number
+  txInserted: number
+  txError: string | null
+}
+
+function newAccountLog(uid: string): AccountLog {
+  return {
+    accountUid: uid,
+    accountId: null,
+    balanceFetched: false,
+    balanceError: null,
+    detailsError: null,
+    txFetched: 0,
+    txInserted: 0,
+    txError: null,
+  }
+}
 
 /** Build a short error string tagged with which operation failed. */
 function shortError(op: string, error: unknown): string {
@@ -172,7 +201,7 @@ async function syncAccountTransactions(
   isFirstSync: boolean,
   rules: ReadonlyArray<Rule>,
   syncStartDate: string,
-): Promise<number> {
+): Promise<{ fetched: number; inserted: number }> {
   const lookbackDays = isFirstSync ? TX_LOOKBACK_DAYS_INITIAL : TX_LOOKBACK_DAYS
   const dateTo = new Date()
   const psd2Floor = new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000)
@@ -193,9 +222,10 @@ async function syncAccountTransactions(
     : new Date(syncStartMs)
 
   const dateFrom = accountWatermark > psd2Floor ? accountWatermark : psd2Floor
-  if (dateFrom > dateTo) return 0
+  if (dateFrom > dateTo) return { fetched: 0, inserted: 0 }
 
   let inserted = 0
+  let fetched = 0
   let continuationKey: string | undefined
 
   do {
@@ -204,6 +234,8 @@ async function syncAccountTransactions(
       dateTo: isoDate(dateTo),
       continuationKey,
     })
+
+    fetched += page.transactions.length
 
     const rows: NewTransaction[] = page.transactions
       .filter((t) => Boolean(t.transaction_id ?? t.entry_reference))
@@ -243,7 +275,7 @@ async function syncAccountTransactions(
     continuationKey = page.continuation_key
   } while (continuationKey)
 
-  return inserted
+  return { fetched, inserted }
 }
 
 /** Pick the most accurate balance. Returns the chosen entry + type label. */
@@ -315,10 +347,71 @@ async function loadActiveRules(): Promise<ReadonlyArray<Rule>> {
 }
 
 /**
+ * Truncate an error summary so it fits cleanly in the UI without dominating
+ * the list view. Full per-account errors still live in bank_sync_account_results.
+ */
+function buildErrorSummary(
+  errors: ReadonlyArray<{ accountUid: string; message: string }>,
+): string | null {
+  if (errors.length === 0) return null
+  const joined = errors.map((e) => `${e.accountUid}: ${e.message}`).join('; ')
+  return joined.length > 400 ? `${joined.slice(0, 397)}…` : joined
+}
+
+/** Finalize a sync_runs row with counts + status, then write account_results. */
+async function finalizeSyncRun(
+  runId: string,
+  startedAtMs: number,
+  status: 'ok' | 'partial' | 'error',
+  accountsTotal: number,
+  accountsOk: number,
+  totalInserted: number,
+  errors: ReadonlyArray<{ accountUid: string; message: string }>,
+  accountLogs: ReadonlyArray<AccountLog>,
+) {
+  await db
+    .update(bankSyncRuns)
+    .set({
+      finishedAt: new Date().toISOString(),
+      status,
+      accountsTotal,
+      accountsOk,
+      txInserted: totalInserted,
+      errorSummary: buildErrorSummary(errors),
+      durationMs: Date.now() - startedAtMs,
+    })
+    .where(eq(bankSyncRuns.id, runId))
+
+  if (accountLogs.length > 0) {
+    await db.insert(bankSyncAccountResults).values(
+      accountLogs.map((a) => ({
+        runId,
+        accountUid: a.accountUid,
+        accountId: a.accountId,
+        balanceFetched: a.balanceFetched,
+        balanceError: a.balanceError,
+        detailsError: a.detailsError,
+        txFetched: a.txFetched,
+        txInserted: a.txInserted,
+        txError: a.txError,
+      })),
+    )
+  }
+}
+
+/**
  * Sync one bank connection end-to-end. Idempotent — safe to call repeatedly.
  * Returns counts and per-account errors instead of throwing on partial failure.
+ *
+ * Every invocation writes one bank_sync_runs row (status=running → ok/partial/error)
+ * plus one bank_sync_account_results row per remote account UID, so the
+ * /settings sync-log UI can show users exactly why their data looks the way
+ * it does.
  */
-export async function syncConnection(connectionId: string): Promise<SyncResult> {
+export async function syncConnection(
+  connectionId: string,
+  trigger: SyncTrigger = 'manual',
+): Promise<SyncResult> {
   const startedAt = Date.now()
   const ebConfig = await getEnableBankingConfig()
   if (!ebConfig) {
@@ -332,6 +425,21 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
     .get()
   if (!connection) {
     throw new Error(`Bank connection ${connectionId} not found`)
+  }
+
+  // Open a run row up-front so concurrent callers (tray "Sync now" during a
+  // scheduled sync) can see that something is in flight.
+  const [runRow] = await db
+    .insert(bankSyncRuns)
+    .values({
+      connectionId,
+      trigger,
+      status: 'running',
+    })
+    .returning({ id: bankSyncRuns.id })
+  const runId = runRow?.id
+  if (!runId) {
+    throw new Error('Failed to create sync run row')
   }
 
   let session: Awaited<ReturnType<typeof getSession>>
@@ -348,11 +456,13 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
       .update(bankConnections)
       .set({ status: 'expired', lastSyncError: reason, updatedAt: new Date().toISOString() })
       .where(eq(bankConnections.id, connectionId))
+    const errors = [{ accountUid: '*', message: reason }]
+    await finalizeSyncRun(runId, startedAt, 'error', 0, 0, 0, errors, [])
     return {
       connectionId,
       accountsSynced: 0,
       transactionsInserted: 0,
-      errors: [{ accountUid: '*', message: reason }],
+      errors,
       durationMs: Date.now() - startedAt,
     }
   }
@@ -366,27 +476,35 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
         updatedAt: new Date().toISOString(),
       })
       .where(eq(bankConnections.id, connectionId))
+    const errors = [{ accountUid: '*', message: `Session ${session.status}` }]
+    await finalizeSyncRun(runId, startedAt, 'error', 0, 0, 0, errors, [])
     return {
       connectionId,
       accountsSynced: 0,
       transactionsInserted: 0,
-      errors: [{ accountUid: '*', message: `Session ${session.status}` }],
+      errors,
       durationMs: Date.now() - startedAt,
     }
   }
 
   const rules = await loadActiveRules()
   const errors: { accountUid: string; message: string }[] = []
+  const accountLogs: AccountLog[] = []
   let totalInserted = 0
   let accountsSynced = 0
 
   for (const uid of session.accounts) {
+    const log = newAccountLog(uid)
+    accountLogs.push(log)
+
     // Fetch account details — if this fails the UID is unusable, skip it.
     let details: AccountDetails
     try {
       details = await getAccountDetails(ebConfig, uid)
     } catch (error: unknown) {
-      errors.push({ accountUid: uid, message: shortError('details', error) })
+      const msg = shortError('details', error)
+      errors.push({ accountUid: uid, message: msg })
+      log.detailsError = msg
       continue
     }
 
@@ -396,16 +514,18 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
       details,
       connection.aspspName,
     )
+    log.accountId = florinAccountId
 
     // Balance and transactions sync independently — a 422 on transactions
     // (common for certain account types) must not prevent the balance from
     // updating. Each operation records its own error.
-    let balanceOk = false
     try {
       await syncAccountBalance(ebConfig, florinAccountId, uid)
-      balanceOk = true
+      log.balanceFetched = true
     } catch (error: unknown) {
-      errors.push({ accountUid: uid, message: shortError('balance', error) })
+      const msg = shortError('balance', error)
+      errors.push({ accountUid: uid, message: msg })
+      log.balanceError = msg
     }
 
     try {
@@ -424,7 +544,7 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
         .get()
 
       const isFirstSync = !priorTx
-      const inserted = await syncAccountTransactions(
+      const { fetched, inserted } = await syncAccountTransactions(
         ebConfig,
         florinAccountId,
         uid,
@@ -433,12 +553,16 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
         connection.syncStartDate,
       )
       totalInserted += inserted
+      log.txFetched = fetched
+      log.txInserted = inserted
     } catch (error: unknown) {
-      errors.push({ accountUid: uid, message: shortError('transactions', error) })
+      const msg = shortError('transactions', error)
+      errors.push({ accountUid: uid, message: msg })
+      log.txError = msg
     }
 
     // Count as synced if at least the balance updated
-    if (balanceOk) {
+    if (log.balanceFetched) {
       accountsSynced += 1
     }
   }
@@ -451,6 +575,24 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
       updatedAt: new Date().toISOString(),
     })
     .where(eq(bankConnections.id, connectionId))
+
+  const accountsTotal = session.accounts.length
+  const status: 'ok' | 'partial' | 'error' =
+    errors.length === 0
+      ? 'ok'
+      : accountsSynced === 0
+        ? 'error'
+        : 'partial'
+  await finalizeSyncRun(
+    runId,
+    startedAt,
+    status,
+    accountsTotal,
+    accountsSynced,
+    totalInserted,
+    errors,
+    accountLogs,
+  )
 
   return {
     connectionId,

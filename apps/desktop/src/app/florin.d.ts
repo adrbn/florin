@@ -19,6 +19,7 @@ declare global {
       dataChanged: () => void
       resizeWindow: (height: number) => void
       onRefresh: (cb: () => void) => void
+      onDataChanged: (cb: (reason: string) => void) => () => void
       // Auto-updater
       onUpdateDownloaded: (cb: (version: string) => void) => void
       installUpdate: () => void

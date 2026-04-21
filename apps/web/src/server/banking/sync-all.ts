@@ -10,7 +10,7 @@
 import { eq } from 'drizzle-orm'
 import { db } from '@/db/client'
 import { bankConnections } from '@/db/schema'
-import { type SyncResult, syncConnection } from './sync'
+import { type SyncResult, type SyncTrigger, syncConnection } from './sync'
 
 export interface SyncAllResult {
   connectionsSynced: number
@@ -20,7 +20,9 @@ export interface SyncAllResult {
   durationMs: number
 }
 
-export async function syncAllConnections(): Promise<SyncAllResult> {
+export async function syncAllConnections(
+  trigger: SyncTrigger = 'manual',
+): Promise<SyncAllResult> {
   const startedAt = Date.now()
   const active = await db
     .select({ id: bankConnections.id, aspspName: bankConnections.aspspName })
@@ -33,7 +35,7 @@ export async function syncAllConnections(): Promise<SyncAllResult> {
 
   for (const conn of active) {
     try {
-      const result: SyncResult = await syncConnection(conn.id)
+      const result: SyncResult = await syncConnection(conn.id, trigger)
       accountsSynced += result.accountsSynced
       transactionsInserted += result.transactionsInserted
       if (result.errors.length > 0) {

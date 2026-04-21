@@ -163,6 +163,36 @@ export function ensureSchema(db: SqliteDB) {
       key TEXT PRIMARY KEY NOT NULL,
       value TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS bank_sync_runs (
+      id TEXT PRIMARY KEY NOT NULL,
+      connection_id TEXT NOT NULL REFERENCES bank_connections(id) ON DELETE CASCADE,
+      trigger TEXT NOT NULL DEFAULT 'manual',
+      started_at TEXT NOT NULL DEFAULT (datetime('now')),
+      finished_at TEXT,
+      status TEXT NOT NULL DEFAULT 'running',
+      accounts_total INTEGER NOT NULL DEFAULT 0,
+      accounts_ok INTEGER NOT NULL DEFAULT 0,
+      tx_inserted INTEGER NOT NULL DEFAULT 0,
+      error_summary TEXT,
+      duration_ms INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS bank_sync_runs_connection_idx ON bank_sync_runs(connection_id, started_at);
+    CREATE INDEX IF NOT EXISTS bank_sync_runs_started_idx ON bank_sync_runs(started_at);
+
+    CREATE TABLE IF NOT EXISTS bank_sync_account_results (
+      id TEXT PRIMARY KEY NOT NULL,
+      run_id TEXT NOT NULL REFERENCES bank_sync_runs(id) ON DELETE CASCADE,
+      account_uid TEXT NOT NULL,
+      account_id TEXT REFERENCES accounts(id) ON DELETE SET NULL,
+      balance_fetched INTEGER NOT NULL DEFAULT 0,
+      balance_error TEXT,
+      details_error TEXT,
+      tx_fetched INTEGER NOT NULL DEFAULT 0,
+      tx_inserted INTEGER NOT NULL DEFAULT 0,
+      tx_error TEXT
+    );
+    CREATE INDEX IF NOT EXISTS bank_sync_account_results_run_idx ON bank_sync_account_results(run_id);
   `)
 
   addMissingColumns(sqlite)

@@ -62,10 +62,13 @@ export function createWindow(port: number) {
     event.preventDefault()
   })
 
-  // When the window regains focus (e.g. after completing a bank auth flow in
-  // the system browser), reload to pick up any new accounts / transactions.
+  // When the window regains focus (e.g. coming back from the system browser
+  // after completing bank auth, or switching spaces), nudge the renderer to
+  // re-fetch server data. This is a cheap router.refresh() on the client —
+  // NOT a full webContents.reload() — so client state (scroll, dropdowns,
+  // in-progress forms) is preserved.
   mainWindow.on('focus', () => {
-    mainWindow?.webContents.reload()
+    broadcastDataChanged('focus')
   })
 
   mainWindow.on('close', (event) => {
@@ -106,4 +109,15 @@ export function showMainWindow() {
     mainWindow.show()
     mainWindow.focus()
   }
+}
+
+/**
+ * Notify the main-window renderer that server-side data has changed so it can
+ * re-fetch via `router.refresh()`. This avoids blowing away client state with
+ * a full `webContents.reload()` — scroll positions, open dropdowns, and
+ * pending gesture interactions all survive.
+ */
+export function broadcastDataChanged(reason: string) {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  mainWindow.webContents.send('florin:data-changed', reason)
 }
