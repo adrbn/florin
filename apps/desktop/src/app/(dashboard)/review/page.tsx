@@ -2,13 +2,14 @@ import { asc, eq } from 'drizzle-orm'
 import { ApproveAllButton } from '@florin/core/components/review/approve-all-button'
 import { ReviewTable } from '@florin/core/components/review/review-table'
 import { Card, CardContent, CardHeader, CardTitle } from '@florin/core/components/ui/card'
-import { db } from '@/db/client'
+import { db, queries } from '@/db/client'
 import { getServerT } from '@/lib/locale'
 import { categories, categoryGroups } from '@/db/schema'
 import { formatCurrencySigned } from '@florin/core/lib/format'
 import {
   approveAllTransactions,
   approveTransaction,
+  linkAsInternalTransfer,
   softDeleteTransaction,
   updateTransactionCategory,
   bulkApproveTransactions,
@@ -25,7 +26,7 @@ const dateFormatter = new Intl.DateTimeFormat('fr-FR', {
 
 export default async function ReviewPage() {
   const t = await getServerT()
-  const [pending, categoryList] = await Promise.all([
+  const [pending, categoryList, accountList] = await Promise.all([
     listTransactions({ needsReviewOnly: true, limit: 500 }),
     db
       .select({
@@ -37,7 +38,9 @@ export default async function ReviewPage() {
       .from(categories)
       .innerJoin(categoryGroups, eq(categories.groupId, categoryGroups.id))
       .orderBy(asc(categoryGroups.name), asc(categories.name)),
+    queries.listAccounts(),
   ])
+  const accountOptions = accountList.map((a) => ({ id: a.id, name: a.name }))
 
   return (
     <div className="space-y-6">
@@ -59,7 +62,7 @@ export default async function ReviewPage() {
         )}
       </div>
 
-      <Card>
+      <Card className="overflow-visible">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm">
             {pending.length === 0
@@ -80,6 +83,7 @@ export default async function ReviewPage() {
                   transactionId: tx.id,
                   date: dateFormatter.format(tx.occurredAt),
                   payee: tx.payee || t('review.noPayee', '(no payee)'),
+                  accountId: tx.account?.id ?? null,
                   accountName: tx.account?.name ?? '—',
                   amount,
                   amountFormatted: formatCurrencySigned(amount),
@@ -89,6 +93,7 @@ export default async function ReviewPage() {
                 }
               })}
               categoryOptions={categoryList}
+              accountOptions={accountOptions}
               actions={{
                 onApproveTransaction: approveTransaction,
                 onSoftDeleteTransaction: softDeleteTransaction,
@@ -96,6 +101,7 @@ export default async function ReviewPage() {
                 onBulkApproveTransactions: bulkApproveTransactions,
                 onBulkSoftDeleteTransactions: bulkSoftDeleteTransactions,
                 onBulkUpdateTransactionCategory: bulkUpdateTransactionCategory,
+                onLinkAsInternalTransfer: linkAsInternalTransfer,
               }}
             />
           )}

@@ -372,6 +372,11 @@
   "review.categorizeAs": "Catégoriser comme…",
   "review.bulkDeleteConfirm": "Supprimer {count} transaction(s) ? Impossible d'annuler depuis l'interface.",
   "review.noPayee": "(sans bénéficiaire)",
+  "review.markAsTransfer": "Marquer comme virement interne",
+  "review.transferCounterpartLabel": "Compte de contrepartie",
+  "review.transferNoAccounts": "Aucun autre compte disponible.",
+  "review.transferHint": "Appariée automatiquement avec une transaction correspondante, ou crée la contrepartie si absente.",
+  "review.transferFailed": "Impossible de marquer comme virement",
 
   "tools.title": "Outils",
   "tools.subtitle": "Calculatrices — elles ne lisent pas vos comptes.",

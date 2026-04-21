@@ -372,6 +372,11 @@
   "review.categorizeAs": "Categorize as…",
   "review.bulkDeleteConfirm": "Delete {count} transaction(s)? This can't be undone from the UI.",
   "review.noPayee": "(no payee)",
+  "review.markAsTransfer": "Mark as internal transfer",
+  "review.transferCounterpartLabel": "Counterpart account",
+  "review.transferNoAccounts": "No other accounts available.",
+  "review.transferHint": "Auto-pairs with a matching row on that account, or creates one if none found.",
+  "review.transferFailed": "Could not mark as transfer",
 
   "tools.title": "Tools",
   "tools.subtitle": "Pure-math helpers — they don't read your accounts.",

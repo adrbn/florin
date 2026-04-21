@@ -48,6 +48,20 @@ export async function addTransfer(
   return result
 }
 
+export async function linkAsInternalTransfer(
+  transactionId: string,
+  counterpartAccountId: string,
+): Promise<ActionResult<{ transferPairId: string; mode: 'paired' | 'created' }>> {
+  const result = await mutations.linkAsInternalTransfer(transactionId, counterpartAccountId)
+  if (result.success) {
+    revalidatePath('/review')
+    revalidatePath('/transactions')
+    revalidatePath('/accounts')
+    revalidatePath('/')
+  }
+  return result
+}
+
 export async function countTransactions(options: ListTransactionsOptions = {}): Promise<number> {
   return queries.countTransactions(options)
 }

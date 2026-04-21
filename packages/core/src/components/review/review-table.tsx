@@ -5,12 +5,14 @@ import { useT } from '../../i18n/context'
 import type { ActionResult } from '../../types/index'
 import type { CategoryOption } from '../ui/category-picker'
 import { BulkActionBar } from './bulk-action-bar'
+import type { AccountOption } from './mark-as-transfer-button'
 import { ReviewRow } from './review-row'
 
 export interface ReviewRowData {
   transactionId: string
   date: string
   payee: string
+  accountId: string | null
   accountName: string
   amount: number
   amountFormatted: string
@@ -26,11 +28,16 @@ export interface ReviewTableActions {
   onBulkApproveTransactions: (ids: ReadonlyArray<string>) => Promise<ActionResult<{ approved: number }>>
   onBulkSoftDeleteTransactions: (ids: ReadonlyArray<string>) => Promise<ActionResult<{ deleted: number }>>
   onBulkUpdateTransactionCategory: (ids: ReadonlyArray<string>, categoryId: string | null) => Promise<ActionResult<{ updated: number }>>
+  onLinkAsInternalTransfer?: (
+    transactionId: string,
+    counterpartAccountId: string,
+  ) => Promise<ActionResult<{ transferPairId: string; mode: 'paired' | 'created' }>>
 }
 
 interface ReviewTableProps {
   rows: ReadonlyArray<ReviewRowData>
   categoryOptions: ReadonlyArray<CategoryOption>
+  accountOptions: ReadonlyArray<AccountOption>
   actions: ReviewTableActions
 }
 
@@ -58,7 +65,7 @@ const STORAGE_KEY = 'florin.review.columnWidths.v2'
  * header and the checkbox column — the queue there is consumed one row at
  * a time, not in bulk.
  */
-export function ReviewTable({ rows, categoryOptions, actions }: ReviewTableProps) {
+export function ReviewTable({ rows, categoryOptions, accountOptions, actions }: ReviewTableProps) {
   const t = useT()
   const [widths, setWidths] = useState<Record<ColKey, number>>(DEFAULT_WIDTHS)
   const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set())
@@ -228,11 +235,13 @@ export function ReviewTable({ rows, categoryOptions, actions }: ReviewTableProps
             key={row.transactionId}
             {...row}
             categoryOptions={categoryOptions}
+            accountOptions={accountOptions}
             selected={selected.has(row.transactionId)}
             onToggleSelect={() => toggleOne(row.transactionId)}
             onApproveTransaction={actions.onApproveTransaction}
             onSoftDeleteTransaction={actions.onSoftDeleteTransaction}
             onUpdateTransactionCategory={actions.onUpdateTransactionCategory}
+            onLinkAsInternalTransfer={actions.onLinkAsInternalTransfer}
           />
         ))}
       </div>

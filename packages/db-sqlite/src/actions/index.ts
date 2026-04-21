@@ -12,6 +12,7 @@ import {
 import {
   addTransactionMutation,
   addTransferMutation,
+  linkAsInternalTransferMutation,
   updateTransactionCategoryMutation,
   softDeleteTransactionMutation,
   approveTransactionMutation,
@@ -53,6 +54,8 @@ export function createSqliteMutations(db: SqliteDB): FlorinMutations {
     // Transactions
     addTransaction: (input) => addTransactionMutation(db, input),
     addTransfer: (input) => addTransferMutation(db, input),
+    linkAsInternalTransfer: (transactionId, counterpartAccountId) =>
+      linkAsInternalTransferMutation(db, transactionId, counterpartAccountId),
     updateTransactionCategory: (transactionId, categoryId) =>
       updateTransactionCategoryMutation(db, transactionId, categoryId),
     softDeleteTransaction: (id) => softDeleteTransactionMutation(db, id),
