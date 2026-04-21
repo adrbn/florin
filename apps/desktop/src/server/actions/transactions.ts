@@ -83,6 +83,7 @@ export async function updateTransactionCategory(
   const result = await mutations.updateTransactionCategory(transactionId, categoryId)
   if (result.success) {
     revalidatePath('/transactions')
+    revalidatePath('/review')
     revalidatePath('/accounts')
     revalidatePath('/')
     revalidatePath('/categories')
