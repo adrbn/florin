@@ -6,14 +6,21 @@
  * server context where path aliases, drizzle, and Enable Banking modules
  * resolve correctly — unlike a direct dynamic import from the main process.
  */
-import { NextResponse } from 'next/server'
+import { type NextRequest, NextResponse } from 'next/server'
+import type { SyncTrigger } from '@/server/banking/sync'
 import { syncAllConnections } from '@/server/banking/sync-all'
 
 export const dynamic = 'force-dynamic'
 
-export async function POST(): Promise<NextResponse> {
+function parseTrigger(req: NextRequest): SyncTrigger {
+  const raw = req.nextUrl.searchParams.get('trigger')
+  if (raw === 'scheduler' || raw === 'initial') return raw
+  return 'manual'
+}
+
+export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
-    const result = await syncAllConnections()
+    const result = await syncAllConnections(parseTrigger(req))
     return NextResponse.json({
       success: result.errors.length === 0,
       data: {

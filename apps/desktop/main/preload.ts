@@ -17,6 +17,17 @@ contextBridge.exposeInMainWorld('florin', {
   onRefresh: (cb: () => void) => {
     ipcRenderer.on('tray:refresh', cb)
   },
+  // Main-window data-changed signal. Fires when the main process knows
+  // server-side data has changed (e.g. after a scheduled sync or on focus
+  // return from the system browser). Consumer should call router.refresh()
+  // instead of a hard reload so client state survives.
+  onDataChanged: (cb: (reason: string) => void) => {
+    const listener = (_event: unknown, reason: string) => cb(reason)
+    ipcRenderer.on('florin:data-changed', listener)
+    return () => {
+      ipcRenderer.removeListener('florin:data-changed', listener)
+    }
+  },
   onUpdateDownloaded: (cb: (version: string) => void) => {
     ipcRenderer.on('update-downloaded', (_event, version) => cb(version))
   },

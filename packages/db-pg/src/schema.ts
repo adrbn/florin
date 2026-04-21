@@ -260,6 +260,55 @@ export const monthlyBudgets = pgTable(
   ],
 )
 
+// ============ bank_sync_runs ============
+/**
+ * One row per invocation of syncConnection(). Lets the UI show a history of
+ * sync attempts with per-account detail. See db-sqlite/src/schema.ts for the
+ * full rationale — this table mirrors it for the PostgreSQL deployment.
+ */
+export const bankSyncRuns = pgTable(
+  'bank_sync_runs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    connectionId: uuid('connection_id')
+      .notNull()
+      .references(() => bankConnections.id, { onDelete: 'cascade' }),
+    trigger: text('trigger').notNull().default('manual'),
+    startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+    status: text('status').notNull().default('running'),
+    accountsTotal: integer('accounts_total').notNull().default(0),
+    accountsOk: integer('accounts_ok').notNull().default(0),
+    txInserted: integer('tx_inserted').notNull().default(0),
+    errorSummary: text('error_summary'),
+    durationMs: integer('duration_ms'),
+  },
+  (t) => [
+    index('bank_sync_runs_connection_idx').on(t.connectionId, t.startedAt),
+    index('bank_sync_runs_started_idx').on(t.startedAt),
+  ],
+)
+
+// ============ bank_sync_account_results ============
+export const bankSyncAccountResults = pgTable(
+  'bank_sync_account_results',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    runId: uuid('run_id')
+      .notNull()
+      .references(() => bankSyncRuns.id, { onDelete: 'cascade' }),
+    accountUid: text('account_uid').notNull(),
+    accountId: uuid('account_id').references(() => accounts.id, { onDelete: 'set null' }),
+    balanceFetched: boolean('balance_fetched').notNull().default(false),
+    balanceError: text('balance_error'),
+    detailsError: text('details_error'),
+    txFetched: integer('tx_fetched').notNull().default(0),
+    txInserted: integer('tx_inserted').notNull().default(0),
+    txError: text('tx_error'),
+  },
+  (t) => [index('bank_sync_account_results_run_idx').on(t.runId)],
+)
+
 // Export inferred types
 export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
@@ -276,6 +325,10 @@ export type CategorizationRule = typeof categorizationRules.$inferSelect
 export type NewCategorizationRule = typeof categorizationRules.$inferInsert
 export type MonthlyBudget = typeof monthlyBudgets.$inferSelect
 export type NewMonthlyBudget = typeof monthlyBudgets.$inferInsert
+export type BankSyncRun = typeof bankSyncRuns.$inferSelect
+export type NewBankSyncRun = typeof bankSyncRuns.$inferInsert
+export type BankSyncAccountResult = typeof bankSyncAccountResults.$inferSelect
+export type NewBankSyncAccountResult = typeof bankSyncAccountResults.$inferInsert
 
 // ============ Relations ============
 export const accountsRelations = relations(accounts, ({ many, one }) => ({

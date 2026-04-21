@@ -1,5 +1,14 @@
 appId: com.florin.desktop
 productName: Florin
+# asar is DISABLED under pnpm. electron-builder resolves `asarUnpack`
+# globs through real paths, and with pnpm's symlinked node_modules every
+# workspace dep (@florin/core, better-sqlite3's .pnpm/ entry, etc.) lives
+# under ../../packages/* or ../../node_modules/.pnpm/ — outside the app
+# dir — which trips electron-builder's "must be under appDir" assertion.
+# Tried v1.0.2: asar:true with asarUnpack globs for better-sqlite3 +
+# dist-main + .next → build fails in AsarPackager.unpackPattern.
+# To re-enable: either switch pnpm to `node-linker=hoisted`, or bundle
+# the Next.js output with @vercel/nft to flatten the dep tree first.
 asar: false
 directories:
   output: dist

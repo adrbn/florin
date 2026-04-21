@@ -2,7 +2,7 @@ import { app, BrowserWindow } from 'electron'
 import path from 'node:path'
 import { createSqliteClient, createSqliteQueries, createSqliteMutations, ensureSchema, schema } from '@florin/db-sqlite'
 import { eq } from 'drizzle-orm'
-import { createWindow, getMainWindow, syncPinCookie } from './window'
+import { broadcastDataChanged, createWindow, getMainWindow, syncPinCookie } from './window'
 import { setupTray, getTrayWindow } from './tray'
 import { registerIpcHandlers } from './ipc'
 import { startSyncScheduler, stopSyncScheduler } from './scheduler'
@@ -84,10 +84,11 @@ app.whenReady().then(async () => {
   // path aliases, drizzle, and Enable Banking modules resolve correctly —
   // a bare dynamic import from the main process fails because @/ aliases
   // don't resolve outside webpack/Next.js.
-  const syncAllFn = async () => {
-    const res = await fetch(`https://127.0.0.1:${port}/api/banking/sync`, {
-      method: 'POST',
-    })
+  const syncAllFn = async (trigger: 'manual' | 'scheduler' = 'manual') => {
+    const res = await fetch(
+      `https://127.0.0.1:${port}/api/banking/sync?trigger=${trigger}`,
+      { method: 'POST' },
+    )
     if (!res.ok) {
       const body = await res.json().catch(() => ({ error: res.statusText }))
       throw new Error(body.error ?? `Sync failed (${res.status})`)
@@ -95,14 +96,13 @@ app.whenReady().then(async () => {
   }
 
   // Register IPC handlers for tray widget data fetching and sync
-  registerIpcHandlers(db, queries, mutations, syncAllFn)
+  registerIpcHandlers(db, queries, mutations, () => syncAllFn('manual'))
 
   // Start background bank sync scheduler (2min warmup, then every 6h).
-  // After each sync, refresh the tray widget and the main window so data
-  // stays current even when the user isn't actively looking at the dashboard.
-  startSyncScheduler(syncAllFn, () => {
-    const main = getMainWindow()
-    if (main) main.webContents.reload()
+  // After each sync, tell the main window to re-fetch server data via
+  // router.refresh() (preserves client state), and refresh the tray widget.
+  startSyncScheduler(() => syncAllFn('scheduler'), () => {
+    broadcastDataChanged('sync')
     const trayWin = getTrayWindow()
     if (trayWin) trayWin.webContents.send('tray:refresh')
   })

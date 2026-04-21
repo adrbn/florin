@@ -47,7 +47,7 @@ export function ensureAutoSyncScheduler(): void {
   const runOnce = async (tag: string): Promise<void> => {
     const startedAt = Date.now()
     try {
-      const result = await syncAllConnections()
+      const result = await syncAllConnections('scheduler')
       const durationSeconds = ((Date.now() - startedAt) / 1000).toFixed(1)
       console.log(
         `[florin:auto-sync:${tag}] ${result.connectionsSynced} connections, ${result.accountsSynced} accounts, +${result.transactionsInserted} transactions, ${durationSeconds}s` +
