@@ -257,7 +257,7 @@ export function PatrimonyChart({
       className={
         shouldAnimate
           ? 'flex h-full flex-col animate-in fade-in-0 slide-in-from-bottom-2 duration-700'
-          : 'flex h-full flex-col'
+          : 'flex h-full flex-col animate-in fade-in-0 duration-300'
       }
     >
       <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0 pb-2">
