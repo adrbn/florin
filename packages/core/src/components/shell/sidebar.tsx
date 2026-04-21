@@ -40,6 +40,7 @@ export function Sidebar({ badges }: SidebarProps = {}) {
           const active = isLinkActive(l.href, pathname)
           const badgeValue = l.badgeKey ? badges?.[l.badgeKey] : undefined
           const showBadge = typeof badgeValue === 'number' && badgeValue > 0
+          const isNotification = l.badgeKey === 'review' && showBadge
           return (
             <Link
               key={l.href}
@@ -48,6 +49,8 @@ export function Sidebar({ badges }: SidebarProps = {}) {
                 'flex items-center justify-between gap-3 rounded-md px-3 py-2 text-sm transition-colors',
                 active
                   ? 'bg-sidebar-primary text-sidebar-primary-foreground'
+                  : isNotification
+                  ? 'bg-rose-500/10 text-rose-700 hover:bg-rose-500/20 dark:text-rose-300'
                   : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
               )}
             >
@@ -61,6 +64,8 @@ export function Sidebar({ badges }: SidebarProps = {}) {
                     'inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold',
                     active
                       ? 'bg-sidebar-primary-foreground/20 text-sidebar-primary-foreground'
+                      : isNotification
+                      ? 'bg-rose-500/20 text-rose-700 dark:text-rose-300'
                       : 'bg-amber-500/20 text-amber-700 dark:text-amber-300',
                   )}
                 >

@@ -19,11 +19,11 @@ export function BugReport({ version }: BugReportProps) {
 
     const logs = collectLogs(version)
     const body = `${message}\n\n--- System Info ---\n${logs}`
-    const mailto = `mailto:bug@labr.studio?subject=${encodeURIComponent(
-      `[Florin Bug] ${message.slice(0, 60)}`,
+    const issueUrl = `https://github.com/adrbn/florin/issues/new?title=${encodeURIComponent(
+      `[Bug] ${message.slice(0, 60)}`,
     )}&body=${encodeURIComponent(body)}`
 
-    window.open(mailto, '_blank')
+    window.open(issueUrl, '_blank')
     setSent(true)
     setTimeout(() => {
       setSent(false)
@@ -41,7 +41,7 @@ export function BugReport({ version }: BugReportProps) {
       {sent ? (
         <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400">
           <CheckCircle className="h-4 w-4" />
-          {t('about.bugSent', 'Email client opened — thanks for the report!')}
+          {t('about.bugSent', 'GitHub issue page opened — thanks for the report!')}
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-3">
@@ -63,7 +63,7 @@ export function BugReport({ version }: BugReportProps) {
           <p className="text-[11px] text-muted-foreground">
             {t(
               'about.bugDisclaimer',
-              'Opens your email client with system info attached. No data leaves your machine without your confirmation.',
+              'Opens a pre-filled GitHub issue with system info. Nothing is sent without your confirmation.',
             )}
           </p>
         </form>

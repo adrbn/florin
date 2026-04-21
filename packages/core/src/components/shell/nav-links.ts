@@ -33,8 +33,8 @@ export interface NavLink {
 }
 
 export const NAV_LINKS: ReadonlyArray<NavLink> = [
-  { href: '/', label: 'Dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
   { href: '/review', label: 'Review', labelKey: 'nav.review', icon: Inbox, badgeKey: 'review', hideWhenEmpty: true },
+  { href: '/', label: 'Dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
   { href: '/plan', label: 'Plan', labelKey: 'nav.plan', icon: PiggyBank },
   { href: '/accounts', label: 'Accounts', labelKey: 'nav.accounts', icon: Wallet },
   { href: '/transactions', label: 'Transactions', labelKey: 'nav.transactions', icon: ArrowLeftRight },
