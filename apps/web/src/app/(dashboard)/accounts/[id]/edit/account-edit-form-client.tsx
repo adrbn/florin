@@ -32,7 +32,7 @@ export function AccountEditFormClient({
       initial={initial}
       onCreateAccount={onCreateAccount}
       onUpdateAccount={onUpdateAccount}
-      onSuccess={() => router.push(returnHref)}
+      onSuccess={() => router.push(returnHref as never)}
     />
   )
 }
