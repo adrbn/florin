@@ -40,10 +40,13 @@
 }
 
 /* Privacy mode: blur nodes explicitly tagged as amounts. The DOM walker
-   in PrivacyBodyClass tags anything containing a currency symbol + digit. */
+   in PrivacyBodyClass tags anything containing a currency symbol + digit.
+   The transition lives on the base selector so fades work in BOTH directions. */
+[data-amount] {
+  transition: filter 320ms ease, color 320ms ease;
+}
 html.privacy-hidden [data-amount] {
   filter: blur(10px) saturate(0.6);
-  transition: filter 120ms ease-out;
   user-select: none;
   pointer-events: none;
 }

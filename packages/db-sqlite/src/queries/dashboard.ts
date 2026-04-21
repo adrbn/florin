@@ -201,6 +201,7 @@ export async function getMonthByCategory(db: SqliteDB): Promise<CategoryBreakdow
   const end = formatDate(endOfMonth(new Date()))
   const rows = await db
     .select({
+      categoryId: categories.id,
       categoryName: categories.name,
       emoji: categories.emoji,
       groupName: categoryGroups.name,
@@ -233,6 +234,7 @@ export async function getMonthByCategory(db: SqliteDB): Promise<CategoryBreakdow
 
   return rows
     .map((r) => ({
+      categoryId: r.categoryId,
       groupName: r.groupName,
       categoryName: r.categoryName,
       emoji: r.emoji,

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { ThemeToggle } from '@florin/core/components/theme/theme-toggle'
 import { LocaleSwitcher } from '@florin/core/components/shell/locale-switcher'
+import { PrivacyToggle } from '@florin/core/privacy'
 import { cn } from '@florin/core/lib/utils'
 import { useT } from '@florin/core/i18n/context'
 import { isLinkActive, type NavBadges, visibleNavLinks } from '@florin/core/components/shell/nav-links'
@@ -75,6 +76,7 @@ export function DesktopSidebar({ badges }: DesktopSidebarProps) {
       </nav>
       <div className="space-y-0.5 p-3">
         <LocaleSwitcher endpoint="/api/settings/locale" />
+        <PrivacyToggle />
         <ThemeToggle />
         <Link
           href="/about"
