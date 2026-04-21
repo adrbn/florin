@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, isNotNull, isNull, lte, sql } from 'drizzle-orm'
+import { and, desc, eq, gt, gte, isNotNull, isNull, lte, sql } from 'drizzle-orm'
 import type { PgDB } from '../client'
 import { accounts, categories, categoryGroups, transactions } from '../schema'
 import { getLoanLiabilities } from './loan-liabilities'
@@ -80,7 +80,7 @@ async function computeNetMonthAgo(db: PgDB, currentNet: number): Promise<number 
         eq(accounts.isArchived, false),
         eq(accounts.isIncludedInNetWorth, true),
         sql`${accounts.kind} <> 'loan'`,
-        sql`${transactions.occurredAt} > ${target}`,
+        gt(transactions.occurredAt, target),
         lte(transactions.occurredAt, today),
       ),
     )
