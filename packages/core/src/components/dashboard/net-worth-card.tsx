@@ -16,12 +16,10 @@ interface NetWorthCardProps {
 
 export function NetWorthCard({
   gross,
-  liability,
   net,
   netMonthAgo,
   title = 'Net worth',
   grossLabel = 'Gross',
-  debtLabel = '− Debt',
   vsLastMonthLabel = 'vs last month',
 }: NetWorthCardProps) {
   const delta =
@@ -30,20 +28,9 @@ export function NetWorthCard({
 
   const hint: ReactNode = (
     <span className="flex flex-col leading-tight tabular-nums">
-      {liability > 0 ? (
-        <>
-          <span>
-            {grossLabel} {formatCurrency(gross)}
-          </span>
-          <span>
-            {debtLabel} {formatCurrency(liability)}
-          </span>
-        </>
-      ) : (
-        <span>
-          {grossLabel} {formatCurrency(gross)}
-        </span>
-      )}
+      <span>
+        {grossLabel} {formatCurrency(gross)}
+      </span>
       {deltaLine}
     </span>
   )

@@ -70,54 +70,54 @@ export default async function ReflectPage() {
       </header>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Card className="gap-1 py-3">
-          <CardHeader className="px-4 py-0">
-            <CardTitle className="text-[10px] uppercase tracking-wide text-muted-foreground">
+        <Card className="gap-2 py-5">
+          <CardHeader className="px-6 py-0">
+            <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
               {t('reflect.netWorth', 'Net worth')}
             </CardTitle>
           </CardHeader>
-          <CardContent className="px-4 py-0">
-            <p className="text-xl font-bold tabular-nums">{formatCurrency(netWorth.net)}</p>
-            <p className="mt-0.5 text-[10px] text-muted-foreground">
+          <CardContent className="px-6 py-0">
+            <p className="text-3xl font-bold tabular-nums">{formatCurrency(netWorth.net)}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
               {t('kpi.grossPrefix', 'Gross')} {formatCurrency(netWorth.gross)}
             </p>
           </CardContent>
         </Card>
-        <Card className="gap-1 py-3">
-          <CardHeader className="px-4 py-0">
-            <CardTitle className="text-[10px] uppercase tracking-wide text-muted-foreground">
+        <Card className="gap-2 py-5">
+          <CardHeader className="px-6 py-0">
+            <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
               {t('reflect.income12mo', 'Income (12mo)')}
             </CardTitle>
           </CardHeader>
-          <CardContent className="px-4 py-0">
-            <p className="text-xl font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+          <CardContent className="px-6 py-0">
+            <p className="text-3xl font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
               {formatCurrency(last12.income)}
             </p>
           </CardContent>
         </Card>
-        <Card className="gap-1 py-3">
-          <CardHeader className="px-4 py-0">
-            <CardTitle className="text-[10px] uppercase tracking-wide text-muted-foreground">
+        <Card className="gap-2 py-5">
+          <CardHeader className="px-6 py-0">
+            <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
               {t('reflect.spending12mo', 'Spending (12mo)')}
             </CardTitle>
           </CardHeader>
-          <CardContent className="px-4 py-0">
-            <p className="text-xl font-bold tabular-nums text-destructive">
+          <CardContent className="px-6 py-0">
+            <p className="text-3xl font-bold tabular-nums text-destructive">
               {formatCurrency(last12.expense)}
             </p>
           </CardContent>
         </Card>
-        <Card className="gap-1 py-3">
-          <CardHeader className="px-4 py-0">
-            <CardTitle className="text-[10px] uppercase tracking-wide text-muted-foreground">
+        <Card className="gap-2 py-5">
+          <CardHeader className="px-6 py-0">
+            <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
               {t('reflect.ageOfMoney', 'Age of money')}
             </CardTitle>
           </CardHeader>
-          <CardContent className="px-4 py-0">
-            <p className="text-xl font-bold tabular-nums">
+          <CardContent className="px-6 py-0">
+            <p className="text-3xl font-bold tabular-nums">
               {ageOfMoney === null ? '—' : `${Math.round(ageOfMoney)} ${t('reflect.days', 'd')}`}
             </p>
-            <p className="mt-0.5 text-[10px] text-muted-foreground">
+            <p className="mt-1 text-xs text-muted-foreground">
               {t('reflect.savingsRateHint', '{pct} savings rate').replace(
                 '{pct}',
                 `${savingsRate >= 0 ? '+' : ''}${savingsRate.toFixed(0)}%`,

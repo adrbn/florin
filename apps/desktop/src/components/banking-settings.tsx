@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { CheckCircle, FileKey, Unplug } from 'lucide-react'
+import { useT } from '@florin/core/i18n/context'
 
 interface BankingSettingsProps {
   configured: boolean
@@ -9,6 +10,7 @@ interface BankingSettingsProps {
 }
 
 export function BankingSettings({ configured, currentAppId }: BankingSettingsProps) {
+  const t = useT()
   const [appId, setAppId] = useState(currentAppId ?? '')
   const [keyPath, setKeyPath] = useState('')
   const [saving, setSaving] = useState(false)
@@ -22,7 +24,7 @@ export function BankingSettings({ configured, currentAppId }: BankingSettingsPro
 
   async function handleSave() {
     if (!appId.trim() || !keyPath.trim()) {
-      setError('Both App ID and private key are required.')
+      setError(t('banking.credentialsRequired', 'Both App ID and private key are required.'))
       return
     }
     setSaving(true)
@@ -34,11 +36,11 @@ export function BankingSettings({ configured, currentAppId }: BankingSettingsPro
         body: JSON.stringify({ appId: appId.trim(), keyPath: keyPath.trim() }),
       })
       const data = await res.json()
-      if (!data.success) throw new Error(data.error || 'Failed to save')
+      if (!data.success) throw new Error(data.error || t('banking.failedToSave', 'Failed to save'))
       setStatus('saved')
       setTimeout(() => setStatus('idle'), 3000)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save')
+      setError(err instanceof Error ? err.message : t('banking.failedToSave', 'Failed to save'))
       setStatus('error')
     } finally {
       setSaving(false)
@@ -50,13 +52,13 @@ export function BankingSettings({ configured, currentAppId }: BankingSettingsPro
       {configured && (
         <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
           <CheckCircle className="h-4 w-4" />
-          <span>Banking API configured</span>
+          <span>{t('banking.apiConfigured', 'Banking API configured')}</span>
         </div>
       )}
 
       <div className="rounded-md border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
-        <strong className="text-foreground">Enable Banking (PSD2)</strong> — connect to EU banks to
-        auto-import transactions. Your API credentials stay on this machine. Get credentials at{' '}
+        <strong className="text-foreground">Enable Banking (PSD2)</strong> —{' '}
+        {t('banking.psd2Intro', 'connect to EU banks to auto-import transactions. Your API credentials stay on this machine. Get credentials at')}{' '}
         <a
           href="https://enablebanking.com"
           target="_blank"
@@ -70,7 +72,7 @@ export function BankingSettings({ configured, currentAppId }: BankingSettingsPro
       <div className="space-y-3">
         <div className="space-y-1.5">
           <label htmlFor="eb-app-id" className="text-xs font-medium">
-            App ID
+            {t('banking.appIdLabel', 'App ID')}
           </label>
           <input
             id="eb-app-id"
@@ -82,7 +84,7 @@ export function BankingSettings({ configured, currentAppId }: BankingSettingsPro
           />
         </div>
         <div className="space-y-1.5">
-          <label className="text-xs font-medium">RSA Private Key (.pem)</label>
+          <label className="text-xs font-medium">{t('banking.privateKeyLabel', 'RSA Private Key (.pem)')}</label>
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -90,17 +92,17 @@ export function BankingSettings({ configured, currentAppId }: BankingSettingsPro
               className="inline-flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm hover:bg-accent hover:text-accent-foreground"
             >
               <FileKey className="h-3.5 w-3.5" />
-              {keyPath ? 'Change file...' : 'Import .pem file...'}
+              {keyPath ? t('banking.changeFile', 'Change file…') : t('banking.importPem', 'Import .pem file…')}
             </button>
             {keyPath && (
               <span className="truncate text-xs text-muted-foreground">{keyPath.split('/').pop()}</span>
             )}
             {!keyPath && configured && (
-              <span className="text-xs text-muted-foreground">Key already imported</span>
+              <span className="text-xs text-muted-foreground">{t('banking.keyAlreadyImported', 'Key already imported')}</span>
             )}
           </div>
           <p className="text-[11px] text-muted-foreground">
-            The key file is copied into Florin&apos;s secure data folder. The original is not modified.
+            {t('banking.keyCopyHint', "The key file is copied into Florin's secure data folder. The original is not modified.")}
           </p>
         </div>
       </div>
@@ -108,7 +110,7 @@ export function BankingSettings({ configured, currentAppId }: BankingSettingsPro
       {error && <p className="text-xs text-destructive">{error}</p>}
       {status === 'saved' && (
         <p className="text-xs text-emerald-600 dark:text-emerald-400">
-          Saved. You can now connect bank accounts from the Accounts page.
+          {t('banking.savedMessage', 'Saved. You can now connect bank accounts from the Accounts page.')}
         </p>
       )}
 
@@ -119,7 +121,11 @@ export function BankingSettings({ configured, currentAppId }: BankingSettingsPro
         className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:opacity-50"
       >
         <Unplug className="h-3.5 w-3.5" />
-        {saving ? 'Saving...' : configured ? 'Update Credentials' : 'Configure Banking'}
+        {saving
+          ? t('banking.saving', 'Saving…')
+          : configured
+            ? t('banking.updateCredentials', 'Update Credentials')
+            : t('banking.configureBanking', 'Configure Banking')}
       </button>
     </div>
   )
