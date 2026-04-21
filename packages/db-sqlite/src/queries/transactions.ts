@@ -97,7 +97,7 @@ export async function listTransactionsQuery(
   const conditions = buildTransactionConditions(db, options)
   return db.query.transactions.findMany({
     where: and(...conditions),
-    orderBy: [desc(transactions.occurredAt), desc(transactions.createdAt)],
+    orderBy: [desc(transactions.occurredAt), desc(transactions.createdAt), desc(transactions.id)],
     limit,
     offset,
     with: {
