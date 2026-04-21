@@ -14,6 +14,7 @@ import { categories, categoryGroups } from '@/db/schema'
 import { listAccounts } from '@/server/actions/accounts'
 import {
   addTransaction,
+  addTransfer,
   bulkSoftDeleteTransactions,
   bulkUpdateTransactionCategory,
   countTransactions,
@@ -164,6 +165,7 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
           accounts={accountOptions}
           categories={categoryOptions}
           onAddTransaction={addTransaction}
+          onAddTransfer={addTransfer}
         />
       </div>
 

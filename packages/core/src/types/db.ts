@@ -13,6 +13,13 @@ export interface NetWorth {
   gross: number
   liability: number
   net: number
+  /**
+   * Net worth estimated as of the same day of the previous month. Derived by
+   * walking transactions backward from `net` on non-loan accounts that are
+   * included in net worth. Null when the history is too short to make the
+   * comparison meaningful (e.g. brand-new install).
+   */
+  netMonthAgo: number | null
 }
 
 export interface BurnOptions {
@@ -80,6 +87,12 @@ export interface LeftToSpend {
   monthIncome: number
   monthSpent: number
   leftToSpend: number
+  /** Average daily spend so far this month (monthSpent / daysElapsed). */
+  dailyAvgSpent: number
+  /** leftToSpend / daysRemaining. Null when no salary detected or month is over. */
+  dailyBudgetRemaining: number | null
+  daysElapsed: number
+  daysRemaining: number
 }
 
 /** Per-day spend used by the Reflect heatmap. Amount is abs(negative sum). */
@@ -290,6 +303,15 @@ export interface AddTransactionInput {
   categoryId?: string | null
 }
 
+export interface AddTransferInput {
+  fromAccountId: string
+  toAccountId: string
+  /** Positive amount moved from → to. */
+  amount: number
+  occurredAt: Date
+  memo?: string | null
+}
+
 export interface CreateCategoryInput {
   groupId: string
   name: string
@@ -331,6 +353,9 @@ export interface FlorinMutations {
   updateLoanSettings(input: LoanSettingsInput): Promise<ActionResult>
 
   addTransaction(input: AddTransactionInput): Promise<ActionResult<{ id: string }>>
+  addTransfer(
+    input: AddTransferInput,
+  ): Promise<ActionResult<{ transferPairId: string }>>
   updateTransactionCategory(
     transactionId: string,
     categoryId: string | null,
