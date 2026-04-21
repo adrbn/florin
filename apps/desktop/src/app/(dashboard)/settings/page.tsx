@@ -1,9 +1,11 @@
 import { count, eq, isNull } from 'drizzle-orm'
 import { Card, CardContent, CardHeader, CardTitle } from '@florin/core/components/ui/card'
+import { SyncLogCard } from '@florin/core/components/settings/sync-log-card'
 import { db } from '@/db/client'
 import { getServerT } from '@/lib/locale'
 import { accounts, categories, settings, transactions } from '@/db/schema'
 import { isPinEnabled } from '@/server/actions/pin'
+import { listSyncLogRuns } from '@/server/banking/sync-log'
 import { PinSettings } from '@/components/pin-settings'
 import { BankingSettings } from '@/components/banking-settings'
 import { LocaleSettings } from '@/components/locale-settings'
@@ -29,6 +31,7 @@ export default async function SettingsPage() {
     ebAppIdRow,
     localeRow,
     currencyRow,
+    syncLogRuns,
   ] = await Promise.all([
     db.select({ value: count() }).from(accounts).where(eq(accounts.isArchived, false)),
     db.select({ value: count() }).from(transactions).where(isNull(transactions.deletedAt)),
@@ -37,6 +40,7 @@ export default async function SettingsPage() {
     db.select().from(settings).where(eq(settings.key, 'eb_app_id')).get(),
     db.select().from(settings).where(eq(settings.key, 'user_locale')).get(),
     db.select().from(settings).where(eq(settings.key, 'user_currency')).get(),
+    listSyncLogRuns(),
   ])
 
   const bankingConfigured = Boolean(ebAppIdRow?.value)
@@ -143,6 +147,10 @@ export default async function SettingsPage() {
             ))}
           </CardContent>
         </Card>
+
+        <div className="lg:col-span-2">
+          <SyncLogCard runs={syncLogRuns} />
+        </div>
 
         <Card>
           <CardHeader>

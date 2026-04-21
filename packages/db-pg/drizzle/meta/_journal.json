@@ -57,6 +57,13 @@
       "when": 1776605325563,
       "tag": "0007_optimal_typhoid_mary",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1776814422921,
+      "tag": "0008_first_wrecker",
+      "breakpoints": true
     }
   ]
 }

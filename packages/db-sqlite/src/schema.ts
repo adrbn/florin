@@ -265,6 +265,77 @@ export const monthlyBudgets = sqliteTable(
   ],
 )
 
+// ============ bank_sync_runs ============
+/**
+ * One row per invocation of syncConnection(). Lets the UI show a history of
+ * sync attempts with per-account detail so users (and me, debugging remote
+ * reports) can tell whether a bank returned 0 accounts, timed out, rate-limited,
+ * or succeeded. Paired with bank_sync_account_results below.
+ */
+export const bankSyncRuns = sqliteTable(
+  'bank_sync_runs',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    connectionId: text('connection_id')
+      .notNull()
+      .references(() => bankConnections.id, { onDelete: 'cascade' }),
+    /** 'manual' | 'scheduler' | 'initial' */
+    trigger: text('trigger').notNull().default('manual'),
+    startedAt: text('started_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    finishedAt: text('finished_at'),
+    /** 'running' | 'ok' | 'partial' | 'error' */
+    status: text('status').notNull().default('running'),
+    /** How many account UIDs Enable Banking returned for this session. */
+    accountsTotal: integer('accounts_total').notNull().default(0),
+    /** How many accounts completed at least a balance update successfully. */
+    accountsOk: integer('accounts_ok').notNull().default(0),
+    /** Total new transactions inserted across all accounts in this run. */
+    txInserted: integer('tx_inserted').notNull().default(0),
+    /** Short summary shown in the UI (first ~400 chars of errors). */
+    errorSummary: text('error_summary'),
+    durationMs: integer('duration_ms'),
+  },
+  (t) => [
+    index('bank_sync_runs_connection_idx').on(t.connectionId, t.startedAt),
+    index('bank_sync_runs_started_idx').on(t.startedAt),
+  ],
+)
+
+// ============ bank_sync_account_results ============
+/**
+ * Per-account breakdown of a sync run. Captures which UIDs were queried,
+ * whether details/balance/transactions each succeeded, and the error message
+ * when they didn't. This is the forensic layer — critical for diagnosing
+ * remote-user "nothing synced" reports where the bank silently returns
+ * empty or errors on a specific endpoint.
+ */
+export const bankSyncAccountResults = sqliteTable(
+  'bank_sync_account_results',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    runId: text('run_id')
+      .notNull()
+      .references(() => bankSyncRuns.id, { onDelete: 'cascade' }),
+    /** Remote UID from Enable Banking session.accounts[]. */
+    accountUid: text('account_uid').notNull(),
+    /** Florin account id — null when details call failed before account row was created. */
+    accountId: text('account_id').references(() => accounts.id, { onDelete: 'set null' }),
+    balanceFetched: integer('balance_fetched', { mode: 'boolean' }).notNull().default(false),
+    balanceError: text('balance_error'),
+    detailsError: text('details_error'),
+    txFetched: integer('tx_fetched').notNull().default(0),
+    txInserted: integer('tx_inserted').notNull().default(0),
+    txError: text('tx_error'),
+  },
+  (t) => [index('bank_sync_account_results_run_idx').on(t.runId)],
+)
+
 // ============ settings (desktop-only) ============
 export const settings = sqliteTable('settings', {
   key: text('key').primaryKey(),
@@ -286,6 +357,10 @@ export type BalanceSnapshot = typeof balanceSnapshots.$inferSelect
 export type CategorizationRule = typeof categorizationRules.$inferSelect
 export type NewCategorizationRule = typeof categorizationRules.$inferInsert
 export type Setting = typeof settings.$inferSelect
+export type BankSyncRun = typeof bankSyncRuns.$inferSelect
+export type NewBankSyncRun = typeof bankSyncRuns.$inferInsert
+export type BankSyncAccountResult = typeof bankSyncAccountResults.$inferSelect
+export type NewBankSyncAccountResult = typeof bankSyncAccountResults.$inferInsert
 export type MonthlyBudget = typeof monthlyBudgets.$inferSelect
 export type NewMonthlyBudget = typeof monthlyBudgets.$inferInsert
 
