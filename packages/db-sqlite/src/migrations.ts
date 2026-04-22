@@ -54,6 +54,7 @@ export function ensureSchema(db: SqliteDB) {
       is_archived INTEGER NOT NULL DEFAULT 0,
       is_included_in_net_worth INTEGER NOT NULL DEFAULT 1,
       current_balance REAL NOT NULL DEFAULT 0,
+      opening_balance REAL NOT NULL DEFAULT 0,
       last_synced_at TEXT,
       sync_provider TEXT NOT NULL DEFAULT 'manual',
       sync_external_id TEXT,
@@ -203,19 +204,38 @@ export function ensureSchema(db: SqliteDB) {
  * Uses PRAGMA table_info to check before ALTER — SQLite doesn't support
  * `ADD COLUMN IF NOT EXISTS`.
  */
-function addMissingColumns(_sqlite: Database.Database) {
-  // No deferred column additions right now. When adding one:
-  //   ensureColumn(sqlite, 'accounts', 'new_column', "TEXT")
+function addMissingColumns(sqlite: Database.Database) {
+  // opening_balance anchor — the invariant going forward is:
+  //   current_balance = opening_balance + SUM(non-deleted tx)
+  // On first migration we backfill by computing the opening value from the
+  // balance that's stored today, so the user's displayed balance is preserved
+  // at migration time and future ledger changes move it naturally.
+  const added = ensureColumn(sqlite, 'accounts', 'opening_balance', 'REAL NOT NULL DEFAULT 0')
+  if (added) {
+    sqlite.exec(`
+      UPDATE accounts
+      SET opening_balance = current_balance - COALESCE(
+        (
+          SELECT SUM(amount)
+          FROM transactions
+          WHERE transactions.account_id = accounts.id
+            AND transactions.deleted_at IS NULL
+        ),
+        0
+      )
+      WHERE sync_provider NOT IN ('enable_banking', 'pytr')
+    `)
+  }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function ensureColumn(
   sqlite: Database.Database,
   table: string,
   column: string,
   definition: string,
-) {
+): boolean {
   const rows = sqlite.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>
-  if (rows.some((r) => r.name === column)) return
+  if (rows.some((r) => r.name === column)) return false
   sqlite.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`)
+  return true
 }
