@@ -8,8 +8,22 @@ import { accounts, categories, transactions } from '../schema'
  * Recompute an account's currentBalance from the sum of its non-deleted
  * transactions. Called after inserts, updates, and deletes so the headline
  * balance stays in sync with the transaction ledger.
+ *
+ * IMPORTANT: Bank-synced accounts (`syncProvider` = 'enable_banking' | 'pytr')
+ * are skipped. Their authoritative balance comes from the sync API — PSD2
+ * only exposes the last 90 days of transactions, so the ledger sum is almost
+ * always incomplete. Overwriting `currentBalance` with that partial sum
+ * destroyed real balances (e.g. a Livret A showing ~3000€ dropped to -372€
+ * after a local internal-transfer shadow got added to its truncated ledger).
  */
 export async function recomputeAccountBalance(db: SqliteDB, accountId: string): Promise<void> {
+  const acc = await db.query.accounts.findFirst({
+    where: eq(accounts.id, accountId),
+    columns: { syncProvider: true },
+  })
+  if (!acc) return
+  if (acc.syncProvider === 'enable_banking' || acc.syncProvider === 'pytr') return
+
   const result = await db
     .select({
       total: sql<number>`COALESCE(SUM(${transactions.amount}), 0)`,
