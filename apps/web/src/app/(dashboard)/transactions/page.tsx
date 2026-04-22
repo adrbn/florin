@@ -135,7 +135,11 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
       .orderBy(asc(categoryGroups.name), asc(categories.name)),
   ])
 
-  const accountOptions = accountsList.map((a) => ({ id: a.id, name: a.name }))
+  const accountOptions = accountsList.map((a) => ({
+    id: a.id,
+    name: a.name,
+    currentBalance: Number(a.currentBalance),
+  }))
   const categoryOptions = categoryList.map((c) => ({
     id: c.id,
     name: c.name,
