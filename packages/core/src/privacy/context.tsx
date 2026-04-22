@@ -42,6 +42,46 @@ export function PrivacyProvider({ children }: { children: React.ReactNode }) {
 
   const toggle = useCallback(() => set(!hidden), [hidden, set])
 
+  // ⌘H / Ctrl+H toggles privacy mode. On desktop, the Electron main process
+  // intercepts ⌘H before macOS's native "Hide Application" via
+  // before-input-event and forwards an IPC message (window.florin.onTogglePrivacy).
+  // On web, we listen directly on keydown — browsers generally let us intercept
+  // ⌘H except inside their own reserved shortcuts (Chrome's ⌘H opens History;
+  // where that fires first, the user can still use the sidebar toggle button).
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== 'h') return
+      if (!(e.metaKey || e.ctrlKey)) return
+      if (e.shiftKey || e.altKey) return
+      // Skip if focus is inside an editable field — ⌘H in inputs should not
+      // be hijacked from the browser's native behaviour (though most browsers
+      // ignore it there anyway).
+      const target = e.target as HTMLElement | null
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable)
+      ) {
+        return
+      }
+      e.preventDefault()
+      toggle()
+    }
+    window.addEventListener('keydown', onKeyDown)
+
+    // Desktop: subscribe to IPC-forwarded toggle so the keystroke works even
+    // when macOS consumes ⌘H at the menu layer.
+    type FlorinBridge = { onTogglePrivacy?: (cb: () => void) => (() => void) | void }
+    const bridge = (window as unknown as { florin?: FlorinBridge }).florin
+    const unsubscribe = bridge?.onTogglePrivacy?.(() => toggle())
+
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      if (typeof unsubscribe === 'function') unsubscribe()
+    }
+  }, [toggle])
+
   return (
     <PrivacyContext.Provider value={{ hidden, toggle, set }}>{children}</PrivacyContext.Provider>
   )
