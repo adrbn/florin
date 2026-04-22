@@ -40,6 +40,24 @@ export function createWindow(port: number) {
 
   mainWindow.loadURL(`https://127.0.0.1:${port}`)
 
+  // Intercept ⌘H before macOS's native "Hide Application" accelerator fires.
+  // Without this, Electron's default menu captures ⌘H first and the renderer
+  // never sees the keystroke — so the in-app privacy toggle couldn't use it.
+  // preventDefault() both suppresses the hide AND stops the key event from
+  // reaching the page, so we forward an explicit IPC message instead.
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown') return
+    const isTogglePrivacy =
+      input.key.toLowerCase() === 'h' &&
+      (input.meta || input.control) &&
+      !input.shift &&
+      !input.alt
+    if (isTogglePrivacy) {
+      event.preventDefault()
+      mainWindow?.webContents.send('florin:toggle-privacy')
+    }
+  })
+
   // Route target=_blank and window.open to the OS default browser.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (isExternalUrl(url, port)) {

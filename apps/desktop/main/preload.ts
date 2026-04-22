@@ -31,6 +31,15 @@ contextBridge.exposeInMainWorld('florin', {
   onUpdateDownloaded: (cb: (version: string) => void) => {
     ipcRenderer.on('update-downloaded', (_event, version) => cb(version))
   },
+  // Fired when the main process intercepts ⌘H before macOS's native
+  // "Hide Application" so the renderer can toggle privacy mode instead.
+  onTogglePrivacy: (cb: () => void) => {
+    const listener = () => cb()
+    ipcRenderer.on('florin:toggle-privacy', listener)
+    return () => {
+      ipcRenderer.removeListener('florin:toggle-privacy', listener)
+    }
+  },
   installUpdate: () => ipcRenderer.send('install-update'),
   importPem: () => ipcRenderer.invoke('dialog:import-pem') as Promise<string | null>,
   openExternal: (url: string) => ipcRenderer.send('shell:open-external', url),
