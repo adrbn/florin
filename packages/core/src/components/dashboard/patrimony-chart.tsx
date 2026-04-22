@@ -236,6 +236,29 @@ export function PatrimonyChart({
       ? new Date(visibleData[visibleData.length - 1]?.date ?? '').getTime()
       : null
 
+  // Explicit month-start ticks — without this, Recharts picks tick timestamps
+  // from the data itself and lands them on today's day-of-month (e.g. "22 avr,
+  // 22 mars, 22 fév…"). Users read the axis as "month markers", so we align
+  // ticks to the 1st of each month across the visible domain.
+  const monthTicks = useMemo(() => {
+    if (series.length === 0) return []
+    const first = series[0]?.ts
+    const last = series[series.length - 1]?.ts
+    if (first === undefined || last === undefined) return []
+    const firstDate = new Date(first)
+    const ticks: number[] = []
+    // Start at the 1st of the month *after* the first point (a tick right at
+    // the axis edge looks clipped), iterate forward until past the last point.
+    const cursor = new Date(
+      Date.UTC(firstDate.getUTCFullYear(), firstDate.getUTCMonth() + 1, 1),
+    )
+    while (cursor.getTime() <= last) {
+      ticks.push(cursor.getTime())
+      cursor.setUTCMonth(cursor.getUTCMonth() + 1)
+    }
+    return ticks
+  }, [series])
+
   // Y-axis domain — start at the visible minimum (with a little headroom)
   // instead of 0. The default Recharts `[0, dataMax]` visually crushes the
   // variation: when balances hover around 14k€, a floor at 0 wastes the
@@ -336,8 +359,8 @@ export function PatrimonyChart({
                   type="number"
                   scale="time"
                   domain={['dataMin', 'dataMax']}
+                  ticks={monthTicks.length > 0 ? monthTicks : undefined}
                   tickFormatter={(v: number) => dateLabel(v)}
-                  tickCount={6}
                   minTickGap={24}
                   stroke="var(--muted-foreground)"
                   tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
