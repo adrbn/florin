@@ -257,6 +257,12 @@ export async function linkAsInternalTransferMutation(
       })
       .where(eq(transactions.id, transactionId))
 
+    // Balance deltas. Source tx already existed and its amount didn't change,
+    // so source delta is always 0. Counterpart only sees an amount change
+    // when we *create* a new shadow leg — paired mode just links two
+    // pre-existing rows so balances are already correct.
+    let counterpartDelta = 0
+
     let mode: 'paired' | 'created'
     if (match) {
       await db
@@ -286,11 +292,12 @@ export async function linkAsInternalTransferMutation(
         transferPairId,
         needsReview: false,
       })
+      counterpartDelta = -srcAmount
       mode = 'created'
     }
 
-    await recomputeAccountBalance(db, src.accountId)
-    await recomputeAccountBalance(db, counterpartAccountId)
+    await recomputeAccountBalance(db, src.accountId, 0)
+    await recomputeAccountBalance(db, counterpartAccountId, counterpartDelta)
     for (const loanId of touchedLoanIds) {
       await recomputeAccountBalance(db, loanId)
     }
