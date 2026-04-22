@@ -94,7 +94,11 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
   const loanPrincipalPaid = loanBreakdown?.principalPaid ?? 0
   const loanInterestPaid = loanBreakdown?.interestPaid ?? 0
 
-  const accountOptions = allAccounts.map((a) => ({ id: a.id, name: a.name }))
+  const accountOptions = allAccounts.map((a) => ({
+    id: a.id,
+    name: a.name,
+    currentBalance: Number(a.currentBalance),
+  }))
   const mergeTargets = allAccounts
     .filter((a) => a.id !== account.id)
     .map((a) => ({ id: a.id, name: a.name }))
