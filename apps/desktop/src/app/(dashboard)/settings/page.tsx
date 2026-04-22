@@ -1,6 +1,8 @@
 import { count, eq, isNull } from 'drizzle-orm'
 import { Card, CardContent, CardHeader, CardTitle } from '@florin/core/components/ui/card'
+import { BuildInfo } from '@florin/core/components/settings/build-info'
 import { SyncLogCard } from '@florin/core/components/settings/sync-log-card'
+import pkg from '../../../../package.json'
 import { db } from '@/db/client'
 import { getServerT } from '@/lib/locale'
 import { accounts, categories, settings, transactions } from '@/db/schema'
@@ -175,6 +177,7 @@ export default async function SettingsPage() {
                 'there is no telemetry, no analytics, no third-party scripts. Everything runs on your machine.',
               )}
             </p>
+            <BuildInfo version={pkg.version} label={t('settings.aboutBuildLabel', 'Build:')} />
           </CardContent>
         </Card>
       </div>

@@ -24,6 +24,9 @@ RUN pnpm install --frozen-lockfile
 # ============ build ============
 FROM node:22-alpine AS build
 WORKDIR /app
+# `git` is needed so scripts/build-info.mjs can capture the commit SHA and
+# inline it as NEXT_PUBLIC_BUILD_SHA at build time. ~5MB, cached layer.
+RUN apk add --no-cache git
 RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
 COPY --from=deps /app ./
 COPY . .
@@ -34,6 +37,7 @@ ENV DATABASE_URL=postgres://build:build@localhost:5432/build \
     NEXTAUTH_URL=http://localhost:3000 \
     APP_BASE_URL=http://localhost:3000 \
     NODE_ENV=production
+RUN node scripts/build-info.mjs web
 RUN pnpm --filter @florin/web build
 
 # ============ runner ============

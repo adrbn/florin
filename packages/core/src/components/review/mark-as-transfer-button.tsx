@@ -13,6 +13,8 @@ interface MarkAsTransferButtonProps {
   transactionId: string
   /** Account id of the pending transaction — excluded from the picker. */
   currentAccountId: string | null
+  /** Sign drives the label: inflow → "Depuis" (from), outflow → "Vers" (to). */
+  amount: number
   accountOptions: ReadonlyArray<AccountOption>
   onLinkAsInternalTransfer: (
     transactionId: string,
@@ -32,6 +34,7 @@ interface MarkAsTransferButtonProps {
 export function MarkAsTransferButton({
   transactionId,
   currentAccountId,
+  amount,
   accountOptions,
   onLinkAsInternalTransfer,
 }: MarkAsTransferButtonProps) {
@@ -86,7 +89,9 @@ export function MarkAsTransferButton({
       {open && (
         <div className="absolute right-0 top-full z-50 mt-1 w-64 rounded-md border border-border bg-popover p-1 shadow-lg">
           <p className="px-2 py-1 text-[11px] uppercase tracking-wide text-muted-foreground">
-            {t('review.transferCounterpartLabel', 'Counterpart account')}
+            {amount >= 0
+              ? t('review.transferFromLabel', 'From')
+              : t('review.transferToLabel', 'To')}
           </p>
           <div className="max-h-64 overflow-y-auto">
             {eligible.length === 0 ? (
