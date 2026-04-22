@@ -153,6 +153,7 @@ export function ReviewRow({
             <MarkAsTransferButton
               transactionId={transactionId}
               currentAccountId={accountId}
+              amount={amount}
               accountOptions={accountOptions}
               onLinkAsInternalTransfer={onLinkAsInternalTransfer}
             />

@@ -6,8 +6,8 @@
   "scripts": {
     "build:main": "node scripts/build-main.mjs",
     "dev": "node scripts/build-main.mjs && electron .",
-    "build": "node scripts/build-main.mjs && next build",
-    "pack": "node scripts/build-main.mjs && next build && electron-builder --mac --publish never",
+    "build": "node ../../scripts/build-info.mjs desktop && node scripts/build-main.mjs && next build",
+    "pack": "node ../../scripts/build-info.mjs desktop && node scripts/build-main.mjs && next build && electron-builder --mac --publish never",
     "start": "electron ."
   },
   "dependencies": {

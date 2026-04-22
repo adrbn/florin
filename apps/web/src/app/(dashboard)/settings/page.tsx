@@ -1,7 +1,9 @@
 import { count, eq, isNull } from 'drizzle-orm'
+import { BuildInfo } from '@florin/core/components/settings/build-info'
 import { ExportButton } from '@florin/core/components/settings/export-button'
 import { SyncLogCard } from '@florin/core/components/settings/sync-log-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@florin/core/components/ui/card'
+import pkg from '../../../../package.json'
 import { db } from '@/db/client'
 import { accounts, bankConnections, categories, transactions } from '@/db/schema'
 import { getServerT } from '@/lib/locale'
@@ -210,6 +212,7 @@ export default async function SettingsPage() {
                 'there is no telemetry, no analytics, no third-party scripts. Everything runs against your own Postgres.',
               )}
             </p>
+            <BuildInfo version={pkg.version} label={t('settings.aboutBuildLabel', 'Build:')} />
           </CardContent>
         </Card>
       </div>
