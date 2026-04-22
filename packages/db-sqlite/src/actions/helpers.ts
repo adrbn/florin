@@ -9,20 +9,48 @@ import { accounts, categories, transactions } from '../schema'
  * transactions. Called after inserts, updates, and deletes so the headline
  * balance stays in sync with the transaction ledger.
  *
- * IMPORTANT: Bank-synced accounts (`syncProvider` = 'enable_banking' | 'pytr')
- * are skipped. Their authoritative balance comes from the sync API — PSD2
- * only exposes the last 90 days of transactions, so the ledger sum is almost
- * always incomplete. Overwriting `currentBalance` with that partial sum
- * destroyed real balances (e.g. a Livret A showing ~3000€ dropped to -372€
- * after a local internal-transfer shadow got added to its truncated ledger).
+ * IMPORTANT: accounts whose balance is *authoritative from somewhere other than
+ * the local ledger* are skipped here:
+ *   - `enable_banking` / `pytr`: balance comes from the sync API, and the
+ *     local ledger only holds a truncated window (PSD2 caps at 90 days).
+ *   - `legacy`: balance was set manually at import time from an external
+ *     source (XLSX, YNAB, …) so the local ledger is a partial snapshot.
+ * Summing the partial ledger for any of those clobbers the real value — a
+ * Livret A showing ~3000€ dropped to -372€ after a local internal-transfer
+ * shadow added onto the truncated ledger.
+ *
+ * For those skipped accounts, callers that genuinely need to move the
+ * balance (e.g. a transfer shadow leg adds +100€ of real money) should pass
+ * `delta` — we apply it directly to `currentBalance` instead of recomputing.
  */
-export async function recomputeAccountBalance(db: SqliteDB, accountId: string): Promise<void> {
+const SKIP_RECOMPUTE_PROVIDERS: ReadonlySet<string> = new Set([
+  'enable_banking',
+  'pytr',
+  'legacy',
+])
+
+export async function recomputeAccountBalance(
+  db: SqliteDB,
+  accountId: string,
+  delta?: number,
+): Promise<void> {
   const acc = await db.query.accounts.findFirst({
     where: eq(accounts.id, accountId),
     columns: { syncProvider: true },
   })
   if (!acc) return
-  if (acc.syncProvider === 'enable_banking' || acc.syncProvider === 'pytr') return
+  if (acc.syncProvider && SKIP_RECOMPUTE_PROVIDERS.has(acc.syncProvider)) {
+    if (delta && delta !== 0) {
+      await db
+        .update(accounts)
+        .set({
+          currentBalance: sql`${accounts.currentBalance} + ${delta}`,
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(accounts.id, accountId))
+    }
+    return
+  }
 
   const result = await db
     .select({
