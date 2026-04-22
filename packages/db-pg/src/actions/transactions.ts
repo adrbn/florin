@@ -220,20 +220,32 @@ export async function linkAsInternalTransferMutation(
 
     const srcAmount = Number(src.amount)
     const expectedCounterpart = (-srcAmount).toFixed(2)
-    const windowMs = 5 * 24 * 60 * 60 * 1000
-    const windowStart = new Date(src.occurredAt.getTime() - windowMs)
-    const windowEnd = new Date(src.occurredAt.getTime() + windowMs)
 
-    const match = await db.query.transactions.findFirst({
-      where: and(
-        eq(transactions.accountId, counterpartAccountId),
-        isNull(transactions.transferPairId),
-        isNull(transactions.deletedAt),
-        eq(transactions.amount, expectedCounterpart),
-        gte(transactions.occurredAt, windowStart),
-        lte(transactions.occurredAt, windowEnd),
-      ),
-    })
+    // Guard against corrupted occurredAt (legacy rows with invalid timestamps
+    // used to crash the whole flow with "Invalid time value" before even
+    // reaching the insert). If the date is bad we skip auto-pairing and fall
+    // through to creating a shadow leg with "now".
+    const srcOccurred =
+      src.occurredAt instanceof Date && !Number.isNaN(src.occurredAt.getTime())
+        ? src.occurredAt
+        : null
+
+    let match: typeof src | undefined = undefined
+    if (srcOccurred) {
+      const windowMs = 5 * 24 * 60 * 60 * 1000
+      const windowStart = new Date(srcOccurred.getTime() - windowMs)
+      const windowEnd = new Date(srcOccurred.getTime() + windowMs)
+      match = await db.query.transactions.findFirst({
+        where: and(
+          eq(transactions.accountId, counterpartAccountId),
+          isNull(transactions.transferPairId),
+          isNull(transactions.deletedAt),
+          eq(transactions.amount, expectedCounterpart),
+          gte(transactions.occurredAt, windowStart),
+          lte(transactions.occurredAt, windowEnd),
+        ),
+      })
+    }
 
     const transferPairId = randomUUID()
     const now = new Date()
@@ -272,7 +284,7 @@ export async function linkAsInternalTransferMutation(
       const amountStr = (-srcAmount).toFixed(2)
       await db.insert(transactions).values({
         accountId: counterpartAccountId,
-        occurredAt: src.occurredAt,
+        occurredAt: srcOccurred ?? now,
         amount: amountStr,
         payee: counterpartPayee,
         normalizedPayee: normalizePayee(counterpartPayee),
