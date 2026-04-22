@@ -5,29 +5,23 @@ import type { PgDB } from '../client'
 import { accounts, categories, transactions } from '../schema'
 
 /**
- * Recompute an account's currentBalance from the sum of its non-deleted
- * transactions. Called after inserts, updates, and deletes so the headline
- * balance stays in sync with the transaction ledger.
+ * Recompute an account's currentBalance.
  *
- * IMPORTANT: accounts whose balance is *authoritative from somewhere other than
- * the local ledger* are skipped here:
- *   - `enable_banking` / `pytr`: balance comes from the sync API, and the
- *     local ledger only holds a truncated window (PSD2 caps at 90 days).
- *   - `legacy`: balance was set manually at import time from an external
- *     source (XLSX, YNAB, …) so the local ledger is a partial snapshot.
- * Summing the partial ledger for any of those clobbers the real value — a
- * Livret A showing ~3000€ dropped to -372€ after a local internal-transfer
- * shadow added onto the truncated ledger.
+ * For local-ledger accounts (manual, legacy) we maintain the invariant:
+ *     currentBalance = openingBalance + SUM(non-deleted transactions)
+ * openingBalance is the anchor that represents "the part of the balance the
+ * ledger doesn't explain". It was backfilled once at migration time from the
+ * then-displayed current_balance so new transactions move the balance
+ * naturally without destroying the user's imported historical value.
  *
- * For those skipped accounts, callers that genuinely need to move the
- * balance (e.g. a transfer shadow leg adds +100€ of real money) should pass
- * `delta` — we apply it directly to `currentBalance` instead of recomputing.
+ * For bank-synced providers (enable_banking, pytr) currentBalance is
+ * authoritative from the sync API — summing the local ledger would clobber
+ * the real value because the ledger is a truncated window (PSD2 caps at 90
+ * days). We never recompute for those. Callers that genuinely move real
+ * money on a bank-synced account (e.g. an internal-transfer shadow leg)
+ * pass `delta` so we adjust currentBalance directly.
  */
-const SKIP_RECOMPUTE_PROVIDERS: ReadonlySet<string> = new Set([
-  'enable_banking',
-  'pytr',
-  'legacy',
-])
+const SKIP_RECOMPUTE_PROVIDERS: ReadonlySet<string> = new Set(['enable_banking', 'pytr'])
 
 export async function recomputeAccountBalance(
   db: PgDB,
@@ -36,7 +30,7 @@ export async function recomputeAccountBalance(
 ): Promise<void> {
   const acc = await db.query.accounts.findFirst({
     where: eq(accounts.id, accountId),
-    columns: { syncProvider: true },
+    columns: { syncProvider: true, openingBalance: true },
   })
   if (!acc) return
   if (acc.syncProvider && SKIP_RECOMPUTE_PROVIDERS.has(acc.syncProvider)) {
@@ -52,17 +46,18 @@ export async function recomputeAccountBalance(
     return
   }
 
-  const result = await db
-    .select({
-      total: sql<string>`COALESCE(SUM(${transactions.amount}), 0)::text`,
-    })
-    .from(transactions)
-    .where(and(eq(transactions.accountId, accountId), isNull(transactions.deletedAt)))
-
-  const total = result[0]?.total ?? '0'
+  const opening = (acc.openingBalance ?? '0') as string
   await db
     .update(accounts)
-    .set({ currentBalance: total, updatedAt: new Date() })
+    .set({
+      currentBalance: sql`${opening}::numeric + COALESCE((
+        SELECT SUM(${transactions.amount})
+        FROM ${transactions}
+        WHERE ${transactions.accountId} = ${accountId}
+          AND ${transactions.deletedAt} IS NULL
+      ), 0)::numeric`,
+      updatedAt: new Date(),
+    })
     .where(eq(accounts.id, accountId))
 }
 

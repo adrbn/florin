@@ -1,4 +1,5 @@
 export { createPgClient, type PgDB } from './client'
+export { ensurePgRuntimePatches } from './bootstrap'
 export { createPgQueries, getNetWorth, getLoanLiabilities } from './queries'
 export {
   createPgMutations,

@@ -51,6 +51,9 @@ export async function createAccountMutation(
         kind: data.kind,
         institution: data.institution || null,
         currentBalance: data.currentBalance,
+        // Fresh account → no transactions yet, so the invariant
+        // `current = opening + sum(tx)` collapses to `opening = current`.
+        openingBalance: data.currentBalance,
         displayIcon: data.displayIcon || null,
         displayColor: data.displayColor || null,
         syncProvider: 'manual',
@@ -82,6 +85,14 @@ export async function updateAccountMutation(
         kind: data.kind,
         institution: data.institution || null,
         currentBalance: data.currentBalance,
+        // Adjust the anchor so the invariant `current = opening + sum(tx)`
+        // holds after the user's "I want balance = X" edit.
+        openingBalance: sql`${data.currentBalance} - COALESCE((
+          SELECT SUM(${transactions.amount})
+          FROM ${transactions}
+          WHERE ${transactions.accountId} = ${data.id}
+            AND ${transactions.deletedAt} IS NULL
+        ), 0)`,
         displayIcon: data.displayIcon || null,
         displayColor: data.displayColor || null,
         isIncludedInNetWorth: data.isIncludedInNetWorth ?? true,

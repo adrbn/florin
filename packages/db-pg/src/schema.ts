@@ -97,6 +97,14 @@ export const accounts = pgTable('accounts', {
   isArchived: boolean('is_archived').notNull().default(false),
   isIncludedInNetWorth: boolean('is_included_in_net_worth').notNull().default(true),
   currentBalance: numeric('current_balance', { precision: 14, scale: 2 }).notNull().default('0'),
+  /**
+   * Anchor value used to reconstruct currentBalance. For local-ledger accounts
+   * (manual, legacy), we maintain the invariant:
+   *   currentBalance = openingBalance + SUM(non-deleted transactions)
+   * For bank-synced accounts (enable_banking, pytr), currentBalance is
+   * overwritten from the sync API and openingBalance is unused.
+   */
+  openingBalance: numeric('opening_balance', { precision: 14, scale: 2 }).notNull().default('0'),
   lastSyncedAt: timestamp('last_synced_at', { withTimezone: true }),
   syncProvider: syncProviderEnum('sync_provider').notNull().default('manual'),
   syncExternalId: text('sync_external_id'),
