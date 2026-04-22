@@ -212,23 +212,35 @@ export async function linkAsInternalTransferMutation(
     })
 
     const srcAmount = Number(src.amount)
-    // `occurredAt` is a 10-char ISO date ('YYYY-MM-DD'); string compare works as
-    // ordered compare. Window is ±5 calendar days.
-    const base = new Date(`${src.occurredAt}T00:00:00Z`)
-    const windowMs = 5 * 24 * 60 * 60 * 1000
-    const windowStart = new Date(base.getTime() - windowMs).toISOString().slice(0, 10)
-    const windowEnd = new Date(base.getTime() + windowMs).toISOString().slice(0, 10)
 
-    const match = await db.query.transactions.findFirst({
-      where: and(
-        eq(transactions.accountId, counterpartAccountId),
-        isNull(transactions.transferPairId),
-        isNull(transactions.deletedAt),
-        eq(transactions.amount, -srcAmount),
-        gte(transactions.occurredAt, windowStart),
-        lte(transactions.occurredAt, windowEnd),
-      ),
-    })
+    // `occurredAt` is a 10-char ISO date ('YYYY-MM-DD'); string compare works as
+    // ordered compare. Window is ±5 calendar days. Guard against corrupted
+    // values (empty string, undefined, malformed) — those used to crash the
+    // flow with "Invalid time value" when toISOString() was called on the
+    // resulting Invalid Date. Fall through to shadow-leg creation using today.
+    const srcOccurred = (() => {
+      if (typeof src.occurredAt !== 'string' || src.occurredAt.length < 10) return null
+      const probe = new Date(`${src.occurredAt}T00:00:00Z`)
+      return Number.isNaN(probe.getTime()) ? null : src.occurredAt
+    })()
+
+    let match: typeof src | undefined = undefined
+    if (srcOccurred) {
+      const base = new Date(`${srcOccurred}T00:00:00Z`)
+      const windowMs = 5 * 24 * 60 * 60 * 1000
+      const windowStart = new Date(base.getTime() - windowMs).toISOString().slice(0, 10)
+      const windowEnd = new Date(base.getTime() + windowMs).toISOString().slice(0, 10)
+      match = await db.query.transactions.findFirst({
+        where: and(
+          eq(transactions.accountId, counterpartAccountId),
+          isNull(transactions.transferPairId),
+          isNull(transactions.deletedAt),
+          eq(transactions.amount, -srcAmount),
+          gte(transactions.occurredAt, windowStart),
+          lte(transactions.occurredAt, windowEnd),
+        ),
+      })
+    }
 
     const transferPairId = randomUUID()
     const nowIso = new Date().toISOString()
@@ -264,7 +276,7 @@ export async function linkAsInternalTransferMutation(
         : `Transfer from ${counterpartAcc.name}`
       await db.insert(transactions).values({
         accountId: counterpartAccountId,
-        occurredAt: src.occurredAt,
+        occurredAt: srcOccurred ?? nowIso.slice(0, 10),
         amount: -srcAmount,
         payee: counterpartPayee,
         normalizedPayee: normalizePayee(counterpartPayee),
