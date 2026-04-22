@@ -49,9 +49,13 @@
 
 /* Privacy mode: blur nodes explicitly tagged as amounts. The DOM walker
    in PrivacyBodyClass tags anything containing a currency symbol + digit.
-   The transition lives on the base selector so fades work in BOTH directions. */
+   We intentionally do NOT transition `filter` — if we did, freshly rendered
+   nodes on page navigation would fade in from unblurred → blurred over the
+   transition window, leaking the amount during the fade. Blur applies on
+   the first frame. Colour-only transition keeps the toggle feeling soft
+   without exposing digits. */
 [data-amount] {
-  transition: filter 320ms ease, color 320ms ease;
+  transition: color 320ms ease;
 }
 html.privacy-hidden [data-amount] {
   filter: blur(10px) saturate(0.6);
