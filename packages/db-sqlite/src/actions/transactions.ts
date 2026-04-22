@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { and, desc, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm'
+import { and, desc, eq, gte, inArray, isNull, lte, ne, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { matchRule, normalizePayee, type Rule } from '@florin/core/lib/categorization'
 import type {
@@ -349,16 +349,51 @@ export async function softDeleteTransactionMutation(
   }
 
   try {
+    // Fetch first so we know amount + transfer pair. Bank-synced accounts
+    // skip opening+SUM recompute, so without a delta their balance never
+    // reverses when legs are deleted.
+    const src = await db.query.transactions.findFirst({
+      where: and(eq(transactions.id, id), isNull(transactions.deletedAt)),
+    })
+    if (!src || !src.accountId) {
+      return { success: true }
+    }
+
     const touchedLoanIds = await deleteLoanMirrorFor(db, id)
+    const nowIso = new Date().toISOString()
 
-    const [txn] = await db
+    const legs: Array<{ id: string; accountId: string; amount: number }> = [
+      { id: src.id, accountId: src.accountId, amount: Number(src.amount) },
+    ]
+    if (src.transferPairId) {
+      const pair = await db.query.transactions.findFirst({
+        where: and(
+          eq(transactions.transferPairId, src.transferPairId),
+          isNull(transactions.deletedAt),
+          ne(transactions.id, src.id),
+        ),
+      })
+      if (pair && pair.accountId) {
+        legs.push({
+          id: pair.id,
+          accountId: pair.accountId,
+          amount: Number(pair.amount),
+        })
+      }
+    }
+
+    await db
       .update(transactions)
-      .set({ deletedAt: new Date().toISOString(), updatedAt: new Date().toISOString() })
-      .where(eq(transactions.id, id))
-      .returning({ accountId: transactions.accountId })
+      .set({ deletedAt: nowIso, updatedAt: nowIso })
+      .where(
+        inArray(
+          transactions.id,
+          legs.map((l) => l.id),
+        ),
+      )
 
-    if (txn?.accountId) {
-      await recomputeAccountBalance(db, txn.accountId)
+    for (const leg of legs) {
+      await recomputeAccountBalance(db, leg.accountId, -leg.amount)
     }
     for (const loanId of touchedLoanIds) {
       await recomputeAccountBalance(db, loanId)

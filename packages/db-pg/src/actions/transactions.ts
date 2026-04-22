@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { and, desc, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm'
+import { and, desc, eq, gte, inArray, isNull, lte, ne, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { matchRule, normalizePayee, type Rule } from '@florin/core/lib/categorization'
 import type {
@@ -356,16 +356,57 @@ export async function softDeleteTransactionMutation(
   }
 
   try {
+    // Fetch the row first so we know its amount + whether it's one leg of a
+    // transfer. We need this to reverse the balance on bank-synced accounts
+    // (enable_banking, pytr), whose recompute is skipped in favour of the
+    // authoritative sync feed — without a delta their balance wouldn't move.
+    const src = await db.query.transactions.findFirst({
+      where: and(eq(transactions.id, id), isNull(transactions.deletedAt)),
+    })
+    if (!src || !src.accountId) {
+      return { success: true }
+    }
+
     const touchedLoanIds = await deleteLoanMirrorFor(db, id)
+    const now = new Date()
 
-    const [txn] = await db
+    // Collect every leg we want to delete (the tx itself plus its transfer
+    // pair, if any) so we can reverse balances on both accounts.
+    const legs: Array<{ id: string; accountId: string; amount: number }> = [
+      { id: src.id, accountId: src.accountId, amount: Number(src.amount) },
+    ]
+    if (src.transferPairId) {
+      const pair = await db.query.transactions.findFirst({
+        where: and(
+          eq(transactions.transferPairId, src.transferPairId),
+          isNull(transactions.deletedAt),
+          // Exclude the row we already have
+          ne(transactions.id, src.id),
+        ),
+      })
+      if (pair && pair.accountId) {
+        legs.push({
+          id: pair.id,
+          accountId: pair.accountId,
+          amount: Number(pair.amount),
+        })
+      }
+    }
+
+    await db
       .update(transactions)
-      .set({ deletedAt: new Date(), updatedAt: new Date() })
-      .where(eq(transactions.id, id))
-      .returning({ accountId: transactions.accountId })
+      .set({ deletedAt: now, updatedAt: now })
+      .where(
+        inArray(
+          transactions.id,
+          legs.map((l) => l.id),
+        ),
+      )
 
-    if (txn?.accountId) {
-      await recomputeAccountBalance(db, txn.accountId)
+    for (const leg of legs) {
+      // Reverse the leg's contribution: if the leg was -100 (outflow), the
+      // balance should go +100 on delete.
+      await recomputeAccountBalance(db, leg.accountId, -leg.amount)
     }
     for (const loanId of touchedLoanIds) {
       await recomputeAccountBalance(db, loanId)
