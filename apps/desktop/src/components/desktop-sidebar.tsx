@@ -21,7 +21,7 @@ export function DesktopSidebar({ badges }: DesktopSidebarProps) {
   return (
     <aside className="hidden w-60 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground md:flex">
       <div
-        className="flex items-center px-6 pb-5 pt-10"
+        className="flex items-center px-6 pb-5 pt-16"
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
         <h2
