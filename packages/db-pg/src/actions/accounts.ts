@@ -39,13 +39,17 @@ export async function createAccountMutation(
   const data = parsed.data
 
   try {
+    // On fresh accounts there are no transactions yet, so the invariant
+    // `current = opening + sum(tx)` collapses to `opening = current`.
+    const balanceStr = data.currentBalance.toFixed(2)
     const [row] = await db
       .insert(accounts)
       .values({
         name: data.name,
         kind: data.kind,
         institution: data.institution || null,
-        currentBalance: data.currentBalance.toFixed(2),
+        currentBalance: balanceStr,
+        openingBalance: balanceStr,
         displayIcon: data.displayIcon || null,
         displayColor: data.displayColor || null,
         syncProvider: 'manual',
@@ -70,13 +74,23 @@ export async function updateAccountMutation(
   const data = parsed.data
 
   try {
+    // A manual balance edit is a "I want my balance to be X" command. To
+    // preserve the invariant `current = opening + sum(tx)` we adjust
+    // openingBalance so that `X = opening + sum(tx)` holds.
+    const balanceStr = data.currentBalance.toFixed(2)
     await db
       .update(accounts)
       .set({
         name: data.name,
         kind: data.kind as typeof accounts.kind.enumValues[number],
         institution: data.institution || null,
-        currentBalance: data.currentBalance.toFixed(2),
+        currentBalance: balanceStr,
+        openingBalance: sql`${balanceStr}::numeric - COALESCE((
+          SELECT SUM(${transactions.amount})
+          FROM ${transactions}
+          WHERE ${transactions.accountId} = ${data.id}
+            AND ${transactions.deletedAt} IS NULL
+        ), 0)::numeric`,
         displayIcon: data.displayIcon || null,
         displayColor: data.displayColor || null,
         isIncludedInNetWorth: data.isIncludedInNetWorth ?? true,

@@ -80,6 +80,14 @@ export const accounts = sqliteTable('accounts', {
     .notNull()
     .default(true),
   currentBalance: real('current_balance').notNull().default(0),
+  /**
+   * Anchor value used to reconstruct currentBalance. For local-ledger accounts
+   * (manual, legacy), we maintain the invariant:
+   *   currentBalance = openingBalance + SUM(non-deleted transactions)
+   * For bank-synced accounts (enable_banking, pytr), currentBalance is
+   * overwritten from the sync API and openingBalance is unused.
+   */
+  openingBalance: real('opening_balance').notNull().default(0),
   lastSyncedAt: text('last_synced_at'),
   /** One of: enable_banking, pytr, manual, legacy */
   syncProvider: text('sync_provider').notNull().default('manual'),

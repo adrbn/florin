@@ -64,6 +64,13 @@
       "when": 1776814422921,
       "tag": "0008_first_wrecker",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1776850939273,
+      "tag": "0009_opening_balance",
+      "breakpoints": true
     }
   ]
 }
