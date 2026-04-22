@@ -157,8 +157,12 @@ export async function addTransferMutation(
       },
     ])
 
-    await recomputeAccountBalance(db, data.fromAccountId)
-    await recomputeAccountBalance(db, data.toAccountId)
+    // Pass deltas so bank-synced accounts (enable_banking, pytr) — whose
+    // recompute is skipped because the sync API is authoritative — still
+    // reflect the money leaving/arriving. For local-ledger accounts the
+    // deltas are ignored in favour of a proper `opening + SUM(tx)` recompute.
+    await recomputeAccountBalance(db, data.fromAccountId, -amount)
+    await recomputeAccountBalance(db, data.toAccountId, amount)
 
     return { success: true, data: { transferPairId } }
   } catch (error: unknown) {

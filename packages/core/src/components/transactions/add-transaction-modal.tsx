@@ -24,6 +24,20 @@ import type {
 interface AccountOption {
   id: string
   name: string
+  currentBalance: number
+}
+
+const LIVRET_A_PATTERN = /livret\s*a\b/i
+
+function pickDefaultToAccount(
+  accounts: ReadonlyArray<AccountOption>,
+  fromId: string,
+): string {
+  const livretA = accounts.find(
+    (a) => LIVRET_A_PATTERN.test(a.name) && a.id !== fromId,
+  )
+  if (livretA) return livretA.id
+  return accounts.find((a) => a.id !== fromId)?.id ?? ''
 }
 
 interface CategoryOption {
@@ -62,8 +76,13 @@ export function AddTransactionModal({
   const [mode, setMode] = useState<Mode>('transaction')
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const [balanceWarning, setBalanceWarning] = useState<string | null>(null)
   const fromAccountRef = useRef<HTMLSelectElement>(null)
   const toAccountRef = useRef<HTMLSelectElement>(null)
+  // Tracks the last form payload the user tried to submit but was warned
+  // about (insufficient balance). When non-null, the submit button becomes
+  // "Save anyway" and a second click proceeds with this payload.
+  const pendingTransferRef = useRef<AddTransferInput | null>(null)
 
   // Swap the two select values without touching state — the form is
   // uncontrolled and reads via FormData, so a direct DOM swap is enough.
@@ -78,6 +97,24 @@ export function AddTransactionModal({
 
   const today = new Date().toISOString().slice(0, 10)
   const canTransfer = Boolean(onAddTransfer) && accounts.length >= 2
+
+  const submitTransfer = (input: AddTransferInput) => {
+    if (!onAddTransfer) return
+    startTransition(async () => {
+      const result = await onAddTransfer(input)
+      if (!result.success) {
+        setError(result.error ?? t('txAdd.unknownError', 'Unknown error'))
+        return
+      }
+      setOpen(false)
+      pendingTransferRef.current = null
+      setBalanceWarning(null)
+      const form = document.getElementById(
+        'add-transaction-form',
+      ) as HTMLFormElement | null
+      form?.reset()
+    })
+  }
 
   const onSubmit = (formData: FormData) => {
     setError(null)
@@ -95,18 +132,32 @@ export function AddTransactionModal({
         occurredAt: new Date(String(formData.get('occurredAt') ?? today)),
         memo: String(formData.get('memo') ?? '') || null,
       }
-      startTransition(async () => {
-        const result = await onAddTransfer(input)
-        if (!result.success) {
-          setError(result.error ?? t('txAdd.unknownError', 'Unknown error'))
+
+      // If user already acknowledged the warning for this exact payload,
+      // let it through.
+      const acknowledged =
+        pendingTransferRef.current &&
+        pendingTransferRef.current.fromAccountId === input.fromAccountId &&
+        pendingTransferRef.current.toAccountId === input.toAccountId &&
+        pendingTransferRef.current.amount === input.amount
+
+      if (!acknowledged) {
+        const source = accounts.find((a) => a.id === fromAccountId)
+        if (source && input.amount > source.currentBalance) {
+          pendingTransferRef.current = input
+          setBalanceWarning(
+            t(
+              'txAdd.insufficientBalance',
+              'Insufficient balance on {account} ({balance} €). Click "Save anyway" to continue — the balance will go negative.',
+            )
+              .replace('{account}', source.name)
+              .replace('{balance}', source.currentBalance.toFixed(2)),
+          )
           return
         }
-        setOpen(false)
-        const form = document.getElementById(
-          'add-transaction-form',
-        ) as HTMLFormElement | null
-        form?.reset()
-      })
+      }
+
+      submitTransfer(input)
       return
     }
 
@@ -135,7 +186,17 @@ export function AddTransactionModal({
     'flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+        if (!next) {
+          setError(null)
+          setBalanceWarning(null)
+          pendingTransferRef.current = null
+        }
+      }}
+    >
       <DialogTrigger
         render={
           <Button>
@@ -172,6 +233,8 @@ export function AddTransactionModal({
               onClick={() => {
                 setMode('transaction')
                 setError(null)
+                setBalanceWarning(null)
+                pendingTransferRef.current = null
               }}
               className={cn(
                 'rounded-sm px-3 py-1.5 transition-colors',
@@ -189,6 +252,8 @@ export function AddTransactionModal({
               onClick={() => {
                 setMode('transfer')
                 setError(null)
+                setBalanceWarning(null)
+                pendingTransferRef.current = null
               }}
               className={cn(
                 'rounded-sm px-3 py-1.5 transition-colors',
@@ -241,10 +306,10 @@ export function AddTransactionModal({
                     name="toAccountId"
                     required
                     ref={toAccountRef}
-                    defaultValue={
-                      accounts.find((a) => a.id !== (defaultAccountId ?? accounts[0]?.id))?.id ??
-                      ''
-                    }
+                    defaultValue={pickDefaultToAccount(
+                      accounts,
+                      defaultAccountId ?? accounts[0]?.id ?? '',
+                    )}
                     className={selectClass}
                   >
                     {accounts.map((a) => (
@@ -333,12 +398,17 @@ export function AddTransactionModal({
           </div>
 
           {error && <p className="text-sm text-destructive">{error}</p>}
+          {balanceWarning && (
+            <p className="text-sm text-amber-600 dark:text-amber-400">{balanceWarning}</p>
+          )}
 
           <Button type="submit" disabled={pending} className="w-full">
             {pending
               ? t('txAdd.submitting', 'Saving…')
               : mode === 'transfer'
-                ? t('txAdd.submitTransfer', 'Save transfer')
+                ? balanceWarning
+                  ? t('txAdd.submitTransferAnyway', 'Save anyway')
+                  : t('txAdd.submitTransfer', 'Save transfer')
                 : t('txAdd.submit', 'Save transaction')}
           </Button>
         </form>
