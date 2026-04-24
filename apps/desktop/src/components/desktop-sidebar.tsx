@@ -8,7 +8,7 @@ import { LocaleSwitcher } from '@florin/core/components/shell/locale-switcher'
 import { PrivacyToggle } from '@florin/core/privacy'
 import { cn } from '@florin/core/lib/utils'
 import { useT } from '@florin/core/i18n/context'
-import { isLinkActive, type NavBadges, visibleNavLinks } from '@florin/core/components/shell/nav-links'
+import { isExactLinkActive, isLinkActive, type NavBadges, visibleNavLinks } from '@florin/core/components/shell/nav-links'
 
 interface DesktopSidebarProps {
   badges?: NavBadges
@@ -39,37 +39,61 @@ export function DesktopSidebar({ badges }: DesktopSidebarProps) {
           const showBadge = typeof badgeValue === 'number' && badgeValue > 0
           const isNotification = l.badgeKey === 'review' && showBadge
           return (
-            <Link
-              key={l.href}
-              href={l.href as never}
-              className={cn(
-                'flex items-center justify-between gap-3 rounded-md px-3 py-2 text-sm transition-colors',
-                active
-                  ? 'bg-sidebar-primary text-sidebar-primary-foreground'
-                  : isNotification
-                  ? 'bg-rose-500/10 text-rose-700 hover:bg-rose-500/20 dark:text-rose-300'
-                  : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-              )}
-            >
-              <span className="flex items-center gap-3">
-                <Icon className="h-4 w-4" />
-                {t(l.labelKey, l.label)}
-              </span>
-              {showBadge && (
-                <span
-                  className={cn(
-                    'inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold',
-                    active
-                      ? 'bg-sidebar-primary-foreground/20 text-sidebar-primary-foreground'
-                      : isNotification
-                      ? 'bg-rose-500/20 text-rose-700 dark:text-rose-300'
-                      : 'bg-amber-500/20 text-amber-700 dark:text-amber-300',
-                  )}
-                >
-                  {badgeValue}
+            <div key={l.href}>
+              <Link
+                href={l.href as never}
+                className={cn(
+                  'flex items-center justify-between gap-3 rounded-md px-3 py-2 text-sm transition-colors',
+                  active
+                    ? 'bg-sidebar-primary text-sidebar-primary-foreground'
+                    : isNotification
+                    ? 'bg-rose-500/10 text-rose-700 hover:bg-rose-500/20 dark:text-rose-300'
+                    : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                )}
+              >
+                <span className="flex items-center gap-3">
+                  <Icon className="h-4 w-4" />
+                  {t(l.labelKey, l.label)}
                 </span>
-              )}
-            </Link>
+                {showBadge && (
+                  <span
+                    className={cn(
+                      'inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold',
+                      active
+                        ? 'bg-sidebar-primary-foreground/20 text-sidebar-primary-foreground'
+                        : isNotification
+                        ? 'bg-rose-500/20 text-rose-700 dark:text-rose-300'
+                        : 'bg-amber-500/20 text-amber-700 dark:text-amber-300',
+                    )}
+                  >
+                    {badgeValue}
+                  </span>
+                )}
+              </Link>
+              {active && l.children && l.children.length > 0 ? (
+                <div className="mt-0.5 ml-4 flex flex-col gap-0.5 border-l border-sidebar-border/40 pl-2">
+                  {l.children.map((child) => {
+                    const ChildIcon = child.icon
+                    const childActive = isExactLinkActive(child.href, pathname)
+                    return (
+                      <Link
+                        key={child.href}
+                        href={child.href as never}
+                        className={cn(
+                          'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[12px] transition-colors',
+                          childActive
+                            ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
+                            : 'text-sidebar-foreground/60 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground',
+                        )}
+                      >
+                        <ChildIcon className="h-3.5 w-3.5" />
+                        {t(child.labelKey, child.label)}
+                      </Link>
+                    )
+                  })}
+                </div>
+              ) : null}
+            </div>
           )
         })}
       </nav>
