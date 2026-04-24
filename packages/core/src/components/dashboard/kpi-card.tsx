@@ -57,7 +57,7 @@ export function KpiCard({ title, value, hint, icon: Icon, tone = 'default', href
       </CardHeader>
       <CardContent className="px-6 py-0">
         <p
-          className={cn('text-4xl font-bold tracking-tight tabular-nums', TONE_CLASSES[tone])}
+          className={cn('text-2xl font-bold tracking-tight tabular-nums', TONE_CLASSES[tone])}
           data-amount="manual"
         >
           {value}
