@@ -223,6 +223,11 @@
   "reflect.categoryTrendsSubtitle": "One sparkline per category — sorted by total spend in the window.",
   "reflect.trendWindowMonths": "m",
   "reflect.trendPerMonth": "/mo",
+  "reflect.viewCategoryTrend": "View {name} trend",
+  "reflect.totalLabel": "Total",
+  "reflect.trendLabel": "Trend",
+  "reflect.maxMonthLabel": "Peak",
+  "reflect.seeTransactions": "See transactions",
 
   "reflect.subscriptions": "Subscriptions radar",
   "reflect.subscriptionsSubtitle": "Recurring charges detected in the last 6 months.",

@@ -76,7 +76,7 @@ export default async function ReflectPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="px-6 py-0">
-            <p className="text-3xl font-bold tabular-nums">{formatCurrency(netWorth.net)}</p>
+            <p className="text-2xl font-bold tabular-nums">{formatCurrency(netWorth.net)}</p>
             <p className="mt-1 text-xs text-muted-foreground">
               {t('kpi.grossPrefix', 'Gross')} {formatCurrency(netWorth.gross)}
             </p>
@@ -89,7 +89,7 @@ export default async function ReflectPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="px-6 py-0">
-            <p className="text-3xl font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+            <p className="text-2xl font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
               {formatCurrency(last12.income)}
             </p>
           </CardContent>
@@ -101,7 +101,7 @@ export default async function ReflectPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="px-6 py-0">
-            <p className="text-3xl font-bold tabular-nums text-destructive">
+            <p className="text-2xl font-bold tabular-nums text-destructive">
               {formatCurrency(last12.expense)}
             </p>
           </CardContent>
@@ -113,7 +113,7 @@ export default async function ReflectPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="px-6 py-0">
-            <p className="text-3xl font-bold tabular-nums">
+            <p className="text-2xl font-bold tabular-nums">
               {ageOfMoney === null ? '—' : `${Math.round(ageOfMoney)} ${t('reflect.days', 'd')}`}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
