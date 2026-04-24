@@ -29,6 +29,7 @@ import {
   getAgeOfMoney,
   getAgeOfMoneyHistory,
   getNetWorthSeries,
+  getCategorySpendingSeries,
 } from './reflect'
 import { getMonthPlanQuery } from './plan'
 
@@ -55,6 +56,7 @@ export function createPgQueries(db: PgDB): FlorinQueries {
     getAgeOfMoney: (days) => getAgeOfMoney(db, days),
     getAgeOfMoneyHistory: (months) => getAgeOfMoneyHistory(db, months),
     getNetWorthSeries: (months) => getNetWorthSeries(db, months),
+    getCategorySpendingSeries: (months) => getCategorySpendingSeries(db, months),
     getMonthPlan: (year, month) => getMonthPlanQuery(db, year, month),
     getLeftToSpendThisMonth: () => getLeftToSpendThisMonth(db),
     getDailySpend: (days) => getDailySpend(db, days),

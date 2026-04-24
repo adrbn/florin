@@ -77,6 +77,25 @@ export interface NetWorthPoint {
 }
 
 /**
+ * Time-pivoted spending by category. `months` is a chronological list of
+ * YYYY-MM keys (oldest → newest) covering the window. Each entry in
+ * `categories` aligns its `monthly` array with `months` by index; values are
+ * absolute expense totals (refunds subtracted via signed SUM before abs).
+ * Categories are pre-sorted by total descending so consumers can slice
+ * `.slice(0, N)` to pick the heaviest spenders.
+ */
+export interface CategorySpendingSeries {
+  months: string[]
+  categories: Array<{
+    categoryId: string
+    categoryName: string
+    emoji: string | null
+    monthly: number[]
+    total: number
+  }>
+}
+
+/**
  * "Left to spend this month" — derived from the salary tx category. We find
  * the category of the most recent large positive transaction (a user's
  * paycheck), then use the sum of income in that category this month as the
@@ -252,6 +271,7 @@ export interface FlorinQueries {
   getAgeOfMoney(days?: number): Promise<number | null>
   getAgeOfMoneyHistory(months?: number): Promise<{ month: string; age: number | null }[]>
   getNetWorthSeries(months?: number): Promise<NetWorthPoint[]>
+  getCategorySpendingSeries(months?: number): Promise<CategorySpendingSeries>
   getLeftToSpendThisMonth(): Promise<LeftToSpend>
   getDailySpend(days?: number): Promise<DailySpend[]>
   getDailySpendByCategory(days?: number): Promise<DailyCategorySpend[]>

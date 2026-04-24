@@ -18,7 +18,12 @@ interface CategoryOption {
 interface FilterPreset {
   id: string
   label: string
-  /** Returns the set of categoryIds to EXCLUDE for this preset. */
+  /**
+   * Returns the set of categoryIds to EXCLUDE for this preset. We express
+   * presets as exclusions (easier to describe — "everything except rent"
+   * rather than "food, transport, entertainment, …"), then translate into
+   * the include-only model below when the preset is toggled on.
+   */
   match: (cats: ReadonlyArray<CategoryOption>) => Set<string>
 }
 
@@ -84,17 +89,27 @@ export function WeeklyHeatmap({
     [t],
   )
 
-  const [excluded, setExcluded] = useState<Set<string>>(new Set())
+  // `included` is an allow-list of categoryIds. Empty set = show everything
+  // (the default, "no filter active" state). Non-empty = show only these
+  // categories. This is the reverse of the old exclusion model — picking a
+  // single category now means "show only this" instead of "hide this one",
+  // which is the more intuitive direction for exploration.
+  //
+  // Presets like "Without rent" are still defined as exclusions (easier to
+  // write and label), but when toggled on they populate `included` with
+  // "everything except rent" so they play nicely with the allow-list.
+  const [included, setIncluded] = useState<Set<string>>(new Set())
   const [filterOpen, setFilterOpen] = useState(false)
 
   const dailyTotals = useMemo(() => {
+    const allowAll = included.size === 0
     const by = new Map<string, number>()
     for (const r of rows) {
-      if (r.categoryId && excluded.has(r.categoryId)) continue
+      if (!allowAll && (!r.categoryId || !included.has(r.categoryId))) continue
       by.set(r.date, (by.get(r.date) ?? 0) + r.amount)
     }
     return by
-  }, [rows, excluded])
+  }, [rows, included])
 
   const { matrix, stats, monthLabels } = useMemo(
     () => buildMatrix(dailyTotals, weeks, locale),
@@ -129,9 +144,12 @@ export function WeeklyHeatmap({
     t('reflect.heatmap.sun', 'Sun'),
   ]
 
-  const activeExcludedCount = excluded.size
+  // Badge shows "how constrained is the view" — number of categories we're
+  // restricted to, when a filter is active.
+  const activeIncludedCount = included.size
   const clearLabel = t('common.clear', 'Clear')
   const filterLabel = t('reflect.heatmap.filter', 'Filter')
+  const allCategoryIds = useMemo(() => new Set(categories.map((c) => c.categoryId)), [categories])
 
   return (
     <Card className="overflow-visible">
@@ -150,9 +168,9 @@ export function WeeklyHeatmap({
             >
               <Filter className="h-3.5 w-3.5" />
               {filterLabel}
-              {activeExcludedCount > 0 ? (
+              {activeIncludedCount > 0 ? (
                 <span className="rounded-full bg-foreground px-1.5 text-[10px] font-medium text-background">
-                  −{activeExcludedCount}
+                  {activeIncludedCount}
                 </span>
               ) : null}
             </Button>
@@ -166,13 +184,13 @@ export function WeeklyHeatmap({
                 <div className="absolute right-0 top-full z-50 mt-2 max-h-[400px] w-72 overflow-auto rounded-lg border bg-popover p-3 text-xs shadow-lg ring-1 ring-foreground/5">
                   <div className="mb-2 flex items-center justify-between gap-2">
                     <span className="text-sm font-medium">
-                      {t('reflect.heatmap.excludeCategories', 'Exclude categories')}
+                      {t('reflect.heatmap.showOnlyCategories', 'Show only')}
                     </span>
-                    {excluded.size > 0 ? (
+                    {activeIncludedCount > 0 ? (
                       <button
                         type="button"
                         className="text-[11px] text-muted-foreground hover:text-foreground"
-                        onClick={() => setExcluded(new Set())}
+                        onClick={() => setIncluded(new Set())}
                       >
                         {clearLabel}
                       </button>
@@ -180,27 +198,31 @@ export function WeeklyHeatmap({
                   </div>
                   <div className="mb-3 flex flex-wrap gap-1.5">
                     {presets.map((p) => {
-                      const presetIds = p.match(categories)
-                      const active =
-                        presetIds.size > 0 &&
-                        [...presetIds].every((id) => excluded.has(id))
+                      const presetExcluded = p.match(categories)
+                      // Preset is "on" when the allow-list is populated with
+                      // exactly the categories NOT in the preset-excluded set.
+                      const presetActive =
+                        activeIncludedCount > 0 &&
+                        [...allCategoryIds].every(
+                          (id) => presetExcluded.has(id) || included.has(id),
+                        ) &&
+                        [...presetExcluded].every((id) => !included.has(id))
                       return (
                         <button
                           key={p.id}
                           type="button"
                           onClick={() =>
-                            setExcluded((prev) => {
-                              const next = new Set(prev)
-                              if (active) {
-                                for (const id of presetIds) next.delete(id)
-                              } else {
-                                for (const id of presetIds) next.add(id)
+                            setIncluded(() => {
+                              if (presetActive) return new Set()
+                              const next = new Set<string>()
+                              for (const id of allCategoryIds) {
+                                if (!presetExcluded.has(id)) next.add(id)
                               }
                               return next
                             })
                           }
                           className={`rounded-full border px-2 py-0.5 text-[11px] transition-colors ${
-                            active
+                            presetActive
                               ? 'border-foreground bg-foreground text-background'
                               : 'border-border hover:border-foreground/40'
                           }`}
@@ -217,7 +239,7 @@ export function WeeklyHeatmap({
                       </li>
                     ) : (
                       categories.map((c) => {
-                        const on = excluded.has(c.categoryId)
+                        const on = included.has(c.categoryId)
                         return (
                           <li key={c.categoryId}>
                             <label className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-muted/40">
@@ -225,7 +247,7 @@ export function WeeklyHeatmap({
                                 type="checkbox"
                                 checked={on}
                                 onChange={() =>
-                                  setExcluded((prev) => {
+                                  setIncluded((prev) => {
                                     const next = new Set(prev)
                                     if (next.has(c.categoryId)) next.delete(c.categoryId)
                                     else next.add(c.categoryId)

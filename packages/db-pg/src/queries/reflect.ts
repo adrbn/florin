@@ -12,6 +12,7 @@ import type {
   MonthlyFlow,
   CategoryShare,
   NetWorthPoint,
+  CategorySpendingSeries,
 } from '@florin/core/types'
 
 export async function getMonthlyFlows(db: PgDB, months = 12): Promise<MonthlyFlow[]> {
@@ -133,6 +134,89 @@ export async function getAgeOfMoneyHistory(
     )
   }
   return computeAgeOfMoneyHistory(txs, keys)
+}
+
+/**
+ * Pivots expense transactions by (month, category) over a rolling window so
+ * the Reflect page can render one trend line per category. Same filters as
+ * getCategoryBreakdown: expense-kind categories only, no transfers, no
+ * archived accounts. Zero-filled per month so gaps render as "0 €" instead
+ * of hiding the data point.
+ */
+export async function getCategorySpendingSeries(
+  db: PgDB,
+  months = 12,
+): Promise<CategorySpendingSeries> {
+  const start = startOfMonth(addMonths(new Date(), -(months - 1)))
+  const rows = await db
+    .select({
+      month: sql<string>`to_char(${transactions.occurredAt}, 'YYYY-MM')`,
+      categoryId: categories.id,
+      categoryName: categories.name,
+      emoji: categories.emoji,
+      total: sql<string>`COALESCE(SUM(${transactions.amount}), 0)`,
+    })
+    .from(transactions)
+    .innerJoin(accounts, eq(transactions.accountId, accounts.id))
+    .innerJoin(categories, eq(transactions.categoryId, categories.id))
+    .innerJoin(categoryGroups, eq(categories.groupId, categoryGroups.id))
+    .where(
+      and(
+        isNull(transactions.deletedAt),
+        gte(transactions.occurredAt, start),
+        sql`${transactions.amount} < 0`,
+        sql`${transactions.transferPairId} IS NULL`,
+        eq(categoryGroups.kind, 'expense'),
+        eq(accounts.isArchived, false),
+      ),
+    )
+    .groupBy(
+      sql`to_char(${transactions.occurredAt}, 'YYYY-MM')`,
+      categories.id,
+      categories.name,
+      categories.emoji,
+    )
+
+  const monthKeys: string[] = []
+  for (let i = months - 1; i >= 0; i--) {
+    const d = addMonths(new Date(), -i)
+    monthKeys.push(
+      `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`,
+    )
+  }
+
+  interface CatAcc {
+    categoryName: string
+    emoji: string | null
+    monthly: Map<string, number>
+  }
+  const byCat = new Map<string, CatAcc>()
+  for (const r of rows) {
+    const amt = Math.abs(Number(r.total))
+    if (amt <= 0) continue
+    const existing = byCat.get(r.categoryId)
+    const acc: CatAcc =
+      existing ?? { categoryName: r.categoryName, emoji: r.emoji, monthly: new Map() }
+    acc.monthly.set(r.month, (acc.monthly.get(r.month) ?? 0) + amt)
+    if (!existing) byCat.set(r.categoryId, acc)
+  }
+
+  const out = Array.from(byCat.entries())
+    .map(([categoryId, acc]) => {
+      const monthly = monthKeys.map((m) => acc.monthly.get(m) ?? 0)
+      const total = monthly.reduce((s, v) => s + v, 0)
+      return {
+        categoryId,
+        categoryName: acc.categoryName,
+        emoji: acc.emoji,
+        monthly,
+        total,
+      }
+    })
+    .filter((c) => c.total > 0)
+    .sort((a, b) => b.total - a.total)
+
+  return { months: monthKeys, categories: out }
 }
 
 export async function getNetWorthSeries(db: PgDB, months = 24): Promise<NetWorthPoint[]> {
