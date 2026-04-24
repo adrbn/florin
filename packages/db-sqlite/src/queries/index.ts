@@ -43,6 +43,7 @@ import {
   getAgeOfMoney,
   getAgeOfMoneyHistory,
   getNetWorthSeries,
+  getCategorySpendingSeries,
 } from './reflect'
 import { getMonthPlanQuery } from './plan'
 
@@ -171,6 +172,7 @@ export function createSqliteQueries(db: SqliteDB): FlorinQueries {
     getAgeOfMoney: (days) => getAgeOfMoney(db, days),
     getAgeOfMoneyHistory: (months) => getAgeOfMoneyHistory(db, months),
     getNetWorthSeries: (months) => getNetWorthSeries(db, months),
+    getCategorySpendingSeries: (months) => getCategorySpendingSeries(db, months),
     getMonthPlan: async (year, month) => getMonthPlanQuery(db, year, month),
     getLeftToSpendThisMonth: () => getLeftToSpendThisMonth(db),
     getDailySpend: (days) => getDailySpend(db, days),

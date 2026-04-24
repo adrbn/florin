@@ -1,4 +1,5 @@
 import { CategoryBreakdownChart } from '@florin/core/components/reflect/category-breakdown-chart'
+import { CategoryTrendsChart } from '@florin/core/components/reflect/category-trends-chart'
 import { CounterfactualCard } from '@florin/core/components/reflect/counterfactual-card'
 import { IncomeVsSpendingChart } from '@florin/core/components/reflect/income-vs-spending-chart'
 import { NetWorthChart } from '@florin/core/components/reflect/net-worth-chart'
@@ -25,6 +26,7 @@ export default async function ReflectPage() {
   const [
     flows,
     categoryShare,
+    categoryTrends,
     ageOfMoney,
     netWorthSeries,
     netWorth,
@@ -35,6 +37,7 @@ export default async function ReflectPage() {
   ] = await Promise.all([
     queries.getMonthlyFlows(12),
     queries.getCategoryBreakdown(COUNTERFACTUAL_WINDOW_DAYS),
+    queries.getCategorySpendingSeries(12),
     queries.getAgeOfMoney(90),
     queries.getNetWorthSeries(24),
     queries.getNetWorth(),
@@ -65,8 +68,8 @@ export default async function ReflectPage() {
         </p>
       </header>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Card className="gap-2 py-5">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+        <Card className="h-full gap-2 py-5">
           <CardHeader className="px-6 py-0">
             <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
               {t('reflect.netWorth', 'Net worth')}
@@ -79,7 +82,7 @@ export default async function ReflectPage() {
             </p>
           </CardContent>
         </Card>
-        <Card className="gap-2 py-5">
+        <Card className="h-full gap-2 py-5">
           <CardHeader className="px-6 py-0">
             <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
               {t('reflect.income12mo', 'Income (12mo)')}
@@ -91,7 +94,7 @@ export default async function ReflectPage() {
             </p>
           </CardContent>
         </Card>
-        <Card className="gap-2 py-5">
+        <Card className="h-full gap-2 py-5">
           <CardHeader className="px-6 py-0">
             <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
               {t('reflect.spending12mo', 'Spending (12mo)')}
@@ -103,7 +106,7 @@ export default async function ReflectPage() {
             </p>
           </CardContent>
         </Card>
-        <Card className="gap-2 py-5">
+        <Card className="h-full gap-2 py-5">
           <CardHeader className="px-6 py-0">
             <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
               {t('reflect.ageOfMoney', 'Age of money')}
@@ -121,41 +124,41 @@ export default async function ReflectPage() {
             </p>
           </CardContent>
         </Card>
+        <div className="col-span-2 md:col-span-1">
+          <LeftToSpendCard
+            title={t('kpi.leftToSpend', 'Left to spend')}
+            monthIncome={leftToSpend.monthIncome}
+            monthSpent={leftToSpend.monthSpent}
+            leftToSpend={leftToSpend.leftToSpend}
+            dailyAvgSpent={leftToSpend.dailyAvgSpent}
+            dailyBudgetRemaining={leftToSpend.dailyBudgetRemaining}
+            daysRemaining={leftToSpend.daysRemaining}
+            hintCategory={
+              leftToSpend.salaryCategoryName
+                ? t(
+                    'kpi.leftToSpendCategory',
+                    { category: leftToSpend.salaryCategoryName },
+                    'Based on “{category}”',
+                  )
+                : undefined
+            }
+            hintNoIncome={t('kpi.leftToSpendNoIncome', 'No salary detected in the last 90 days.')}
+            perDayLabel={t('kpi.perDay', '/day')}
+          />
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        <LeftToSpendCard
-          title={t('kpi.leftToSpend', 'Left to spend')}
-          monthIncome={leftToSpend.monthIncome}
-          monthSpent={leftToSpend.monthSpent}
-          leftToSpend={leftToSpend.leftToSpend}
-          dailyAvgSpent={leftToSpend.dailyAvgSpent}
-          dailyBudgetRemaining={leftToSpend.dailyBudgetRemaining}
-          daysRemaining={leftToSpend.daysRemaining}
-          hintCategory={
-            leftToSpend.salaryCategoryName
-              ? t(
-                  'kpi.leftToSpendCategory',
-                  { category: leftToSpend.salaryCategoryName },
-                  'Based on “{category}”',
-                )
-              : undefined
-          }
-          hintNoIncome={t('kpi.leftToSpendNoIncome', 'No salary detected in the last 90 days.')}
-          perDayLabel={t('kpi.perDay', '/day')}
-        />
-        <SavingsRateRolling
-          rates={savingsRates}
-          title={t('reflect.savingsRolling', 'Savings rate — rolling')}
-          subtitle={t('reflect.savingsRollingSubtitle', 'Saved ÷ income over 3, 6, 12 months.')}
-          labels={{
-            threeMonth: t('reflect.threeMonth', '3 mo'),
-            sixMonth: t('reflect.sixMonth', '6 mo'),
-            twelveMonth: t('reflect.twelveMonth', '12 mo'),
-            noData: t('reflect.noIncome', 'no income'),
-          }}
-        />
-      </div>
+      <SavingsRateRolling
+        rates={savingsRates}
+        title={t('reflect.savingsRolling', 'Savings rate — rolling')}
+        subtitle={t('reflect.savingsRollingSubtitle', 'Saved ÷ income over 3, 6, 12 months.')}
+        labels={{
+          threeMonth: t('reflect.threeMonth', '3 mo'),
+          sixMonth: t('reflect.sixMonth', '6 mo'),
+          twelveMonth: t('reflect.twelveMonth', '12 mo'),
+          noData: t('reflect.noIncome', 'no income'),
+        }}
+      />
 
       <WeeklyHeatmap rows={dailyByCategory} weeks={HEATMAP_WEEKS} />
 
@@ -199,6 +202,9 @@ export default async function ReflectPage() {
             title={t('reflect.netWorth', 'Net worth')}
             netWorthTooltipLabel={t('reflect.netWorth', 'Net worth')}
           />
+        </div>
+        <div className="min-h-[340px] lg:col-span-12 lg:min-h-0">
+          <CategoryTrendsChart data={categoryTrends} />
         </div>
         <div className="min-h-[240px] lg:col-span-12 lg:min-h-0">
           <CategoryBreakdownChart

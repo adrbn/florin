@@ -27,7 +27,13 @@ import {
   getTransactions,
 } from '@florin/core/banking'
 import type { AccountDetails, BankTransaction } from '@florin/core/banking'
-import { matchRule, type Rule, normalizePayee } from '@florin/core/lib/categorization'
+import {
+  matchRule,
+  type Rule,
+  normalizePayee,
+  suggestCategory,
+  type HistoryEntry,
+} from '@florin/core/lib/categorization'
 import { extractTrueDateFromText } from '@florin/core/lib/transactions'
 import { db } from '@/db/client'
 import {
@@ -200,6 +206,7 @@ async function syncAccountTransactions(
   remoteUid: string,
   isFirstSync: boolean,
   rules: ReadonlyArray<Rule>,
+  history: ReadonlyArray<HistoryEntry>,
   syncStartDate: string,
 ): Promise<{ fetched: number; inserted: number }> {
   const lookbackDays = isFirstSync ? TX_LOOKBACK_DAYS_INITIAL : TX_LOOKBACK_DAYS
@@ -244,10 +251,30 @@ async function syncAccountTransactions(
         const normalizedP = normalizePayee(payee)
         const amount = signedAmount(t)
         const externalId = t.transaction_id ?? t.entry_reference ?? null
-        const categoryId = matchRule(
+        // Two-step auto-categorisation. Explicit rules win; if no rule matches,
+        // fall back to a history-similarity suggestion. Strong matches (≥0.95,
+        // typically multiple past tx with the exact same payee all going to
+        // the same category) are auto-applied and cleared from the review
+        // queue — everything else gets pre-filled but left for human review.
+        let categoryId = matchRule(
           { payee: normalizedP, amount, accountId: florinAccountId },
           rules,
         )
+        let needsReview = true
+        if (categoryId !== null) {
+          // Rule match is explicit user intent — no need to flag for review.
+          needsReview = false
+        } else {
+          const suggestion = suggestCategory(
+            { normalizedPayee: normalizedP, amount, accountId: florinAccountId },
+            history,
+          )
+          if (suggestion && suggestion.confidence >= 0.5) {
+            categoryId = suggestion.categoryId
+            needsReview = suggestion.confidence < 0.95
+          }
+        }
+
         return {
           accountId: florinAccountId,
           occurredAt: pickOccurredAt(t, payee),
@@ -260,7 +287,7 @@ async function syncAccountTransactions(
           source: 'enable_banking',
           externalId,
           isPending: t.status === 'PDNG',
-          needsReview: true,
+          needsReview,
           rawData: JSON.stringify(t),
         }
       })
@@ -344,6 +371,122 @@ async function loadActiveRules(): Promise<ReadonlyArray<Rule>> {
       matchAccountId: r.matchAccountId,
     }),
   )
+}
+
+/**
+ * Fetch a pool of the most recent categorised transactions, to feed the
+ * history-similarity matcher. Excludes transfers (they carry synthetic
+ * payees that match nothing useful) and soft-deleted rows. Capped at 5000
+ * rows — plenty for any realistic household yet cheap to iterate per-tx.
+ */
+async function loadCategorizedHistory(): Promise<ReadonlyArray<HistoryEntry>> {
+  const rows = await db
+    .select({
+      normalizedPayee: transactions.normalizedPayee,
+      categoryId: transactions.categoryId,
+      amount: transactions.amount,
+      accountId: transactions.accountId,
+    })
+    .from(transactions)
+    .where(
+      and(
+        isNotNull(transactions.categoryId),
+        isNull(transactions.deletedAt),
+        isNull(transactions.transferPairId),
+      ),
+    )
+    .orderBy(desc(transactions.occurredAt))
+    .limit(5000)
+    .all()
+  return rows.filter((r): r is HistoryEntry & { categoryId: string } =>
+    r.categoryId !== null && r.normalizedPayee.length > 0,
+  ).map((r) => ({
+    normalizedPayee: r.normalizedPayee,
+    categoryId: r.categoryId,
+    amount: Number(r.amount),
+    accountId: r.accountId,
+  }))
+}
+
+/**
+ * Re-run categorisation on every transaction still flagged `needs_review`.
+ *
+ * Why: the first pass in `syncAccountTransactions` ran with the history pool
+ * as it was at the start of this sync. After we've ingested fresh rows, the
+ * history is richer — a previously ambiguous tx might now have two siblings
+ * with the same payee and a clear modal category, pushing confidence past
+ * the auto-apply threshold. This pass catches those.
+ *
+ * Also re-checks rules, so newly created rules retroactively clean up the
+ * review queue without the user having to click "apply to existing".
+ *
+ * Safe update policy:
+ *   - Only touches `needs_review = true` rows (user-confirmed txs are off-limits).
+ *   - Rule match → apply category, clear review flag (explicit user intent).
+ *   - Similarity ≥ 0.95 → apply category, clear review flag.
+ *   - Similarity 0.5–0.94 AND category still null → pre-fill category, keep flag.
+ *   - Otherwise untouched.
+ */
+async function reEvaluateReviewQueue(
+  rules: ReadonlyArray<Rule>,
+  history: ReadonlyArray<HistoryEntry>,
+): Promise<{ autoApplied: number; suggested: number }> {
+  const pending = await db
+    .select({
+      id: transactions.id,
+      accountId: transactions.accountId,
+      amount: transactions.amount,
+      normalizedPayee: transactions.normalizedPayee,
+      categoryId: transactions.categoryId,
+    })
+    .from(transactions)
+    .where(and(eq(transactions.needsReview, true), isNull(transactions.deletedAt)))
+    .all()
+
+  let autoApplied = 0
+  let suggested = 0
+  const nowIso = new Date().toISOString()
+
+  for (const tx of pending) {
+    if (!tx.normalizedPayee || !tx.accountId) continue
+    const amount = Number(tx.amount)
+    const payee = tx.normalizedPayee
+    const accountId = tx.accountId
+
+    const ruleHit = matchRule(
+      { payee, amount, accountId },
+      rules,
+    )
+    if (ruleHit !== null) {
+      await db
+        .update(transactions)
+        .set({ categoryId: ruleHit, needsReview: false, updatedAt: nowIso })
+        .where(eq(transactions.id, tx.id))
+      autoApplied += 1
+      continue
+    }
+
+    const suggestion = suggestCategory(
+      { normalizedPayee: payee, amount, accountId },
+      history,
+    )
+    if (!suggestion) continue
+    if (suggestion.confidence >= 0.95) {
+      await db
+        .update(transactions)
+        .set({ categoryId: suggestion.categoryId, needsReview: false, updatedAt: nowIso })
+        .where(eq(transactions.id, tx.id))
+      autoApplied += 1
+    } else if (suggestion.confidence >= 0.5 && tx.categoryId === null) {
+      await db
+        .update(transactions)
+        .set({ categoryId: suggestion.categoryId, updatedAt: nowIso })
+        .where(eq(transactions.id, tx.id))
+      suggested += 1
+    }
+  }
+
+  return { autoApplied, suggested }
 }
 
 /**
@@ -487,7 +630,7 @@ export async function syncConnection(
     }
   }
 
-  const rules = await loadActiveRules()
+  const [rules, history] = await Promise.all([loadActiveRules(), loadCategorizedHistory()])
   const errors: { accountUid: string; message: string }[] = []
   const accountLogs: AccountLog[] = []
   let totalInserted = 0
@@ -550,6 +693,7 @@ export async function syncConnection(
         uid,
         isFirstSync,
         rules,
+        history,
         connection.syncStartDate,
       )
       totalInserted += inserted
@@ -564,6 +708,20 @@ export async function syncConnection(
     // Count as synced if at least the balance updated
     if (log.balanceFetched) {
       accountsSynced += 1
+    }
+  }
+
+  // Reload history (now enriched with the rows we just inserted) and re-score
+  // the review queue. Cheap: matcher is O(n*history) over a few hundred rows
+  // at most, and it's the moment when the user's history has the most signal
+  // it's ever had.
+  if (totalInserted > 0) {
+    try {
+      const freshHistory = await loadCategorizedHistory()
+      await reEvaluateReviewQueue(rules, freshHistory)
+    } catch {
+      // Never fail a sync because of review-queue rescoring. Worst case the
+      // user clears items manually on the next pass.
     }
   }
 
