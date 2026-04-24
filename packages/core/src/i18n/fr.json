@@ -223,6 +223,11 @@
   "reflect.categoryTrendsSubtitle": "Une courbe par catégorie — triées par dépense totale sur la période.",
   "reflect.trendWindowMonths": "m",
   "reflect.trendPerMonth": "/mois",
+  "reflect.viewCategoryTrend": "Voir la tendance de {name}",
+  "reflect.totalLabel": "Total",
+  "reflect.trendLabel": "Tendance",
+  "reflect.maxMonthLabel": "Pic",
+  "reflect.seeTransactions": "Voir les transactions",
 
   "reflect.subscriptions": "Radar des abonnements",
   "reflect.subscriptionsSubtitle": "Charges récurrentes détectées sur 6 mois.",
