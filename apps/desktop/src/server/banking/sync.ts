@@ -35,6 +35,7 @@ import {
   type HistoryEntry,
 } from '@florin/core/lib/categorization'
 import { extractTrueDateFromText } from '@florin/core/lib/transactions'
+import { autoLinkInternalTransfersMutation } from '@florin/db-sqlite'
 import { db } from '@/db/client'
 import {
   accounts,
@@ -722,6 +723,17 @@ export async function syncConnection(
     } catch {
       // Never fail a sync because of review-queue rescoring. Worst case the
       // user clears items manually on the next pass.
+    }
+
+    // Pair newly-inserted internal-transfer legs (e.g. CCP→Livret moves seen
+    // as two opposite-signed rows on different accounts) so the Reflect
+    // heatmap and category-breakdown queries — which all filter on
+    // `transferPairId IS NULL` — stop double-counting them as expense+income.
+    try {
+      await autoLinkInternalTransfersMutation(db)
+    } catch {
+      // Auto-pairing is a UX nicety, not a correctness invariant — never
+      // fail a sync because of it.
     }
   }
 

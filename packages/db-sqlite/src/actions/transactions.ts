@@ -83,7 +83,11 @@ export async function addTransactionMutation(
       })
       .returning({ id: transactions.id })
 
-    await recomputeAccountBalance(db, data.accountId)
+    // Pass +data.amount as delta so bank-synced (enable_banking, pytr) and
+    // legacy accounts — whose full opening+SUM recompute is skipped — still
+    // reflect the new transaction in their cached balance. Local-ledger
+    // accounts ignore the delta and run the proper recompute instead.
+    await recomputeAccountBalance(db, data.accountId, data.amount)
     if (row?.id) await syncLoanMirror(db, row.id)
 
     return { success: true, data: { id: row?.id ?? '' } }
@@ -584,4 +588,96 @@ export async function listLoanPaymentsForAccountQuery(
       category: true,
     },
   })
+}
+
+/**
+ * Scan unpaired non-deleted transactions in the last `lookbackDays` and pair
+ * obvious internal-transfer matches: same magnitude, opposite signs, on
+ * different accounts, within `±toleranceDays` of each other.
+ *
+ * Conservative on purpose — skips rows where the user already assigned a
+ * category, so a misclassified salary/refund won't get silently relabeled as
+ * a transfer. Idempotent: rows already carrying a `transferPairId` are
+ * ignored, so it's safe to call after every sync.
+ */
+export async function autoLinkInternalTransfersMutation(
+  db: SqliteDB,
+  options: { lookbackDays?: number; toleranceDays?: number } = {},
+): Promise<ActionResult<{ paired: number }>> {
+  const lookback = options.lookbackDays ?? 365
+  const tolerance = options.toleranceDays ?? 3
+
+  try {
+    const cutoff = new Date(Date.now() - lookback * 86_400_000).toISOString().slice(0, 10)
+    const candidates = await db
+      .select({
+        id: transactions.id,
+        accountId: transactions.accountId,
+        amount: transactions.amount,
+        occurredAt: transactions.occurredAt,
+        categoryId: transactions.categoryId,
+      })
+      .from(transactions)
+      .where(
+        and(
+          isNull(transactions.transferPairId),
+          isNull(transactions.deletedAt),
+          gte(transactions.occurredAt, cutoff),
+        ),
+      )
+
+    // Walk the rows in chronological order so deterministic, predictable
+    // matches happen first when several candidates collide on the same day.
+    const sorted = [...candidates].sort((a, b) => {
+      if (a.occurredAt !== b.occurredAt) return a.occurredAt < b.occurredAt ? -1 : 1
+      return a.id < b.id ? -1 : 1
+    })
+
+    const paired: { a: string; b: string }[] = []
+    const used = new Set<string>()
+
+    for (const tx of sorted) {
+      if (used.has(tx.id)) continue
+      if (tx.categoryId) continue
+      if (!tx.accountId) continue
+      const txAmount = Number(tx.amount)
+      if (!Number.isFinite(txAmount) || txAmount === 0) continue
+
+      const baseTime = new Date(`${tx.occurredAt}T00:00:00Z`).getTime()
+      if (Number.isNaN(baseTime)) continue
+      const winStart = new Date(baseTime - tolerance * 86_400_000).toISOString().slice(0, 10)
+      const winEnd = new Date(baseTime + tolerance * 86_400_000).toISOString().slice(0, 10)
+
+      const match = sorted.find(
+        (other) =>
+          other.id !== tx.id &&
+          !used.has(other.id) &&
+          !other.categoryId &&
+          other.accountId &&
+          other.accountId !== tx.accountId &&
+          Number(other.amount) === -txAmount &&
+          other.occurredAt >= winStart &&
+          other.occurredAt <= winEnd,
+      )
+      if (match) {
+        used.add(tx.id)
+        used.add(match.id)
+        paired.push({ a: tx.id, b: match.id })
+      }
+    }
+
+    const nowIso = new Date().toISOString()
+    for (const { a, b } of paired) {
+      const transferPairId = randomUUID()
+      await db
+        .update(transactions)
+        .set({ transferPairId, needsReview: false, updatedAt: nowIso })
+        .where(inArray(transactions.id, [a, b]))
+    }
+
+    return { success: true, data: { paired: paired.length } }
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to auto-link transfers'
+    return { success: false, error: message }
+  }
 }
