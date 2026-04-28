@@ -31,6 +31,7 @@ import {
 import { matchRule, type Rule } from '@/lib/categorization/engine'
 import { normalizePayee } from '@/lib/categorization/normalize-payee'
 import { extractTrueDateFromText } from '@florin/core/lib/transactions'
+import { autoLinkInternalTransfersMutation } from '@florin/db-pg'
 import { getAccountDetails, getBalances, getSession, getTransactions } from './enable-banking'
 import type { AccountDetails, BankTransaction } from './types'
 
@@ -494,6 +495,15 @@ export async function syncConnection(
 
     if (log.balanceFetched) {
       accountsSynced += 1
+    }
+  }
+
+  if (totalInserted > 0) {
+    try {
+      await autoLinkInternalTransfersMutation(db)
+    } catch {
+      // Auto-pairing is a UX nicety, not a correctness invariant — never
+      // fail a sync because of it.
     }
   }
 
