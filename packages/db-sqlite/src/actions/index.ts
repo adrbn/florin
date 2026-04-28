@@ -34,7 +34,11 @@ import { setCategoryAssignedMutation, clearCategoryAssignedMutation } from './pl
 
 // Re-export standalone functions for callers that need them directly
 export { reconcileLoanMirrorsForCategory, recomputeAccountBalance } from './helpers'
-export { listTransactionsForAccountQuery, listLoanPaymentsForAccountQuery } from './transactions'
+export {
+  listTransactionsForAccountQuery,
+  listLoanPaymentsForAccountQuery,
+  autoLinkInternalTransfersMutation,
+} from './transactions'
 export { exportAllDataMutation } from './export'
 
 /**

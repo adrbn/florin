@@ -7,6 +7,7 @@ export {
   recomputeAccountBalance,
   listTransactionsForAccountQuery,
   listLoanPaymentsForAccountQuery,
+  autoLinkInternalTransfersMutation,
   exportAllDataMutation,
 } from './actions'
 export * as schema from './schema'
