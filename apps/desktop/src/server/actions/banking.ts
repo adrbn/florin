@@ -150,6 +150,7 @@ export async function completeBankConnection(input: {
 export async function syncAllBanks(): Promise<
   ActionResult<{
     connectionsSynced: number
+    inactiveConnections: number
     accountsSynced: number
     transactionsInserted: number
   }>
@@ -164,6 +165,7 @@ export async function syncAllBanks(): Promise<
       success: result.errors.length === 0,
       data: {
         connectionsSynced: result.connectionsSynced,
+        inactiveConnections: result.inactiveConnections,
         accountsSynced: result.accountsSynced,
         transactionsInserted: result.transactionsInserted,
       },

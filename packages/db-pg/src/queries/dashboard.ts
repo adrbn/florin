@@ -94,6 +94,7 @@ async function computeNetMonthAgo(db: PgDB, currentNet: number): Promise<number 
  * are excluded entirely so a payday doesn't "cancel" the metric.
  */
 const burnAmountSql = sql<string>`COALESCE(SUM(CASE
+  WHEN UPPER(${transactions.payee}) LIKE 'VIREMENT %' AND ${transactions.categoryId} IS NULL THEN 0
   WHEN ${transactions.amount} < 0 AND (${categoryGroups.kind} IS NULL OR ${categoryGroups.kind} <> 'income') THEN ${transactions.amount}
   WHEN ${transactions.amount} > 0 AND ${categoryGroups.kind} = 'expense' THEN ${transactions.amount}
   ELSE 0
@@ -456,6 +457,12 @@ export async function getDailySpend(db: PgDB, days = 91): Promise<DailySpend[]> 
         sql`${transactions.transferPairId} IS NULL`,
         eq(accounts.isArchived, false),
         sql`(${categoryGroups.kind} IS NULL OR ${categoryGroups.kind} <> 'income')`,
+        // External SEPA outgoing transfers ("VIREMENT POUR …", "VIREMENT
+        // VERS …", etc.) can't be auto-paired because the destination
+        // account isn't in Florin. Treat them as transfers, not expenses,
+        // when uncategorized — the user can override by assigning a
+        // category if the transfer truly was an expense.
+        sql`NOT (UPPER(${transactions.payee}) LIKE 'VIREMENT %' AND ${transactions.categoryId} IS NULL)`,
       ),
     )
     .groupBy(sql`to_char(${transactions.occurredAt}, 'YYYY-MM-DD')`)
@@ -493,6 +500,12 @@ export async function getDailySpendByCategory(
         sql`${transactions.transferPairId} IS NULL`,
         eq(accounts.isArchived, false),
         sql`(${categoryGroups.kind} IS NULL OR ${categoryGroups.kind} <> 'income')`,
+        // External SEPA outgoing transfers ("VIREMENT POUR …", "VIREMENT
+        // VERS …", etc.) can't be auto-paired because the destination
+        // account isn't in Florin. Treat them as transfers, not expenses,
+        // when uncategorized — the user can override by assigning a
+        // category if the transfer truly was an expense.
+        sql`NOT (UPPER(${transactions.payee}) LIKE 'VIREMENT %' AND ${transactions.categoryId} IS NULL)`,
       ),
     )
     .groupBy(

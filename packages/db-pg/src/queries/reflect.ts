@@ -30,6 +30,8 @@ export async function getMonthlyFlows(db: PgDB, months = 12): Promise<MonthlyFlo
         isNull(transactions.deletedAt),
         gte(transactions.occurredAt, start),
         sql`${transactions.transferPairId} IS NULL`,
+        // Hide uncategorized SEPA outgoing transfers — see getDailySpend.
+        sql`NOT (UPPER(${transactions.payee}) LIKE 'VIREMENT %' AND ${transactions.categoryId} IS NULL)`,
         eq(accounts.isArchived, false),
       ),
     )
@@ -70,6 +72,8 @@ export async function getCategoryBreakdown(db: PgDB, days = 90): Promise<Categor
         gte(transactions.occurredAt, start),
         sql`${transactions.amount} < 0`,
         sql`${transactions.transferPairId} IS NULL`,
+        // Hide uncategorized SEPA outgoing transfers — see getDailySpend.
+        sql`NOT (UPPER(${transactions.payee}) LIKE 'VIREMENT %' AND ${transactions.categoryId} IS NULL)`,
         eq(categoryGroups.kind, 'expense'),
         eq(accounts.isArchived, false),
       ),
@@ -107,6 +111,8 @@ async function loadAomTxs(db: PgDB, lookbackDays: number): Promise<AomTx[]> {
         isNull(transactions.deletedAt),
         gte(transactions.occurredAt, start),
         sql`${transactions.transferPairId} IS NULL`,
+        // Hide uncategorized SEPA outgoing transfers — see getDailySpend.
+        sql`NOT (UPPER(${transactions.payee}) LIKE 'VIREMENT %' AND ${transactions.categoryId} IS NULL)`,
         eq(accounts.isArchived, false),
         sql`${accounts.kind} <> 'loan'`,
       ),
@@ -166,6 +172,8 @@ export async function getCategorySpendingSeries(
         gte(transactions.occurredAt, start),
         sql`${transactions.amount} < 0`,
         sql`${transactions.transferPairId} IS NULL`,
+        // Hide uncategorized SEPA outgoing transfers — see getDailySpend.
+        sql`NOT (UPPER(${transactions.payee}) LIKE 'VIREMENT %' AND ${transactions.categoryId} IS NULL)`,
         eq(categoryGroups.kind, 'expense'),
         eq(accounts.isArchived, false),
       ),
@@ -233,6 +241,8 @@ export async function getNetWorthSeries(db: PgDB, months = 24): Promise<NetWorth
       and(
         isNull(transactions.deletedAt),
         sql`${transactions.transferPairId} IS NULL`,
+        // Hide uncategorized SEPA outgoing transfers — see getDailySpend.
+        sql`NOT (UPPER(${transactions.payee}) LIKE 'VIREMENT %' AND ${transactions.categoryId} IS NULL)`,
         eq(accounts.isArchived, false),
         sql`${accounts.kind} <> 'loan'`,
       ),

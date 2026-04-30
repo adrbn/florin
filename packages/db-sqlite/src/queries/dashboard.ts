@@ -95,7 +95,12 @@ async function computeNetMonthAgo(db: SqliteDB, currentNet: number): Promise<num
  * refunds on expense categories net against it, and income-kind rows (salary)
  * are excluded entirely so a payday doesn't "cancel" the metric.
  */
+// SEPA outgoing transfer payees ("VIREMENT POUR …", "VIREMENT VERS …")
+// that the user hasn't categorized are zeroed out — they're not real
+// expenses, just money moving between the user's own accounts at
+// different banks. Same heuristic as getDailySpend.
 const burnAmountSql = sql<number>`COALESCE(SUM(CASE
+  WHEN UPPER(${transactions.payee}) LIKE 'VIREMENT %' AND ${transactions.categoryId} IS NULL THEN 0
   WHEN ${transactions.amount} < 0 AND (${categoryGroups.kind} IS NULL OR ${categoryGroups.kind} <> 'income') THEN ${transactions.amount}
   WHEN ${transactions.amount} > 0 AND ${categoryGroups.kind} = 'expense' THEN ${transactions.amount}
   ELSE 0
@@ -459,6 +464,14 @@ export async function getDailySpend(db: SqliteDB, days = 91): Promise<DailySpend
         sql`${transactions.transferPairId} IS NULL`,
         eq(accounts.isArchived, false),
         sql`(${categoryGroups.kind} IS NULL OR ${categoryGroups.kind} <> 'income')`,
+        // External SEPA outgoing transfers ("VIREMENT POUR …", "VIREMENT
+        // VERS …", etc.) can't be auto-paired because the destination
+        // account isn't in Florin. Treating them as expenses pollutes the
+        // heatmap with what is really money the user moved between their
+        // own accounts. Filter them out when uncategorized — the user can
+        // override by assigning a category if the transfer truly was an
+        // expense (e.g. paying a friend back).
+        sql`NOT (UPPER(${transactions.payee}) LIKE 'VIREMENT %' AND ${transactions.categoryId} IS NULL)`,
       ),
     )
     .groupBy(sql`strftime('%Y-%m-%d', ${transactions.occurredAt})`)

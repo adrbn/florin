@@ -46,7 +46,7 @@ export function KpiCard({ title, value, hint, icon: Icon, tone = 'default', href
   const card = (
     <Card
       className={cn(
-        'h-full gap-2 py-5',
+        '@container/kpi h-full gap-2 py-5',
         clickable &&
           'transition-colors hover:bg-muted/40 group-focus-visible:ring-2 group-focus-visible:ring-ring',
       )}
@@ -56,8 +56,18 @@ export function KpiCard({ title, value, hint, icon: Icon, tone = 'default', href
         {Icon ? <Icon className="h-4 w-4 text-muted-foreground" /> : null}
       </CardHeader>
       <CardContent className="px-6 py-0">
+        {/*
+         * Container-query sized amount: scales up with available card width
+         * so wide dashboard tiles get a punchy text-3xl, while narrower
+         * Reflect-rail tiles stay at text-2xl. `whitespace-nowrap` +
+         * tabular-nums prevents the headline from wrapping or jittering as
+         * it ticks. Overflow guard keeps very long values inside the card.
+         */}
         <p
-          className={cn('text-2xl font-bold tracking-tight tabular-nums', TONE_CLASSES[tone])}
+          className={cn(
+            'overflow-hidden whitespace-nowrap text-2xl font-bold tracking-tight tabular-nums @[200px]/kpi:text-3xl @[260px]/kpi:text-[2rem]',
+            TONE_CLASSES[tone],
+          )}
           data-amount="manual"
         >
           {value}

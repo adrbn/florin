@@ -9,7 +9,12 @@ import { cn } from '../../lib/utils'
 interface SyncResult {
   success: boolean
   error?: string
-  data?: { connectionsSynced: number; transactionsInserted: number } | null
+  data?: {
+    connectionsSynced: number
+    /** Connections skipped because their consent expired/was revoked. */
+    inactiveConnections?: number
+    transactionsInserted: number
+  } | null
 }
 
 interface SyncAllButtonProps {
@@ -49,7 +54,14 @@ export function SyncAllButton({ onSyncAllBanks }: SyncAllButtonProps) {
       }
       const data = result.data
       if (!data || data.connectionsSynced === 0) {
-        setFeedback('No banks linked')
+        // Distinguish "no banks at all" from "all banks expired" — the
+        // latter just needs a reconnect, not a fresh setup.
+        if (data && (data.inactiveConnections ?? 0) > 0) {
+          setIsError(true)
+          setFeedback('Connection expired — reconnect')
+        } else {
+          setFeedback('No banks linked')
+        }
         return
       }
       if (data.transactionsInserted > 0) {

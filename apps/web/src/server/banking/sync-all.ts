@@ -7,13 +7,15 @@
  * client_id, and a self-hosted user is unlikely to have more than one or two
  * linked banks, so the serialization cost is negligible.
  */
-import { eq } from 'drizzle-orm'
+import { ne } from 'drizzle-orm'
 import { db } from '@/db/client'
 import { bankConnections } from '@/db/schema'
 import { type SyncResult, type SyncTrigger, syncConnection } from './sync'
 
 export interface SyncAllResult {
   connectionsSynced: number
+  /** Connections skipped because their consent expired/was revoked. */
+  inactiveConnections: number
   accountsSynced: number
   transactionsInserted: number
   errors: ReadonlyArray<{ connectionId: string; message: string }>
@@ -24,10 +26,20 @@ export async function syncAllConnections(
   trigger: SyncTrigger = 'manual',
 ): Promise<SyncAllResult> {
   const startedAt = Date.now()
-  const active = await db
-    .select({ id: bankConnections.id, aspspName: bankConnections.aspspName })
+  // Pull every non-deleted connection so the caller can tell apart
+  // "no banks linked at all" (connectionsSynced + inactiveConnections === 0)
+  // from "connection expired, reconnect needed" (inactiveConnections > 0).
+  const all = await db
+    .select({
+      id: bankConnections.id,
+      aspspName: bankConnections.aspspName,
+      status: bankConnections.status,
+    })
     .from(bankConnections)
-    .where(eq(bankConnections.status, 'active'))
+    .where(ne(bankConnections.status, 'deleted'))
+
+  const active = all.filter((c) => c.status === 'active')
+  const inactive = all.filter((c) => c.status !== 'active')
 
   const errors: { connectionId: string; message: string }[] = []
   let accountsSynced = 0
@@ -52,6 +64,7 @@ export async function syncAllConnections(
 
   return {
     connectionsSynced: active.length,
+    inactiveConnections: inactive.length,
     accountsSynced,
     transactionsInserted,
     errors,
