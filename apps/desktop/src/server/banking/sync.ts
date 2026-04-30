@@ -740,6 +740,12 @@ export async function syncConnection(
   await db
     .update(bankConnections)
     .set({
+      // Reaching this point means getSession returned AUTHORIZED — flip the
+      // status back to 'active' so a transient failure that previously
+      // marked the connection 'expired' / 'revoked' doesn't make it
+      // permanently invisible to syncAllConnections (which filters on
+      // status='active').
+      status: 'active',
       lastSyncedAt: new Date().toISOString(),
       lastSyncError: errors.length > 0 ? errors.map((e) => e.message).join('; ') : null,
       updatedAt: new Date().toISOString(),
