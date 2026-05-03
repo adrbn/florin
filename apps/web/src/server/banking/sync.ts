@@ -28,8 +28,13 @@ import {
   type NewTransaction,
   transactions,
 } from '@/db/schema'
-import { matchRule, type Rule } from '@/lib/categorization/engine'
-import { normalizePayee } from '@/lib/categorization/normalize-payee'
+import {
+  matchRule,
+  type Rule,
+  normalizePayee,
+  suggestCategory,
+  type HistoryEntry,
+} from '@florin/core/lib/categorization'
 import { extractTrueDateFromText } from '@florin/core/lib/transactions'
 import { autoLinkInternalTransfersMutation } from '@florin/db-pg'
 import { getAccountDetails, getBalances, getSession, getTransactions } from './enable-banking'
@@ -224,6 +229,7 @@ async function syncAccountTransactions(
   remoteUid: string,
   isFirstSync: boolean,
   rules: ReadonlyArray<Rule>,
+  history: ReadonlyArray<HistoryEntry>,
   syncStartDate: Date,
 ): Promise<{ fetched: number; inserted: number }> {
   const lookbackDays = isFirstSync ? TX_LOOKBACK_DAYS_INITIAL : TX_LOOKBACK_DAYS
@@ -270,10 +276,24 @@ async function syncAccountTransactions(
         const normalizedPayee = normalizePayee(payee)
         const amount = signedAmount(t)
         const externalId = t.transaction_id ?? t.entry_reference ?? null
-        const categoryId = matchRule(
-          { payee: normalizedPayee, amount: Number(amount), accountId: florinAccountId },
+        const numericAmount = Number(amount)
+        let categoryId = matchRule(
+          { payee: normalizedPayee, amount: numericAmount, accountId: florinAccountId },
           rules,
         )
+        let needsReview = true
+        if (categoryId !== null) {
+          needsReview = false
+        } else {
+          const suggestion = suggestCategory(
+            { normalizedPayee, amount: numericAmount, accountId: florinAccountId },
+            history,
+          )
+          if (suggestion && suggestion.confidence >= 0.5) {
+            categoryId = suggestion.categoryId
+            needsReview = suggestion.confidence < 0.95
+          }
+        }
         return {
           accountId: florinAccountId,
           occurredAt: pickOccurredAt(t, payee),
@@ -286,10 +306,7 @@ async function syncAccountTransactions(
           source: 'enable_banking',
           externalId,
           isPending: t.status === 'PDNG',
-          // Bank-imported rows land in the review queue. The user explicitly
-          // wants a YNAB-style "approve before it counts" workflow so we
-          // never auto-trust the bank's payee text or our own rule guess.
-          needsReview: true,
+          needsReview,
           rawData: JSON.stringify(t),
         }
       })
@@ -349,6 +366,103 @@ async function syncAccountBalance(florinAccountId: string, remoteUid: string): P
     .where(eq(accounts.id, florinAccountId))
 
   return `balance=${picked.amount} (${picked.type}) [${picked.allTypes}]`
+}
+
+/**
+ * Fetch a pool of the most recent categorised transactions to feed the
+ * history-similarity matcher. Excludes transfers and soft-deleted rows.
+ */
+async function loadCategorizedHistory(): Promise<ReadonlyArray<HistoryEntry>> {
+  const rows = await db
+    .select({
+      normalizedPayee: transactions.normalizedPayee,
+      categoryId: transactions.categoryId,
+      amount: transactions.amount,
+      accountId: transactions.accountId,
+    })
+    .from(transactions)
+    .where(
+      and(
+        isNotNull(transactions.categoryId),
+        isNull(transactions.deletedAt),
+        isNull(transactions.transferPairId),
+      ),
+    )
+    .orderBy(desc(transactions.occurredAt))
+    .limit(5000)
+  return rows
+    .filter(
+      (r): r is typeof r & { categoryId: string; accountId: string } =>
+        r.categoryId !== null && r.accountId !== null && r.normalizedPayee.length > 0,
+    )
+    .map((r) => ({
+      normalizedPayee: r.normalizedPayee,
+      categoryId: r.categoryId,
+      amount: Number(r.amount),
+      accountId: r.accountId,
+    }))
+}
+
+/**
+ * Re-run categorisation on every transaction still flagged needs_review using
+ * the freshly enriched history pool, then auto-clear high-confidence matches.
+ */
+async function reEvaluateReviewQueue(
+  rules: ReadonlyArray<Rule>,
+  history: ReadonlyArray<HistoryEntry>,
+): Promise<{ autoApplied: number; suggested: number }> {
+  const pending = await db
+    .select({
+      id: transactions.id,
+      accountId: transactions.accountId,
+      amount: transactions.amount,
+      normalizedPayee: transactions.normalizedPayee,
+      categoryId: transactions.categoryId,
+    })
+    .from(transactions)
+    .where(and(eq(transactions.needsReview, true), isNull(transactions.deletedAt)))
+
+  let autoApplied = 0
+  let suggested = 0
+  const now = new Date()
+
+  for (const tx of pending) {
+    if (!tx.normalizedPayee || !tx.accountId) continue
+    const amount = Number(tx.amount)
+    const payee = tx.normalizedPayee
+    const accountId = tx.accountId
+
+    const ruleHit = matchRule({ payee, amount, accountId }, rules)
+    if (ruleHit !== null) {
+      await db
+        .update(transactions)
+        .set({ categoryId: ruleHit, needsReview: false, updatedAt: now })
+        .where(eq(transactions.id, tx.id))
+      autoApplied += 1
+      continue
+    }
+
+    const suggestion = suggestCategory(
+      { normalizedPayee: payee, amount, accountId },
+      history,
+    )
+    if (!suggestion) continue
+    if (suggestion.confidence >= 0.95) {
+      await db
+        .update(transactions)
+        .set({ categoryId: suggestion.categoryId, needsReview: false, updatedAt: now })
+        .where(eq(transactions.id, tx.id))
+      autoApplied += 1
+    } else if (suggestion.confidence >= 0.5 && tx.categoryId === null) {
+      await db
+        .update(transactions)
+        .set({ categoryId: suggestion.categoryId, updatedAt: now })
+        .where(eq(transactions.id, tx.id))
+      suggested += 1
+    }
+  }
+
+  return { autoApplied, suggested }
 }
 
 async function loadActiveRules(): Promise<ReadonlyArray<Rule>> {
@@ -424,7 +538,7 @@ export async function syncConnection(
     }
   }
 
-  const rules = await loadActiveRules()
+  const [rules, history] = await Promise.all([loadActiveRules(), loadCategorizedHistory()])
   const errors: { accountUid: string; message: string }[] = []
   const accountLogs: AccountLog[] = []
   let totalInserted = 0
@@ -481,6 +595,7 @@ export async function syncConnection(
         uid,
         isFirstSync,
         rules,
+        history,
         connection.syncStartDate,
       )
       totalInserted += inserted
@@ -499,6 +614,13 @@ export async function syncConnection(
   }
 
   if (totalInserted > 0) {
+    try {
+      const freshHistory = await loadCategorizedHistory()
+      await reEvaluateReviewQueue(rules, freshHistory)
+    } catch {
+      // Never fail a sync because of review-queue rescoring.
+    }
+
     try {
       await autoLinkInternalTransfersMutation(db)
     } catch {
