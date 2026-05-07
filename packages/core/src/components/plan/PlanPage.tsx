@@ -18,18 +18,37 @@ interface PlanPageProps {
   plan: MonthPlan
   currency: string
   onSetAssigned: (input: SetCategoryAssignedInput) => Promise<ActionResult>
+  /**
+   * Optional — when provided, the Plan header shows a "Copy last month's
+   * plan" action that pre-fills any unassigned category from the prior
+   * month. Existing assignments on the current month are preserved.
+   */
+  onCopyPreviousMonth?: (
+    year: number,
+    month: number,
+  ) => Promise<ActionResult<{ copied: number; sourceYear: number; sourceMonth: number }>>
   onListCategoryTransactions: ListPlanCategoryTransactions
 }
 
 type OpenCategory = { id: string; name: string; emoji: string | null } | null
 
-export function PlanPage({ plan, currency, onSetAssigned, onListCategoryTransactions }: PlanPageProps) {
+export function PlanPage({
+  plan,
+  currency,
+  onSetAssigned,
+  onCopyPreviousMonth,
+  onListCategoryTransactions,
+}: PlanPageProps) {
   const t = useT()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [, startTransition] = useTransition()
   const [optimistic, setOptimistic] = useState<MonthPlan>(plan)
   const [openCategory, setOpenCategory] = useState<OpenCategory>(null)
+  const [copyPending, setCopyPending] = useState(false)
+
+  const isPlanEmpty = optimistic.totalAssigned === 0
+  const showCopyButton = onCopyPreviousMonth !== undefined && isPlanEmpty
 
   // Reset optimistic state whenever the server plan changes (month nav or post-save refresh).
   useEffect(() => {
@@ -62,6 +81,29 @@ export function PlanPage({ plan, currency, onSetAssigned, onListCategoryTransact
     startTransition(() => router.refresh())
   }
 
+  async function handleCopyPreviousMonth() {
+    if (!onCopyPreviousMonth || copyPending) return
+    setCopyPending(true)
+    try {
+      const result = await onCopyPreviousMonth(plan.year, plan.month)
+      if (!result.success) {
+        toast.error(result.error ?? t('plan.failedToCopy', 'Failed to copy previous month'))
+        return
+      }
+      const copied = result.data?.copied ?? 0
+      if (copied === 0) {
+        toast.message(t('plan.noPreviousPlan', 'No plan found for the previous month'))
+      } else {
+        toast.success(
+          t('plan.copiedFromPrevious', { n: copied }, `Copied ${copied} categor${copied === 1 ? 'y' : 'ies'} from last month`),
+        )
+      }
+      startTransition(() => router.refresh())
+    } finally {
+      setCopyPending(false)
+    }
+  }
+
   function handleShowTransactions(categoryId: string) {
     for (const g of optimistic.groups) {
       const c = g.categories.find((c) => c.id === categoryId)
@@ -75,6 +117,20 @@ export function PlanPage({ plan, currency, onSetAssigned, onListCategoryTransact
   return (
     <div className="flex flex-col h-full min-h-0">
       <MonthPicker year={optimistic.year} month={optimistic.month} onChange={navigate} />
+      {showCopyButton ? (
+        <div className="px-4 py-2 border-b border-border flex justify-center">
+          <button
+            type="button"
+            onClick={handleCopyPreviousMonth}
+            disabled={copyPending}
+            className="text-xs px-3 py-1.5 rounded-full border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {copyPending
+              ? t('plan.copyingPrevious', 'Copying…')
+              : t('plan.copyPreviousMonth', "Copy last month's plan")}
+          </button>
+        </div>
+      ) : null}
       {optimistic.overspentCount > 0 ? (
         <div className="px-4 py-2 border-b border-border">
           <span className="inline-flex items-center rounded-full bg-red-500/15 text-red-500 border border-red-500/30 px-2 py-0.5 text-xs font-medium">
