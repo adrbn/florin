@@ -421,4 +421,14 @@ export interface FlorinMutations {
     month: number,
     categoryId: string,
   ): Promise<ActionResult>
+  /**
+   * Copy every monthly_budgets row from the prior month into (year, month).
+   * Existing rows on the target month are preserved (ON CONFLICT DO NOTHING) —
+   * only categories without a budget yet get filled in. Returns the number of
+   * rows actually inserted.
+   */
+  copyPreviousMonthBudgets(
+    year: number,
+    month: number,
+  ): Promise<ActionResult<{ copied: number; sourceYear: number; sourceMonth: number }>>
 }

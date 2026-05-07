@@ -87,6 +87,70 @@ export async function setCategoryAssignedMutation(
   }
 }
 
+const copyPrevSchema = z.object({
+  year: z.number().int().min(1970).max(2100),
+  month: z.number().int().min(1).max(12),
+})
+
+/**
+ * Carry every monthly_budgets row from (year, month) - 1 month into
+ * (year, month). Idempotent: existing rows on the target month are preserved,
+ * we only insert categories that don't yet have a budget for this month —
+ * a user who's already filled in 3/15 categories can press this and get the
+ * other 12 pre-filled without losing their work.
+ */
+export async function copyPreviousMonthBudgetsMutation(
+  db: PgDB,
+  year: number,
+  month: number,
+): Promise<ActionResult<{ copied: number; sourceYear: number; sourceMonth: number }>> {
+  const parsed = copyPrevSchema.safeParse({ year, month })
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues.map((i) => i.message).join(', ') }
+  }
+
+  const sourceYear = month === 1 ? year - 1 : year
+  const sourceMonth = month === 1 ? 12 : month - 1
+
+  try {
+    const sourceRows = await db
+      .select({
+        categoryId: monthlyBudgets.categoryId,
+        assigned: monthlyBudgets.assigned,
+        note: monthlyBudgets.note,
+      })
+      .from(monthlyBudgets)
+      .where(
+        and(eq(monthlyBudgets.year, sourceYear), eq(monthlyBudgets.month, sourceMonth)),
+      )
+
+    if (sourceRows.length === 0) {
+      return { success: true, data: { copied: 0, sourceYear, sourceMonth } }
+    }
+
+    const inserted = await db
+      .insert(monthlyBudgets)
+      .values(
+        sourceRows.map((r) => ({
+          year,
+          month,
+          categoryId: r.categoryId,
+          assigned: r.assigned,
+          note: r.note,
+        })),
+      )
+      .onConflictDoNothing({
+        target: [monthlyBudgets.year, monthlyBudgets.month, monthlyBudgets.categoryId],
+      })
+      .returning({ id: monthlyBudgets.id })
+
+    return { success: true, data: { copied: inserted.length, sourceYear, sourceMonth } }
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to copy previous month'
+    return { success: false, error: message }
+  }
+}
+
 const clearAssignedSchema = z.object({
   year: z.number().int().min(1970).max(2100),
   month: z.number().int().min(1).max(12),

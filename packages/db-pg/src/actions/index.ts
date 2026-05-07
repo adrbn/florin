@@ -30,7 +30,11 @@ import {
   deleteCategoryGroupMutation,
   setCategoryLoanLinkMutation,
 } from './categories'
-import { setCategoryAssignedMutation, clearCategoryAssignedMutation } from './plan'
+import {
+  setCategoryAssignedMutation,
+  clearCategoryAssignedMutation,
+  copyPreviousMonthBudgetsMutation,
+} from './plan'
 
 // Re-export standalone functions for callers that need them directly
 export { reconcileLoanMirrorsForCategory, recomputeAccountBalance } from './helpers'
@@ -84,5 +88,7 @@ export function createPgMutations(db: PgDB): FlorinMutations {
     setCategoryAssigned: (input) => setCategoryAssignedMutation(db, input),
     clearCategoryAssigned: (year, month, categoryId) =>
       clearCategoryAssignedMutation(db, year, month, categoryId),
+    copyPreviousMonthBudgets: (year, month) =>
+      copyPreviousMonthBudgetsMutation(db, year, month),
   }
 }
