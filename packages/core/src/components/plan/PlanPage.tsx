@@ -47,8 +47,10 @@ export function PlanPage({
   const [openCategory, setOpenCategory] = useState<OpenCategory>(null)
   const [copyPending, setCopyPending] = useState(false)
 
-  const isPlanEmpty = optimistic.totalAssigned === 0
-  const showCopyButton = onCopyPreviousMonth !== undefined && isPlanEmpty
+  // Always offer the action when the host app wires it. The mutation is
+  // idempotent (it only fills categories that are still unassigned for the
+  // current month), so showing it on a non-empty plan never overwrites work.
+  const showCopyButton = onCopyPreviousMonth !== undefined
 
   // Reset optimistic state whenever the server plan changes (month nav or post-save refresh).
   useEffect(() => {
