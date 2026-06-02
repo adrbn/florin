@@ -16,6 +16,15 @@ export async function setCategoryAssignedAction(
   return result
 }
 
+export async function copyPreviousMonthBudgetsAction(
+  year: number,
+  month: number,
+): Promise<ActionResult<{ copied: number; sourceYear: number; sourceMonth: number }>> {
+  const result = await mutations.copyPreviousMonthBudgets(year, month)
+  if (result.success) revalidatePath('/plan')
+  return result
+}
+
 export async function listPlanCategoryTransactionsAction(
   categoryId: string,
   year: number,

@@ -1,6 +1,10 @@
 import { PlanPage } from '@florin/core/components/plan'
 import { queries } from '@/db/client'
-import { listPlanCategoryTransactionsAction, setCategoryAssignedAction } from './actions'
+import {
+  copyPreviousMonthBudgetsAction,
+  listPlanCategoryTransactionsAction,
+  setCategoryAssignedAction,
+} from './actions'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,6 +33,7 @@ export default async function Plan({ searchParams }: PageProps) {
       plan={plan}
       currency="EUR"
       onSetAssigned={setCategoryAssignedAction}
+      onCopyPreviousMonth={copyPreviousMonthBudgetsAction}
       onListCategoryTransactions={listPlanCategoryTransactionsAction}
     />
   )
