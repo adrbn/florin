@@ -14,7 +14,7 @@ import { OnboardingBanner } from '@florin/core/components/onboarding/onboarding-
 import { queries } from '@/db/client'
 import { getServerT } from '@/lib/locale'
 import { syncAllBanks } from '@/server/actions/banking'
-import { fetchTopExpenses } from '@/server/actions/dashboard'
+import { fetchTopSpend } from '@/server/actions/dashboard'
 
 function CardSkeleton({ className }: { className?: string }) {
   return (
@@ -131,16 +131,9 @@ async function LeftToSpendCardServer() {
 
 async function TopExpensesCardServer() {
   const [initial, categoryList] = await Promise.all([
-    queries.getTopExpenses(10, 30),
+    queries.getTopSpend({ mode: 'transactions', limit: 5, days: 30, categoryId: null, minAmount: 0 }),
     queries.listCategoriesFlat(),
   ])
-  const serialized = initial.map((e) => ({
-    id: e.id,
-    payee: e.payee,
-    date: e.date.toISOString().slice(0, 10),
-    amount: Number(e.amount),
-    categoryName: e.categoryName ?? null,
-  }))
   const categories = categoryList.map((c) => ({
     id: c.id,
     name: c.name,
@@ -149,10 +142,10 @@ async function TopExpensesCardServer() {
   }))
   return (
     <TopExpensesCard
-      initial={serialized}
+      initial={initial}
       categories={categories}
       defaultDays={30}
-      onFetchTopExpenses={fetchTopExpenses}
+      onFetchTopSpend={fetchTopSpend}
     />
   )
 }

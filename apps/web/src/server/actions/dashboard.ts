@@ -1,36 +1,31 @@
 'use server'
 
 import { queries } from '@/db/client'
-
-interface SerializedExpense {
-  id: string
-  payee: string
-  date: string
-  amount: number
-  categoryName: string | null
-}
+import type { TopSpendMode, TopSpendResult } from '@florin/core/types'
 
 /**
- * Server action wrapper around getTopExpenses for the client-side filter UI
- * on the dashboard's "Top expenses" card. The card boots with a server-rendered
- * default list and re-fetches via this action whenever the user changes the
- * days window or category filter.
- *
- * Serialises `Date` → ISO date string so the payload is safe for the RSC wire
- * format and matches the component's `SerializedExpense` interface.
+ * Server action backing the dashboard's "Top spend" card. The card boots with
+ * a server-rendered default and re-fetches via this action whenever the user
+ * changes the mode (transactions/merchants), window, category, count, or the
+ * minimum-amount filter. The result is already RSC-serialisable.
  */
-export async function fetchTopExpenses(
-  days: number,
-  categoryId: string | null,
-): Promise<ReadonlyArray<SerializedExpense>> {
+export async function fetchTopSpend(params: {
+  mode: TopSpendMode
+  days: number
+  categoryId: string | null
+  limit: number
+  minAmount: number
+}): Promise<TopSpendResult> {
   // Light input clamping — UI is internal but cheap defense in depth.
-  const safeDays = Math.max(1, Math.min(365, Math.floor(days)))
-  const raw = await queries.getTopExpenses(5, safeDays, categoryId)
-  return raw.map((e) => ({
-    id: e.id,
-    payee: e.payee,
-    date: e.date.toISOString().slice(0, 10),
-    amount: Number(e.amount),
-    categoryName: e.categoryName ?? null,
-  }))
+  const safeDays = Math.max(1, Math.min(365, Math.floor(params.days)))
+  const safeLimit = Math.max(1, Math.min(50, Math.floor(params.limit)))
+  const safeMin = Math.max(0, Number.isFinite(params.minAmount) ? params.minAmount : 0)
+  const mode: TopSpendMode = params.mode === 'merchants' ? 'merchants' : 'transactions'
+  return queries.getTopSpend({
+    mode,
+    limit: safeLimit,
+    days: safeDays,
+    categoryId: params.categoryId,
+    minAmount: safeMin,
+  })
 }
