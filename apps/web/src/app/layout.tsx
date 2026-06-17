@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { Geist } from 'next/font/google'
 import { ThemeProvider } from '@florin/core/components/theme/theme-provider'
@@ -20,8 +20,11 @@ export const metadata: Metadata = {
   },
 }
 
-export const viewport = {
+export const viewport: Viewport = {
   themeColor: '#3b82f6',
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
