@@ -1,7 +1,11 @@
 import type { SubscriptionMatch } from '../../types/index'
+import { cleanDisplayName } from '../categorization/clean-display-name'
 
 export interface SubRow {
+  /** Normalized (lowercased) payee — the stable key postings are grouped by. */
   payee: string | null
+  /** Raw payee as the bank sent it; used to derive a readable display name. */
+  displayPayee?: string | null
   amount: number
   occurredAt: string
   categoryName: string | null
@@ -46,8 +50,9 @@ export function detectSubscriptions(rows: ReadonlyArray<SubRow>): SubscriptionMa
     const cadenceDays = isMonthly ? 30 : 7
     const last = sorted[sorted.length - 1]!
     const amount = last.amount
+    const display = cleanDisplayName(last.displayPayee ?? last.payee)
     out.push({
-      payee: last.payee ?? '(unknown)',
+      payee: display !== '' ? display : (last.payee ?? '(unknown)'),
       amount,
       cadenceDays: Math.round(avg),
       samples: items.length,
