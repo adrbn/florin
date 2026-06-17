@@ -53,3 +53,23 @@ export function setCurrencyConfig(locale: string, currency: string): void {
 export const formatCurrency: CurrencyFormatter['format'] = (...args) => activeFormatter.format(...args)
 export const formatCurrencySigned: CurrencyFormatter['formatSigned'] = (...args) =>
   activeFormatter.formatSigned(...args)
+
+/**
+ * Parse a free-text numeric field into a number. Accepts both '.' and ','
+ * as the decimal separator and tolerates the transient states a user passes
+ * through while typing ('', '-', '.', '-.') by returning the supplied
+ * fallback instead of coercing to 0.
+ *
+ * This is the antidote to the "zero-on-clear" bug: bind numeric `<input>`s to
+ * a *string* state and only run the raw text through this helper where a
+ * number is actually needed (a computation). Clearing the box then leaves it
+ * empty instead of snapping back to a stubborn "0" the user has to delete.
+ */
+export function parseDecimalInput(value: string, fallback = 0): number {
+  const trimmed = value.trim().replace(/\s/g, '').replace(',', '.')
+  if (trimmed === '' || trimmed === '-' || trimmed === '.' || trimmed === '-.') {
+    return fallback
+  }
+  const parsed = Number(trimmed)
+  return Number.isFinite(parsed) ? parsed : fallback
+}

@@ -20,7 +20,7 @@ const ACCOUNT_TYPES = [
 export function FirstAccountStep({ onCreateAccount }: FirstAccountStepProps) {
   const [name, setName] = useState('')
   const [kind, setKind] = useState('checking')
-  const [balance, setBalance] = useState('0')
+  const [balance, setBalance] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -29,7 +29,8 @@ export function FirstAccountStep({ onCreateAccount }: FirstAccountStepProps) {
       setError('Account name is required.')
       return
     }
-    const parsedBalance = parseFloat(balance)
+    const trimmedBalance = balance.trim().replace(',', '.')
+    const parsedBalance = trimmedBalance === '' ? 0 : parseFloat(trimmedBalance)
     if (Number.isNaN(parsedBalance)) {
       setError('Starting balance must be a number.')
       return
@@ -104,6 +105,7 @@ export function FirstAccountStep({ onCreateAccount }: FirstAccountStepProps) {
             type="number"
             value={balance}
             onChange={(e) => setBalance(e.target.value)}
+            placeholder="0.00"
             step="0.01"
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />

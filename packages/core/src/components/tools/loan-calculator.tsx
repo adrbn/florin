@@ -15,24 +15,30 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import { calculateLoan } from '../../lib/calculators/loan'
-import { formatCurrency } from '../../lib/format/currency'
+import { formatCurrency, parseDecimalInput } from '../../lib/format/currency'
 import { useT } from '../../i18n/context'
 
 const formatEur = (v: number): string => `${Math.round(v).toLocaleString('fr-FR')} €`
 
 /**
  * Loan calculator — interactive form on the left, amortization chart on
- * the right. Inputs are local state so the chart updates as the user types.
+ * the right. Inputs hold raw *string* state so clearing a field leaves it
+ * empty (instead of snapping to "0"); the numbers fed to the chart are
+ * derived via {@link parseDecimalInput}.
  */
 export function LoanCalculator() {
   const t = useT()
-  const [principal, setPrincipal] = useState(200_000)
-  const [rate, setRate] = useState(3.5)
-  const [years, setYears] = useState(20)
+  const [principal, setPrincipal] = useState('200000')
+  const [rate, setRate] = useState('3.5')
+  const [years, setYears] = useState('20')
+
+  const principalNum = parseDecimalInput(principal, 0)
+  const rateNum = parseDecimalInput(rate, 0)
+  const yearsNum = Math.max(1, Math.round(parseDecimalInput(years, 1)))
 
   const summary = useMemo(
-    () => calculateLoan({ principal, annualRatePct: rate, years }),
-    [principal, rate, years],
+    () => calculateLoan({ principal: principalNum, annualRatePct: rateNum, years: yearsNum }),
+    [principalNum, rateNum, yearsNum],
   )
 
   // Sample one row per year for the chart so 30y mortgages don't render
@@ -44,9 +50,9 @@ export function LoanCalculator() {
     return samples.map((e) => ({
       year: (e.month / 12).toFixed(1),
       remaining: Math.round(e.remaining),
-      paidPrincipal: Math.round(principal - e.remaining),
+      paidPrincipal: Math.round(principalNum - e.remaining),
     }))
-  }, [summary, principal])
+  }, [summary, principalNum])
 
   return (
     <Card>
@@ -64,7 +70,7 @@ export function LoanCalculator() {
                 step="1000"
                 min="0"
                 value={principal}
-                onChange={(e) => setPrincipal(Number(e.target.value))}
+                onChange={(e) => setPrincipal(e.target.value)}
               />
             </div>
             <div className="space-y-1.5">
@@ -75,7 +81,7 @@ export function LoanCalculator() {
                 step="0.05"
                 min="0"
                 value={rate}
-                onChange={(e) => setRate(Number(e.target.value))}
+                onChange={(e) => setRate(e.target.value)}
               />
             </div>
             <div className="space-y-1.5">
@@ -86,7 +92,7 @@ export function LoanCalculator() {
                 step="1"
                 min="1"
                 value={years}
-                onChange={(e) => setYears(Number(e.target.value))}
+                onChange={(e) => setYears(e.target.value)}
               />
             </div>
 
