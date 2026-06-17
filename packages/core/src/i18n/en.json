@@ -97,7 +97,7 @@
   "transactions.noResults": "No transactions found",
   "transactions.noResultsFilter": "No transactions match this filter.",
   "transactions.noneYet": "No transactions yet. Click \"Add transaction\" to get started.",
-  "transactions.searchPlaceholder": "Search payee…",
+  "transactions.searchPlaceholder": "Search payee or amount…",
   "transactions.allAccounts": "All accounts",
   "transactions.allCategories": "All categories",
   "transactions.uncategorized": "— Uncategorized —",
