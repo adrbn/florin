@@ -83,6 +83,7 @@
   "dashboard.noDataYet": "No data yet.",
   "dashboard.allShort": "All",
   "dashboard.trend": "Trend",
+  "dashboard.perMonth": "/mo",
   "dashboard.balance": "Balance",
   "dashboard.today": "today",
   "dashboard.forecastedSuffix": " · +12 months projected",

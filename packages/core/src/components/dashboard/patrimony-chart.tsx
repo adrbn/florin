@@ -16,8 +16,11 @@ import { Button } from '../ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { NoSSR } from '../ui/no-ssr'
 import { useLocale, useT } from '../../i18n/context'
-import { formatCurrency } from '../../lib/format/currency'
+import { formatCurrency, formatCurrencySigned } from '../../lib/format/currency'
 import { usePlayOnce } from '../../lib/use-play-once'
+
+/** Average days per month — converts the per-day slope to a monthly figure. */
+const DAYS_PER_MONTH = 30.4368
 
 export interface PatrimonyPoint {
   date: string
@@ -126,43 +129,55 @@ function filterVisibleData(
   return filtered.length >= 2 ? filtered : data
 }
 
+interface BuiltSeries {
+  points: ChartPoint[]
+  /**
+   * Net change per day over the visible window (OLS slope). Drives both the
+   * headline "+X / mo" readout and the forecast extrapolation, so the
+   * projected line literally matches the figure shown to the user. `null`
+   * when there aren't enough points to fit a slope.
+   */
+  slopePerDay: number | null
+}
+
 /**
  * Build the series Recharts will render. The X-axis is a continuous time
- * scale (numeric Unix ms), so we get proportional spacing automatically:
- * daily history points sit close together and the 12-month forecast uses
- * its actual calendar share of the axis — no more "12 forecast points
- * compressed next to 100 history points" glitch.
+ * scale (numeric Unix ms), so spacing is proportional: daily history points
+ * sit close together and the 12-month forecast uses its real calendar share.
+ *
+ * The trend line is a *locally-adaptive* centered moving average that hugs
+ * the actual shape at whatever zoom we're at — far more pertinent than one
+ * global straight line that ignores recent inflections. The forecast then
+ * projects from the end of that smoothed trend using the window's OLS slope.
  *
  * Input `data` is already filtered to the visible window (see
- * {@link filterVisibleData}), so regression is fit on exactly what the
- * user sees and the forecast extends from the last visible point.
+ * {@link filterVisibleData}), so everything reflects exactly what the user
+ * sees and "the trend" changes with the scale they pick.
  */
-function buildSeries(data: ReadonlyArray<PatrimonyPoint>, forecast: boolean): ChartPoint[] {
-  if (data.length === 0) return []
+function buildSeries(data: ReadonlyArray<PatrimonyPoint>, forecast: boolean): BuiltSeries {
+  if (data.length === 0) return { points: [], slopePerDay: null }
 
-  // Linear-regression fit over the visible window → a single straight line
-  // (in day space) that we then evaluate at every history and forecast
-  // point. Rendered as one clean line across both ranges.
   const firstTs = new Date(data[0]?.date ?? '').getTime()
   const lastTs = new Date(data[data.length - 1]?.date ?? '').getTime()
-  const points = data.map((d) => ({
-    x: (new Date(d.date).getTime() - firstTs) / DAY_MS,
-    y: d.balance,
-  }))
-  const fit = fitLinear(points) ?? { slope: 0, intercept: data[0]?.balance ?? 0 }
-  const trendAt = (ts: number) => fit.intercept + fit.slope * ((ts - firstTs) / DAY_MS)
 
-  // Resample history to one point per day using carry-forward on balance.
-  // Without this, a sparse input (e.g. a balance only every Sunday) makes
-  // the Recharts tooltip snap weekly instead of daily — so hovering
-  // Tuesday shows Sunday's value. With a per-day series the hover cursor
-  // lines up on whatever day the user is pointing at.
-  const out: ChartPoint[] = []
+  // OLS slope over the visible window — for the readout and the forecast.
+  const fit = fitLinear(
+    data.map((d) => ({
+      x: (new Date(d.date).getTime() - firstTs) / DAY_MS,
+      y: d.balance,
+    })),
+  )
+  const slopePerDay = fit ? fit.slope : null
+
+  // Resample history to one point per day using carry-forward on balance, so
+  // the tooltip lines up on whatever day the user points at (a sparse input —
+  // e.g. a balance only every Sunday — would otherwise snap weekly).
   const sorted = [...data].sort(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
   )
   let sortedIdx = 0
   let currentBalance = sorted[0]?.balance ?? 0
+  const daily: { ts: number; balance: number }[] = []
   for (let ts = firstTs; ts <= lastTs; ts += DAY_MS) {
     while (
       sortedIdx < sorted.length &&
@@ -171,23 +186,57 @@ function buildSeries(data: ReadonlyArray<PatrimonyPoint>, forecast: boolean): Ch
       currentBalance = sorted[sortedIdx]?.balance ?? currentBalance
       sortedIdx += 1
     }
-    out.push({ ts, balance: currentBalance, trend: trendAt(ts) })
+    daily.push({ ts, balance: currentBalance })
   }
 
-  if (!forecast) return out
+  // Locally-adaptive trend: centered moving average whose window scales with
+  // the visible span (≈20%, clamped 7–90 days). Short zooms react quickly;
+  // long views smooth out daily noise.
+  const spanDays = Math.max(1, (lastTs - firstTs) / DAY_MS)
+  const smoothWindow = Math.max(7, Math.min(90, Math.round(spanDays * 0.2)))
+  const smoothed = centeredMovingAverage(
+    daily.map((d) => d.balance),
+    smoothWindow,
+  )
 
-  // Extend forward by whole calendar months (not "30 days * m") so the
-  // ticks come out clean: April → May → June → … → April next year.
-  // The "ms * m" approach drifted because months aren't uniform in length.
-  const last = data[data.length - 1]
-  if (!last) return out
-  const lastDate = new Date(last.date)
+  const out: ChartPoint[] = daily.map((d, i) => ({
+    ts: d.ts,
+    balance: d.balance,
+    trend: smoothed[i] ?? d.balance,
+  }))
+
+  if (!forecast || slopePerDay === null) return { points: out, slopePerDay }
+
+  // Project forward by whole calendar months from the end of the smoothed
+  // trend, using the window slope (so the projection matches the readout).
+  const lastTrend = smoothed[smoothed.length - 1] ?? currentBalance
+  const lastDate = new Date(data[data.length - 1]?.date ?? '')
   for (let m = 1; m <= FORECAST_MONTHS; m++) {
     const future = new Date(
       Date.UTC(lastDate.getUTCFullYear(), lastDate.getUTCMonth() + m, lastDate.getUTCDate()),
     )
     const ts = future.getTime()
-    out.push({ ts, balance: null, trend: trendAt(ts) })
+    out.push({ ts, balance: null, trend: lastTrend + slopePerDay * ((ts - lastTs) / DAY_MS) })
+  }
+  return { points: out, slopePerDay }
+}
+
+/**
+ * Centered moving average. The window shrinks at the edges (clamped to the
+ * array bounds per index) so the first/last points aren't dragged toward a
+ * half-empty window.
+ */
+function centeredMovingAverage(values: ReadonlyArray<number>, window: number): number[] {
+  const n = values.length
+  if (n === 0) return []
+  const half = Math.max(0, Math.floor(window / 2))
+  const out: number[] = new Array(n)
+  for (let i = 0; i < n; i++) {
+    const lo = Math.max(0, i - half)
+    const hi = Math.min(n - 1, i + half)
+    let sum = 0
+    for (let j = lo; j <= hi; j++) sum += values[j]!
+    out[i] = sum / (hi - lo + 1)
   }
   return out
 }
@@ -211,6 +260,7 @@ export function PatrimonyChart({
   const locale = useLocale()
   const allShort = t('dashboard.allShort', 'All')
   const trendLabel = t('dashboard.trend', 'Trend')
+  const perMonthLabel = t('dashboard.perMonth', '/mo')
   const balanceLabel = t('dashboard.balance', 'Balance')
   const todayLabel = t('dashboard.today', 'today')
   const forecastedSuffix = t('dashboard.forecastedSuffix', ' · +12 months projected')
@@ -230,7 +280,19 @@ export function PatrimonyChart({
     () => filterVisibleData(data, trendWindow?.days ?? null),
     [data, trendWindow?.days],
   )
-  const series = useMemo(() => buildSeries(visibleData, forecast), [visibleData, forecast])
+  const { points: series, slopePerDay } = useMemo(
+    () => buildSeries(visibleData, forecast),
+    [visibleData, forecast],
+  )
+  // Headline trend figure: the visible window's slope expressed per month, so
+  // the number changes with whatever scale the user is looking at.
+  const slopePerMonth = slopePerDay !== null ? slopePerDay * DAYS_PER_MONTH : null
+  const slopeTone =
+    slopePerMonth === null || Math.abs(slopePerMonth) < 1
+      ? 'text-muted-foreground'
+      : slopePerMonth > 0
+        ? 'text-emerald-600 dark:text-emerald-400'
+        : 'text-destructive'
   const lastRealTs =
     visibleData.length > 0
       ? new Date(visibleData[visibleData.length - 1]?.date ?? '').getTime()
@@ -269,6 +331,14 @@ export function PatrimonyChart({
               : allHistoryLabel}
             {forecast ? forecastedSuffix : ''}
           </p>
+          {slopePerMonth !== null && (
+            <p className="mt-1 text-[11px] font-medium tabular-nums">
+              <span className="text-muted-foreground">{trendLabel}: </span>
+              <span className={slopeTone}>
+                {formatCurrencySigned(slopePerMonth)} {perMonthLabel}
+              </span>
+            </p>
+          )}
         </div>
         {data.length >= 2 && (
           <div className="flex flex-col items-end gap-1.5">
@@ -404,7 +474,7 @@ export function PatrimonyChart({
                   dot={false}
                 />
                 <Line
-                  type="linear"
+                  type="monotone"
                   dataKey="trend"
                   stroke="var(--chart-3)"
                   strokeWidth={1.5}
