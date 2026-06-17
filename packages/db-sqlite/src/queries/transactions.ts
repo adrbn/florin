@@ -10,6 +10,7 @@ import {
   sql,
 } from 'drizzle-orm'
 import type { ListTransactionsOptions } from '@florin/core/types'
+import { parseAmountSearch } from '@florin/core/lib/transactions'
 import type { SqliteDB } from '../client'
 import { accounts, transactions } from '../schema'
 
@@ -56,12 +57,18 @@ function buildTransactionConditions(db: SqliteDB, options: ListTransactionsOptio
   }
   if (payeeSearch && payeeSearch.trim().length > 0) {
     const needle = `%${payeeSearch.trim()}%`
-    conditions.push(
-      or(
-        sql`${transactions.normalizedPayee} LIKE ${needle} COLLATE NOCASE`,
-        sql`${transactions.payee} LIKE ${needle} COLLATE NOCASE`,
-      )!,
-    )
+    const searchParts = [
+      sql`${transactions.normalizedPayee} LIKE ${needle} COLLATE NOCASE`,
+      sql`${transactions.payee} LIKE ${needle} COLLATE NOCASE`,
+    ]
+    // If the query reads as a number, also match transactions of that amount —
+    // sign-agnostic, so "22,99" finds both the +22.99 refund and −22.99 charge.
+    // ROUND(ABS(...)) sidesteps SQLite float-equality noise.
+    const amount = parseAmountSearch(payeeSearch)
+    if (amount !== null) {
+      searchParts.push(sql`ROUND(ABS(${transactions.amount}), 2) = ${amount}`)
+    }
+    conditions.push(or(...searchParts)!)
   }
   if (categoryId === 'none') {
     conditions.push(isNull(transactions.categoryId))

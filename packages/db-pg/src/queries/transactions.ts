@@ -11,6 +11,7 @@ import {
   sql,
 } from 'drizzle-orm'
 import type { ListTransactionsOptions } from '@florin/core/types'
+import { parseAmountSearch } from '@florin/core/lib/transactions'
 import type { PgDB } from '../client'
 import { accounts, transactions } from '../schema'
 
@@ -57,12 +58,17 @@ function buildTransactionConditions(db: PgDB, options: ListTransactionsOptions) 
   }
   if (payeeSearch && payeeSearch.trim().length > 0) {
     const needle = `%${payeeSearch.trim()}%`
-    conditions.push(
-      or(
-        ilike(transactions.normalizedPayee, needle),
-        ilike(transactions.payee, needle),
-      )!,
-    )
+    const searchParts = [
+      ilike(transactions.normalizedPayee, needle),
+      ilike(transactions.payee, needle),
+    ]
+    // If the query reads as a number, also match transactions of that amount —
+    // sign-agnostic, so "22,99" finds both the +22.99 refund and −22.99 charge.
+    const amount = parseAmountSearch(payeeSearch)
+    if (amount !== null) {
+      searchParts.push(sql`ABS(${transactions.amount}) = ${amount.toFixed(2)}`)
+    }
+    conditions.push(or(...searchParts)!)
   }
   if (categoryId === 'none') {
     conditions.push(isNull(transactions.categoryId))

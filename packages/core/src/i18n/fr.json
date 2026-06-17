@@ -97,7 +97,7 @@
   "transactions.noResults": "Aucune transaction trouvée",
   "transactions.noResultsFilter": "Aucune transaction ne correspond à ce filtre.",
   "transactions.noneYet": "Aucune transaction pour l'instant. Cliquez sur \"Ajouter une transaction\" pour commencer.",
-  "transactions.searchPlaceholder": "Rechercher un bénéficiaire…",
+  "transactions.searchPlaceholder": "Rechercher un bénéficiaire ou montant…",
   "transactions.allAccounts": "Tous les comptes",
   "transactions.allCategories": "Toutes les catégories",
   "transactions.uncategorized": "— Non catégorisées —",
