@@ -48,6 +48,44 @@ export interface TopExpense {
   categoryName: string | null
 }
 
+export type TopSpendMode = 'transactions' | 'merchants'
+
+export interface TopSpendParams {
+  /** Single transactions, or merchants aggregated by payee. */
+  mode: TopSpendMode
+  /** How many rows to return (5/10/20). */
+  limit: number
+  /** Lookback window in days. */
+  days: number
+  /** Category filter, or null for all. */
+  categoryId: string | null
+  /** Only count expenses whose absolute amount is ≥ this (0 = no minimum). */
+  minAmount: number
+}
+
+export interface TopSpendItem {
+  /** React key — the transaction id, or the merchant grouping key. */
+  id: string
+  /** Display name (payee for a transaction, cleaned merchant name otherwise). */
+  label: string
+  /** Absolute amount: a single charge, or the merchant's summed total. */
+  amount: number
+  /** Share of the period's total filtered expense, 0–100. */
+  pctOfPeriod: number
+  /** Transactions mode: the charge date (ISO). Merchants mode: null. */
+  date: string | null
+  /** Transactions mode: category name. Merchants mode: null. */
+  categoryName: string | null
+  /** Merchants mode: number of charges aggregated. Transactions mode: null. */
+  count: number | null
+}
+
+export interface TopSpendResult {
+  items: TopSpendItem[]
+  /** Total filtered expense over the window — the denominator for `pctOfPeriod`. */
+  periodTotal: number
+}
+
 export interface DataSourceInfo {
   kind: 'legacy_xlsx' | 'manual' | 'mixed' | 'empty'
   lastImportAt: Date | null
@@ -264,6 +302,7 @@ export interface FlorinQueries {
     days?: number,
     categoryId?: string | null,
   ): Promise<TopExpense[]>
+  getTopSpend(params: TopSpendParams): Promise<TopSpendResult>
   countUncategorizedExpensesThisMonth(): Promise<number>
   getDataSourceInfo(): Promise<DataSourceInfo>
   getMonthlyFlows(months?: number): Promise<MonthlyFlow[]>

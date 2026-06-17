@@ -3,6 +3,7 @@ import type { PgDB } from '../client'
 import { accounts, categories, categoryGroups, transactions } from '../schema'
 import { getLoanLiabilities } from './loan-liabilities'
 import { detectSubscriptions } from '@florin/core/lib/transactions'
+import { cleanDisplayName } from '@florin/core/lib/categorization'
 
 import type {
   NetWorth,
@@ -10,6 +11,8 @@ import type {
   PatrimonyPoint,
   CategoryBreakdownItem,
   TopExpense,
+  TopSpendParams,
+  TopSpendResult,
   DataSourceInfo,
   LeftToSpend,
   DailySpend,
@@ -280,6 +283,100 @@ export async function getTopExpenses(
     amount: Math.abs(Number(r.amount)),
     categoryName: r.categoryName,
   }))
+}
+
+/**
+ * Richer "top spend" query backing the dashboard card: returns either the
+ * biggest single transactions or the biggest merchants (payees aggregated),
+ * each with its share of the period's total expense, plus that total so the
+ * caller can render percentages without a second round-trip.
+ */
+export async function getTopSpend(
+  db: PgDB,
+  params: TopSpendParams,
+): Promise<TopSpendResult> {
+  const { mode, limit, days, categoryId, minAmount } = params
+  const start = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+  const conds = [
+    isNull(transactions.deletedAt),
+    gte(transactions.occurredAt, start),
+    sql`${transactions.amount} < 0`,
+    sql`${transactions.transferPairId} IS NULL`,
+    eq(accounts.isArchived, false),
+  ]
+  if (categoryId === 'none') {
+    conds.push(isNull(transactions.categoryId))
+  } else if (categoryId) {
+    conds.push(eq(transactions.categoryId, categoryId))
+  }
+  if (minAmount > 0) {
+    conds.push(sql`ABS(${transactions.amount}) >= ${minAmount.toFixed(2)}`)
+  }
+
+  const totalRows = await db
+    .select({ total: sql<string>`COALESCE(SUM(ABS(${transactions.amount})), 0)` })
+    .from(transactions)
+    .innerJoin(accounts, eq(transactions.accountId, accounts.id))
+    .where(and(...conds))
+  const periodTotal = Number(totalRows[0]?.total ?? '0')
+  const pct = (v: number) => (periodTotal > 0 ? (v / periodTotal) * 100 : 0)
+
+  if (mode === 'merchants') {
+    const rows = await db
+      .select({
+        key: transactions.normalizedPayee,
+        rawPayee: sql<string>`MAX(${transactions.payee})`,
+        total: sql<string>`SUM(ABS(${transactions.amount}))`,
+        count: sql<string>`COUNT(*)`,
+      })
+      .from(transactions)
+      .innerJoin(accounts, eq(transactions.accountId, accounts.id))
+      .where(and(...conds))
+      .groupBy(transactions.normalizedPayee)
+      .orderBy(desc(sql`SUM(ABS(${transactions.amount}))`))
+      .limit(limit)
+    const items = rows.map((r, i) => {
+      const total = Number(r.total)
+      return {
+        id: r.key ?? `merchant-${i}`,
+        label: cleanDisplayName(r.rawPayee ?? r.key) || (r.key ?? '(unknown)'),
+        amount: total,
+        pctOfPeriod: pct(total),
+        date: null,
+        categoryName: null,
+        count: Number(r.count),
+      }
+    })
+    return { items, periodTotal }
+  }
+
+  const rows = await db
+    .select({
+      id: transactions.id,
+      payee: transactions.payee,
+      date: transactions.occurredAt,
+      amount: transactions.amount,
+      categoryName: categories.name,
+    })
+    .from(transactions)
+    .innerJoin(accounts, eq(transactions.accountId, accounts.id))
+    .leftJoin(categories, eq(transactions.categoryId, categories.id))
+    .where(and(...conds))
+    .orderBy(transactions.amount)
+    .limit(limit)
+  const items = rows.map((r) => {
+    const amount = Math.abs(Number(r.amount))
+    return {
+      id: r.id,
+      label: r.payee,
+      amount,
+      pctOfPeriod: pct(amount),
+      date: r.date.toISOString().slice(0, 10),
+      categoryName: r.categoryName,
+      count: null,
+    }
+  })
+  return { items, periodTotal }
 }
 
 export async function countUncategorizedExpensesThisMonth(db: PgDB): Promise<number> {
