@@ -15,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import { calculateCompound } from '../../lib/calculators/compound'
-import { formatCurrency } from '../../lib/format/currency'
+import { formatCurrency, parseDecimalInput } from '../../lib/format/currency'
 import { useT } from '../../i18n/context'
 
 const formatEur = (v: number): string => `${Math.round(v).toLocaleString('fr-FR')} €`
@@ -23,24 +23,30 @@ const formatEur = (v: number): string => `${Math.round(v).toLocaleString('fr-FR'
 /**
  * Compound interest calculator. Renders an exponential-looking area chart
  * stacking total contributions vs interest accrued so the user can see
- * the magic of compounding visually.
+ * the magic of compounding visually. Inputs hold raw *string* state so a
+ * cleared field stays empty instead of snapping back to "0".
  */
 export function CompoundCalculator() {
   const t = useT()
-  const [initial, setInitial] = useState(10_000)
-  const [monthly, setMonthly] = useState(500)
-  const [rate, setRate] = useState(7)
-  const [years, setYears] = useState(25)
+  const [initial, setInitial] = useState('10000')
+  const [monthly, setMonthly] = useState('500')
+  const [rate, setRate] = useState('7')
+  const [years, setYears] = useState('25')
+
+  const initialNum = parseDecimalInput(initial, 0)
+  const monthlyNum = parseDecimalInput(monthly, 0)
+  const rateNum = parseDecimalInput(rate, 0)
+  const yearsNum = Math.max(1, Math.round(parseDecimalInput(years, 1)))
 
   const summary = useMemo(
     () =>
       calculateCompound({
-        initial,
-        monthlyContribution: monthly,
-        annualRatePct: rate,
-        years,
+        initial: initialNum,
+        monthlyContribution: monthlyNum,
+        annualRatePct: rateNum,
+        years: yearsNum,
       }),
-    [initial, monthly, rate, years],
+    [initialNum, monthlyNum, rateNum, yearsNum],
   )
 
   const chartData = useMemo(
@@ -71,7 +77,7 @@ export function CompoundCalculator() {
                 step="100"
                 min="0"
                 value={initial}
-                onChange={(e) => setInitial(Number(e.target.value))}
+                onChange={(e) => setInitial(e.target.value)}
               />
             </div>
             <div className="space-y-1.5">
@@ -82,7 +88,7 @@ export function CompoundCalculator() {
                 step="50"
                 min="0"
                 value={monthly}
-                onChange={(e) => setMonthly(Number(e.target.value))}
+                onChange={(e) => setMonthly(e.target.value)}
               />
             </div>
             <div className="space-y-1.5">
@@ -92,7 +98,7 @@ export function CompoundCalculator() {
                 type="number"
                 step="0.1"
                 value={rate}
-                onChange={(e) => setRate(Number(e.target.value))}
+                onChange={(e) => setRate(e.target.value)}
               />
             </div>
             <div className="space-y-1.5">
@@ -103,7 +109,7 @@ export function CompoundCalculator() {
                 step="1"
                 min="1"
                 value={years}
-                onChange={(e) => setYears(Number(e.target.value))}
+                onChange={(e) => setYears(e.target.value)}
               />
             </div>
 
