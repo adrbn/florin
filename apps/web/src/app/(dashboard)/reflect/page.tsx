@@ -7,7 +7,8 @@ import { SavingsRateRolling } from '@florin/core/components/reflect/savings-rate
 import { SubscriptionsList } from '@florin/core/components/reflect/subscriptions-list'
 import { WeeklyHeatmap } from '@florin/core/components/reflect/weekly-heatmap'
 import { LeftToSpendCard } from '@florin/core/components/dashboard/left-to-spend-card'
-import { Card, CardContent, CardHeader, CardTitle } from '@florin/core/components/ui/card'
+import { KpiCard } from '@florin/core/components/dashboard/kpi-card'
+import { Hourglass, TrendingDown, TrendingUp, Wallet } from 'lucide-react'
 import { formatCurrency } from '@florin/core/lib/format'
 import { queries } from '@/db/client'
 import { getServerT } from '@/lib/locale'
@@ -69,61 +70,33 @@ export default async function ReflectPage() {
       </header>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-        <Card className="h-full gap-2 py-5">
-          <CardHeader className="px-6 py-0">
-            <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
-              {t('reflect.netWorth', 'Net worth')}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-6 py-0">
-            <p className="text-2xl font-bold tabular-nums">{formatCurrency(netWorth.net)}</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {t('kpi.grossPrefix', 'Gross')} {formatCurrency(netWorth.gross)}
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="h-full gap-2 py-5">
-          <CardHeader className="px-6 py-0">
-            <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
-              {t('reflect.income12mo', 'Income (12mo)')}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-6 py-0">
-            <p className="text-2xl font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
-              {formatCurrency(last12.income)}
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="h-full gap-2 py-5">
-          <CardHeader className="px-6 py-0">
-            <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
-              {t('reflect.spending12mo', 'Spending (12mo)')}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-6 py-0">
-            <p className="text-2xl font-bold tabular-nums text-destructive">
-              {formatCurrency(last12.expense)}
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="h-full gap-2 py-5">
-          <CardHeader className="px-6 py-0">
-            <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
-              {t('reflect.ageOfMoney', 'Age of money')}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-6 py-0">
-            <p className="text-2xl font-bold tabular-nums">
-              {ageOfMoney === null ? '—' : `${Math.round(ageOfMoney)} ${t('reflect.days', 'd')}`}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {t('reflect.savingsRateHint', '{pct} savings rate').replace(
-                '{pct}',
-                `${savingsRate >= 0 ? '+' : ''}${savingsRate.toFixed(0)}%`,
-              )}
-            </p>
-          </CardContent>
-        </Card>
+        <KpiCard
+          title={t('reflect.netWorth', 'Net worth')}
+          value={formatCurrency(netWorth.net)}
+          hint={`${t('kpi.grossPrefix', 'Gross')} ${formatCurrency(netWorth.gross)}`}
+          icon={Wallet}
+        />
+        <KpiCard
+          title={t('reflect.income12mo', 'Income (12mo)')}
+          value={formatCurrency(last12.income)}
+          icon={TrendingUp}
+          tone="positive"
+        />
+        <KpiCard
+          title={t('reflect.spending12mo', 'Spending (12mo)')}
+          value={formatCurrency(last12.expense)}
+          icon={TrendingDown}
+          tone="negative"
+        />
+        <KpiCard
+          title={t('reflect.ageOfMoney', 'Age of money')}
+          value={ageOfMoney === null ? '—' : `${Math.round(ageOfMoney)} ${t('reflect.days', 'd')}`}
+          hint={t('reflect.savingsRateHint', '{pct} savings rate').replace(
+            '{pct}',
+            `${savingsRate >= 0 ? '+' : ''}${savingsRate.toFixed(0)}%`,
+          )}
+          icon={Hourglass}
+        />
         <div className="col-span-2 md:col-span-1">
           <LeftToSpendCard
             title={t('kpi.leftToSpend', 'Left to spend')}
