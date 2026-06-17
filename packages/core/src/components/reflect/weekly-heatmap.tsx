@@ -275,6 +275,11 @@ export function WeeklyHeatmap({
       </CardHeader>
       <CardContent>
         <div className="relative" ref={gridRef}>
+          {/* The 52-week grid would crush each cell to a few px on a phone, so
+              make it horizontally scrollable with a usable min width below sm
+              and let it fill the card normally from sm up. */}
+          <div className="overflow-x-auto pb-1">
+          <div className="min-w-[700px] sm:min-w-0">
           {/* Month labels row, sized to match the grid column width. */}
           <div
             className="mb-1 grid h-3 pl-7 text-[10px] text-muted-foreground"
@@ -360,6 +365,8 @@ export function WeeklyHeatmap({
                 </div>
               ))}
             </div>
+          </div>
+          </div>
           </div>
 
           {hovered && !selected ? (
