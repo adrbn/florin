@@ -73,6 +73,8 @@
   "dashboard.syncNow": "Synchroniser",
   "dashboard.synced": "Synchronisé",
   "dashboard.top5Expenses": "Top 5 des dépenses",
+  "dashboard.trend": "Tendance",
+  "dashboard.perMonth": "/mois",
   "dashboard.timeWindow": "Période",
   "dashboard.lastNDays": "{n} derniers jours",
   "dashboard.emptyWindow": "Rien sur cette période.",
