@@ -572,6 +572,7 @@ export async function getSubscriptions(db: SqliteDB): Promise<SubscriptionMatch[
   const rows = await db
     .select({
       payee: transactions.normalizedPayee,
+      displayPayee: transactions.payee,
       amount: transactions.amount,
       occurredAt: transactions.occurredAt,
       categoryName: categories.name,
@@ -593,6 +594,7 @@ export async function getSubscriptions(db: SqliteDB): Promise<SubscriptionMatch[
   return detectSubscriptions(
     rows.map((r) => ({
       payee: r.payee,
+      displayPayee: r.displayPayee,
       amount: Number(r.amount),
       occurredAt: r.occurredAt,
       categoryName: r.categoryName,
