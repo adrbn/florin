@@ -6,6 +6,10 @@ import { NetWorthChart } from '@florin/core/components/reflect/net-worth-chart'
 import { SavingsRateRolling } from '@florin/core/components/reflect/savings-rate-rolling'
 import { SubscriptionsList } from '@florin/core/components/reflect/subscriptions-list'
 import { WeeklyHeatmap } from '@florin/core/components/reflect/weekly-heatmap'
+import { MonthForecastCard } from '@florin/core/components/reflect/month-forecast-card'
+import { CategoryMoversCard } from '@florin/core/components/reflect/category-movers-card'
+import { RecurringSplitCard } from '@florin/core/components/reflect/recurring-split-card'
+import { SpendingAnomaliesCard } from '@florin/core/components/reflect/spending-anomalies-card'
 import { LeftToSpendCard } from '@florin/core/components/dashboard/left-to-spend-card'
 import { KpiCard } from '@florin/core/components/dashboard/kpi-card'
 import { Hourglass, TrendingDown, TrendingUp, Wallet } from 'lucide-react'
@@ -132,6 +136,13 @@ export default async function ReflectPage() {
           noData: t('reflect.noIncome', 'no income'),
         }}
       />
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <MonthForecastCard leftToSpend={leftToSpend} />
+        <CategoryMoversCard series={categoryTrends} />
+        <RecurringSplitCard subscriptions={subscriptions} avgMonthlySpend={last12.expense / 12} />
+        <SpendingAnomaliesCard rows={dailyByCategory} />
+      </div>
 
       <WeeklyHeatmap rows={dailyByCategory} weeks={HEATMAP_WEEKS} />
 

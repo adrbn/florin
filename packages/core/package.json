@@ -11,6 +11,7 @@
     "./lib/loan": "./src/lib/loan/liability.ts",
     "./lib/transactions": "./src/lib/transactions/index.ts",
     "./lib/reflect/age-of-money": "./src/lib/reflect/age-of-money.ts",
+    "./lib/reflect/insights": "./src/lib/reflect/insights.ts",
     "./lib/utils": "./src/lib/utils.ts",
     "./lib/chart/palette": "./src/lib/chart/palette.ts",
     "./lib/calculators/compound": "./src/lib/calculators/compound.ts",
