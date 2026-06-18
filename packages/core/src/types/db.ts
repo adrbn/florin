@@ -144,6 +144,12 @@ export interface LeftToSpend {
   salaryCategoryName: string | null
   monthIncome: number
   monthSpent: number
+  /**
+   * Fixed-category spend so far this month (rent, loan, insurance, subs).
+   * Big lumpy bills shouldn't be extrapolated forward at a daily pace, so the
+   * month forecast subtracts these before projecting. See computeMonthForecast.
+   */
+  monthSpentFixed: number
   leftToSpend: number
   /** Average daily spend so far this month (monthSpent / daysElapsed). */
   dailyAvgSpent: number
@@ -164,6 +170,8 @@ export interface DailyCategorySpend {
   categoryId: string | null
   categoryName: string | null
   groupName: string | null
+  /** True when the category is flagged fixed (rent, loan, insurance, subs). */
+  isFixed: boolean
   amount: number
 }
 

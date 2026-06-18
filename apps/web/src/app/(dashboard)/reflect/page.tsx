@@ -125,6 +125,8 @@ export default async function ReflectPage() {
         </div>
       </div>
 
+      <WeeklyHeatmap rows={dailyByCategory} weeks={HEATMAP_WEEKS} />
+
       <SavingsRateRolling
         rates={savingsRates}
         title={t('reflect.savingsRolling', 'Savings rate — rolling')}
@@ -143,8 +145,6 @@ export default async function ReflectPage() {
         <RecurringSplitCard subscriptions={subscriptions} avgMonthlySpend={last12.expense / 12} />
         <SpendingAnomaliesCard rows={dailyByCategory} />
       </div>
-
-      <WeeklyHeatmap rows={dailyByCategory} weeks={HEATMAP_WEEKS} />
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <SubscriptionsList
