@@ -16,7 +16,11 @@ import { Button } from '../ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { NoSSR } from '../ui/no-ssr'
 import { useLocale, useT } from '../../i18n/context'
-import { formatCurrency, formatCurrencySigned } from '../../lib/format/currency'
+import {
+  formatCurrency,
+  formatCurrencyCompact,
+  formatCurrencySigned,
+} from '../../lib/format/currency'
 import { usePlayOnce } from '../../lib/use-play-once'
 
 /** Average days per month — converts the per-day slope to a monthly figure. */
@@ -60,10 +64,10 @@ function localizeWindowLabel(label: string, locale: string): string {
   return label.replace(/d$/, unit)
 }
 
-const dateLabel = (ts: number) =>
-  new Date(ts).toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' })
+const dateLabel = (ts: number, locale: string) =>
+  new Date(ts).toLocaleDateString(locale, { month: 'short', year: '2-digit' })
 
-const fullDateLabel = (ts: number) => new Date(ts).toLocaleDateString('fr-FR')
+const fullDateLabel = (ts: number, locale: string) => new Date(ts).toLocaleDateString(locale)
 
 interface RegressionFit {
   slope: number
@@ -416,7 +420,7 @@ export function PatrimonyChart({
                   type="number"
                   scale="time"
                   domain={['dataMin', 'dataMax']}
-                  tickFormatter={(v: number) => dateLabel(v)}
+                  tickFormatter={(v: number) => dateLabel(v, locale)}
                   tickCount={6}
                   minTickGap={24}
                   stroke="var(--muted-foreground)"
@@ -427,7 +431,7 @@ export function PatrimonyChart({
                 <YAxis
                   domain={[yMin, yMax]}
                   allowDataOverflow={false}
-                  tickFormatter={(v: number) => `${(v / 1000).toFixed(1)}k €`}
+                  tickFormatter={(v: number) => formatCurrencyCompact(v)}
                   stroke="var(--muted-foreground)"
                   tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
                   axisLine={false}
@@ -465,7 +469,7 @@ export function PatrimonyChart({
                         }}
                       >
                         <div style={{ color: 'var(--muted-foreground)', marginBottom: 4, fontSize: 11 }}>
-                          {fullDateLabel(Number(label))}
+                          {fullDateLabel(Number(label), locale)}
                         </div>
                         {bal != null && row(balanceLabel, formatCurrency(Number(bal)))}
                         {tr != null && row(trendLabel, formatCurrency(Number(tr)))}

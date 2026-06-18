@@ -11,6 +11,8 @@ import {
   YAxis,
 } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
+import { useLocale } from '../../i18n/context'
+import { formatCurrency } from '../../lib/format/currency'
 
 interface MonthlyFlow {
   month: string
@@ -19,13 +21,13 @@ interface MonthlyFlow {
   net: number
 }
 
-const formatEur = (v: number): string => `${Math.round(v).toLocaleString('fr-FR')} €`
+const formatEur = (v: number): string => formatCurrency(Math.round(v))
 
-const formatMonth = (m: string): string => {
+const formatMonth = (m: string, locale: string): string => {
   const [year, month] = m.split('-')
   if (!year || !month) return m
   const d = new Date(Number(year), Number(month) - 1, 1)
-  return d.toLocaleDateString('fr-FR', { month: 'short' })
+  return d.toLocaleDateString(locale, { month: 'short' })
 }
 
 interface IncomeVsSpendingChartProps {
@@ -41,6 +43,7 @@ export function IncomeVsSpendingChart({
   incomeLabel = 'Income',
   spendingLabel = 'Spending',
 }: IncomeVsSpendingChartProps) {
+  const locale = useLocale()
   return (
     <Card className="flex h-full flex-col">
       <CardHeader className="pb-1">
@@ -54,7 +57,7 @@ export function IncomeVsSpendingChart({
             <CartesianGrid vertical={false} stroke="var(--border)" strokeOpacity={0.6} />
             <XAxis
               dataKey="month"
-              tickFormatter={formatMonth}
+              tickFormatter={(m: string) => formatMonth(m, locale)}
               tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
               axisLine={false}
               tickLine={false}
@@ -77,7 +80,7 @@ export function IncomeVsSpendingChart({
                 color: 'var(--popover-foreground)',
               }}
               formatter={(value, name) => [formatEur(Number(value)), String(name)]}
-              labelFormatter={(label) => formatMonth(String(label))}
+              labelFormatter={(label) => formatMonth(String(label), locale)}
             />
             <Legend wrapperStyle={{ fontSize: 10, paddingTop: 4 }} iconSize={8} />
             <Bar dataKey="income" name={incomeLabel} fill="var(--chart-2)" radius={[3, 3, 0, 0]} />

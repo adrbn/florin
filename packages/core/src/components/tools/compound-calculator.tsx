@@ -18,8 +18,6 @@ import { calculateCompound } from '../../lib/calculators/compound'
 import { formatCurrency, parseDecimalInput } from '../../lib/format/currency'
 import { useT } from '../../i18n/context'
 
-const formatEur = (v: number): string => `${Math.round(v).toLocaleString('fr-FR')} €`
-
 /**
  * Compound interest calculator. Renders an exponential-looking area chart
  * stacking total contributions vs interest accrued so the user can see
@@ -161,7 +159,7 @@ export function CompoundCalculator() {
                     background: 'hsl(var(--popover))',
                     border: '1px solid hsl(var(--border))',
                   }}
-                  formatter={(value, name) => [formatEur(Number(value)), String(name)]}
+                  formatter={(value, name) => [formatCurrency(Number(value)), String(name)]}
                   labelFormatter={(label) => t('tools.compound.year', { label: String(label) }, `Year ${label}`)}
                 />
                 <Legend wrapperStyle={{ fontSize: 11 }} />

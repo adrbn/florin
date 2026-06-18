@@ -6,7 +6,7 @@
 #   FLORIN_DEPLOY_PATH  path to the florin repo on the remote
 #   FLORIN_DEPLOY_WRAP  optional wrapper for the remote command, useful when
 #                      the compose stack lives inside an LXC container, e.g.
-#                      "pct exec 100 --"
+#                      "pct exec <id> --"
 #   FLORIN_HEALTH_URL   URL to poll after the rebuild (default: localhost)
 FLORIN_DEPLOY_HOST ?=
 FLORIN_DEPLOY_PATH ?= /opt/florin
@@ -70,10 +70,10 @@ import-legacy:
 # Idempotent: `git push` is a no-op if the host is already at HEAD, so this
 # target is safe to run repeatedly. The rebuild script is piped to the remote
 # over ssh stdin (`bash -s`) so there's no nested-quoting hell when
-# FLORIN_DEPLOY_WRAP is something like `pct exec 100 --`.
+# FLORIN_DEPLOY_WRAP is something like `pct exec <id> --`.
 deploy:
 	@if [ -z "$(FLORIN_DEPLOY_HOST)" ]; then \
-	  echo "FLORIN_DEPLOY_HOST is not set — see README › Updating › Remote one-liner"; \
+	  echo "FLORIN_DEPLOY_HOST is not set — set FLORIN_DEPLOY_HOST (and optionally FLORIN_DEPLOY_PATH / FLORIN_DEPLOY_WRAP)"; \
 	  exit 1; \
 	fi
 	@echo "▶ pushing main to origin..."

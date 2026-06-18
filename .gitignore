@@ -60,5 +60,11 @@ apps/*/secrets/
 # Local finance notes / scratchpad (private to the author)
 modifs_FINANCES/
 
+# Private docs (business / pricing drafts — must never ship)
+docs/
+
 # Claude Code local state
 .claude/
+
+# Turborepo cache
+.turbo/

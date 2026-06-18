@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@florin/core/component
 import pkg from '../../../../package.json'
 import { db } from '@/db/client'
 import { accounts, bankConnections, categories, transactions } from '@/db/schema'
-import { getServerT } from '@/lib/locale'
+import { getCurrencyConfig, getServerT } from '@/lib/locale'
 import { exportAllData } from '@/server/actions/export'
 import { auth } from '@/server/auth'
 import { isEnableBankingConfigured } from '@/server/banking/enable-banking'
@@ -32,6 +32,7 @@ export default async function SettingsPage() {
   const t = await getServerT()
   const session = await auth()
   const bankingEnabled = isEnableBankingConfigured()
+  const { locale: configuredLocale, currency: configuredCurrency } = await getCurrencyConfig()
 
   const [
     accountCountRow,
@@ -94,12 +95,12 @@ export default async function SettingsPage() {
               label={t('settings.signedInAs', 'Signed in as')}
               value={session?.user?.email ?? '—'}
             />
-            <Row label={t('settings.locale', 'Language')} value="fr-FR" />
-            <Row label={t('settings.baseCurrency', 'Base currency')} value="EUR" />
+            <Row label={t('settings.locale', 'Language')} value={configuredLocale} />
+            <Row label={t('settings.baseCurrency', 'Base currency')} value={configuredCurrency} />
             <p className="pt-2 text-[11px] text-muted-foreground">
               {t(
                 'settings.profileHintWeb',
-                'Florin is single-tenant — profile values come from environment variables. To change them, edit .env and restart.',
+                'Configured at deploy time. Language follows your in-app preference; the base currency is set with the APP_CURRENCY environment variable (default EUR) and applies to the whole instance.',
               )}
             </p>
           </CardContent>

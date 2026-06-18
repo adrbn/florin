@@ -12,7 +12,7 @@ import {
 } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { NoSSR } from '../ui/no-ssr'
-import { useT } from '../../i18n/context'
+import { useLocale, useT } from '../../i18n/context'
 import { formatCurrency } from '../../lib/format/currency'
 
 export interface MonthlyFlow {
@@ -22,11 +22,11 @@ export interface MonthlyFlow {
   net: number
 }
 
-const formatMonth = (m: string): string => {
+const formatMonth = (m: string, locale: string): string => {
   const [year, month] = m.split('-')
   if (!year || !month) return m
   const d = new Date(Number(year), Number(month) - 1, 1)
-  return d.toLocaleDateString('fr-FR', { month: 'short' })
+  return d.toLocaleDateString(locale, { month: 'short' })
 }
 
 /**
@@ -47,6 +47,7 @@ export function IncomeVsSpendingCard({
   subtitle = 'Last 12 months',
 }: IncomeVsSpendingCardProps) {
   const t = useT()
+  const locale = useLocale()
   const incomeLabel = t('reflect.income', 'Income')
   const spendingLabel = t('reflect.spending', 'Spending')
   const noActivity = t('dashboard.noActivityYet', 'No activity yet.')
@@ -71,7 +72,7 @@ export function IncomeVsSpendingCard({
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis
                   dataKey="month"
-                  tickFormatter={formatMonth}
+                  tickFormatter={(m: string) => formatMonth(m, locale)}
                   stroke="var(--muted-foreground)"
                   tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
                   axisLine={false}
@@ -103,7 +104,7 @@ export function IncomeVsSpendingCard({
                   }}
                   itemStyle={{ color: 'var(--popover-foreground)' }}
                   formatter={(value, name) => [formatCurrency(Number(value)), String(name)]}
-                  labelFormatter={(label) => formatMonth(String(label))}
+                  labelFormatter={(label) => formatMonth(String(label), locale)}
                 />
                 <Legend
                   wrapperStyle={{ fontSize: 11, paddingTop: 4 }}

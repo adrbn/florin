@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useT } from '../../../../i18n/context'
 
 interface LocalePickerStepProps {
   onSave: (locale: string, currency: string) => Promise<void>
@@ -19,6 +20,7 @@ const CURRENCY_OPTIONS = [
 ]
 
 export function LocalePickerStep({ onSave }: LocalePickerStepProps) {
+  const t = useT()
   const [locale, setLocale] = useState('en')
   const [currency, setCurrency] = useState('EUR')
   const [saving, setSaving] = useState(false)
@@ -39,16 +41,21 @@ export function LocalePickerStep({ onSave }: LocalePickerStepProps) {
   return (
     <div className="space-y-6">
       <div className="space-y-1">
-        <h2 className="text-xl font-semibold">Language &amp; Currency</h2>
+        <h2 className="text-xl font-semibold">
+          {t('onboarding.locale.title', 'Language & Currency')}
+        </h2>
         <p className="text-sm text-muted-foreground">
-          These preferences affect how dates, numbers, and categories are displayed.
+          {t(
+            'onboarding.locale.hint',
+            'These preferences affect how dates, numbers, and categories are displayed.',
+          )}
         </p>
       </div>
 
       <div className="space-y-4">
         <div className="space-y-1.5">
           <label htmlFor="locale-select" className="text-sm font-medium">
-            Language
+            {t('onboarding.locale.languageLabel', 'Language')}
           </label>
           <select
             id="locale-select"
@@ -66,7 +73,7 @@ export function LocalePickerStep({ onSave }: LocalePickerStepProps) {
 
         <div className="space-y-1.5">
           <label htmlFor="currency-select" className="text-sm font-medium">
-            Currency
+            {t('onboarding.locale.currencyLabel', 'Currency')}
           </label>
           <select
             id="currency-select"
@@ -91,7 +98,9 @@ export function LocalePickerStep({ onSave }: LocalePickerStepProps) {
         disabled={saving}
         className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
       >
-        {saving ? 'Saving…' : 'Save & Continue'}
+        {saving
+          ? t('onboarding.saving', 'Saving…')
+          : t('onboarding.saveContinue', 'Save & Continue')}
       </button>
     </div>
   )

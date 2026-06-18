@@ -1,6 +1,13 @@
 #!/usr/bin/env tsx
 /**
- * One-shot importer for the legacy FINANCES.xlsx spreadsheet.
+ * One-shot importer for a legacy YNAB-style finance spreadsheet.
+ *
+ * NOTE: this expects a specific French XLSX layout with three named sheets —
+ * `ACTIFS` (accounts), `HISTORIQUE TRANSACTIONS` (transactions), and
+ * `SUIVI SOLDE` (net-worth snapshots). It was built around one particular
+ * workbook, so you will almost certainly need to adapt the sheet names, the
+ * column parsers in src/lib/legacy/parse-xlsx.ts, and the category/account
+ * normalization helpers below to match your own spreadsheet's structure.
  *
  * Reads the workbook, maps ACTIFS -> accounts, HISTORIQUE TRANSACTIONS ->
  * transactions, and SUIVI SOLDE -> balance_snapshots. Idempotent: re-runs
@@ -399,9 +406,10 @@ async function importSnapshots(
  * account-opening rows for every account, so summing transactions for, say,
  * LIVRET A produces a nonsense negative number.
  *
- * For auto-created secondary accounts (Caution Rome, PayPal 4x, …) summing
- * transactions is the best estimate we have, and they're excluded from net
- * worth anyway, so the value is informational only.
+ * For auto-created secondary accounts (e.g. a deposit/escrow bucket or a
+ * "buy now, pay later" tracker) summing transactions is the best estimate we
+ * have, and they're excluded from net worth anyway, so the value is
+ * informational only.
  */
 async function recomputeSecondaryBalances(
   byName: Map<string, string>,

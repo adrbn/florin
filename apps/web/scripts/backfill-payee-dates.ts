@@ -17,8 +17,8 @@
  *   node --env-file=.env --import tsx \
  *     apps/web/scripts/backfill-payee-dates.ts [--apply]
  *
- * On asgard (container):
- *   pct exec 100 -- docker compose exec web \
+ * Inside the web container (self-hosted Docker deployment):
+ *   docker compose exec web \
  *     node --import tsx scripts/backfill-payee-dates.ts --apply
  */
 

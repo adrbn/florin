@@ -3,9 +3,10 @@ import './globals.css'
 import { Geist } from 'next/font/google'
 import { ThemeProvider } from '@florin/core/components/theme/theme-provider'
 import { I18nProvider } from '@florin/core/i18n/context'
+import { setCurrencyConfig } from '@florin/core/lib/format'
 import { PrivacyProvider, PrivacyBodyClass } from '@florin/core/privacy'
 import { cn } from '@/lib/utils'
-import { getUserLocale } from '@/lib/locale'
+import { APP_CURRENCY, getUserLocale } from '@/lib/locale'
 
 const geist = Geist({ subsets: ['latin'], variable: '--font-sans' })
 
@@ -29,6 +30,12 @@ export const viewport: Viewport = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = await getUserLocale()
+
+  // Update the global currency formatter so server components and static
+  // imports honour the deploy-time currency (APP_CURRENCY, default EUR) and
+  // the user's locale, without needing a React context. Mirrors desktop.
+  setCurrencyConfig(locale, APP_CURRENCY)
+
   // `suppressHydrationWarning` is required by next-themes because the
   // provider writes the `class` attribute to <html> on the client before
   // React hydrates, producing a harmless mismatch otherwise.

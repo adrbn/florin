@@ -2,6 +2,7 @@ import { and, desc, eq, gt, gte, isNotNull, isNull, lte, sql } from 'drizzle-orm
 import type { PgDB } from '../client'
 import { accounts, categories, categoryGroups, transactions } from '../schema'
 import { getLoanLiabilities } from './loan-liabilities'
+import { isUncategorizedTransfer, notUncategorizedTransfer } from './transfer-filter'
 import { detectSubscriptions } from '@florin/core/lib/transactions'
 import { cleanDisplayName } from '@florin/core/lib/categorization'
 
@@ -97,7 +98,7 @@ async function computeNetMonthAgo(db: PgDB, currentNet: number): Promise<number 
  * are excluded entirely so a payday doesn't "cancel" the metric.
  */
 const burnAmountSql = sql<string>`COALESCE(SUM(CASE
-  WHEN UPPER(${transactions.payee}) LIKE 'VIREMENT %' AND ${transactions.categoryId} IS NULL THEN 0
+  WHEN ${isUncategorizedTransfer()} THEN 0
   WHEN ${transactions.amount} < 0 AND (${categoryGroups.kind} IS NULL OR ${categoryGroups.kind} <> 'income') THEN ${transactions.amount}
   WHEN ${transactions.amount} > 0 AND ${categoryGroups.kind} = 'expense' THEN ${transactions.amount}
   ELSE 0
@@ -437,9 +438,13 @@ export async function getDataSourceInfo(db: PgDB): Promise<DataSourceInfo> {
 
 /**
  * Minimum amount that counts as a salary hit when detecting the user's
- * "salary category". French SMIC net is ≈ 1450€, so anything above 500€ in
- * a single positive transaction is a safe floor that catches part-time
- * income too.
+ * "salary category". This is a CURRENCY-AGNOSTIC absolute floor (no FX
+ * conversion happens), calibrated for currencies whose units are of
+ * EUR/USD/GBP magnitude — e.g. French SMIC net is ≈ 1450€, so anything
+ * above 500 in a single positive transaction is a safe floor that catches
+ * part-time income too. For currencies with very different denominations
+ * (e.g. JPY, where a salary is in the hundreds of thousands) this value may
+ * need adjusting.
  */
 const SALARY_MIN_AMOUNT = 500
 
@@ -561,7 +566,7 @@ export async function getDailySpend(db: PgDB, days = 91): Promise<DailySpend[]> 
         // account isn't in Florin. Treat them as transfers, not expenses,
         // when uncategorized — the user can override by assigning a
         // category if the transfer truly was an expense.
-        sql`NOT (UPPER(${transactions.payee}) LIKE 'VIREMENT %' AND ${transactions.categoryId} IS NULL)`,
+        notUncategorizedTransfer(),
       ),
     )
     .groupBy(sql`to_char(${transactions.occurredAt}, 'YYYY-MM-DD')`)
@@ -605,7 +610,7 @@ export async function getDailySpendByCategory(
         // account isn't in Florin. Treat them as transfers, not expenses,
         // when uncategorized — the user can override by assigning a
         // category if the transfer truly was an expense.
-        sql`NOT (UPPER(${transactions.payee}) LIKE 'VIREMENT %' AND ${transactions.categoryId} IS NULL)`,
+        notUncategorizedTransfer(),
       ),
     )
     .groupBy(

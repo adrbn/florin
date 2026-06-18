@@ -45,3 +45,12 @@ if (!parsed.success) {
 }
 
 export const env: Env = parsed.data
+
+/**
+ * True only when BOTH admin credentials are present. Web auth checks
+ * credentials against ADMIN_EMAIL + ADMIN_PASSWORD_HASH, so a self-hoster
+ * who forgets either one can never sign in. The login page reads this to
+ * surface a distinct "no admin configured" message instead of an endless
+ * "Invalid credentials".
+ */
+export const isAdminConfigured = Boolean(env.ADMIN_EMAIL && env.ADMIN_PASSWORD_HASH)

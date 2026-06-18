@@ -12,7 +12,8 @@ import { RecurringSplitCard } from '@florin/core/components/reflect/recurring-sp
 import { SpendingAnomaliesCard } from '@florin/core/components/reflect/spending-anomalies-card'
 import { LeftToSpendCard } from '@florin/core/components/dashboard/left-to-spend-card'
 import { KpiCard } from '@florin/core/components/dashboard/kpi-card'
-import { Hourglass, TrendingDown, TrendingUp, Wallet } from 'lucide-react'
+import { Card, CardContent } from '@florin/core/components/ui/card'
+import { Hourglass, LineChart, TrendingDown, TrendingUp, Wallet } from 'lucide-react'
 import { formatCurrency } from '@florin/core/lib/format'
 import { queries } from '@/db/client'
 import { getServerT } from '@/lib/locale'
@@ -61,6 +62,41 @@ export default async function ReflectPage() {
   )
   const savingsRate =
     last12.income > 0 ? ((last12.income - last12.expense) / last12.income) * 100 : 0
+
+  // With zero data the half-dozen Recharts render as blank boxes, which looks
+  // broken. Detect the "essentially empty" case — no money movement over the
+  // last 12 months and no recorded net worth — and show a friendly card
+  // instead of the charts.
+  const hasData = last12.income > 0 || last12.expense > 0 || netWorth.gross !== 0
+
+  if (!hasData) {
+    return (
+      <div className="flex min-h-0 flex-col gap-3">
+        <header className="min-w-0">
+          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
+            {t('reflect.title', 'Reflect')}
+          </h1>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {t('reflect.subtitle', 'Long-window analytics — how your money has actually moved.')}
+          </p>
+        </header>
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+            <LineChart className="h-10 w-10 text-muted-foreground/60" aria-hidden />
+            <h2 className="text-base font-medium">
+              {t('reflect.emptyTitle', 'Not enough data yet')}
+            </h2>
+            <p className="max-w-sm text-sm text-muted-foreground">
+              {t(
+                'reflect.emptyBody',
+                'Come back after recording some transactions — your analytics will appear here.',
+              )}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="flex min-h-0 flex-col gap-3">

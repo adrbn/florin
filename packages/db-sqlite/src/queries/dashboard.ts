@@ -2,6 +2,7 @@ import { and, desc, eq, gte, isNotNull, isNull, lte, sql } from 'drizzle-orm'
 import type { SqliteDB } from '../client'
 import { accounts, categories, categoryGroups, transactions } from '../schema'
 import { getLoanLiabilities } from './loan-liabilities'
+import { isUncategorizedTransfer, notUncategorizedTransfer } from './transfer-filter'
 import { detectSubscriptions } from '@florin/core/lib/transactions'
 import { cleanDisplayName } from '@florin/core/lib/categorization'
 
@@ -103,7 +104,7 @@ async function computeNetMonthAgo(db: SqliteDB, currentNet: number): Promise<num
 // expenses, just money moving between the user's own accounts at
 // different banks. Same heuristic as getDailySpend.
 const burnAmountSql = sql<number>`COALESCE(SUM(CASE
-  WHEN UPPER(${transactions.payee}) LIKE 'VIREMENT %' AND ${transactions.categoryId} IS NULL THEN 0
+  WHEN ${isUncategorizedTransfer()} THEN 0
   WHEN ${transactions.amount} < 0 AND (${categoryGroups.kind} IS NULL OR ${categoryGroups.kind} <> 'income') THEN ${transactions.amount}
   WHEN ${transactions.amount} > 0 AND ${categoryGroups.kind} = 'expense' THEN ${transactions.amount}
   ELSE 0
@@ -445,9 +446,13 @@ export async function getDataSourceInfo(db: SqliteDB): Promise<DataSourceInfo> {
 
 /**
  * Minimum amount that counts as a salary hit when detecting the user's
- * "salary category". French SMIC net is ≈ 1450€, so anything above 500€ in
- * a single positive transaction is a safe floor that catches part-time
- * income too.
+ * "salary category". This is a CURRENCY-AGNOSTIC absolute floor (no FX
+ * conversion happens), calibrated for currencies whose units are of
+ * EUR/USD/GBP magnitude — e.g. French SMIC net is ≈ 1450€, so anything
+ * above 500 in a single positive transaction is a safe floor that catches
+ * part-time income too. For currencies with very different denominations
+ * (e.g. JPY, where a salary is in the hundreds of thousands) this value may
+ * need adjusting.
  */
 const SALARY_MIN_AMOUNT = 500
 
@@ -569,7 +574,7 @@ export async function getDailySpend(db: SqliteDB, days = 91): Promise<DailySpend
         // own accounts. Filter them out when uncategorized — the user can
         // override by assigning a category if the transfer truly was an
         // expense (e.g. paying a friend back).
-        sql`NOT (UPPER(${transactions.payee}) LIKE 'VIREMENT %' AND ${transactions.categoryId} IS NULL)`,
+        notUncategorizedTransfer(),
       ),
     )
     .groupBy(sql`strftime('%Y-%m-%d', ${transactions.occurredAt})`)
