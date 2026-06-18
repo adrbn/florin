@@ -3,7 +3,7 @@
 One-shot migrator (reverse of sqlite-to-pg-dump.py): turns a PostgreSQL
 `pg_dump --data-only --column-inserts` stream into a SQLite import script
 that wipes the desktop data tables and re-inserts every row from the web
-deployment. Pulls the self-hosted Asgard web instance's data set onto the
+deployment. Pulls the self-hosted web instance's data set onto the
 Mac desktop.
 
 Why a transform instead of a live connection: the web Postgres runs inside
@@ -25,9 +25,10 @@ Things this handles:
     Postgres' text format.
 
 Usage (full pipeline from a Mac):
-    ssh root@asgard.tail952010.ts.net \\
-      'pct exec 100 -- docker exec florin-db \\
-         pg_dump -U florin -d florin --data-only --column-inserts --no-owner' \\
+    # Run pg_dump on the host where the web Postgres container lives. If it's
+    # local, drop the ssh prefix; if it's remote, wrap with `ssh user@your-server`.
+    docker exec florin-db \\
+      pg_dump -U florin -d florin --data-only --column-inserts --no-owner \\
       | python3 scripts/pg-to-sqlite-dump.py > /tmp/florin_import.sql
 
     DB="$HOME/Library/Application Support/@florin/desktop/florin.db"

@@ -53,6 +53,29 @@ Single-admin Next.js 15 + Postgres stack behind a reverse proxy of your choice.
 
 Download the latest `.dmg` from [Releases](https://github.com/adrbn/florin/releases), drag Florin to Applications, launch. Onboarding walks you through language, categories, and your first account.
 
+### Gatekeeper / unsigned app
+
+The DMG is **not notarized** (no paid Apple Developer signing yet), so macOS Gatekeeper will block the first launch with an "unidentified developer" warning. Two ways around it:
+
+- **Right-click the app** in Applications → **Open** → confirm. macOS remembers the choice after the first run.
+- Or clear the quarantine flag from a terminal:
+  ```bash
+  xattr -dr com.apple.quarantine /Applications/Florin.app
+  ```
+
+### Build the desktop app from source
+
+```bash
+pnpm install
+pnpm --filter @florin/desktop run pack
+```
+
+`pack` builds the Electron main process (esbuild) and the Next.js app, then runs `electron-builder`, which rebuilds the `better-sqlite3` native module against Electron for the target arch before packaging. The unnotarized `.dmg` lands in `apps/desktop/dist/` (`Florin-<version>-<arch>.dmg`).
+
+### Forking / self-distributing
+
+If you fork Florin and ship your own desktop builds, change `publish.owner` and `publish.repo` in `apps/desktop/electron-builder.yml` to point at **your** GitHub repo before distributing. Otherwise the built-in auto-updater will check the upstream `adrbn/florin` releases and try to update users onto the upstream binaries.
+
 ## Install — Web (self-host)
 
 ```bash

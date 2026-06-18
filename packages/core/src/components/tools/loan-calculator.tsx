@@ -18,8 +18,6 @@ import { calculateLoan } from '../../lib/calculators/loan'
 import { formatCurrency, parseDecimalInput } from '../../lib/format/currency'
 import { useT } from '../../i18n/context'
 
-const formatEur = (v: number): string => `${Math.round(v).toLocaleString('fr-FR')} €`
-
 /**
  * Loan calculator — interactive form on the left, amortization chart on
  * the right. Inputs hold raw *string* state so clearing a field leaves it
@@ -144,7 +142,7 @@ export function LoanCalculator() {
                     background: 'hsl(var(--popover))',
                     border: '1px solid hsl(var(--border))',
                   }}
-                  formatter={(value, name) => [formatEur(Number(value)), String(name)]}
+                  formatter={(value, name) => [formatCurrency(Number(value)), String(name)]}
                   labelFormatter={(label) => t('tools.loan.year', { label: String(label) }, `Year ${label}`)}
                 />
                 <Legend wrapperStyle={{ fontSize: 11 }} />

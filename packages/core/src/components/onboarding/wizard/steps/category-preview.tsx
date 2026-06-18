@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { getSeedCategories } from '../../../../i18n/seed-categories'
 import type { SeedCategoryGroup, SeedCategory } from '../../../../i18n/seed-categories'
+import { useT } from '../../../../i18n/context'
 
 interface CategoryPreviewStepProps {
   locale: string
@@ -10,6 +11,7 @@ interface CategoryPreviewStepProps {
 }
 
 export function CategoryPreviewStep({ locale, onConfirm }: CategoryPreviewStepProps) {
+  const t = useT()
   const [groups, setGroups] = useState<SeedCategoryGroup[]>(() => getSeedCategories(locale))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -54,7 +56,11 @@ export function CategoryPreviewStep({ locale, onConfirm }: CategoryPreviewStepPr
     try {
       await onConfirm(groups)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save categories')
+      setError(
+        err instanceof Error
+          ? err.message
+          : t('onboarding.categories.saveError', 'Failed to save categories'),
+      )
     } finally {
       setSaving(false)
     }
@@ -63,10 +69,14 @@ export function CategoryPreviewStep({ locale, onConfirm }: CategoryPreviewStepPr
   return (
     <div className="space-y-6">
       <div className="space-y-1">
-        <h2 className="text-xl font-semibold">Default Categories</h2>
+        <h2 className="text-xl font-semibold">
+          {t('onboarding.categories.heading', 'Default Categories')}
+        </h2>
         <p className="text-sm text-muted-foreground">
-          Here are the categories Florin will create for you. Rename or remove any before
-          continuing — you can always edit them later.
+          {t(
+            'onboarding.categories.body',
+            'Here are the categories Florin will create for you. Rename or remove any before continuing — you can always edit them later.',
+          )}
         </p>
       </div>
 
@@ -100,7 +110,7 @@ export function CategoryPreviewStep({ locale, onConfirm }: CategoryPreviewStepPr
                     type="button"
                     onClick={() => deleteCategory(gi, ci)}
                     className="text-muted-foreground transition-colors hover:text-destructive"
-                    aria-label={`Remove ${cat.name}`}
+                    aria-label={t('onboarding.categories.removeAria', { name: cat.name }, `Remove ${cat.name}`)}
                   >
                     ×
                   </button>
@@ -111,7 +121,7 @@ export function CategoryPreviewStep({ locale, onConfirm }: CategoryPreviewStepPr
                 onClick={() => addCategory(gi)}
                 className="ml-6 text-xs text-primary hover:underline"
               >
-                + Add
+                {t('onboarding.categories.add', '+ Add')}
               </button>
             </div>
           </div>
@@ -126,7 +136,9 @@ export function CategoryPreviewStep({ locale, onConfirm }: CategoryPreviewStepPr
         disabled={saving}
         className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
       >
-        {saving ? 'Creating categories…' : 'Confirm & Continue'}
+        {saving
+          ? t('onboarding.categories.creating', 'Creating categories…')
+          : t('onboarding.categories.confirm', 'Confirm & Continue')}
       </button>
     </div>
   )

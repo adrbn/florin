@@ -14,19 +14,19 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { cn } from '../../lib/utils'
 import { usePlayOnce } from '../../lib/use-play-once'
+import { useLocale } from '../../i18n/context'
+import { formatCurrency } from '../../lib/format/currency'
 
 interface NetWorthPoint {
   month: string
   cumulative: number
 }
 
-const formatEur = (v: number): string => `${Math.round(v).toLocaleString('fr-FR')} €`
-
-const formatMonth = (m: string): string => {
+const formatMonth = (m: string, locale: string): string => {
   const [year, month] = m.split('-')
   if (!year || !month) return m
   const d = new Date(Number(year), Number(month) - 1, 1)
-  return d.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' })
+  return d.toLocaleDateString(locale, { month: 'short', year: '2-digit' })
 }
 
 /**
@@ -63,6 +63,8 @@ export function NetWorthChart({
   maxLabel = 'max',
   monthsLabel = 'months',
 }: NetWorthChartProps) {
+  const locale = useLocale()
+  const formatEur = (v: number): string => formatCurrency(Math.round(v))
   const shouldAnimate = usePlayOnce('reflect:netWorth')
   const points = [...data]
   const first = points[0]?.cumulative ?? 0
@@ -115,7 +117,7 @@ export function NetWorthChart({
             <CartesianGrid vertical={false} stroke="var(--border)" strokeOpacity={0.6} />
             <XAxis
               dataKey="month"
-              tickFormatter={formatMonth}
+              tickFormatter={(m: string) => formatMonth(m, locale)}
               tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
               axisLine={false}
               tickLine={false}
@@ -132,7 +134,7 @@ export function NetWorthChart({
                 color: 'var(--popover-foreground)',
               }}
               formatter={(value) => [formatEur(Number(value)), netWorthTooltipLabel]}
-              labelFormatter={(label) => formatMonth(String(label))}
+              labelFormatter={(label) => formatMonth(String(label), locale)}
             />
             <ReferenceLine
               y={first}

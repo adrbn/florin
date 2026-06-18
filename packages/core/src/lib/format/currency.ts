@@ -12,6 +12,13 @@ function toNumber(amount: number | string | null | undefined): number {
 export interface CurrencyFormatter {
   format: (amount: number | string | null | undefined) => string
   formatSigned: (amount: number | string | null | undefined) => string
+  /**
+   * Short form for chart axes — compact notation with no decimals
+   * ("14 k €", "$1.2M"). Honors the configured locale/currency so a
+   * non-EUR/non-FR deployment gets a sensible axis instead of a hardcoded
+   * "k €" suffix.
+   */
+  formatCompact: (amount: number | string | null | undefined) => string
 }
 
 /**
@@ -32,11 +39,19 @@ export function createCurrencyFormatter(locale: string, currency: string): Curre
     currency,
     signDisplay: 'always',
   })
+  const compactFormatter = new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency,
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  })
   return {
     format: (amount: number | string | null | undefined) =>
       widenGroupSeparator(formatter.format(toNumber(amount))),
     formatSigned: (amount: number | string | null | undefined) =>
       widenGroupSeparator(signedFormatter.format(toNumber(amount))),
+    formatCompact: (amount: number | string | null | undefined) =>
+      widenGroupSeparator(compactFormatter.format(toNumber(amount))),
   }
 }
 
@@ -53,6 +68,8 @@ export function setCurrencyConfig(locale: string, currency: string): void {
 export const formatCurrency: CurrencyFormatter['format'] = (...args) => activeFormatter.format(...args)
 export const formatCurrencySigned: CurrencyFormatter['formatSigned'] = (...args) =>
   activeFormatter.formatSigned(...args)
+export const formatCurrencyCompact: CurrencyFormatter['formatCompact'] = (...args) =>
+  activeFormatter.formatCompact(...args)
 
 /**
  * Parse a free-text numeric field into a number. Accepts both '.' and ','

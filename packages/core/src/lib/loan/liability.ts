@@ -2,10 +2,10 @@
  * Loan liability helper.
  *
  * The naive way to compute a loan's remaining debt is
- * `originalPrincipal − totalPaid`, but that ignores interest accrual — after
- * 22 × 135,91 € payments on a 10 000 € / 3.9 % / 84 months loan it gives
- * ~7 010 € when the bank actually says 7 645 €. Over multi-year loans this
- * gap grows to hundreds of euros.
+ * `originalPrincipal − totalPaid`, but that ignores interest accrual — e.g.
+ * after 24 payments on a typical amortizing loan the naive figure can run
+ * several hundred currency units below what the bank reports on its "capital
+ * restant dû" line. Over multi-year loans this gap grows.
  *
  * The correct value is `schedule.rows[paymentsMade - 1].balanceAfter` from
  * a standard amortization walk. This module centralizes that math so every
@@ -133,8 +133,8 @@ export function computeLoanLiability(
   }
 
   // Use the stored mensualité as the override when it's set — banks round
-  // the payment differently from our formula (135.91 € vs 136.30 € on the
-  // user's Prêt étudiant, ~15 € of balance drift after 2 years).
+  // the payment differently from our formula (e.g. 200.00 € vs 200.39 €),
+  // which compounds into a few units of balance drift over a couple of years.
   const baseMonthlyPayment = monthlyPayment > 0 ? monthlyPayment : undefined
   const schedule = simulateSchedule(loanInputs, { baseMonthlyPayment })
 

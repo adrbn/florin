@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useT } from '../../../i18n/context'
 
 export interface WizardStep {
   id: string
@@ -14,6 +15,7 @@ interface WizardShellProps {
 }
 
 export function WizardShell({ steps, onComplete }: WizardShellProps) {
+  const t = useT()
   const [currentIndex, setCurrentIndex] = useState(0)
 
   const isFirst = currentIndex === 0
@@ -63,7 +65,7 @@ export function WizardShell({ steps, onComplete }: WizardShellProps) {
             onClick={goBack}
             className="text-sm text-muted-foreground underline-offset-4 hover:underline"
           >
-            ← Back
+            {t('onboarding.wizard.back', '← Back')}
           </button>
         ) : (
           <span />
@@ -74,7 +76,7 @@ export function WizardShell({ steps, onComplete }: WizardShellProps) {
           onClick={goNext}
           className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
         >
-          {isLast ? 'Finish' : 'Next →'}
+          {isLast ? t('onboarding.wizard.finish', 'Finish') : t('onboarding.wizard.next', 'Next →')}
         </button>
       </div>
     </div>

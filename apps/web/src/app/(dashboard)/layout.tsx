@@ -1,6 +1,9 @@
+import { headers } from 'next/headers'
+import { redirect } from 'next/navigation'
 import { MobileTopBar } from '@florin/core/components/shell/mobile-topbar'
 import { Sidebar } from '@florin/core/components/shell/sidebar'
 import { KeyboardShortcuts } from '@florin/core/components/shortcuts/keyboard-shortcuts'
+import { queries } from '@/db/client'
 import { countNeedsReview } from '@/server/actions/transactions'
 import { ensureAutoSyncScheduler } from '@/server/banking/scheduler'
 
@@ -15,10 +18,24 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // it's cheap to call on every navigation.
   ensureAutoSyncScheduler()
 
-  // Compute the review badge once per render so both the sidebar and the
-  // mobile top bar can show a live count without each child page having to
-  // plumb it through manually.
-  const reviewCount = await countNeedsReview()
+  // On first launch, when there are no accounts, send the user through the
+  // onboarding wizard (mirrors the desktop layout). We skip the redirect when
+  // already on /onboarding to avoid an infinite loop — that page lives in this
+  // same route group, so the layout wraps it too. The pathname comes from the
+  // `x-pathname` header set by middleware.
+  const [headersList, reviewCount, accountList] = await Promise.all([
+    headers(),
+    countNeedsReview(),
+    queries.listAccounts(),
+  ])
+
+  const pathname = headersList.get('x-pathname') ?? ''
+  const isOnboarding = pathname.startsWith('/onboarding')
+
+  if (!isOnboarding && accountList.length === 0) {
+    redirect('/onboarding')
+  }
+
   const badges = { review: reviewCount }
 
   // Layout direction flips at `md`: mobile stacks the top bar above a

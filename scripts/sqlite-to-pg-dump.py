@@ -3,7 +3,7 @@
 One-shot migrator: reads the desktop SQLite db and emits a PostgreSQL
 SQL dump that wipes the web schema (TRUNCATE CASCADE) and re-inserts
 every row from SQLite. Pushes the Mac desktop's data set onto the
-self-hosted Asgard web instance.
+self-hosted web instance.
 
 Usage:
     python3 scripts/sqlite-to-pg-dump.py <sqlite-path> <output.sql>
