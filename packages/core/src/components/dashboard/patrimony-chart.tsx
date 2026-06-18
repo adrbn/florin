@@ -103,7 +103,14 @@ interface ChartPoint {
    *  (monthly) render at their real calendar position. */
   ts: number
   balance: number | null
+  /** Straight OLS trend value at this timestamp. */
   trend: number
+  /** Lower edge of the deviation band: min(balance, trend). Null in forecast. */
+  lower: number | null
+  /** Balance above trend (ahead of savings pace). Null in forecast. */
+  ahead: number | null
+  /** Trend above balance (behind savings pace). Null in forecast. */
+  behind: number | null
 }
 
 /**
@@ -138,6 +145,12 @@ interface BuiltSeries {
    * when there aren't enough points to fit a slope.
    */
   slopePerDay: number | null
+  /**
+   * balance − trend at the latest real point (today): how far above (+) or
+   * below (−) the average savings pace the user currently sits. `null` when
+   * there aren't enough points to fit a trend.
+   */
+  currentDeviation: number | null
 }
 
 /**
@@ -145,22 +158,25 @@ interface BuiltSeries {
  * scale (numeric Unix ms), so spacing is proportional: daily history points
  * sit close together and the 12-month forecast uses its real calendar share.
  *
- * The trend line is a *locally-adaptive* centered moving average that hugs
- * the actual shape at whatever zoom we're at — far more pertinent than one
- * global straight line that ignores recent inflections. The forecast then
- * projects from the end of that smoothed trend using the window's OLS slope.
+ * The trend is a single straight OLS line over the visible window — its slope
+ * is the average €/day saved, the one number the "+X / mo" readout shows and
+ * the forecast extends. We also emit a signed deviation band: the gap between
+ * the actual balance and that line, split into `ahead` (balance above the
+ * average pace) and `behind` (below it), so the user reads at a glance when
+ * they've been saving faster or slower than their own baseline.
  *
  * Input `data` is already filtered to the visible window (see
  * {@link filterVisibleData}), so everything reflects exactly what the user
  * sees and "the trend" changes with the scale they pick.
  */
 function buildSeries(data: ReadonlyArray<PatrimonyPoint>, forecast: boolean): BuiltSeries {
-  if (data.length === 0) return { points: [], slopePerDay: null }
+  if (data.length === 0) return { points: [], slopePerDay: null, currentDeviation: null }
 
   const firstTs = new Date(data[0]?.date ?? '').getTime()
   const lastTs = new Date(data[data.length - 1]?.date ?? '').getTime()
 
-  // OLS slope over the visible window — for the readout and the forecast.
+  // OLS straight-line fit over the visible window. This single line is the
+  // trend — slope drives the readout and forecast, intercept anchors it.
   const fit = fitLinear(
     data.map((d) => ({
       x: (new Date(d.date).getTime() - firstTs) / DAY_MS,
@@ -168,6 +184,8 @@ function buildSeries(data: ReadonlyArray<PatrimonyPoint>, forecast: boolean): Bu
     })),
   )
   const slopePerDay = fit ? fit.slope : null
+  const trendAt = (ts: number): number =>
+    fit ? fit.intercept + fit.slope * ((ts - firstTs) / DAY_MS) : 0
 
   // Resample history to one point per day using carry-forward on balance, so
   // the tooltip lines up on whatever day the user points at (a sparse input —
@@ -177,7 +195,7 @@ function buildSeries(data: ReadonlyArray<PatrimonyPoint>, forecast: boolean): Bu
   )
   let sortedIdx = 0
   let currentBalance = sorted[0]?.balance ?? 0
-  const daily: { ts: number; balance: number }[] = []
+  const out: ChartPoint[] = []
   for (let ts = firstTs; ts <= lastTs; ts += DAY_MS) {
     while (
       sortedIdx < sorted.length &&
@@ -186,59 +204,38 @@ function buildSeries(data: ReadonlyArray<PatrimonyPoint>, forecast: boolean): Bu
       currentBalance = sorted[sortedIdx]?.balance ?? currentBalance
       sortedIdx += 1
     }
-    daily.push({ ts, balance: currentBalance })
+    const trend = fit ? trendAt(ts) : currentBalance
+    // Stacking lower → behind → ahead rebuilds the exact [min, max] envelope
+    // between the two series per day, so only the gap is coloured.
+    out.push({
+      ts,
+      balance: currentBalance,
+      trend,
+      lower: Math.min(currentBalance, trend),
+      behind: Math.max(0, trend - currentBalance),
+      ahead: Math.max(0, currentBalance - trend),
+    })
   }
 
-  // Locally-adaptive trend: centered moving average whose window scales with
-  // the visible span (≈20%, clamped 7–90 days). Short zooms react quickly;
-  // long views smooth out daily noise.
-  const spanDays = Math.max(1, (lastTs - firstTs) / DAY_MS)
-  const smoothWindow = Math.max(7, Math.min(90, Math.round(spanDays * 0.2)))
-  const smoothed = centeredMovingAverage(
-    daily.map((d) => d.balance),
-    smoothWindow,
-  )
+  const lastBalance = out[out.length - 1]?.balance ?? currentBalance
+  const lastTrend = out[out.length - 1]?.trend ?? lastBalance
+  const currentDeviation = fit ? lastBalance - lastTrend : null
 
-  const out: ChartPoint[] = daily.map((d, i) => ({
-    ts: d.ts,
-    balance: d.balance,
-    trend: smoothed[i] ?? d.balance,
-  }))
+  if (!forecast || slopePerDay === null) {
+    return { points: out, slopePerDay, currentDeviation }
+  }
 
-  if (!forecast || slopePerDay === null) return { points: out, slopePerDay }
-
-  // Project forward by whole calendar months from the end of the smoothed
-  // trend, using the window slope (so the projection matches the readout).
-  const lastTrend = smoothed[smoothed.length - 1] ?? currentBalance
+  // Project the straight trend forward by whole calendar months. The band
+  // stays null past today — there's no actual balance to deviate from yet.
   const lastDate = new Date(data[data.length - 1]?.date ?? '')
   for (let m = 1; m <= FORECAST_MONTHS; m++) {
     const future = new Date(
       Date.UTC(lastDate.getUTCFullYear(), lastDate.getUTCMonth() + m, lastDate.getUTCDate()),
     )
     const ts = future.getTime()
-    out.push({ ts, balance: null, trend: lastTrend + slopePerDay * ((ts - lastTs) / DAY_MS) })
+    out.push({ ts, balance: null, trend: trendAt(ts), lower: null, ahead: null, behind: null })
   }
-  return { points: out, slopePerDay }
-}
-
-/**
- * Centered moving average. The window shrinks at the edges (clamped to the
- * array bounds per index) so the first/last points aren't dragged toward a
- * half-empty window.
- */
-function centeredMovingAverage(values: ReadonlyArray<number>, window: number): number[] {
-  const n = values.length
-  if (n === 0) return []
-  const half = Math.max(0, Math.floor(window / 2))
-  const out: number[] = new Array(n)
-  for (let i = 0; i < n; i++) {
-    const lo = Math.max(0, i - half)
-    const hi = Math.min(n - 1, i + half)
-    let sum = 0
-    for (let j = lo; j <= hi; j++) sum += values[j]!
-    out[i] = sum / (hi - lo + 1)
-  }
-  return out
+  return { points: out, slopePerDay, currentDeviation }
 }
 
 interface PatrimonyChartProps {
@@ -262,6 +259,9 @@ export function PatrimonyChart({
   const trendLabel = t('dashboard.trend', 'Trend')
   const perMonthLabel = t('dashboard.perMonth', '/mo')
   const balanceLabel = t('dashboard.balance', 'Balance')
+  const deviationLabel = t('dashboard.deviation', 'Deviation')
+  const aboveTrendLabel = t('dashboard.aboveTrend', 'above pace')
+  const belowTrendLabel = t('dashboard.belowTrend', 'below pace')
   const todayLabel = t('dashboard.today', 'today')
   const forecastedSuffix = t('dashboard.forecastedSuffix', ' · +12 months projected')
   const noDataYet = t('dashboard.noDataYet', 'No data yet.')
@@ -280,7 +280,7 @@ export function PatrimonyChart({
     () => filterVisibleData(data, trendWindow?.days ?? null),
     [data, trendWindow?.days],
   )
-  const { points: series, slopePerDay } = useMemo(
+  const { points: series, slopePerDay, currentDeviation } = useMemo(
     () => buildSeries(visibleData, forecast),
     [visibleData, forecast],
   )
@@ -293,6 +293,13 @@ export function PatrimonyChart({
       : slopePerMonth > 0
         ? 'text-emerald-600 dark:text-emerald-400'
         : 'text-destructive'
+  // Current gap to the average pace. Above the line (saving faster) reads as
+  // good (emerald); below as a warning (destructive). Hidden when negligible.
+  const showDeviation = currentDeviation !== null && Math.abs(currentDeviation) >= 1
+  const deviationTone =
+    currentDeviation !== null && currentDeviation >= 0
+      ? 'text-emerald-600 dark:text-emerald-400'
+      : 'text-destructive'
   const lastRealTs =
     visibleData.length > 0
       ? new Date(visibleData[visibleData.length - 1]?.date ?? '').getTime()
@@ -336,6 +343,15 @@ export function PatrimonyChart({
               <span className="text-muted-foreground">{trendLabel}: </span>
               <span className={slopeTone}>
                 {formatCurrencySigned(slopePerMonth)} {perMonthLabel}
+              </span>
+            </p>
+          )}
+          {showDeviation && (
+            <p className="text-[11px] font-medium tabular-nums">
+              <span className="text-muted-foreground">{deviationLabel}: </span>
+              <span className={deviationTone}>
+                {formatCurrencySigned(currentDeviation as number)}{' '}
+                {(currentDeviation as number) >= 0 ? aboveTrendLabel : belowTrendLabel}
               </span>
             </p>
           )}
@@ -394,12 +410,6 @@ export function PatrimonyChart({
           <NoSSR fallback={<div className="h-full w-full" />}>
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={series} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="patriGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.32} />
-                    <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis
                   dataKey="ts"
@@ -426,26 +436,48 @@ export function PatrimonyChart({
                 />
                 <Tooltip
                   cursor={{ stroke: 'var(--border)', strokeWidth: 1 }}
-                  contentStyle={{
-                    borderRadius: 10,
-                    background: 'var(--popover)',
-                    border: '1px solid var(--border)',
-                    color: 'var(--popover-foreground)',
-                    fontSize: 12,
-                    padding: '8px 10px',
-                    boxShadow: '0 6px 24px -12px rgb(0 0 0 / 0.25)',
+                  content={(props) => {
+                    const { active, payload, label } = props as {
+                      active?: boolean
+                      label?: number | string
+                      payload?: ReadonlyArray<{ dataKey?: string; value?: number | null }>
+                    }
+                    if (!active || !payload || payload.length === 0) return null
+                    const bal = payload.find((p) => p.dataKey === 'balance')?.value
+                    const tr = payload.find((p) => p.dataKey === 'trend')?.value
+                    const dev = bal != null && tr != null ? Number(bal) - Number(tr) : null
+                    const row = (lbl: string, val: string, color?: string) => (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}>
+                        <span style={{ color: 'var(--muted-foreground)' }}>{lbl}</span>
+                        <span style={{ fontVariantNumeric: 'tabular-nums', color }}>{val}</span>
+                      </div>
+                    )
+                    return (
+                      <div
+                        style={{
+                          borderRadius: 10,
+                          background: 'var(--popover)',
+                          border: '1px solid var(--border)',
+                          color: 'var(--popover-foreground)',
+                          fontSize: 12,
+                          padding: '8px 10px',
+                          boxShadow: '0 6px 24px -12px rgb(0 0 0 / 0.25)',
+                        }}
+                      >
+                        <div style={{ color: 'var(--muted-foreground)', marginBottom: 4, fontSize: 11 }}>
+                          {fullDateLabel(Number(label))}
+                        </div>
+                        {bal != null && row(balanceLabel, formatCurrency(Number(bal)))}
+                        {tr != null && row(trendLabel, formatCurrency(Number(tr)))}
+                        {dev != null &&
+                          row(
+                            deviationLabel,
+                            formatCurrencySigned(dev),
+                            dev >= 0 ? '#10b981' : 'var(--destructive)',
+                          )}
+                      </div>
+                    )
                   }}
-                  labelStyle={{
-                    color: 'var(--muted-foreground)',
-                    marginBottom: 4,
-                    fontSize: 11,
-                  }}
-                  itemStyle={{ color: 'var(--popover-foreground)' }}
-                  labelFormatter={(label) => fullDateLabel(Number(label))}
-                  formatter={(value, name) => [
-                    formatCurrency(Number(value)),
-                    name === 'trend' ? trendLabel : balanceLabel,
-                  ]}
                 />
                 {forecast && lastRealTs !== null && (
                   <ReferenceLine
@@ -460,29 +492,72 @@ export function PatrimonyChart({
                     }}
                   />
                 )}
+                {/* Deviation band: an invisible floor at min(balance, trend),
+                    then the signed gap stacked on top — red when behind the
+                    average pace, green when ahead. Stacking reconstructs the
+                    exact envelope between the two series. */}
                 <Area
-                  type="monotone"
-                  dataKey="balance"
-                  stroke="var(--chart-1)"
-                  strokeWidth={2}
-                  fill="url(#patriGrad)"
-                  baseValue={yMin}
-                  isAnimationActive={shouldAnimate}
-                  animationDuration={1200}
-                  animationEasing="ease-out"
+                  type="linear"
+                  dataKey="lower"
+                  stackId="dev"
+                  stroke="none"
+                  fill="none"
+                  fillOpacity={0}
+                  isAnimationActive={false}
                   connectNulls={false}
                   dot={false}
+                  activeDot={false}
+                  legendType="none"
+                />
+                <Area
+                  type="linear"
+                  dataKey="behind"
+                  stackId="dev"
+                  stroke="none"
+                  fill="var(--destructive)"
+                  fillOpacity={0.16}
+                  isAnimationActive={shouldAnimate}
+                  animationDuration={1000}
+                  connectNulls={false}
+                  dot={false}
+                  activeDot={false}
+                  legendType="none"
+                />
+                <Area
+                  type="linear"
+                  dataKey="ahead"
+                  stackId="dev"
+                  stroke="none"
+                  fill="#10b981"
+                  fillOpacity={0.18}
+                  isAnimationActive={shouldAnimate}
+                  animationDuration={1000}
+                  connectNulls={false}
+                  dot={false}
+                  activeDot={false}
+                  legendType="none"
                 />
                 <Line
-                  type="monotone"
+                  type="linear"
                   dataKey="trend"
                   stroke="var(--chart-3)"
                   strokeWidth={1.5}
-                  strokeDasharray="4 4"
+                  strokeDasharray="5 4"
                   dot={false}
                   isAnimationActive={shouldAnimate}
-                  animationBegin={400}
-                  animationDuration={1200}
+                  animationBegin={300}
+                  animationDuration={1100}
+                  animationEasing="ease-out"
+                />
+                <Line
+                  type="linear"
+                  dataKey="balance"
+                  stroke="var(--chart-1)"
+                  strokeWidth={2}
+                  dot={false}
+                  connectNulls={false}
+                  isAnimationActive={shouldAnimate}
+                  animationDuration={1100}
                   animationEasing="ease-out"
                 />
               </ComposedChart>

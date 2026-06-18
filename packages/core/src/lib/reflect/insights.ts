@@ -83,6 +83,8 @@ export interface MonthForecast {
   daysElapsed: number
   daysRemaining: number
   monthSpent: number
+  /** Fixed spend already paid this month (rent, loan, …) — not extrapolated. */
+  fixedSpent: number
   /** Projected total spend for the month at the current daily pace. */
   projectedSpend: number
   monthIncome: number
@@ -93,18 +95,29 @@ export interface MonthForecast {
 }
 
 /**
- * Project where the month lands if the current daily spend pace holds. Margin
- * needs a detected income for the month (a received paycheck); without one we
- * only project spend.
+ * Project where the month lands if the current spending pace holds.
+ *
+ * Only the *variable* daily pace is extrapolated forward. Fixed bills (rent,
+ * loan, insurance, subscriptions — flagged `isFixed`) are big lumpy charges
+ * that hit once a month; extrapolating them at a per-day rate massively
+ * inflates the projection (e.g. a €1 000 rent paid on the 3rd would read as
+ * "+€1 000 still coming" by mid-month). So we keep the fixed spend already
+ * incurred as-is and only project the discretionary day-to-day burn.
+ *
+ * Margin needs a detected income for the month (a received paycheck); without
+ * one we only project spend.
  */
 export function computeMonthForecast(lts: LeftToSpend): MonthForecast {
-  const projectedSpend = lts.monthSpent + lts.dailyAvgSpent * lts.daysRemaining
+  const variableSpent = Math.max(0, lts.monthSpent - lts.monthSpentFixed)
+  const dailyAvgVariable = lts.daysElapsed > 0 ? variableSpent / lts.daysElapsed : 0
+  const projectedSpend = lts.monthSpent + dailyAvgVariable * lts.daysRemaining
   const hasIncome = lts.monthIncome > 0
   const projectedMargin = hasIncome ? lts.monthIncome - projectedSpend : null
   return {
     daysElapsed: lts.daysElapsed,
     daysRemaining: lts.daysRemaining,
     monthSpent: lts.monthSpent,
+    fixedSpent: lts.monthSpentFixed,
     projectedSpend,
     monthIncome: lts.monthIncome,
     projectedMargin,
@@ -172,14 +185,20 @@ export interface SpendingAnomaliesResult {
  * Flag unusually expensive days: days whose total spend is at least
  * `minMultiple`× the typical (median) spending-day and above an absolute
  * floor. Each flagged day carries the category that drove most of it.
+ *
+ * Fixed expenses (rent, loan, insurance, subscriptions — flagged `isFixed`)
+ * are excluded by default: a day isn't "unusual" just because rent posted, so
+ * counting those lumpy bills would flag every rent day and bury the genuine
+ * discretionary spikes. Pass `includeFixed` to count them too.
  */
 export function computeSpendingAnomalies(
   rows: ReadonlyArray<DailyCategorySpend>,
-  opts: { limit?: number; minMultiple?: number; minAmount?: number } = {},
+  opts: { limit?: number; minMultiple?: number; minAmount?: number; includeFixed?: boolean } = {},
 ): SpendingAnomaliesResult {
-  const { limit = 5, minMultiple = 3, minAmount = 50 } = opts
+  const { limit = 5, minMultiple = 3, minAmount = 50, includeFixed = false } = opts
   const byDate = new Map<string, { total: number; byCat: Map<string, number> }>()
   for (const r of rows) {
+    if (!includeFixed && r.isFixed) continue
     const entry = byDate.get(r.date) ?? { total: 0, byCat: new Map<string, number>() }
     entry.total += r.amount
     if (r.categoryName) {

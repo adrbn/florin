@@ -78,6 +78,15 @@ export function MonthForecastCard({ leftToSpend }: MonthForecastCardProps) {
               />
             </div>
           </div>
+          {f.fixedSpent > 0 && (
+            <p className="text-[10px] leading-snug text-muted-foreground/80">
+              {t(
+                'reflect.insights.forecastFixedNote',
+                { amount: formatCurrency(f.fixedSpent) },
+                'Fixed bills ({amount}) kept as-is — only variable spend is projected forward.',
+              )}
+            </p>
+          )}
         </div>
       </CardContent>
     </Card>

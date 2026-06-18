@@ -36,6 +36,8 @@ export function SpendingAnomaliesCard({ rows }: SpendingAnomaliesCardProps) {
                 'vs your typical {amount} spending day',
               )
             : t('reflect.insights.anomaliesSubtitleGeneric', 'Days well above your normal spend')}
+          {' · '}
+          {t('reflect.insights.anomaliesFixedNote', 'fixed bills excluded')}
         </p>
       </CardHeader>
       <CardContent className="min-h-0 flex-1 pb-3">

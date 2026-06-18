@@ -514,6 +514,7 @@ export async function getLeftToSpendThisMonth(db: SqliteDB): Promise<LeftToSpend
   }
 
   const monthSpent = await getMonthBurn(db)
+  const monthSpentFixed = await getMonthBurn(db, { fixedOnly: true })
   const leftToSpend = monthIncome - monthSpent
 
   const today = new Date()
@@ -529,6 +530,7 @@ export async function getLeftToSpendThisMonth(db: SqliteDB): Promise<LeftToSpend
     salaryCategoryName,
     monthIncome,
     monthSpent,
+    monthSpentFixed,
     leftToSpend,
     dailyAvgSpent,
     dailyBudgetRemaining,
@@ -586,6 +588,7 @@ export async function getDailySpendByCategory(
       categoryId: categories.id,
       categoryName: categories.name,
       groupName: categoryGroups.name,
+      isFixed: categories.isFixed,
       total: sql<number>`COALESCE(SUM(${transactions.amount}), 0)`,
     })
     .from(transactions)
@@ -607,6 +610,7 @@ export async function getDailySpendByCategory(
       categories.id,
       categories.name,
       categoryGroups.name,
+      categories.isFixed,
     )
 
   return rows.map((r) => ({
@@ -614,6 +618,7 @@ export async function getDailySpendByCategory(
     categoryId: r.categoryId ?? null,
     categoryName: r.categoryName ?? null,
     groupName: r.groupName ?? null,
+    isFixed: r.isFixed ?? false,
     amount: Math.abs(Number(r.total)),
   }))
 }
