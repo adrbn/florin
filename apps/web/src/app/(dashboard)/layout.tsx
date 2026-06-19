@@ -48,7 +48,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     <div className="flex h-dvh w-full flex-col overflow-hidden md:flex-row">
       <Sidebar badges={badges} />
       <MobileTopBar badges={badges} />
-      <main className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 lg:p-8">
+      <main className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-4 pt-4 pb-[calc(1rem_+_env(safe-area-inset-bottom))] md:p-6 lg:p-8">
         {children}
       </main>
       <KeyboardShortcuts />

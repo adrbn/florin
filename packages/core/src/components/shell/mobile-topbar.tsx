@@ -34,8 +34,8 @@ export function MobileTopBar({ badges }: MobileTopBarProps = {}) {
   const links = visibleNavLinks(badges)
   const t = useT()
   return (
-    <header className="sticky top-0 z-30 flex shrink-0 flex-col border-b bg-sidebar/95 text-sidebar-foreground backdrop-blur supports-[backdrop-filter]:bg-sidebar/80 md:hidden">
-      <div className="flex items-center justify-between px-4 py-2.5">
+    <header className="sticky top-0 z-30 flex shrink-0 flex-col border-b bg-sidebar/95 pt-[env(safe-area-inset-top)] text-sidebar-foreground backdrop-blur supports-[backdrop-filter]:bg-sidebar/80 md:hidden">
+      <div className="flex items-center justify-between px-[max(1rem,env(safe-area-inset-left))] py-2.5 pr-[max(1rem,env(safe-area-inset-right))]">
         <div className="flex items-center gap-2">
           <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-sidebar-primary" />
           <span
