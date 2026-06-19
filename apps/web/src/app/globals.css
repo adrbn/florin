@@ -180,6 +180,19 @@ html.privacy-hidden [data-amount]:hover {
   --sidebar-ring: oklch(0.7 0.18 260);
 }
 
+/* iOS Safari auto-zooms the whole page when a form control with font-size
+   below 16px gains focus. Our compact controls use 14px (text-sm), so tapping
+   a field — e.g. the Plan "assigned" amounts — zoomed the viewport and left
+   the standalone web app feeling broken. Force >=16px on phone-width screens
+   to suppress the zoom; desktop keeps the designed sizes. */
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
 /* Recharts adds tabindex to SVG groups; the browser draws a giant focus
    rectangle around the whole chart on click. Keep focus-visible (keyboard)
    but kill the mouse-click outline. */

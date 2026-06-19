@@ -31,16 +31,18 @@ export function PlanGroup({
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center justify-between gap-3 px-4 py-2 bg-muted/30 hover:bg-muted/60 text-left"
       >
-        <div className="flex items-center gap-1 min-w-0">
-          {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+        <div className="flex min-w-0 flex-1 items-center gap-1">
+          <span className="shrink-0">
+            {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+          </span>
           <span className="font-semibold text-sm truncate">{group.name}</span>
           {group.overspentCount > 0 ? (
-            <span className="ml-2 inline-flex items-center justify-center text-xs font-medium bg-red-500/15 text-red-500 border border-red-500/30 rounded-full px-2 py-0.5">
+            <span className="ml-2 inline-flex shrink-0 items-center justify-center whitespace-nowrap text-xs font-medium bg-red-500/15 text-red-500 border border-red-500/30 rounded-full px-2 py-0.5">
               {t('plan.overspent', { n: group.overspentCount }, `${group.overspentCount} overspent`)}
             </span>
           ) : null}
         </div>
-        <div className="flex items-center gap-6 text-xs text-muted-foreground shrink-0">
+        <div className="flex items-center gap-4 sm:gap-6 text-xs text-muted-foreground shrink-0">
           <div className="text-right">
             <div className="uppercase tracking-wide">{t('plan.assigned', 'Assigned')}</div>
             <div className="font-semibold text-foreground">
