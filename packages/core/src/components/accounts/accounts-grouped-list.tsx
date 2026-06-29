@@ -34,6 +34,8 @@ export interface GroupedAccount {
   displayIcon: string | null
   displayColor: string | null
   isArchived: boolean
+  /** Signed sum of this account's upcoming scheduled (forecast) transactions. */
+  scheduledDelta?: number
 }
 
 interface AccountsGroupedListProps {
@@ -255,6 +257,7 @@ export function AccountsGroupedList({ accounts, onReorderAccounts }: AccountsGro
                         icon={a.displayIcon}
                         color={a.displayColor}
                         isArchived={a.isArchived}
+                        scheduledDelta={a.scheduledDelta ?? 0}
                       />
                     ))}
                   </SortableContext>
@@ -275,6 +278,7 @@ interface SortableAccountRowProps {
   icon: string | null
   color: string | null
   isArchived: boolean
+  scheduledDelta?: number
 }
 
 /**
@@ -283,7 +287,15 @@ interface SortableAccountRowProps {
  * rest of the row fall through to the Link so tapping an account still
  * navigates to its detail page.
  */
-function SortableAccountRow({ id, name, balance, icon, color, isArchived }: SortableAccountRowProps) {
+function SortableAccountRow({
+  id,
+  name,
+  balance,
+  icon,
+  color,
+  isArchived,
+  scheduledDelta = 0,
+}: SortableAccountRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id,
   })
@@ -314,6 +326,7 @@ function SortableAccountRow({ id, name, balance, icon, color, isArchived }: Sort
           icon={icon}
           color={color}
           isArchived={isArchived}
+          scheduledDelta={scheduledDelta}
         />
       </div>
     </div>

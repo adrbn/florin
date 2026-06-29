@@ -19,6 +19,7 @@ import type {
   ActionResult,
   AddTransactionInput,
   AddTransferInput,
+  TransactionRecurringInput,
 } from '../../types/index'
 
 interface AccountOption {
@@ -77,6 +78,12 @@ export function AddTransactionModal({
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [balanceWarning, setBalanceWarning] = useState<string | null>(null)
+  // Transfer-only: "Répéter chaque mois" toggle (Phase 1 DCA use case). When on,
+  // the bound action spawns a monthly recurring rule and materializes forecast legs.
+  const [recurring, setRecurring] = useState(false)
+  const [recurrenceDay, setRecurrenceDay] = useState<number>(
+    () => new Date().getDate(),
+  )
   const fromAccountRef = useRef<HTMLSelectElement>(null)
   const toAccountRef = useRef<HTMLSelectElement>(null)
   // Tracks the last form payload the user tried to submit but was warned
@@ -109,6 +116,7 @@ export function AddTransactionModal({
       setOpen(false)
       pendingTransferRef.current = null
       setBalanceWarning(null)
+      setRecurring(false)
       const form = document.getElementById(
         'add-transaction-form',
       ) as HTMLFormElement | null
@@ -125,12 +133,19 @@ export function AddTransactionModal({
         setError(t('txAdd.transferSameAccount', 'Source and destination must differ.'))
         return
       }
+      const recurringInput: TransactionRecurringInput | null = recurring
+        ? {
+            frequency: 'monthly',
+            dayOfMonth: Math.min(31, Math.max(1, Math.trunc(recurrenceDay) || 1)),
+          }
+        : null
       const input: AddTransferInput = {
         fromAccountId,
         toAccountId,
         amount: Math.abs(Number(formData.get('amount') ?? 0)),
         occurredAt: new Date(String(formData.get('occurredAt') ?? today)),
         memo: String(formData.get('memo') ?? '') || null,
+        recurring: recurringInput,
       }
 
       // If user already acknowledged the warning for this exact payload,
@@ -194,6 +209,7 @@ export function AddTransactionModal({
           setError(null)
           setBalanceWarning(null)
           pendingTransferRef.current = null
+          setRecurring(false)
         }
       }}
     >
@@ -235,6 +251,7 @@ export function AddTransactionModal({
                 setError(null)
                 setBalanceWarning(null)
                 pendingTransferRef.current = null
+                setRecurring(false)
               }}
               className={cn(
                 'rounded-sm px-3 py-1.5 transition-colors',
@@ -319,6 +336,47 @@ export function AddTransactionModal({
                     ))}
                   </select>
                 </div>
+              </div>
+
+              <div className="space-y-2 rounded-md border border-input p-3">
+                <label className="flex cursor-pointer items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={recurring}
+                    onChange={(e) => setRecurring(e.target.checked)}
+                    className="h-3.5 w-3.5 cursor-pointer rounded border-border accent-foreground"
+                  />
+                  <span>{t('txAdd.makeRecurring', 'Répéter chaque mois')}</span>
+                </label>
+                {recurring && (
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">
+                        {t('txAdd.recurrenceFrequency', 'Frequency')}
+                      </Label>
+                      <p className="flex h-9 items-center rounded-md border border-input bg-muted/30 px-3 text-sm text-muted-foreground">
+                        {t('txAdd.frequencyMonthly', 'Monthly')}
+                      </p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="recurrenceDay" className="text-xs text-muted-foreground">
+                        {t('txAdd.recurrenceDay', { n: recurrenceDay }, 'On day {n} of the month')}
+                      </Label>
+                      <Input
+                        id="recurrenceDay"
+                        type="number"
+                        min={1}
+                        max={31}
+                        step={1}
+                        value={recurrenceDay}
+                        onChange={(e) => {
+                          const n = Number(e.target.value)
+                          if (Number.isFinite(n)) setRecurrenceDay(Math.min(31, Math.max(1, Math.trunc(n))))
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </>
           ) : (

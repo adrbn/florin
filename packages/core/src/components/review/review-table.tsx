@@ -19,6 +19,12 @@ export interface ReviewRowData {
   currentCategoryId: string | null
   currentCategoryName: string | null
   currentCategoryEmoji: string | null
+  /**
+   * Set when the reconciliation matcher flagged this bank row as a possible
+   * duplicate of an existing scheduled / recent-manual transaction. Drives the
+   * inline "Doublon possible" banner with Merge / Keep-both actions.
+   */
+  mergeSuggestion?: { candidateTxId: string }
 }
 
 export interface ReviewTableActions {
@@ -32,6 +38,13 @@ export interface ReviewTableActions {
     transactionId: string,
     counterpartAccountId: string,
   ) => Promise<ActionResult<{ transferPairId: string; mode: 'paired' | 'created' }>>
+  /** Accept a merge suggestion: fold this bank row into its scheduled/manual candidate. */
+  onMergeBankTransaction?: (
+    bankTxId: string,
+    candidateTxId: string,
+  ) => Promise<ActionResult>
+  /** Dismiss a merge suggestion: keep both rows, clear the suggestion link. */
+  onDismissMergeSuggestion?: (bankTxId: string) => Promise<ActionResult>
 }
 
 interface ReviewTableProps {
@@ -242,6 +255,8 @@ export function ReviewTable({ rows, categoryOptions, accountOptions, actions }: 
             onSoftDeleteTransaction={actions.onSoftDeleteTransaction}
             onUpdateTransactionCategory={actions.onUpdateTransactionCategory}
             onLinkAsInternalTransfer={actions.onLinkAsInternalTransfer}
+            onMergeBankTransaction={actions.onMergeBankTransaction}
+            onDismissMergeSuggestion={actions.onDismissMergeSuggestion}
           />
         ))}
       </div>
