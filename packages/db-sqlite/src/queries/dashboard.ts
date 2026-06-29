@@ -290,6 +290,7 @@ export async function getMonthByCategory(db: SqliteDB): Promise<CategoryBreakdow
     .where(
       and(
         isNull(transactions.deletedAt),
+        eq(transactions.status, 'cleared'),
         gte(transactions.occurredAt, start),
         lte(transactions.occurredAt, end),
         sql`${transactions.amount} < 0`,

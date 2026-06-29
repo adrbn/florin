@@ -37,7 +37,10 @@ export async function findMergeCandidateId(
         eq(transactions.accountId, bank.accountId),
         isNull(transactions.deletedAt),
         isNull(transactions.externalId),
-        sql`(${transactions.status} = 'scheduled' OR (${transactions.status} = 'cleared' AND ${transactions.source} = 'manual'))`,
+        // Candidates: any scheduled row, OR a RECENT manual cleared row (last
+        // 14 days) — so an old manual entry can't be matched to a same-amount
+        // bank row that merely shares a date.
+        sql`(${transactions.status} = 'scheduled' OR (${transactions.status} = 'cleared' AND ${transactions.source} = 'manual' AND ${transactions.occurredAt}::date >= CURRENT_DATE - INTERVAL '14 days'))`,
       ),
     )
 
@@ -89,22 +92,25 @@ export async function mergeBankTransactionMutation(
     if (!bank || !candidate) return { success: false, error: 'Transaction not found' }
 
     // Delete the bank row FIRST so the candidate can take over its
-    // (source, externalId) slot without colliding on the unique index.
-    await db.delete(transactions).where(eq(transactions.id, bankTxId))
-
-    await db
-      .update(transactions)
-      .set({
-        status: 'cleared',
-        source: bank.source,
-        externalId: bank.externalId,
-        rawData: bank.rawData,
-        occurredAt: bank.occurredAt,
-        needsReview: false,
-        mergeSuggestedTxId: null,
-        updatedAt: new Date(),
-      })
-      .where(eq(transactions.id, candidateTxId))
+    // (source, externalId) slot without colliding on the unique index. Both
+    // steps run in one transaction so a partial failure can't strand the
+    // candidate as 'scheduled' with the bank row already gone.
+    await db.transaction(async (tx) => {
+      await tx.delete(transactions).where(eq(transactions.id, bankTxId))
+      await tx
+        .update(transactions)
+        .set({
+          status: 'cleared',
+          source: bank.source,
+          externalId: bank.externalId,
+          rawData: bank.rawData,
+          occurredAt: bank.occurredAt,
+          needsReview: false,
+          mergeSuggestedTxId: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(transactions.id, candidateTxId))
+    })
 
     if (candidate.accountId) await recomputeAccountBalance(db, candidate.accountId)
     if (bank.accountId && bank.accountId !== candidate.accountId) {
