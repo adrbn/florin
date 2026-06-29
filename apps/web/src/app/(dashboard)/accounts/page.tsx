@@ -59,12 +59,16 @@ export default async function AccountsPage({ searchParams }: AccountsPageProps) 
   const rawAccounts = await queries.listAccounts({ includeArchived: showArchived })
   const bankingEnabled = isEnableBankingConfigured()
 
-  const liabilityMap = await getLoanLiabilities(db, rawAccounts)
+  const [liabilityMap, scheduledDeltaByAccount] = await Promise.all([
+    getLoanLiabilities(db, rawAccounts),
+    queries.getScheduledDeltaByAccount(),
+  ])
   const accounts = rawAccounts.map((a) => {
-    if (a.kind !== 'loan') return a
+    const scheduledDelta = scheduledDeltaByAccount[a.id] ?? 0
+    if (a.kind !== 'loan') return { ...a, scheduledDelta }
     const liability = liabilityMap.get(a.id)
-    if (!liability) return a
-    return { ...a, currentBalance: (-liability.remainingDebt).toFixed(2) }
+    if (!liability) return { ...a, scheduledDelta }
+    return { ...a, currentBalance: (-liability.remainingDebt).toFixed(2), scheduledDelta }
   })
 
   // Fetch bank connection rows for the list

@@ -212,6 +212,7 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
               payee: t.payee,
               accountName: t.account?.name ?? '—',
               amount: Number(t.amount),
+              status: t.status === 'scheduled' ? 'scheduled' : 'cleared',
               currentCategoryId: t.category?.id ?? null,
               currentCategoryName: t.category?.name ?? null,
               currentCategoryEmoji: t.category?.emoji ?? null,

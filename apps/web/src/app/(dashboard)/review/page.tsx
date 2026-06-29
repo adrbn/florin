@@ -16,6 +16,8 @@ import {
   bulkSoftDeleteTransactions,
   bulkUpdateTransactionCategory,
   listTransactions,
+  mergeBankTransaction,
+  dismissMergeSuggestion,
 } from '@/server/actions/transactions'
 
 const dateFormatter = new Intl.DateTimeFormat('fr-FR', {
@@ -93,6 +95,9 @@ export default async function ReviewPage() {
                   currentCategoryId: tx.category?.id ?? null,
                   currentCategoryName: tx.category?.name ?? null,
                   currentCategoryEmoji: tx.category?.emoji ?? null,
+                  mergeSuggestion: tx.mergeSuggestedTxId
+                    ? { candidateTxId: tx.mergeSuggestedTxId }
+                    : undefined,
                 }
               })}
               categoryOptions={categoryList}
@@ -105,6 +110,8 @@ export default async function ReviewPage() {
                 onBulkSoftDeleteTransactions: bulkSoftDeleteTransactions,
                 onBulkUpdateTransactionCategory: bulkUpdateTransactionCategory,
                 onLinkAsInternalTransfer: linkAsInternalTransfer,
+                onMergeBankTransaction: mergeBankTransaction,
+                onDismissMergeSuggestion: dismissMergeSuggestion,
               }}
             />
           )}
