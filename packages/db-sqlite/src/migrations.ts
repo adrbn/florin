@@ -93,6 +93,30 @@ export function ensureSchema(db: SqliteDB) {
     );
     CREATE UNIQUE INDEX IF NOT EXISTS categories_group_name_unique ON categories(group_id, name);
 
+    CREATE TABLE IF NOT EXISTS recurring_rules (
+      id TEXT PRIMARY KEY NOT NULL,
+      name TEXT NOT NULL,
+      kind TEXT NOT NULL DEFAULT 'transfer',
+      account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      to_account_id TEXT REFERENCES accounts(id) ON DELETE CASCADE,
+      amount REAL NOT NULL,
+      payee TEXT NOT NULL DEFAULT '',
+      category_id TEXT REFERENCES categories(id) ON DELETE SET NULL,
+      currency TEXT NOT NULL DEFAULT 'EUR',
+      memo TEXT,
+      frequency TEXT NOT NULL DEFAULT 'monthly',
+      interval INTEGER NOT NULL DEFAULT 1,
+      day_of_month INTEGER NOT NULL DEFAULT 1,
+      start_date TEXT NOT NULL,
+      end_date TEXT,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      last_materialized_date TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS recurring_rules_active_idx ON recurring_rules(is_active);
+    CREATE INDEX IF NOT EXISTS recurring_rules_account_idx ON recurring_rules(account_id);
+
     CREATE TABLE IF NOT EXISTS transactions (
       id TEXT PRIMARY KEY NOT NULL,
       account_id TEXT REFERENCES accounts(id) ON DELETE SET NULL,
@@ -110,6 +134,10 @@ export function ensureSchema(db: SqliteDB) {
       is_pending INTEGER NOT NULL DEFAULT 0,
       needs_review INTEGER NOT NULL DEFAULT 0,
       transfer_pair_id TEXT,
+      status TEXT NOT NULL DEFAULT 'cleared',
+      recurring_rule_id TEXT REFERENCES recurring_rules(id) ON DELETE SET NULL,
+      recurrence_key TEXT,
+      merge_suggested_tx_id TEXT,
       raw_data TEXT,
       deleted_at TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -226,6 +254,20 @@ function addMissingColumns(sqlite: Database.Database) {
       WHERE sync_provider NOT IN ('enable_banking', 'pytr')
     `)
   }
+
+  // Phase 1 — forecast & reconciliation columns. Existing rows default to
+  // 'cleared' so balances are unchanged at upgrade time. Indexes are created
+  // here (after the columns exist) rather than in ensureSchema's big exec,
+  // which runs before these ALTERs on an upgrading DB.
+  ensureColumn(sqlite, 'transactions', 'status', "TEXT NOT NULL DEFAULT 'cleared'")
+  ensureColumn(sqlite, 'transactions', 'recurring_rule_id', 'TEXT')
+  ensureColumn(sqlite, 'transactions', 'recurrence_key', 'TEXT')
+  ensureColumn(sqlite, 'transactions', 'merge_suggested_tx_id', 'TEXT')
+  sqlite.exec(`
+    CREATE INDEX IF NOT EXISTS transactions_status_idx ON transactions(status, occurred_at) WHERE deleted_at IS NULL;
+    CREATE INDEX IF NOT EXISTS transactions_recurring_rule_idx ON transactions(recurring_rule_id) WHERE recurring_rule_id IS NOT NULL;
+    CREATE UNIQUE INDEX IF NOT EXISTS transactions_recurrence_key_unique ON transactions(recurrence_key, account_id) WHERE recurrence_key IS NOT NULL;
+  `)
 }
 
 function ensureColumn(

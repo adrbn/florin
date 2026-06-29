@@ -9,5 +9,7 @@ export {
   listLoanPaymentsForAccountQuery,
   autoLinkInternalTransfersMutation,
   exportAllDataMutation,
+  materializeScheduledTransactions,
+  findMergeCandidateId,
 } from './actions'
 export * as schema from './schema'

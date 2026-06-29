@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { MobileTopBar } from '@florin/core/components/shell/mobile-topbar'
 import { Sidebar } from '@florin/core/components/shell/sidebar'
 import { KeyboardShortcuts } from '@florin/core/components/shortcuts/keyboard-shortcuts'
-import { queries } from '@/db/client'
+import { mutations, queries } from '@/db/client'
 import { countNeedsReview } from '@/server/actions/transactions'
 import { ensureAutoSyncScheduler } from '@/server/banking/scheduler'
 
@@ -17,6 +17,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // first call this is a no-op thanks to a module-level singleton flag, so
   // it's cheap to call on every navigation.
   ensureAutoSyncScheduler()
+
+  // Top up scheduled (forecast) transactions from recurring rules. Idempotent
+  // and cheap (a no-op when there are no rules); fire-and-forget so it never
+  // blocks render.
+  void mutations.materializeScheduledTransactions().catch(() => {})
 
   // On first launch, when there are no accounts, send the user through the
   // onboarding wizard (mirrors the desktop layout). We skip the redirect when

@@ -6,7 +6,7 @@ import { KeyboardShortcuts } from '@florin/core/components/shortcuts/keyboard-sh
 import { QuickAddFab } from '@/components/quick-add-fab'
 import { countNeedsReview } from '@/server/actions/transactions'
 import { addTransaction } from '@/server/actions/transactions'
-import { queries } from '@/db/client'
+import { mutations, queries } from '@/db/client'
 import { db } from '@/db/client'
 import { categories, categoryGroups } from '@/db/schema'
 
@@ -16,6 +16,10 @@ import { categories, categoryGroups } from '@/db/schema'
 export const dynamic = 'force-dynamic'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  // Top up scheduled (forecast) transactions from recurring rules. Idempotent,
+  // cheap (no-op without rules), fire-and-forget so it never blocks render.
+  void mutations.materializeScheduledTransactions().catch(() => {})
+
   // On first launch, when there are no accounts, send the user through the
   // onboarding wizard. We skip the redirect when the user is already on
   // /onboarding to avoid an infinite redirect loop (the layout wraps that page

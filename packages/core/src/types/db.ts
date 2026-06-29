@@ -4,6 +4,9 @@ import type {
   Category,
   CategoryGroupWithCategories,
   CategorizationRule,
+  RecurringFrequency,
+  RecurringKind,
+  RecurringRule,
   TransactionWithRelations,
 } from './models'
 
@@ -26,9 +29,21 @@ export interface BurnOptions {
   fixedOnly?: boolean
 }
 
+/**
+ * Projected net worth = realized net + the sum of scheduled (planned) rows
+ * within the horizon. `scheduledDelta` is the difference so the UI can render
+ * "réalisé (+X prévu)" without recomputing.
+ */
+export interface ProjectedNetWorth {
+  projected: number
+  scheduledDelta: number
+}
+
 export interface PatrimonyPoint {
   date: string
   balance: number
+  /** True for forward-looking (projected) points; absent/false for realized. */
+  projected?: boolean
 }
 
 export interface CategoryBreakdownItem {
@@ -301,6 +316,10 @@ export interface ActionResult<T = void> {
 
 export interface FlorinQueries {
   getNetWorth(): Promise<NetWorth>
+  /** Realized net worth plus scheduled rows within `horizonDays` (default 90). */
+  getProjectedNetWorth(horizonDays?: number): Promise<ProjectedNetWorth>
+  /** Map of accountId → sum of its scheduled (not-yet-realized) amounts. */
+  getScheduledDeltaByAccount(): Promise<Record<string, number>>
   getMonthBurn(opts?: BurnOptions): Promise<number>
   getAvgMonthlyBurn(months?: number): Promise<number>
   getPatrimonyTimeSeries(months?: number): Promise<PatrimonyPoint[]>
@@ -343,6 +362,7 @@ export interface FlorinQueries {
     }>
   >
   listCategorizationRules(): Promise<CategorizationRule[]>
+  listRecurringRules(): Promise<RecurringRule[]>
   getMonthPlan(year: number, month: number): Promise<MonthPlan>
 }
 
@@ -362,6 +382,18 @@ export interface UpdateAccountInput extends CreateAccountInput {
   isIncludedInNetWorth?: boolean
 }
 
+/**
+ * Recurrence options the add/transfer form can attach. When present, the
+ * action spawns a {@link RecurringRule} (in addition to creating the one-off
+ * the user just entered) and materializes its upcoming scheduled occurrences.
+ */
+export interface TransactionRecurringInput {
+  frequency: RecurringFrequency
+  /** Day of month 1–31 for the rule's occurrences. */
+  dayOfMonth: number
+  endDate?: Date | null
+}
+
 export interface AddTransactionInput {
   accountId: string
   occurredAt: Date
@@ -369,6 +401,7 @@ export interface AddTransactionInput {
   payee: string
   memo?: string | null
   categoryId?: string | null
+  recurring?: TransactionRecurringInput | null
 }
 
 export interface AddTransferInput {
@@ -378,6 +411,30 @@ export interface AddTransferInput {
   amount: number
   occurredAt: Date
   memo?: string | null
+  recurring?: TransactionRecurringInput | null
+}
+
+export interface CreateRecurringRuleInput {
+  name: string
+  kind: RecurringKind
+  accountId: string
+  toAccountId?: string | null
+  /** Positive magnitude. */
+  amount: number
+  payee?: string
+  categoryId?: string | null
+  currency?: string
+  memo?: string | null
+  frequency: RecurringFrequency
+  interval?: number
+  dayOfMonth: number
+  startDate: Date
+  endDate?: Date | null
+}
+
+export interface UpdateRecurringRuleInput extends Partial<CreateRecurringRuleInput> {
+  id: string
+  isActive?: boolean
 }
 
 export interface CreateCategoryInput {
@@ -478,4 +535,26 @@ export interface FlorinMutations {
     year: number,
     month: number,
   ): Promise<ActionResult<{ copied: number; sourceYear: number; sourceMonth: number }>>
+
+  // ---------- recurring rules ----------
+  createRecurringRule(input: CreateRecurringRuleInput): Promise<ActionResult<{ id: string }>>
+  updateRecurringRule(input: UpdateRecurringRuleInput): Promise<ActionResult>
+  deleteRecurringRule(
+    id: string,
+    opts?: { deleteGeneratedScheduled?: boolean },
+  ): Promise<ActionResult>
+  /**
+   * Materialize scheduled occurrences for every active rule up to the horizon.
+   * Idempotent (safe to call repeatedly — e.g. on each dashboard load / sync).
+   */
+  materializeScheduledTransactions(): Promise<ActionResult<{ generated: number }>>
+
+  // ---------- reconciliation ----------
+  /**
+   * Accept a merge suggestion: copy the bank row's externalId/rawData onto the
+   * candidate, mark it cleared, then remove the duplicate bank row.
+   */
+  mergeBankTransaction(bankTxId: string, candidateTxId: string): Promise<ActionResult>
+  /** Dismiss a merge suggestion — keep both rows, just clear the link. */
+  dismissMergeSuggestion(bankTxId: string): Promise<ActionResult>
 }
