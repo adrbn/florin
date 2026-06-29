@@ -7,9 +7,12 @@ import {
   categories,
   categorizationRules,
   categoryGroups,
+  recurringRules,
 } from '../schema'
 import {
   getNetWorth,
+  getProjectedNetWorth,
+  getScheduledDeltaByAccount,
   getMonthBurn,
   getAvgMonthlyBurn,
   getPatrimonyTimeSeries,
@@ -45,6 +48,8 @@ export { getLoanLiabilities } from './loan-liabilities'
 export function createPgQueries(db: PgDB): FlorinQueries {
   return {
     getNetWorth: () => getNetWorth(db),
+    getProjectedNetWorth: (horizonDays) => getProjectedNetWorth(db, horizonDays),
+    getScheduledDeltaByAccount: () => getScheduledDeltaByAccount(db),
     getMonthBurn: (opts) => getMonthBurn(db, opts),
     getAvgMonthlyBurn: (months) => getAvgMonthlyBurn(db, months),
     getPatrimonyTimeSeries: (months) => getPatrimonyTimeSeries(db, months),
@@ -130,6 +135,10 @@ export function createPgQueries(db: PgDB): FlorinQueries {
 
     listCategorizationRules: async () => {
       return db.select().from(categorizationRules)
+    },
+
+    listRecurringRules: async () => {
+      return db.select().from(recurringRules).orderBy(asc(recurringRules.createdAt))
     },
   }
 }

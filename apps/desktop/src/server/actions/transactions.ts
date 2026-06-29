@@ -11,6 +11,8 @@ import type {
   ActionResult,
   AddTransactionInput,
   AddTransferInput,
+  CreateRecurringRuleInput,
+  UpdateRecurringRuleInput,
   ListTransactionsOptions,
   TransactionDirection,
 } from '@florin/core/types'
@@ -184,4 +186,74 @@ export async function reconcileLoanMirrorsForCategoryAction(
   categoryId: string,
 ): Promise<number> {
   return reconcileLoanMirrorsForCategory(db, categoryId)
+}
+
+// ============ reconciliation (merge suggestions) ============
+
+export async function mergeBankTransaction(
+  bankTxId: string,
+  candidateTxId: string,
+): Promise<ActionResult> {
+  const result = await mutations.mergeBankTransaction(bankTxId, candidateTxId)
+  if (result.success) {
+    revalidatePath('/review')
+    revalidatePath('/transactions')
+    revalidatePath('/accounts')
+    revalidatePath('/')
+    revalidatePath('/plan')
+  }
+  return result
+}
+
+export async function dismissMergeSuggestion(bankTxId: string): Promise<ActionResult> {
+  const result = await mutations.dismissMergeSuggestion(bankTxId)
+  if (result.success) {
+    revalidatePath('/review')
+    revalidatePath('/transactions')
+  }
+  return result
+}
+
+// ============ recurring rules ============
+
+export async function createRecurringRule(
+  input: CreateRecurringRuleInput,
+): Promise<ActionResult<{ id: string }>> {
+  const result = await mutations.createRecurringRule(input)
+  if (result.success) {
+    await mutations.materializeScheduledTransactions()
+    revalidatePath('/transactions')
+    revalidatePath('/accounts')
+    revalidatePath('/')
+    revalidatePath('/plan')
+  }
+  return result
+}
+
+export async function updateRecurringRule(
+  input: UpdateRecurringRuleInput,
+): Promise<ActionResult> {
+  const result = await mutations.updateRecurringRule(input)
+  if (result.success) {
+    await mutations.materializeScheduledTransactions()
+    revalidatePath('/transactions')
+    revalidatePath('/accounts')
+    revalidatePath('/')
+    revalidatePath('/plan')
+  }
+  return result
+}
+
+export async function deleteRecurringRule(
+  id: string,
+  opts?: { deleteGeneratedScheduled?: boolean },
+): Promise<ActionResult> {
+  const result = await mutations.deleteRecurringRule(id, opts)
+  if (result.success) {
+    revalidatePath('/transactions')
+    revalidatePath('/accounts')
+    revalidatePath('/')
+    revalidatePath('/plan')
+  }
+  return result
 }

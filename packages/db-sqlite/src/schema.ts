@@ -183,6 +183,16 @@ export const transactions = sqliteTable(
     isPending: integer('is_pending', { mode: 'boolean' }).notNull().default(false),
     needsReview: integer('needs_review', { mode: 'boolean' }).notNull().default(false),
     transferPairId: text('transfer_pair_id'),
+    /** 'cleared' (real, counts toward realized balance) | 'scheduled' (forecast). */
+    status: text('status').$type<'cleared' | 'scheduled'>().notNull().default('cleared'),
+    /** Set on rows materialized from a recurring rule. */
+    recurringRuleId: text('recurring_rule_id').references(() => recurringRules.id, {
+      onDelete: 'set null',
+    }),
+    /** Deterministic key `${ruleId}:${occurrenceDateIso}` — idempotent materialization. */
+    recurrenceKey: text('recurrence_key'),
+    /** On a freshly-imported bank row: candidate scheduled/manual row to merge. */
+    mergeSuggestedTxId: text('merge_suggested_tx_id'),
     rawData: text('raw_data'),
     deletedAt: text('deleted_at'),
     createdAt: text('created_at')
@@ -201,6 +211,15 @@ export const transactions = sqliteTable(
     uniqueIndex('transactions_legacy_unique').on(t.legacyId).where(sql`${t.legacyId} IS NOT NULL`),
     index('transactions_not_deleted_idx').on(t.occurredAt).where(sql`${t.deletedAt} IS NULL`),
     index('transactions_needs_review_idx').on(t.needsReview).where(sql`${t.needsReview} = 1`),
+    index('transactions_status_idx')
+      .on(t.status, t.occurredAt)
+      .where(sql`${t.deletedAt} IS NULL`),
+    index('transactions_recurring_rule_idx')
+      .on(t.recurringRuleId)
+      .where(sql`${t.recurringRuleId} IS NOT NULL`),
+    uniqueIndex('transactions_recurrence_key_unique')
+      .on(t.recurrenceKey, t.accountId)
+      .where(sql`${t.recurrenceKey} IS NOT NULL`),
   ],
 )
 
@@ -245,6 +264,46 @@ export const categorizationRules = sqliteTable('categorization_rules', {
     .notNull()
     .default(sql`(datetime('now'))`),
 })
+
+// ============ recurring_rules ============
+// Mirror of db-pg recurring_rules. Dates are ISO 'YYYY-MM-DD' strings,
+// amounts are real, booleans are integer(mode:'boolean').
+export const recurringRules = sqliteTable(
+  'recurring_rules',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    name: text('name').notNull(),
+    kind: text('kind').$type<'transfer' | 'transaction'>().notNull().default('transfer'),
+    accountId: text('account_id')
+      .notNull()
+      .references(() => accounts.id, { onDelete: 'cascade' }),
+    toAccountId: text('to_account_id').references(() => accounts.id, { onDelete: 'cascade' }),
+    amount: real('amount').notNull(),
+    payee: text('payee').notNull().default(''),
+    categoryId: text('category_id').references(() => categories.id, { onDelete: 'set null' }),
+    currency: text('currency').notNull().default('EUR'),
+    memo: text('memo'),
+    frequency: text('frequency').$type<'monthly'>().notNull().default('monthly'),
+    interval: integer('interval').notNull().default(1),
+    dayOfMonth: integer('day_of_month').notNull().default(1),
+    startDate: text('start_date').notNull(),
+    endDate: text('end_date'),
+    isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+    lastMaterializedDate: text('last_materialized_date'),
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text('updated_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (t) => [
+    index('recurring_rules_active_idx').on(t.isActive),
+    index('recurring_rules_account_idx').on(t.accountId),
+  ],
+)
 
 // ============ monthly_budgets ============
 export const monthlyBudgets = sqliteTable(
@@ -364,6 +423,8 @@ export type NewTransaction = typeof transactions.$inferInsert
 export type BalanceSnapshot = typeof balanceSnapshots.$inferSelect
 export type CategorizationRule = typeof categorizationRules.$inferSelect
 export type NewCategorizationRule = typeof categorizationRules.$inferInsert
+export type RecurringRule = typeof recurringRules.$inferSelect
+export type NewRecurringRule = typeof recurringRules.$inferInsert
 export type Setting = typeof settings.$inferSelect
 export type BankSyncRun = typeof bankSyncRuns.$inferSelect
 export type NewBankSyncRun = typeof bankSyncRuns.$inferInsert

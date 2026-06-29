@@ -65,6 +65,7 @@ async function computeNetMonthAgo(db: PgDB, currentNet: number): Promise<number 
         eq(accounts.isArchived, false),
         eq(accounts.isIncludedInNetWorth, true),
         sql`${accounts.kind} <> 'loan'`,
+        eq(transactions.status, 'cleared'),
       ),
     )
 
@@ -84,6 +85,7 @@ async function computeNetMonthAgo(db: PgDB, currentNet: number): Promise<number 
         eq(accounts.isArchived, false),
         eq(accounts.isIncludedInNetWorth, true),
         sql`${accounts.kind} <> 'loan'`,
+        eq(transactions.status, 'cleared'),
         gt(transactions.occurredAt, target),
         lte(transactions.occurredAt, today),
       ),
@@ -109,6 +111,7 @@ export async function getMonthBurn(db: PgDB, opts: BurnOptions = {}): Promise<nu
   const end = endOfMonth(new Date())
   const conds = [
     isNull(transactions.deletedAt),
+    eq(transactions.status, 'cleared'),
     gte(transactions.occurredAt, start),
     lte(transactions.occurredAt, end),
     sql`${transactions.transferPairId} IS NULL`,
@@ -140,6 +143,7 @@ export async function getAvgMonthlyBurn(db: PgDB, months = 6): Promise<number> {
     .where(
       and(
         isNull(transactions.deletedAt),
+        eq(transactions.status, 'cleared'),
         gte(transactions.occurredAt, start),
         lte(transactions.occurredAt, end),
         sql`${transactions.transferPairId} IS NULL`,
@@ -167,7 +171,9 @@ export async function getPatrimonyTimeSeries(db: PgDB, months = 12): Promise<Pat
     .where(
       and(
         isNull(transactions.deletedAt),
+        eq(transactions.status, 'cleared'),
         gte(transactions.occurredAt, start),
+        lte(transactions.occurredAt, today),
         sql`${transactions.transferPairId} IS NULL`,
         eq(accounts.isArchived, false),
         eq(accounts.isIncludedInNetWorth, true),
@@ -196,6 +202,60 @@ export async function getPatrimonyTimeSeries(db: PgDB, months = 12): Promise<Pat
   return out.reverse()
 }
 
+/**
+ * Realized net worth plus the sum of not-yet-realized rows (scheduled, or
+ * future-dated) within `horizonDays`. Transfer legs are excluded (they net to
+ * zero across accounts). Loans/archived/excluded accounts out of scope.
+ */
+export async function getProjectedNetWorth(
+  db: PgDB,
+  horizonDays = 90,
+): Promise<{ projected: number; scheduledDelta: number }> {
+  const { net } = await getNetWorth(db)
+  const [row] = await db
+    .select({ total: sql<string>`COALESCE(SUM(${transactions.amount}), 0)` })
+    .from(transactions)
+    .innerJoin(accounts, eq(transactions.accountId, accounts.id))
+    .where(
+      and(
+        isNull(transactions.deletedAt),
+        sql`${transactions.transferPairId} IS NULL`,
+        eq(accounts.isArchived, false),
+        eq(accounts.isIncludedInNetWorth, true),
+        sql`${accounts.kind} <> 'loan'`,
+        sql`(${transactions.status} = 'scheduled' OR ${transactions.occurredAt}::date > CURRENT_DATE)`,
+        sql`${transactions.occurredAt}::date <= CURRENT_DATE + ${horizonDays} * INTERVAL '1 day'`,
+      ),
+    )
+  const scheduledDelta = Number(row?.total ?? '0')
+  return { projected: net + scheduledDelta, scheduledDelta }
+}
+
+/**
+ * Per-account sum of not-yet-realized amounts (scheduled or future-dated), so
+ * the accounts UI can show "réalisé (+X prévu)". Keyed by accountId.
+ */
+export async function getScheduledDeltaByAccount(db: PgDB): Promise<Record<string, number>> {
+  const rows = await db
+    .select({
+      accountId: transactions.accountId,
+      total: sql<string>`COALESCE(SUM(${transactions.amount}), 0)`,
+    })
+    .from(transactions)
+    .where(
+      and(
+        isNull(transactions.deletedAt),
+        sql`(${transactions.status} = 'scheduled' OR ${transactions.occurredAt}::date > CURRENT_DATE)`,
+      ),
+    )
+    .groupBy(transactions.accountId)
+  const map: Record<string, number> = {}
+  for (const r of rows) {
+    if (r.accountId) map[r.accountId] = Number(r.total)
+  }
+  return map
+}
+
 export async function getMonthByCategory(db: PgDB): Promise<CategoryBreakdownItem[]> {
   const start = startOfMonth(new Date())
   const end = endOfMonth(new Date())
@@ -215,6 +275,7 @@ export async function getMonthByCategory(db: PgDB): Promise<CategoryBreakdownIte
     .where(
       and(
         isNull(transactions.deletedAt),
+        eq(transactions.status, 'cleared'),
         gte(transactions.occurredAt, start),
         lte(transactions.occurredAt, end),
         sql`${transactions.amount} < 0`,

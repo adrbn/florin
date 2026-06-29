@@ -15,6 +15,8 @@ export interface TransactionRowData {
   payee: string
   accountName: string
   amount: number
+  /** Lifecycle status — `scheduled` rows render dimmed + italic with a "Prévu" badge. */
+  status: 'cleared' | 'scheduled'
   currentCategoryId: string | null
   currentCategoryName: string | null
   currentCategoryEmoji: string | null
@@ -256,12 +258,14 @@ function TransactionRow({
   onToggleSelect,
   gridCols,
 }: TransactionRowProps) {
+  const t = useT()
   const isNegative = row.amount < 0
+  const isScheduled = row.status === 'scheduled'
   return (
     <div
       className={`flex flex-col gap-1.5 px-3 py-2.5 text-xs hover:bg-muted/40 md:grid md:items-center md:gap-3 md:py-2 ${gridCols} ${
         selected ? 'bg-muted/30' : ''
-      }`}
+      } ${isScheduled ? 'italic opacity-60' : ''}`}
     >
       {selectable && (
         <span className="hidden md:flex md:items-center md:justify-center">
@@ -293,6 +297,11 @@ function TransactionRow({
           data-amount="manual"
         >
           {row.payee}
+          {isScheduled && (
+            <span className="ml-1.5 inline-block shrink-0 rounded-full bg-blue-500/10 px-2 py-0.5 text-[9px] font-medium not-italic text-blue-600 dark:text-blue-400">
+              {t('txRow.scheduled', 'Prévu')}
+            </span>
+          )}
         </span>
         <span
           className="shrink-0 truncate text-[11px] text-muted-foreground md:text-xs"

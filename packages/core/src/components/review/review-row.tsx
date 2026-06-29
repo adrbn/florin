@@ -24,6 +24,7 @@ interface ReviewRowProps {
   currentCategoryId: string | null
   currentCategoryName: string | null
   currentCategoryEmoji: string | null
+  mergeSuggestion?: { candidateTxId: string }
   categoryOptions: ReadonlyArray<CategoryOption>
   accountOptions: ReadonlyArray<AccountOption>
   selected: boolean
@@ -35,6 +36,8 @@ interface ReviewRowProps {
     transactionId: string,
     counterpartAccountId: string,
   ) => Promise<ActionResult<{ transferPairId: string; mode: 'paired' | 'created' }>>
+  onMergeBankTransaction?: (bankTxId: string, candidateTxId: string) => Promise<ActionResult>
+  onDismissMergeSuggestion?: (bankTxId: string) => Promise<ActionResult>
 }
 
 /**
@@ -61,6 +64,7 @@ export function ReviewRow({
   currentCategoryId,
   currentCategoryName,
   currentCategoryEmoji,
+  mergeSuggestion,
   categoryOptions,
   accountOptions,
   selected,
@@ -69,10 +73,15 @@ export function ReviewRow({
   onSoftDeleteTransaction,
   onUpdateTransactionCategory,
   onLinkAsInternalTransfer,
+  onMergeBankTransaction,
+  onDismissMergeSuggestion,
 }: ReviewRowProps) {
   const t = useT()
   const [pending, startTransition] = useTransition()
   const isNegative = amount < 0
+  const showMergeBanner = Boolean(
+    mergeSuggestion && onMergeBankTransaction && onDismissMergeSuggestion,
+  )
 
   const onApprove = () => {
     startTransition(async () => {
@@ -88,12 +97,61 @@ export function ReviewRow({
     })
   }
 
+  const onMerge = () => {
+    if (!mergeSuggestion || !onMergeBankTransaction) return
+    startTransition(async () => {
+      await onMergeBankTransaction(transactionId, mergeSuggestion.candidateTxId)
+    })
+  }
+
+  const onKeepBoth = () => {
+    if (!onDismissMergeSuggestion) return
+    startTransition(async () => {
+      await onDismissMergeSuggestion(transactionId)
+    })
+  }
+
   return (
-    <div
-      className={`flex flex-col gap-1.5 px-3 py-2.5 text-xs hover:bg-muted/40 md:grid md:grid-cols-[32px_var(--col-date)_minmax(0,1fr)_var(--col-account)_var(--col-category)_var(--col-amount)_var(--col-actions)] md:items-center md:gap-3 md:py-2 ${
-        selected ? 'bg-foreground/[0.03]' : ''
-      }`}
-    >
+    <div className={showMergeBanner ? 'border-l-2 border-blue-500/60' : ''}>
+      {showMergeBanner && (
+        <div className="flex flex-col gap-2 bg-blue-500/[0.06] px-3 py-2 text-xs sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="font-medium text-blue-700 dark:text-blue-300">
+              {t('review.mergeSuggestionTitle', 'Doublon possible')}
+            </p>
+            <p className="text-muted-foreground">
+              {t(
+                'review.mergeSuggestionBody',
+                { amount: amountFormatted, date, payee },
+                'This {amount} on {date} matches your planned “{payee}”.',
+              )}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <button
+              type="button"
+              onClick={onMerge}
+              disabled={pending}
+              className="rounded-md border border-blue-500/40 bg-blue-500/10 px-2.5 py-1 text-[11px] font-medium text-blue-700 hover:bg-blue-500/20 disabled:opacity-50 dark:text-blue-300"
+            >
+              {pending ? '…' : t('review.merge', 'Fusionner')}
+            </button>
+            <button
+              type="button"
+              onClick={onKeepBoth}
+              disabled={pending}
+              className="rounded-md border border-border bg-muted/30 px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:bg-muted/60 disabled:opacity-50"
+            >
+              {t('review.keepBoth', 'Garder les deux')}
+            </button>
+          </div>
+        </div>
+      )}
+      <div
+        className={`flex flex-col gap-1.5 px-3 py-2.5 text-xs hover:bg-muted/40 md:grid md:grid-cols-[32px_var(--col-date)_minmax(0,1fr)_var(--col-account)_var(--col-category)_var(--col-amount)_var(--col-actions)] md:items-center md:gap-3 md:py-2 ${
+          selected ? 'bg-foreground/[0.03]' : ''
+        }`}
+      >
       {/* Line 1 — metadata. md:contents promotes the children straight into
           the grid so they line up with the header. */}
       <div className="flex min-w-0 items-center gap-2 md:contents">
@@ -169,6 +227,7 @@ export function ReviewRow({
             🗑
           </button>
         </div>
+      </div>
       </div>
     </div>
   )

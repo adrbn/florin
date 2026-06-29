@@ -71,6 +71,13 @@
       "when": 1776850939273,
       "tag": "0009_opening_balance",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1782699378661,
+      "tag": "0010_invest_phase1_forecast",
+      "breakpoints": true
     }
   ]
 }

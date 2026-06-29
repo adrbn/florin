@@ -198,6 +198,22 @@ export const transactions = pgTable(
      */
     needsReview: boolean('needs_review').notNull().default(false),
     transferPairId: uuid('transfer_pair_id'),
+    /**
+     * Lifecycle status. 'cleared' = real money (counts toward the realized
+     * balance when also dated <= today); 'scheduled' = a planned/forecast row
+     * that never affects the realized balance until cleared. Stored as text
+     * (not a pgEnum) so the idempotent runtime patch stays a simple ADD COLUMN
+     * and to mirror SQLite; `.$type` keeps the inferred type a tight union.
+     */
+    status: text('status').$type<'cleared' | 'scheduled'>().notNull().default('cleared'),
+    /** Set on rows materialized from a recurring rule. */
+    recurringRuleId: uuid('recurring_rule_id').references(() => recurringRules.id, {
+      onDelete: 'set null',
+    }),
+    /** Deterministic key `${ruleId}:${occurrenceDateIso}` — idempotent materialization. */
+    recurrenceKey: text('recurrence_key'),
+    /** On a freshly-imported bank row: points at a candidate scheduled/manual row to merge. */
+    mergeSuggestedTxId: uuid('merge_suggested_tx_id'),
     rawData: text('raw_data'),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -212,6 +228,15 @@ export const transactions = pgTable(
     uniqueIndex('transactions_legacy_unique').on(t.legacyId).where(sql`${t.legacyId} IS NOT NULL`),
     index('transactions_not_deleted_idx').on(t.occurredAt).where(sql`${t.deletedAt} IS NULL`),
     index('transactions_needs_review_idx').on(t.needsReview).where(sql`${t.needsReview} = true`),
+    index('transactions_status_idx')
+      .on(t.status, t.occurredAt)
+      .where(sql`${t.deletedAt} IS NULL`),
+    index('transactions_recurring_rule_idx')
+      .on(t.recurringRuleId)
+      .where(sql`${t.recurringRuleId} IS NOT NULL`),
+    uniqueIndex('transactions_recurrence_key_unique')
+      .on(t.recurrenceKey, t.accountId)
+      .where(sql`${t.recurrenceKey} IS NOT NULL`),
   ],
 )
 
@@ -246,6 +271,47 @@ export const categorizationRules = pgTable('categorization_rules', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
+
+// ============ recurring_rules ============
+// User-defined recurring rules (e.g. a monthly DCA: 500 € CCP -> PEA on the 2nd).
+// The materializer generates `scheduled` transactions ahead of time, each
+// tagged with the rule id + a deterministic recurrenceKey for idempotency.
+export const recurringRules = pgTable(
+  'recurring_rules',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+    /** 'transfer' (two legs) | 'transaction' (single leg). */
+    kind: text('kind').$type<'transfer' | 'transaction'>().notNull().default('transfer'),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => accounts.id, { onDelete: 'cascade' }),
+    /** Destination account for transfers; null for single-transaction rules. */
+    toAccountId: uuid('to_account_id').references(() => accounts.id, { onDelete: 'cascade' }),
+    amount: numeric('amount', { precision: 14, scale: 2 }).notNull(),
+    payee: text('payee').notNull().default(''),
+    categoryId: uuid('category_id').references(() => categories.id, { onDelete: 'set null' }),
+    currency: text('currency').notNull().default('EUR'),
+    memo: text('memo'),
+    /** Phase 1: 'monthly' only; column allows future weekly/yearly. */
+    frequency: text('frequency').$type<'monthly'>().notNull().default('monthly'),
+    interval: integer('interval').notNull().default(1),
+    dayOfMonth: integer('day_of_month').notNull().default(1),
+    startDate: timestamp('start_date', { withTimezone: false, mode: 'date' }).notNull(),
+    endDate: timestamp('end_date', { withTimezone: false, mode: 'date' }),
+    isActive: boolean('is_active').notNull().default(true),
+    lastMaterializedDate: timestamp('last_materialized_date', {
+      withTimezone: false,
+      mode: 'date',
+    }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('recurring_rules_active_idx').on(t.isActive),
+    index('recurring_rules_account_idx').on(t.accountId),
+  ],
+)
 
 // ============ monthly_budgets ============
 export const monthlyBudgets = pgTable(
@@ -331,6 +397,8 @@ export type NewTransaction = typeof transactions.$inferInsert
 export type BalanceSnapshot = typeof balanceSnapshots.$inferSelect
 export type CategorizationRule = typeof categorizationRules.$inferSelect
 export type NewCategorizationRule = typeof categorizationRules.$inferInsert
+export type RecurringRule = typeof recurringRules.$inferSelect
+export type NewRecurringRule = typeof recurringRules.$inferInsert
 export type MonthlyBudget = typeof monthlyBudgets.$inferSelect
 export type NewMonthlyBudget = typeof monthlyBudgets.$inferInsert
 export type BankSyncRun = typeof bankSyncRuns.$inferSelect

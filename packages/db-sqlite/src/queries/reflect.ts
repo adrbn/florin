@@ -235,6 +235,7 @@ export async function getNetWorthSeries(db: SqliteDB, months = 24): Promise<NetW
     .where(
       and(
         isNull(transactions.deletedAt),
+        eq(transactions.status, 'cleared'),
         sql`${transactions.transferPairId} IS NULL`,
         // Hide uncategorized SEPA outgoing transfers — see getDailySpend.
         notUncategorizedTransfer(),
