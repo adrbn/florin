@@ -39,4 +39,60 @@ export async function ensurePgRuntimePatches(db: PgDB): Promise<void> {
       AND "opening_balance" = 0
       AND "current_balance" <> 0
   `)
+
+  // Phase 1 — forecast & reconciliation. recurring_rules is created first (it
+  // is the FK target of transactions.recurring_rule_id), then the new
+  // transactions columns + partial indexes. All idempotent; existing rows
+  // default to status='cleared' so balances are unchanged at deploy time.
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS "recurring_rules" (
+      "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+      "name" text NOT NULL,
+      "kind" text DEFAULT 'transfer' NOT NULL,
+      "account_id" uuid NOT NULL REFERENCES "accounts"("id") ON DELETE CASCADE,
+      "to_account_id" uuid REFERENCES "accounts"("id") ON DELETE CASCADE,
+      "amount" numeric(14, 2) NOT NULL,
+      "payee" text DEFAULT '' NOT NULL,
+      "category_id" uuid REFERENCES "categories"("id") ON DELETE SET NULL,
+      "currency" text DEFAULT 'EUR' NOT NULL,
+      "memo" text,
+      "frequency" text DEFAULT 'monthly' NOT NULL,
+      "interval" integer DEFAULT 1 NOT NULL,
+      "day_of_month" integer DEFAULT 1 NOT NULL,
+      "start_date" timestamp NOT NULL,
+      "end_date" timestamp,
+      "is_active" boolean DEFAULT true NOT NULL,
+      "last_materialized_date" timestamp,
+      "created_at" timestamp with time zone DEFAULT now() NOT NULL,
+      "updated_at" timestamp with time zone DEFAULT now() NOT NULL
+    )
+  `)
+  await db.execute(
+    sql`CREATE INDEX IF NOT EXISTS "recurring_rules_active_idx" ON "recurring_rules" ("is_active")`,
+  )
+  await db.execute(
+    sql`CREATE INDEX IF NOT EXISTS "recurring_rules_account_idx" ON "recurring_rules" ("account_id")`,
+  )
+
+  await db.execute(
+    sql`ALTER TABLE "transactions" ADD COLUMN IF NOT EXISTS "status" text DEFAULT 'cleared' NOT NULL`,
+  )
+  await db.execute(
+    sql`ALTER TABLE "transactions" ADD COLUMN IF NOT EXISTS "recurring_rule_id" uuid REFERENCES "recurring_rules"("id") ON DELETE SET NULL`,
+  )
+  await db.execute(
+    sql`ALTER TABLE "transactions" ADD COLUMN IF NOT EXISTS "recurrence_key" text`,
+  )
+  await db.execute(
+    sql`ALTER TABLE "transactions" ADD COLUMN IF NOT EXISTS "merge_suggested_tx_id" uuid`,
+  )
+  await db.execute(
+    sql`CREATE INDEX IF NOT EXISTS "transactions_status_idx" ON "transactions" ("status","occurred_at") WHERE "deleted_at" IS NULL`,
+  )
+  await db.execute(
+    sql`CREATE INDEX IF NOT EXISTS "transactions_recurring_rule_idx" ON "transactions" ("recurring_rule_id") WHERE "recurring_rule_id" IS NOT NULL`,
+  )
+  await db.execute(
+    sql`CREATE UNIQUE INDEX IF NOT EXISTS "transactions_recurrence_key_unique" ON "transactions" ("recurrence_key","account_id") WHERE "recurrence_key" IS NOT NULL`,
+  )
 }
