@@ -47,6 +47,8 @@ export async function recomputeAccountBalance(
   }
 
   const opening = (acc.openingBalance ?? '0') as string
+  // Realized balance only: cleared transactions dated on/before today.
+  // Scheduled (forecast) rows and future-dated rows never move the real balance.
   await db
     .update(accounts)
     .set({
@@ -55,6 +57,8 @@ export async function recomputeAccountBalance(
         FROM ${transactions}
         WHERE ${transactions.accountId} = ${accountId}
           AND ${transactions.deletedAt} IS NULL
+          AND ${transactions.status} = 'cleared'
+          AND ${transactions.occurredAt}::date <= CURRENT_DATE
       ), 0)::numeric`,
       updatedAt: new Date(),
     })

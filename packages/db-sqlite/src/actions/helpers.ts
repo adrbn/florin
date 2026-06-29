@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { and, eq, isNull, sql } from 'drizzle-orm'
+import { and, eq, isNull, lte, sql } from 'drizzle-orm'
 import { normalizePayee } from '@florin/core/lib/categorization'
 import type { SqliteDB } from '../client'
 import { accounts, categories, transactions } from '../schema'
@@ -46,12 +46,22 @@ export async function recomputeAccountBalance(
     return
   }
 
+  // Realized balance only: cleared transactions dated on/before today.
+  // Scheduled (forecast) rows and future-dated rows never move the real balance.
+  const todayStr = new Date().toISOString().slice(0, 10)
   const result = await db
     .select({
       total: sql<number>`COALESCE(SUM(${transactions.amount}), 0)`,
     })
     .from(transactions)
-    .where(and(eq(transactions.accountId, accountId), isNull(transactions.deletedAt)))
+    .where(
+      and(
+        eq(transactions.accountId, accountId),
+        isNull(transactions.deletedAt),
+        eq(transactions.status, 'cleared'),
+        lte(transactions.occurredAt, todayStr),
+      ),
+    )
 
   const txTotal = result[0]?.total ?? 0
   const opening = Number(acc.openingBalance ?? 0)
