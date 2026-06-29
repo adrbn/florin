@@ -35,7 +35,7 @@ import {
   type HistoryEntry,
 } from '@florin/core/lib/categorization'
 import { extractTrueDateFromText } from '@florin/core/lib/transactions'
-import { autoLinkInternalTransfersMutation } from '@florin/db-sqlite'
+import { autoLinkInternalTransfersMutation, findMergeCandidateId } from '@florin/db-sqlite'
 import { db } from '@/db/client'
 import {
   accounts,
@@ -296,8 +296,31 @@ async function syncAccountTransactions(
     if (rows.length > 0) {
       const result = await db.insert(transactions).values(rows).onConflictDoNothing().returning({
         id: transactions.id,
+        accountId: transactions.accountId,
+        amount: transactions.amount,
+        occurredAt: transactions.occurredAt,
       })
       inserted += result.length
+      // Reconciliation: flag likely duplicates of existing scheduled/manual rows.
+      for (const r of result) {
+        if (!r.accountId) continue
+        const candidateId = await findMergeCandidateId(db, {
+          accountId: r.accountId,
+          amount: Number(r.amount),
+          occurredAt: r.occurredAt,
+          excludeId: r.id,
+        })
+        if (candidateId) {
+          await db
+            .update(transactions)
+            .set({
+              mergeSuggestedTxId: candidateId,
+              needsReview: true,
+              updatedAt: new Date().toISOString(),
+            })
+            .where(eq(transactions.id, r.id))
+        }
+      }
     }
 
     continuationKey = page.continuation_key
