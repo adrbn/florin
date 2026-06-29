@@ -14,6 +14,11 @@ import {
   syncLoanMirror,
   deleteLoanMirrorFor,
 } from './helpers'
+import {
+  createRecurringRuleMutation,
+  materializeScheduledTransactions,
+  nextMonthlyOccurrenceAfter,
+} from './recurring'
 
 const addTransactionSchema = z.object({
   accountId: z.uuid(),
@@ -167,6 +172,26 @@ export async function addTransferMutation(
     // deltas are ignored in favour of a proper `opening + SUM(tx)` recompute.
     await recomputeAccountBalance(db, data.fromAccountId, -amount)
     await recomputeAccountBalance(db, data.toAccountId, amount)
+
+    // "Repeat monthly": spawn a recurring rule whose first occurrence is the
+    // NEXT period (so this one-off and the first generated row don't collide),
+    // then materialize the upcoming scheduled occurrences.
+    if (input.recurring) {
+      const startDate = nextMonthlyOccurrenceAfter(data.occurredAt, input.recurring.dayOfMonth)
+      await createRecurringRuleMutation(db, {
+        name: `${fromAcc.name} → ${toAcc.name}`,
+        kind: 'transfer',
+        accountId: data.fromAccountId,
+        toAccountId: data.toAccountId,
+        amount,
+        memo: data.memo ?? null,
+        frequency: input.recurring.frequency,
+        dayOfMonth: input.recurring.dayOfMonth,
+        startDate,
+        endDate: input.recurring.endDate ?? null,
+      })
+      await materializeScheduledTransactions(db)
+    }
 
     return { success: true, data: { transferPairId } }
   } catch (error: unknown) {

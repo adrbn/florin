@@ -35,6 +35,13 @@ import {
   clearCategoryAssignedMutation,
   copyPreviousMonthBudgetsMutation,
 } from './plan'
+import {
+  createRecurringRuleMutation,
+  updateRecurringRuleMutation,
+  deleteRecurringRuleMutation,
+  materializeScheduledTransactions,
+} from './recurring'
+import { mergeBankTransactionMutation, dismissMergeSuggestionMutation } from './reconcile'
 
 // Re-export standalone functions for callers that need them directly
 export { reconcileLoanMirrorsForCategory, recomputeAccountBalance } from './helpers'
@@ -44,6 +51,8 @@ export {
   autoLinkInternalTransfersMutation,
 } from './transactions'
 export { exportAllDataMutation } from './export'
+export { materializeScheduledTransactions } from './recurring'
+export { findMergeCandidateId } from './reconcile'
 
 /**
  * Build a FlorinMutations implementation backed by a PostgreSQL connection.
@@ -90,5 +99,16 @@ export function createPgMutations(db: PgDB): FlorinMutations {
       clearCategoryAssignedMutation(db, year, month, categoryId),
     copyPreviousMonthBudgets: (year, month) =>
       copyPreviousMonthBudgetsMutation(db, year, month),
+
+    // Recurring rules
+    createRecurringRule: (input) => createRecurringRuleMutation(db, input),
+    updateRecurringRule: (input) => updateRecurringRuleMutation(db, input),
+    deleteRecurringRule: (id, opts) => deleteRecurringRuleMutation(db, id, opts),
+    materializeScheduledTransactions: () => materializeScheduledTransactions(db),
+
+    // Reconciliation
+    mergeBankTransaction: (bankTxId, candidateTxId) =>
+      mergeBankTransactionMutation(db, bankTxId, candidateTxId),
+    dismissMergeSuggestion: (bankTxId) => dismissMergeSuggestionMutation(db, bankTxId),
   }
 }
