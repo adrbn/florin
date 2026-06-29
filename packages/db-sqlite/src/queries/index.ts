@@ -7,6 +7,7 @@ import type {
   CategoryGroup,
   CategoryGroupWithCategories,
   CategorizationRule,
+  RecurringRule,
   TransactionWithRelations,
   AccountKind,
   SyncProvider,
@@ -20,10 +21,13 @@ import {
   categories,
   categorizationRules,
   categoryGroups,
+  recurringRules,
   transactions,
 } from '../schema'
 import {
   getNetWorth,
+  getProjectedNetWorth,
+  getScheduledDeltaByAccount,
   getMonthBurn,
   getAvgMonthlyBurn,
   getPatrimonyTimeSeries,
@@ -115,6 +119,18 @@ function mapCategorizationRule(row: typeof categorizationRules.$inferSelect): Ca
   }
 }
 
+function mapRecurringRule(row: typeof recurringRules.$inferSelect): RecurringRule {
+  return {
+    ...row,
+    amount: String(row.amount),
+    startDate: toDateRequired(row.startDate),
+    endDate: toDate(row.endDate),
+    lastMaterializedDate: toDate(row.lastMaterializedDate),
+    createdAt: toDateRequired(row.createdAt),
+    updatedAt: toDateRequired(row.updatedAt),
+  }
+}
+
 type SqliteTransactionWithRelations = typeof transactions.$inferSelect & {
   account: typeof accounts.$inferSelect | null
   category: typeof categories.$inferSelect | null
@@ -138,6 +154,9 @@ function mapTransactionWithRelations(row: SqliteTransactionWithRelations): Trans
     isPending: row.isPending,
     needsReview: row.needsReview,
     transferPairId: row.transferPairId,
+    status: row.status,
+    recurringRuleId: row.recurringRuleId,
+    mergeSuggestedTxId: row.mergeSuggestedTxId,
     rawData: row.rawData,
     deletedAt: toDate(row.deletedAt),
     createdAt: toDateRequired(row.createdAt),
@@ -161,6 +180,8 @@ function mapTransactionWithRelations(row: SqliteTransactionWithRelations): Trans
 export function createSqliteQueries(db: SqliteDB): FlorinQueries {
   return {
     getNetWorth: () => getNetWorth(db),
+    getProjectedNetWorth: (horizonDays) => getProjectedNetWorth(db, horizonDays),
+    getScheduledDeltaByAccount: () => getScheduledDeltaByAccount(db),
     getMonthBurn: (opts) => getMonthBurn(db, opts),
     getAvgMonthlyBurn: (months) => getAvgMonthlyBurn(db, months),
     getPatrimonyTimeSeries: (months) => getPatrimonyTimeSeries(db, months),
@@ -258,6 +279,11 @@ export function createSqliteQueries(db: SqliteDB): FlorinQueries {
     listCategorizationRules: async () => {
       const rows = await db.select().from(categorizationRules)
       return rows.map(mapCategorizationRule)
+    },
+
+    listRecurringRules: async () => {
+      const rows = await db.select().from(recurringRules).orderBy(asc(recurringRules.createdAt))
+      return rows.map(mapRecurringRule)
     },
   }
 }

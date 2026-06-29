@@ -67,6 +67,7 @@ async function computeNetMonthAgo(db: SqliteDB, currentNet: number): Promise<num
         eq(accounts.isArchived, false),
         eq(accounts.isIncludedInNetWorth, true),
         sql`${accounts.kind} <> 'loan'`,
+        eq(transactions.status, 'cleared'),
       ),
     )
 
@@ -86,6 +87,7 @@ async function computeNetMonthAgo(db: SqliteDB, currentNet: number): Promise<num
         eq(accounts.isArchived, false),
         eq(accounts.isIncludedInNetWorth, true),
         sql`${accounts.kind} <> 'loan'`,
+        eq(transactions.status, 'cleared'),
         sql`${transactions.occurredAt} > ${targetIso}`,
         lte(transactions.occurredAt, todayIso),
       ),
@@ -115,6 +117,7 @@ export async function getMonthBurn(db: SqliteDB, opts: BurnOptions = {}): Promis
   const end = formatDate(endOfMonth(new Date()))
   const conds = [
     isNull(transactions.deletedAt),
+    eq(transactions.status, 'cleared'),
     gte(transactions.occurredAt, start),
     lte(transactions.occurredAt, end),
     sql`${transactions.transferPairId} IS NULL`,
@@ -146,6 +149,7 @@ export async function getAvgMonthlyBurn(db: SqliteDB, months = 6): Promise<numbe
     .where(
       and(
         isNull(transactions.deletedAt),
+        eq(transactions.status, 'cleared'),
         gte(transactions.occurredAt, start),
         lte(transactions.occurredAt, end),
         sql`${transactions.transferPairId} IS NULL`,
@@ -176,7 +180,9 @@ export async function getPatrimonyTimeSeries(
     .where(
       and(
         isNull(transactions.deletedAt),
+        eq(transactions.status, 'cleared'),
         gte(transactions.occurredAt, formatDate(start)),
+        lte(transactions.occurredAt, formatDate(today)),
         sql`${transactions.transferPairId} IS NULL`,
         eq(accounts.isArchived, false),
         eq(accounts.isIncludedInNetWorth, true),
@@ -203,6 +209,66 @@ export async function getPatrimonyTimeSeries(
   }
 
   return out.reverse()
+}
+
+/**
+ * Realized net worth plus the sum of not-yet-realized rows (scheduled, or
+ * future-dated) within `horizonDays`. Transfer legs are excluded (they net to
+ * zero across accounts, so they don't move net worth). Loans/archived/excluded
+ * accounts are out of scope, matching getNetWorth.
+ */
+export async function getProjectedNetWorth(
+  db: SqliteDB,
+  horizonDays = 90,
+): Promise<{ projected: number; scheduledDelta: number }> {
+  const { net } = await getNetWorth(db)
+  const todayIso = formatDate(new Date())
+  const horizonIso = formatDate(new Date(Date.now() + horizonDays * 86_400_000))
+  const [row] = await db
+    .select({ total: sql<number>`COALESCE(SUM(${transactions.amount}), 0)` })
+    .from(transactions)
+    .innerJoin(accounts, eq(transactions.accountId, accounts.id))
+    .where(
+      and(
+        isNull(transactions.deletedAt),
+        sql`${transactions.transferPairId} IS NULL`,
+        eq(accounts.isArchived, false),
+        eq(accounts.isIncludedInNetWorth, true),
+        sql`${accounts.kind} <> 'loan'`,
+        sql`(${transactions.status} = 'scheduled' OR ${transactions.occurredAt} > ${todayIso})`,
+        lte(transactions.occurredAt, horizonIso),
+      ),
+    )
+  const scheduledDelta = Number(row?.total ?? 0)
+  return { projected: net + scheduledDelta, scheduledDelta }
+}
+
+/**
+ * Per-account sum of not-yet-realized amounts (scheduled or future-dated),
+ * so the accounts UI can show "réalisé (+X prévu)". Keyed by accountId.
+ */
+export async function getScheduledDeltaByAccount(
+  db: SqliteDB,
+): Promise<Record<string, number>> {
+  const todayIso = formatDate(new Date())
+  const rows = await db
+    .select({
+      accountId: transactions.accountId,
+      total: sql<number>`COALESCE(SUM(${transactions.amount}), 0)`,
+    })
+    .from(transactions)
+    .where(
+      and(
+        isNull(transactions.deletedAt),
+        sql`(${transactions.status} = 'scheduled' OR ${transactions.occurredAt} > ${todayIso})`,
+      ),
+    )
+    .groupBy(transactions.accountId)
+  const map: Record<string, number> = {}
+  for (const r of rows) {
+    if (r.accountId) map[r.accountId] = Number(r.total)
+  }
+  return map
 }
 
 export async function getMonthByCategory(db: SqliteDB): Promise<CategoryBreakdownItem[]> {
