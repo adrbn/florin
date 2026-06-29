@@ -23,6 +23,7 @@ export async function findMergeCandidateId(
   db: SqliteDB,
   bank: { accountId: string; amount: number; occurredAt: string; excludeId?: string },
 ): Promise<string | null> {
+  const cutoffIso = new Date(Date.now() - 14 * 86_400_000).toISOString().slice(0, 10)
   const rows = await db
     .select({
       id: transactions.id,
@@ -35,7 +36,10 @@ export async function findMergeCandidateId(
         eq(transactions.accountId, bank.accountId),
         isNull(transactions.deletedAt),
         isNull(transactions.externalId),
-        sql`(${transactions.status} = 'scheduled' OR (${transactions.status} = 'cleared' AND ${transactions.source} = 'manual'))`,
+        // Candidates: any scheduled row, OR a RECENT manual cleared row (last
+        // 14 days) — so an old manual entry can't be matched to a same-amount
+        // bank row that merely shares a date.
+        sql`(${transactions.status} = 'scheduled' OR (${transactions.status} = 'cleared' AND ${transactions.source} = 'manual' AND ${transactions.occurredAt} >= ${cutoffIso}))`,
       ),
     )
 
@@ -81,21 +85,25 @@ export async function mergeBankTransactionMutation(
     })
     if (!bank || !candidate) return { success: false, error: 'Transaction not found' }
 
-    await db.delete(transactions).where(eq(transactions.id, bankTxId))
-
-    await db
-      .update(transactions)
-      .set({
-        status: 'cleared',
-        source: bank.source,
-        externalId: bank.externalId,
-        rawData: bank.rawData,
-        occurredAt: bank.occurredAt,
-        needsReview: false,
-        mergeSuggestedTxId: null,
-        updatedAt: new Date().toISOString(),
-      })
-      .where(eq(transactions.id, candidateTxId))
+    // Both steps in one (synchronous) better-sqlite3 transaction so a partial
+    // failure can't strand the candidate as 'scheduled' with the bank row gone.
+    db.transaction((tx) => {
+      tx.delete(transactions).where(eq(transactions.id, bankTxId)).run()
+      tx
+        .update(transactions)
+        .set({
+          status: 'cleared',
+          source: bank.source,
+          externalId: bank.externalId,
+          rawData: bank.rawData,
+          occurredAt: bank.occurredAt,
+          needsReview: false,
+          mergeSuggestedTxId: null,
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(transactions.id, candidateTxId))
+        .run()
+    })
 
     if (candidate.accountId) await recomputeAccountBalance(db, candidate.accountId)
     if (bank.accountId && bank.accountId !== candidate.accountId) {

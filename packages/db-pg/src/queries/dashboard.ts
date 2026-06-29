@@ -275,6 +275,7 @@ export async function getMonthByCategory(db: PgDB): Promise<CategoryBreakdownIte
     .where(
       and(
         isNull(transactions.deletedAt),
+        eq(transactions.status, 'cleared'),
         gte(transactions.occurredAt, start),
         lte(transactions.occurredAt, end),
         sql`${transactions.amount} < 0`,
