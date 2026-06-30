@@ -223,13 +223,13 @@ export default async function DashboardPage() {
         </Suspense>
       </div>
 
-      <div className="grid min-h-0 grid-cols-1 gap-3 lg:flex-1 lg:grid-cols-2">
-        <div className="min-h-[240px] lg:min-h-0">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <div className="h-[300px]">
           <Suspense fallback={<CardSkeleton />}>
             <PatrimonyChartServer />
           </Suspense>
         </div>
-        <div className="min-h-[240px] lg:min-h-0">
+        <div className="h-[300px]">
           <Suspense fallback={<CardSkeleton />}>
             <IncomeVsSpendingServer />
           </Suspense>
@@ -237,12 +237,12 @@ export default async function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-        <div className="min-h-[280px]">
+        <div className="h-[340px]">
           <Suspense fallback={<CardSkeleton />}>
             <AllocationDonutServer />
           </Suspense>
         </div>
-        <div className="min-h-[280px]">
+        <div className="h-[340px]">
           <Suspense fallback={<CardSkeleton />}>
             <GoalCardServer />
           </Suspense>
