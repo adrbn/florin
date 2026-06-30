@@ -23,6 +23,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // blocks render.
   void mutations.materializeScheduledTransactions().catch(() => {})
 
+  // Refresh security price quotes. No-op when the price provider is disabled
+  // (the default); otherwise fetches fresh quotes and recomputes portfolio
+  // market values. Fire-and-forget so a slow/offline provider never blocks
+  // render. Imported lazily so the pricing fetch path isn't pulled into the
+  // layout's hot module graph.
+  void import('@/server/pricing/refresh')
+    .then((m) => m.refreshPriceQuotes())
+    .catch(() => {})
+
   // On first launch, when there are no accounts, send the user through the
   // onboarding wizard (mirrors the desktop layout). We skip the redirect when
   // already on /onboarding to avoid an infinite loop — that page lives in this

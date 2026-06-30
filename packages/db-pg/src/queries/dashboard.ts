@@ -1,6 +1,6 @@
 import { and, desc, eq, gt, gte, isNotNull, isNull, lte, sql } from 'drizzle-orm'
 import type { PgDB } from '../client'
-import { accounts, categories, categoryGroups, transactions } from '../schema'
+import { accounts, categories, categoryGroups, recurringRules, transactions } from '../schema'
 import { getLoanLiabilities } from './loan-liabilities'
 import { isUncategorizedTransfer, notUncategorizedTransfer } from './transfer-filter'
 import { detectSubscriptions } from '@florin/core/lib/transactions'
@@ -8,6 +8,8 @@ import { cleanDisplayName } from '@florin/core/lib/categorization'
 
 import type {
   NetWorth,
+  NetWorthAllocation,
+  InvestmentSnapshot,
   BurnOptions,
   PatrimonyPoint,
   CategoryBreakdownItem,
@@ -33,6 +35,10 @@ export async function getNetWorth(db: PgDB): Promise<NetWorth> {
   for (const a of accountRows) {
     if (a.kind === 'loan') {
       liability += liabilityMap.get(a.id)?.remainingDebt ?? 0
+    } else if (a.kind === 'broker_portfolio') {
+      // Holdings market value (Σ qty × lastPrice) plus idle cash sitting in the
+      // wrapper (currentBalance = realized versements not yet invested).
+      gross += Number(a.marketValue) + Number(a.currentBalance)
     } else {
       gross += Number(a.currentBalance)
     }
@@ -41,6 +47,69 @@ export async function getNetWorth(db: PgDB): Promise<NetWorth> {
   const net = gross - liability
   const netMonthAgo = await computeNetMonthAgo(db, net)
   return { gross, liability, net, netMonthAgo }
+}
+
+/** Net worth split into cash / invested / loans for the allocation donut. */
+export async function getNetWorthAllocation(db: PgDB): Promise<NetWorthAllocation> {
+  const accountRows = await db.query.accounts.findMany({
+    where: eq(accounts.isIncludedInNetWorth, true),
+  })
+  const liabilityMap = await getLoanLiabilities(db, accountRows)
+  let cash = 0
+  let invested = 0
+  let loans = 0
+  for (const a of accountRows) {
+    if (a.kind === 'loan') {
+      loans += liabilityMap.get(a.id)?.remainingDebt ?? 0
+    } else if (a.kind === 'broker_portfolio') {
+      invested += Number(a.marketValue)
+      cash += Number(a.currentBalance)
+    } else {
+      cash += Number(a.currentBalance)
+    }
+  }
+  return { cash, invested, loans }
+}
+
+/** Invested value + monthly DCA contribution, inputs for the goal projection. */
+export async function getInvestmentSnapshot(db: PgDB): Promise<InvestmentSnapshot> {
+  const accountRows = await db.query.accounts.findMany({
+    where: eq(accounts.isIncludedInNetWorth, true),
+  })
+  const brokerIds = new Set<string>()
+  let investedValue = 0
+  for (const a of accountRows) {
+    if (a.kind === 'broker_portfolio') {
+      investedValue += Number(a.marketValue) + Number(a.currentBalance)
+      brokerIds.add(a.id)
+    } else if (a.kind === 'broker_cash') {
+      investedValue += Number(a.currentBalance)
+      brokerIds.add(a.id)
+    }
+  }
+  let monthlyContribution = 0
+  if (brokerIds.size > 0) {
+    const rules = await db
+      .select({
+        amount: recurringRules.amount,
+        toAccountId: recurringRules.toAccountId,
+        interval: recurringRules.interval,
+      })
+      .from(recurringRules)
+      .where(
+        and(
+          eq(recurringRules.isActive, true),
+          eq(recurringRules.frequency, 'monthly'),
+          eq(recurringRules.kind, 'transfer'),
+        ),
+      )
+    for (const r of rules) {
+      if (r.toAccountId && brokerIds.has(r.toAccountId)) {
+        monthlyContribution += Number(r.amount) / Math.max(1, Number(r.interval) || 1)
+      }
+    }
+  }
+  return { investedValue, monthlyContribution }
 }
 
 /**

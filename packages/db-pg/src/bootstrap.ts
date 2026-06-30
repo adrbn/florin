@@ -95,4 +95,30 @@ export async function ensurePgRuntimePatches(db: PgDB): Promise<void> {
   await db.execute(
     sql`CREATE UNIQUE INDEX IF NOT EXISTS "transactions_recurrence_key_unique" ON "transactions" ("recurrence_key","account_id") WHERE "recurrence_key" IS NOT NULL`,
   )
+
+  // Phase 2 — holdings & portfolio valuation. market_value is additive and
+  // defaults to 0, so existing net worth is unchanged at deploy time. holdings
+  // is a fresh table. All idempotent.
+  await db.execute(
+    sql`ALTER TABLE "accounts" ADD COLUMN IF NOT EXISTS "market_value" numeric(14, 2) NOT NULL DEFAULT '0'`,
+  )
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS "holdings" (
+      "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+      "account_id" uuid NOT NULL REFERENCES "accounts"("id") ON DELETE CASCADE,
+      "label" text NOT NULL,
+      "isin" text,
+      "quote_symbol" text,
+      "quantity" numeric(18, 6) DEFAULT '0' NOT NULL,
+      "cost_basis" numeric(14, 2) DEFAULT '0' NOT NULL,
+      "currency" text DEFAULT 'EUR' NOT NULL,
+      "last_price" numeric(18, 6),
+      "last_price_at" timestamp with time zone,
+      "created_at" timestamp with time zone DEFAULT now() NOT NULL,
+      "updated_at" timestamp with time zone DEFAULT now() NOT NULL
+    )
+  `)
+  await db.execute(
+    sql`CREATE INDEX IF NOT EXISTS "holdings_account_idx" ON "holdings" ("account_id")`,
+  )
 }

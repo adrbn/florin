@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { and, eq, isNull, sql } from 'drizzle-orm'
 import { normalizePayee } from '@florin/core/lib/categorization'
 import type { PgDB } from '../client'
-import { accounts, categories, transactions } from '../schema'
+import { accounts, categories, holdings, transactions } from '../schema'
 
 /**
  * Recompute an account's currentBalance.
@@ -59,6 +59,27 @@ export async function recomputeAccountBalance(
           AND ${transactions.deletedAt} IS NULL
           AND ${transactions.status} = 'cleared'
           AND ${transactions.occurredAt}::date <= CURRENT_DATE
+      ), 0)::numeric`,
+      updatedAt: new Date(),
+    })
+    .where(eq(accounts.id, accountId))
+}
+
+/**
+ * Recompute a broker_portfolio account's cached market value =
+ * SUM(quantity × lastPrice) over its holdings. Holdings without a price yet
+ * (lastPrice NULL) contribute 0. Called after any holding mutation and after a
+ * price refresh. Leaves currentBalance (the realized cash ledger) untouched.
+ */
+export async function recomputeMarketValue(db: PgDB, accountId: string): Promise<void> {
+  await db
+    .update(accounts)
+    .set({
+      marketValue: sql`COALESCE((
+        SELECT SUM(${holdings.quantity} * COALESCE(${holdings.lastPrice}, 0))
+        FROM ${holdings}
+        WHERE ${holdings.accountId} = ${accountId}
+          AND ${holdings.currency} = 'EUR'
       ), 0)::numeric`,
       updatedAt: new Date(),
     })
