@@ -826,6 +826,7 @@
   "alloc.cash": "Cash",
   "alloc.invested": "Invested",
   "alloc.loans": "Loans",
+  "alloc.investedShareLabel": "invested",
 
   "goal.title": "Goal: {target}",
   "goal.currentValue": "Today: {amount}",
