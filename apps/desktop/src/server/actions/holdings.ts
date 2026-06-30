@@ -5,10 +5,11 @@ import { mutations } from '@/db/client'
 import type {
   ActionResult,
   AddHoldingInput,
+  BuyHoldingInput,
   UpdateHoldingInput,
 } from '@florin/core/types'
 
-export type { AddHoldingInput, UpdateHoldingInput, ActionResult }
+export type { AddHoldingInput, BuyHoldingInput, UpdateHoldingInput, ActionResult }
 
 /**
  * Revalidate every surface a holding change can move: the account detail page,
@@ -45,6 +46,17 @@ export async function deleteHolding(id: string): Promise<ActionResult> {
   const result = await mutations.deleteHolding(id)
   if (result.success) {
     revalidateHoldingSurfaces()
+  }
+  return result
+}
+
+export async function buyHolding(
+  input: BuyHoldingInput,
+): Promise<ActionResult<{ holdingId: string }>> {
+  const result = await mutations.buyHolding(input)
+  if (result.success) {
+    revalidateHoldingSurfaces()
+    revalidatePath('/transactions')
   }
   return result
 }

@@ -10,6 +10,7 @@ import { formatCurrency, formatCurrencySigned } from '../../lib/format/currency'
 import type {
   ActionResult,
   AddHoldingInput,
+  BuyHoldingInput,
   HoldingView,
   PortfolioValuation,
   UpdateHoldingInput,
@@ -24,6 +25,7 @@ interface HoldingsCardProps {
   onUpdateHolding: (id: string, input: UpdateHoldingInput) => Promise<ActionResult>
   onDeleteHolding: (id: string) => Promise<ActionResult>
   onRefreshPrices: () => Promise<ActionResult>
+  onBuyHolding: (input: BuyHoldingInput) => Promise<ActionResult>
 }
 
 /** PEA contribution ceiling in EUR — the regulatory cap on versements. */
@@ -86,6 +88,60 @@ function parseDraft(
   }
 }
 
+/** Sentinel select value for "create a new security" in the buy form. */
+const NEW_SECURITY = '__new__'
+
+/** A blank buy-form draft. `securityId` is the picked holding id or NEW_SECURITY. */
+const EMPTY_BUY_DRAFT: BuyDraft = {
+  securityId: NEW_SECURITY,
+  label: '',
+  isin: '',
+  quoteSymbol: '',
+  quantity: '',
+  amount: '',
+}
+
+interface BuyDraft {
+  securityId: string
+  label: string
+  isin: string
+  quoteSymbol: string
+  quantity: string
+  amount: string
+}
+
+/**
+ * Validate + normalize a buy-form draft into a BuyHoldingInput-shaped payload
+ * (minus the accountId, which the caller attaches). When `securityId` points at
+ * an existing holding, only `holdingId` + quantity/amount are sent; otherwise the
+ * new-security fields are used. Returns an error key string when invalid.
+ */
+function parseBuyDraft(
+  draft: BuyDraft,
+): { ok: true; value: Omit<BuyHoldingInput, 'accountId'> } | { ok: false; error: string } {
+  const isNew = draft.securityId === NEW_SECURITY
+  const label = draft.label.trim()
+  if (isNew && !label) return { ok: false, error: 'labelRequired' }
+  const quantity = Number(draft.quantity)
+  if (!Number.isFinite(quantity) || quantity <= 0) return { ok: false, error: 'quantityInvalid' }
+  const amount = Number(draft.amount)
+  if (!Number.isFinite(amount) || amount <= 0) return { ok: false, error: 'amountInvalid' }
+  if (isNew) {
+    return {
+      ok: true,
+      value: {
+        holdingId: null,
+        label,
+        isin: draft.isin.trim() || null,
+        quoteSymbol: draft.quoteSymbol.trim() || null,
+        quantity,
+        amount,
+      },
+    }
+  }
+  return { ok: true, value: { holdingId: draft.securityId, quantity, amount } }
+}
+
 /**
  * Broker-portfolio detail card. Rendered on the account detail page when
  * `account.kind === 'broker_portfolio'`. Shows header KPIs (market value +
@@ -104,11 +160,13 @@ export function HoldingsCard({
   onUpdateHolding,
   onDeleteHolding,
   onRefreshPrices,
+  onBuyHolding,
 }: HoldingsCardProps) {
   const t = useT()
   const [refreshPending, startRefresh] = useTransition()
   const [savePending, startSave] = useTransition()
   const [deletePending, startDelete] = useTransition()
+  const [buyPending, startBuy] = useTransition()
 
   // Inline form state. `editingId === null` while adding a new holding; set to
   // a holding id while editing that row.
@@ -118,6 +176,11 @@ export function HoldingsCard({
   const [formError, setFormError] = useState<string | null>(null)
   const [refreshError, setRefreshError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  // Buy-form state. `showBuyForm` toggles the one-click buy panel.
+  const [showBuyForm, setShowBuyForm] = useState(false)
+  const [buyDraft, setBuyDraft] = useState<BuyDraft>(EMPTY_BUY_DRAFT)
+  const [buyError, setBuyError] = useState<string | null>(null)
 
   // Header value = invested holdings (marketValue) + idle cash in the wrapper.
   const totalValue = valuation.marketValue + valuation.cash
@@ -183,6 +246,8 @@ export function HoldingsCard({
         return t('holdings.quantity', 'Quantity')
       case 'costBasisInvalid':
         return t('holdings.costBasis', 'Cost basis')
+      case 'amountInvalid':
+        return t('holdings.amountInvalid', 'Amount invested')
       default:
         return t('common.error', 'Invalid')
     }
@@ -207,6 +272,40 @@ export function HoldingsCard({
     })
   }
 
+  const openBuyForm = () => {
+    // Close any open add/edit form so only one panel is visible at a time.
+    setShowForm(false)
+    setEditingId(null)
+    setBuyDraft(EMPTY_BUY_DRAFT)
+    setBuyError(null)
+    setShowBuyForm(true)
+  }
+
+  const closeBuyForm = () => {
+    setShowBuyForm(false)
+    setBuyDraft(EMPTY_BUY_DRAFT)
+    setBuyError(null)
+  }
+
+  const onSubmitBuy = () => {
+    const parsed = parseBuyDraft(buyDraft)
+    if (!parsed.ok) {
+      setBuyError(errorMessageFor(parsed.error))
+      return
+    }
+    setBuyError(null)
+    startBuy(async () => {
+      const result = await onBuyHolding({ accountId, ...parsed.value })
+      if (!result.success) {
+        setBuyError(result.error ?? t('common.error', 'Something went wrong'))
+        return
+      }
+      closeBuyForm()
+    })
+  }
+
+  const buyingNew = buyDraft.securityId === NEW_SECURITY
+
   const onConfirmDelete = (id: string) => {
     startDelete(async () => {
       const result = await onDeleteHolding(id)
@@ -223,15 +322,20 @@ export function HoldingsCard({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="text-base">{t('holdings.title', 'Holdings')}</CardTitle>
           <div className="flex flex-col items-end gap-0.5">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={onRefresh}
-              disabled={refreshPending}
-            >
-              {refreshPending ? t('common.loading', 'Loading…') : t('holdings.refresh', 'Refresh prices')}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button type="button" size="sm" onClick={openBuyForm}>
+                {t('holdings.buy', 'Buy')}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onRefresh}
+                disabled={refreshPending}
+              >
+                {refreshPending ? t('common.loading', 'Loading…') : t('holdings.refresh', 'Refresh prices')}
+              </Button>
+            </div>
             {lastPriceAt !== null && (
               <p className="text-[10px] text-muted-foreground">
                 {t(
@@ -411,6 +515,104 @@ export function HoldingsCard({
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* ============================== buy form ========================= */}
+        {showBuyForm && (
+          <div className="space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {t('holdings.buyTitle', 'Buy a security')}
+            </h3>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {holdings.length > 0 && (
+                <div className="space-y-1">
+                  <Label htmlFor="buy-security">{t('holdings.security', 'Security')}</Label>
+                  <select
+                    id="buy-security"
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    value={buyDraft.securityId}
+                    onChange={(e) => setBuyDraft((d) => ({ ...d, securityId: e.target.value }))}
+                  >
+                    {holdings.map((h) => (
+                      <option key={h.id} value={h.id}>
+                        {h.label}
+                      </option>
+                    ))}
+                    <option value={NEW_SECURITY}>{t('holdings.newSecurity', 'New security')}</option>
+                  </select>
+                </div>
+              )}
+              {buyingNew && (
+                <>
+                  <div className="space-y-1">
+                    <Label htmlFor="buy-label">{t('holdings.label', 'Label')}</Label>
+                    <Input
+                      id="buy-label"
+                      value={buyDraft.label}
+                      onChange={(e) => setBuyDraft((d) => ({ ...d, label: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="buy-isin">{t('holdings.isin', 'ISIN')}</Label>
+                    <Input
+                      id="buy-isin"
+                      value={buyDraft.isin}
+                      onChange={(e) => setBuyDraft((d) => ({ ...d, isin: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="buy-symbol">{t('holdings.symbol', 'Symbol')}</Label>
+                    <Input
+                      id="buy-symbol"
+                      value={buyDraft.quoteSymbol}
+                      onChange={(e) => setBuyDraft((d) => ({ ...d, quoteSymbol: e.target.value }))}
+                      placeholder="WPEA.PA"
+                    />
+                  </div>
+                </>
+              )}
+              <div className="space-y-1">
+                <Label htmlFor="buy-quantity">{t('holdings.shares', 'Shares')}</Label>
+                <Input
+                  id="buy-quantity"
+                  type="number"
+                  step="any"
+                  min="0"
+                  value={buyDraft.quantity}
+                  onChange={(e) => setBuyDraft((d) => ({ ...d, quantity: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="buy-amount">{t('holdings.amountSpent', 'Amount invested (€)')}</Label>
+                <Input
+                  id="buy-amount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={buyDraft.amount}
+                  onChange={(e) => setBuyDraft((d) => ({ ...d, amount: e.target.value }))}
+                />
+              </div>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              {t('holdings.buyHint', "The amount is deducted from the account's cash (cash → shares).")}
+            </p>
+            {buyError && <p className="text-xs text-destructive">{buyError}</p>}
+            <div className="flex items-center gap-2">
+              <Button type="button" size="sm" onClick={onSubmitBuy} disabled={buyPending}>
+                {buyPending ? t('common.saving', 'Saving…') : t('holdings.buyCta', 'Confirm purchase')}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={closeBuyForm}
+                disabled={buyPending}
+              >
+                {t('common.cancel', 'Cancel')}
+              </Button>
+            </div>
           </div>
         )}
 
