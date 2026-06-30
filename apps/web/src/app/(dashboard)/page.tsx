@@ -249,14 +249,14 @@ export default async function DashboardPage() {
       </div>
 
       {/*
-       * Below-KPI area fills the remaining viewport height with no empty void.
-       * A single auto-rows-fr grid makes every row an equal fraction of the
-       * leftover height, so all six tiles end up the same size on desktop.
-       * On mobile (grid-cols-1) the rows fall back to a sensible min height
-       * and the page stacks + scrolls naturally inside the scrollable <main>.
+       * Below the KPI strip the body fills the rest of the viewport with no void.
+       * The two big charts (Patrimoine, Revenus vs dépenses) take the lion's
+       * share of the height so neither feels crushed; underneath, four
+       * near-square quarter tiles (Répartition, Taux d'épargne, Prévision,
+       * Objectif) sit on one short row. On mobile everything stacks + scrolls.
        */}
-      <div className="min-h-0 flex-1">
-        <div className="grid h-full grid-cols-1 gap-3 [grid-auto-rows:minmax(260px,1fr)] lg:grid-cols-2 lg:[grid-auto-rows:1fr]">
+      <div className="flex min-h-0 flex-1 flex-col gap-3">
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 [grid-auto-rows:minmax(280px,1fr)] lg:grid-cols-2 lg:[grid-auto-rows:minmax(0,1fr)]">
           <div className="min-h-0 h-full">
             <Suspense fallback={<CardSkeleton />}>
               <PatrimonyChartServer />
@@ -267,24 +267,26 @@ export default async function DashboardPage() {
               <IncomeVsSpendingServer />
             </Suspense>
           </div>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 xl:[grid-auto-rows:248px]">
           <div className="min-h-0 h-full">
-            <Suspense fallback={<CardSkeleton />}>
+            <Suspense fallback={<CardSkeleton className="h-[248px]" />}>
               <AllocationDonutServer />
             </Suspense>
           </div>
           <div className="min-h-0 h-full">
-            <Suspense fallback={<CardSkeleton />}>
-              <GoalCardServer />
-            </Suspense>
-          </div>
-          <div className="min-h-0 h-full">
-            <Suspense fallback={<CardSkeleton />}>
+            <Suspense fallback={<CardSkeleton className="h-[248px]" />}>
               <SavingsRateRollingServer />
             </Suspense>
           </div>
           <div className="min-h-0 h-full">
-            <Suspense fallback={<CardSkeleton />}>
+            <Suspense fallback={<CardSkeleton className="h-[248px]" />}>
               <MonthForecastServer />
+            </Suspense>
+          </div>
+          <div className="min-h-0 h-full">
+            <Suspense fallback={<CardSkeleton className="h-[248px]" />}>
+              <GoalCardServer />
             </Suspense>
           </div>
         </div>
