@@ -127,12 +127,12 @@ export function ReviewRow({
               )}
             </p>
           </div>
-          <div className="flex shrink-0 items-center gap-1.5">
+          <div className="flex w-full shrink-0 flex-col gap-1.5 sm:w-auto sm:flex-row sm:items-center">
             <button
               type="button"
               onClick={onMerge}
               disabled={pending}
-              className="rounded-md border border-blue-500/40 bg-blue-500/10 px-2.5 py-1 text-[11px] font-medium text-blue-700 hover:bg-blue-500/20 disabled:opacity-50 dark:text-blue-300"
+              className="w-full rounded-md border border-blue-500/40 bg-blue-500/10 px-2.5 py-1.5 text-[11px] font-medium text-blue-700 hover:bg-blue-500/20 disabled:opacity-50 sm:w-auto sm:py-1 dark:text-blue-300"
             >
               {pending ? '…' : t('review.merge', 'Fusionner')}
             </button>
@@ -140,7 +140,7 @@ export function ReviewRow({
               type="button"
               onClick={onKeepBoth}
               disabled={pending}
-              className="rounded-md border border-border bg-muted/30 px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:bg-muted/60 disabled:opacity-50"
+              className="w-full rounded-md border border-border bg-muted/30 px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground hover:bg-muted/60 disabled:opacity-50 sm:w-auto sm:py-1"
             >
               {t('review.keepBoth', 'Garder les deux')}
             </button>

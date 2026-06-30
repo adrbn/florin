@@ -9,6 +9,8 @@ import { NetWorthCard } from '@florin/core/components/dashboard/net-worth-card'
 import { PatrimonyChart } from '@florin/core/components/dashboard/patrimony-chart'
 import { SafetyGaugeCard } from '@florin/core/components/dashboard/safety-gauge-card'
 import { SyncAllButton } from '@florin/core/components/dashboard/sync-all-button'
+import { MonthForecastCard } from '@florin/core/components/reflect/month-forecast-card'
+import { SavingsRateRolling } from '@florin/core/components/reflect/savings-rate-rolling'
 import { formatCurrency } from '@florin/core/lib/format'
 import { OnboardingBanner } from '@florin/core/components/onboarding/onboarding-banner'
 import { projectGoal } from '@florin/core/lib/goal'
@@ -180,6 +182,29 @@ async function GoalCardServer() {
   return <GoalCard projection={projection} locale={localeTag} />
 }
 
+async function SavingsRateRollingServer() {
+  const [rates, t] = await Promise.all([queries.getSavingsRates(), getServerT()])
+  return (
+    <SavingsRateRolling
+      rates={rates}
+      title={t('reflect.savingsRolling', 'Savings rate — rolling')}
+      subtitle={t('reflect.savingsRollingSubtitle', 'Saved ÷ income over 3, 6, 12 months.')}
+      className="flex h-full flex-col"
+      labels={{
+        threeMonth: t('reflect.threeMonth', '3 mo'),
+        sixMonth: t('reflect.sixMonth', '6 mo'),
+        twelveMonth: t('reflect.twelveMonth', '12 mo'),
+        noData: t('reflect.noIncome', 'no income'),
+      }}
+    />
+  )
+}
+
+async function MonthForecastServer() {
+  const lts = await queries.getLeftToSpendThisMonth()
+  return <MonthForecastCard leftToSpend={lts} />
+}
+
 export default async function DashboardPage() {
   const t = await getServerT()
   return (
@@ -223,29 +248,45 @@ export default async function DashboardPage() {
         </Suspense>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-        <div className="h-[300px]">
-          <Suspense fallback={<CardSkeleton />}>
-            <PatrimonyChartServer />
-          </Suspense>
-        </div>
-        <div className="h-[300px]">
-          <Suspense fallback={<CardSkeleton />}>
-            <IncomeVsSpendingServer />
-          </Suspense>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-        <div className="h-[340px]">
-          <Suspense fallback={<CardSkeleton />}>
-            <AllocationDonutServer />
-          </Suspense>
-        </div>
-        <div className="h-[340px]">
-          <Suspense fallback={<CardSkeleton />}>
-            <GoalCardServer />
-          </Suspense>
+      {/*
+       * Below-KPI area fills the remaining viewport height with no empty void.
+       * A single auto-rows-fr grid makes every row an equal fraction of the
+       * leftover height, so all six tiles end up the same size on desktop.
+       * On mobile (grid-cols-1) the rows fall back to a sensible min height
+       * and the page stacks + scrolls naturally inside the scrollable <main>.
+       */}
+      <div className="min-h-0 flex-1">
+        <div className="grid h-full grid-cols-1 gap-3 [grid-auto-rows:minmax(260px,1fr)] lg:grid-cols-2 lg:[grid-auto-rows:1fr]">
+          <div className="min-h-0 h-full">
+            <Suspense fallback={<CardSkeleton />}>
+              <PatrimonyChartServer />
+            </Suspense>
+          </div>
+          <div className="min-h-0 h-full">
+            <Suspense fallback={<CardSkeleton />}>
+              <IncomeVsSpendingServer />
+            </Suspense>
+          </div>
+          <div className="min-h-0 h-full">
+            <Suspense fallback={<CardSkeleton />}>
+              <AllocationDonutServer />
+            </Suspense>
+          </div>
+          <div className="min-h-0 h-full">
+            <Suspense fallback={<CardSkeleton />}>
+              <GoalCardServer />
+            </Suspense>
+          </div>
+          <div className="min-h-0 h-full">
+            <Suspense fallback={<CardSkeleton />}>
+              <SavingsRateRollingServer />
+            </Suspense>
+          </div>
+          <div className="min-h-0 h-full">
+            <Suspense fallback={<CardSkeleton />}>
+              <MonthForecastServer />
+            </Suspense>
+          </div>
         </div>
       </div>
     </div>
