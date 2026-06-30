@@ -273,7 +273,7 @@ export function PatrimonyChart({
   const trendWindowLegend = t('dashboard.trendWindow', 'Trend window')
   const [forecast, setForecast] = useState(false)
   const [trendWindowIdx, setTrendWindowIdx] = useState(() =>
-    TREND_WINDOWS.findIndex((w) => w.days === null),
+    TREND_WINDOWS.findIndex((w) => w.days === 90),
   )
   const shouldAnimate = usePlayOnce('dashboard:patrimony')
   const trendWindow = TREND_WINDOWS[trendWindowIdx] ?? TREND_WINDOWS[TREND_WINDOWS.length - 1]

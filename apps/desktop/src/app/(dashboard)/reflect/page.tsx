@@ -11,11 +11,14 @@ import { CategoryMoversCard } from '@florin/core/components/reflect/category-mov
 import { RecurringSplitCard } from '@florin/core/components/reflect/recurring-split-card'
 import { SpendingAnomaliesCard } from '@florin/core/components/reflect/spending-anomalies-card'
 import { LeftToSpendCard } from '@florin/core/components/dashboard/left-to-spend-card'
+import { CategoryPie } from '@florin/core/components/dashboard/category-pie'
+import { TopExpensesCard } from '@florin/core/components/dashboard/top-expenses-card'
 import { KpiCard } from '@florin/core/components/dashboard/kpi-card'
 import { Hourglass, TrendingDown, TrendingUp, Wallet } from 'lucide-react'
 import { formatCurrency } from '@florin/core/lib/format'
 import { queries } from '@/db/client'
 import { getServerT } from '@/lib/locale'
+import { fetchTopSpend } from '@/server/actions/dashboard'
 import { PdfExportButton } from '@/components/pdf-export-button'
 
 // Reflect reads from the database on every render — never prerender it at
@@ -40,6 +43,10 @@ export default async function ReflectPage() {
     dailyByCategory,
     savingsRates,
     subscriptions,
+    monthByCategory,
+    uncategorizedCount,
+    topSpendInitial,
+    categoryList,
   ] = await Promise.all([
     queries.getMonthlyFlows(12),
     queries.getCategoryBreakdown(COUNTERFACTUAL_WINDOW_DAYS),
@@ -51,7 +58,18 @@ export default async function ReflectPage() {
     queries.getDailySpendByCategory(HEATMAP_WINDOW_DAYS),
     queries.getSavingsRates(),
     queries.getSubscriptions(),
+    queries.getMonthByCategory(),
+    queries.countUncategorizedExpensesThisMonth(),
+    queries.getTopSpend({ mode: 'transactions', limit: 5, days: 30, categoryId: null, minAmount: 0 }),
+    queries.listCategoriesFlat(),
   ])
+
+  const topSpendCategories = categoryList.map((c) => ({
+    id: c.id,
+    name: c.name,
+    emoji: c.emoji,
+    groupName: c.groupName,
+  }))
 
   const last12 = flows.reduce(
     (acc, f) => ({
@@ -199,6 +217,21 @@ export default async function ReflectPage() {
         </div>
         <div className="min-h-[340px] lg:col-span-12 lg:min-h-0">
           <CategoryTrendsChart data={categoryTrends} />
+        </div>
+        <div className="min-h-[240px] lg:col-span-5 lg:min-h-0">
+          <CategoryPie
+            data={monthByCategory}
+            uncategorizedCount={uncategorizedCount}
+            title={t('dashboard.byCategory', 'This month by category')}
+          />
+        </div>
+        <div className="min-h-[240px] lg:col-span-7 lg:min-h-0">
+          <TopExpensesCard
+            initial={topSpendInitial}
+            categories={topSpendCategories}
+            defaultDays={30}
+            onFetchTopSpend={fetchTopSpend}
+          />
         </div>
         <div className="min-h-[240px] lg:col-span-12 lg:min-h-0">
           <CategoryBreakdownChart
