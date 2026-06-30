@@ -79,6 +79,7 @@ export async function recomputeMarketValue(db: PgDB, accountId: string): Promise
         SELECT SUM(${holdings.quantity} * COALESCE(${holdings.lastPrice}, 0))
         FROM ${holdings}
         WHERE ${holdings.accountId} = ${accountId}
+          AND ${holdings.currency} = 'EUR'
       ), 0)::numeric`,
       updatedAt: new Date(),
     })

@@ -78,12 +78,14 @@ export async function recomputeAccountBalance(
  * contribute 0. Leaves currentBalance (realized cash) untouched.
  */
 export async function recomputeMarketValue(db: SqliteDB, accountId: string): Promise<void> {
+  // Only EUR holdings count toward market value — a non-EUR price stored as-is
+  // would otherwise corrupt the EUR net worth (FX is deferred to a later phase).
   const [row] = await db
     .select({
       total: sql<number>`COALESCE(SUM(${holdings.quantity} * COALESCE(${holdings.lastPrice}, 0)), 0)`,
     })
     .from(holdings)
-    .where(eq(holdings.accountId, accountId))
+    .where(and(eq(holdings.accountId, accountId), eq(holdings.currency, 'EUR')))
   const total = row?.total ?? 0
   await db
     .update(accounts)
