@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { and, eq, isNull, lte, sql } from 'drizzle-orm'
 import { normalizePayee } from '@florin/core/lib/categorization'
 import type { SqliteDB } from '../client'
-import { accounts, categories, transactions } from '../schema'
+import { accounts, categories, holdings, transactions } from '../schema'
 
 /**
  * Recompute an account's currentBalance.
@@ -69,6 +69,27 @@ export async function recomputeAccountBalance(
   await db
     .update(accounts)
     .set({ currentBalance: total, updatedAt: new Date().toISOString() })
+    .where(eq(accounts.id, accountId))
+}
+
+/**
+ * Recompute a broker_portfolio account's cached market value =
+ * SUM(quantity × lastPrice) over its holdings. Holdings without a price yet
+ * contribute 0. Leaves currentBalance (realized cash) untouched.
+ */
+export async function recomputeMarketValue(db: SqliteDB, accountId: string): Promise<void> {
+  // Only EUR holdings count toward market value — a non-EUR price stored as-is
+  // would otherwise corrupt the EUR net worth (FX is deferred to a later phase).
+  const [row] = await db
+    .select({
+      total: sql<number>`COALESCE(SUM(${holdings.quantity} * COALESCE(${holdings.lastPrice}, 0)), 0)`,
+    })
+    .from(holdings)
+    .where(and(eq(holdings.accountId, accountId), eq(holdings.currency, 'EUR')))
+  const total = row?.total ?? 0
+  await db
+    .update(accounts)
+    .set({ marketValue: total, updatedAt: new Date().toISOString() })
     .where(eq(accounts.id, accountId))
 }
 

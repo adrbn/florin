@@ -306,10 +306,100 @@ export interface PaginatedResult<T> {
   total: number
 }
 
-export interface ActionResult<T = void> {
+export interface ActionResult<T = unknown> {
   success: boolean
   error?: string
   data?: T
+}
+
+// ============ Holdings / portfolio (Phase 2) ============
+
+/** A security position inside a broker_portfolio account, normalized for the UI. */
+export interface HoldingView {
+  id: string
+  accountId: string
+  label: string
+  isin: string | null
+  quoteSymbol: string | null
+  quantity: number
+  /** Total amount paid for the position (PRU × quantity), in `currency`. */
+  costBasis: number
+  currency: string
+  lastPrice: number | null
+  /** ISO string, normalized across both DBs. */
+  lastPriceAt: string | null
+  /** quantity × (lastPrice ?? 0). */
+  marketValue: number
+  /** marketValue − costBasis. */
+  plusValue: number
+  /** Percent gain/loss, or null when costBasis is 0. */
+  plusValuePct: number | null
+  /** lastPriceAt older than 48h. */
+  isStale: boolean
+}
+
+/** Aggregate valuation for one broker_portfolio account. */
+export interface PortfolioValuation {
+  marketValue: number
+  costBasis: number
+  /** marketValue − costBasis (latent gain/loss). */
+  plusValue: number
+  /** Idle cash in the wrapper (accounts.currentBalance). */
+  cash: number
+  /** Sum of inbound (cleared) transfer legs into this account. */
+  verse: number
+  /** (marketValue + cash) − verse — the part attributable to the market. */
+  marche: number
+}
+
+export interface PriceRefreshResult {
+  fetched: number
+  failed: number
+  skipped: boolean
+}
+
+export interface AddHoldingInput {
+  accountId: string
+  label: string
+  isin?: string | null
+  quoteSymbol?: string | null
+  quantity: number
+  costBasis: number
+  currency?: string
+}
+
+export type UpdateHoldingInput = Partial<Omit<AddHoldingInput, 'accountId'>>
+
+// ============ Allocation & goal (Phase 3) ============
+
+/** Net-worth partitioned for the allocation donut. cash + invested = gross. */
+export interface NetWorthAllocation {
+  cash: number
+  invested: number
+  loans: number
+}
+
+/** Inputs for the goal projection, derived from investment accounts + DCA rules. */
+export interface InvestmentSnapshot {
+  /** Total value across investment accounts (marketValue + idle cash). */
+  investedValue: number
+  /** Sum of active monthly recurring transfers into investment accounts (the DCA). */
+  monthlyContribution: number
+}
+
+export interface GoalProjection {
+  target: number
+  currentValue: number
+  monthlyContribution: number
+  annualReturnPct: number
+  /** Months until the target is reached, or null if unreachable in the horizon. */
+  monthsToReach: number | null
+  /** ISO date (YYYY-MM-DD) the target is reached, or null. */
+  reachDateIso: string | null
+  /** currentValue + contributions paid in by the reach date ("ce que tu as versé"). */
+  contributed: number
+  /** target − contributed ("ce que le marché a fait"). */
+  marketGrowth: number
 }
 
 // ============ FlorinQueries interface ============
@@ -363,6 +453,10 @@ export interface FlorinQueries {
   >
   listCategorizationRules(): Promise<CategorizationRule[]>
   listRecurringRules(): Promise<RecurringRule[]>
+  listHoldings(accountId: string): Promise<HoldingView[]>
+  getPortfolioValuation(accountId: string): Promise<PortfolioValuation>
+  getNetWorthAllocation(): Promise<NetWorthAllocation>
+  getInvestmentSnapshot(): Promise<InvestmentSnapshot>
   getMonthPlan(year: number, month: number): Promise<MonthPlan>
 }
 
@@ -557,4 +651,11 @@ export interface FlorinMutations {
   mergeBankTransaction(bankTxId: string, candidateTxId: string): Promise<ActionResult>
   /** Dismiss a merge suggestion — keep both rows, just clear the link. */
   dismissMergeSuggestion(bankTxId: string): Promise<ActionResult>
+
+  // ---------- holdings / portfolio (Phase 2) ----------
+  addHolding(input: AddHoldingInput): Promise<ActionResult<{ id: string }>>
+  updateHolding(id: string, input: UpdateHoldingInput): Promise<ActionResult>
+  deleteHolding(id: string): Promise<ActionResult>
+  // NB: price refresh lives at the app level (needs app-specific pricing config);
+  // it is bound to the HoldingsCard onRefreshPrices prop per app.
 }

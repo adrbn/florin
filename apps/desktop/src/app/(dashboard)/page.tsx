@@ -1,6 +1,8 @@
 import { Suspense } from 'react'
+import { AllocationDonut } from '@florin/core/components/dashboard/allocation-donut'
 import { BurnRateCard } from '@florin/core/components/dashboard/burn-rate-card'
 import { CategoryPie } from '@florin/core/components/dashboard/category-pie'
+import { GoalCard } from '@florin/core/components/dashboard/goal-card'
 import { DataSourcePill } from '@florin/core/components/dashboard/data-source-pill'
 import { IncomeVsSpendingCard } from '@florin/core/components/dashboard/income-vs-spending-card'
 import { LeftToSpendCard } from '@florin/core/components/dashboard/left-to-spend-card'
@@ -11,8 +13,9 @@ import { SyncAllButton } from '@florin/core/components/dashboard/sync-all-button
 import { TopExpensesCard } from '@florin/core/components/dashboard/top-expenses-card'
 import { formatCurrency } from '@florin/core/lib/format'
 import { OnboardingBanner } from '@florin/core/components/onboarding/onboarding-banner'
+import { projectGoal } from '@florin/core/lib/goal'
 import { queries } from '@/db/client'
-import { getServerT } from '@/lib/locale'
+import { getServerT, getUserLocale } from '@/lib/locale'
 import { syncAllBanks } from '@/server/actions/banking'
 import { fetchTopSpend } from '@/server/actions/dashboard'
 
@@ -189,6 +192,33 @@ async function CategoryPieServer() {
   )
 }
 
+async function AllocationDonutServer() {
+  const [allocation, locale] = await Promise.all([
+    queries.getNetWorthAllocation(),
+    getUserLocale(),
+  ])
+  const localeTag = locale === 'fr' ? 'fr-FR' : 'en-US'
+  return <AllocationDonut allocation={allocation} locale={localeTag} />
+}
+
+async function GoalCardServer() {
+  const [snapshot, locale] = await Promise.all([
+    queries.getInvestmentSnapshot(),
+    getUserLocale(),
+  ])
+  // Only render when there's actual investment activity — otherwise a
+  // non-investor would just see an empty goal card.
+  if (snapshot.investedValue <= 0 && snapshot.monthlyContribution <= 0) return null
+  const localeTag = locale === 'fr' ? 'fr-FR' : 'en-US'
+  const projection = projectGoal({
+    currentValue: snapshot.investedValue,
+    monthlyContribution: snapshot.monthlyContribution,
+    annualReturnPct: 7,
+    target: 100000,
+  })
+  return <GoalCard projection={projection} locale={localeTag} />
+}
+
 export default async function DashboardPage() {
   const t = await getServerT()
   return (
@@ -256,6 +286,19 @@ export default async function DashboardPage() {
               <CategoryPieServer />
             </Suspense>
           </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <div className="min-h-[280px]">
+          <Suspense fallback={<CardSkeleton />}>
+            <AllocationDonutServer />
+          </Suspense>
+        </div>
+        <div className="min-h-[280px]">
+          <Suspense fallback={<CardSkeleton />}>
+            <GoalCardServer />
+          </Suspense>
         </div>
       </div>
     </div>

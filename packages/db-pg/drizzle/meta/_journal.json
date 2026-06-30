@@ -78,6 +78,13 @@
       "when": 1782699378661,
       "tag": "0010_invest_phase1_forecast",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1782810820845,
+      "tag": "0011_invest_phase2_holdings",
+      "breakpoints": true
     }
   ]
 }
