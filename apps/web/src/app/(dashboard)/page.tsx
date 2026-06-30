@@ -1,7 +1,6 @@
 import { Suspense } from 'react'
 import { AllocationDonut } from '@florin/core/components/dashboard/allocation-donut'
 import { BurnRateCard } from '@florin/core/components/dashboard/burn-rate-card'
-import { CategoryPie } from '@florin/core/components/dashboard/category-pie'
 import { GoalCard } from '@florin/core/components/dashboard/goal-card'
 import { DataSourcePill } from '@florin/core/components/dashboard/data-source-pill'
 import { IncomeVsSpendingCard } from '@florin/core/components/dashboard/income-vs-spending-card'
@@ -10,14 +9,12 @@ import { NetWorthCard } from '@florin/core/components/dashboard/net-worth-card'
 import { PatrimonyChart } from '@florin/core/components/dashboard/patrimony-chart'
 import { SafetyGaugeCard } from '@florin/core/components/dashboard/safety-gauge-card'
 import { SyncAllButton } from '@florin/core/components/dashboard/sync-all-button'
-import { TopExpensesCard } from '@florin/core/components/dashboard/top-expenses-card'
 import { formatCurrency } from '@florin/core/lib/format'
 import { OnboardingBanner } from '@florin/core/components/onboarding/onboarding-banner'
 import { projectGoal } from '@florin/core/lib/goal'
 import { queries } from '@/db/client'
 import { getServerT, getUserLocale } from '@/lib/locale'
 import { syncAllBanks } from '@/server/actions/banking'
-import { fetchTopSpend } from '@/server/actions/dashboard'
 
 function CardSkeleton({ className }: { className?: string }) {
   return (
@@ -132,27 +129,6 @@ async function LeftToSpendCardServer() {
   )
 }
 
-async function TopExpensesCardServer() {
-  const [initial, categoryList] = await Promise.all([
-    queries.getTopSpend({ mode: 'transactions', limit: 5, days: 30, categoryId: null, minAmount: 0 }),
-    queries.listCategoriesFlat(),
-  ])
-  const categories = categoryList.map((c) => ({
-    id: c.id,
-    name: c.name,
-    emoji: c.emoji,
-    groupName: c.groupName,
-  }))
-  return (
-    <TopExpensesCard
-      initial={initial}
-      categories={categories}
-      defaultDays={30}
-      onFetchTopSpend={fetchTopSpend}
-    />
-  )
-}
-
 async function PatrimonyChartServer() {
   const [data, t] = await Promise.all([queries.getPatrimonyTimeSeries(12), getServerT()])
   return (
@@ -173,21 +149,6 @@ async function IncomeVsSpendingServer() {
       data={data}
       title={t('dashboard.incomeVsSpending', 'Income vs spending')}
       subtitle={t('dashboard.last12Months', 'Last 12 months')}
-    />
-  )
-}
-
-async function CategoryPieServer() {
-  const [data, uncategorizedCount, t] = await Promise.all([
-    queries.getMonthByCategory(),
-    queries.countUncategorizedExpensesThisMonth(),
-    getServerT(),
-  ])
-  return (
-    <CategoryPie
-      data={data}
-      uncategorizedCount={uncategorizedCount}
-      title={t('dashboard.byCategory', 'This month by category')}
     />
   )
 }
@@ -262,30 +223,16 @@ export default async function DashboardPage() {
         </Suspense>
       </div>
 
-      <div className="grid min-h-0 grid-cols-1 gap-3 lg:flex-1 lg:grid-cols-12">
-        <div className="grid min-h-0 grid-cols-1 gap-3 lg:col-span-7 lg:grid-rows-2">
-          <div className="min-h-[240px] lg:min-h-0">
-            <Suspense fallback={<CardSkeleton />}>
-              <PatrimonyChartServer />
-            </Suspense>
-          </div>
-          <div className="min-h-[240px] lg:min-h-0">
-            <Suspense fallback={<CardSkeleton />}>
-              <IncomeVsSpendingServer />
-            </Suspense>
-          </div>
+      <div className="grid min-h-0 grid-cols-1 gap-3 lg:flex-1 lg:grid-cols-2">
+        <div className="min-h-[240px] lg:min-h-0">
+          <Suspense fallback={<CardSkeleton />}>
+            <PatrimonyChartServer />
+          </Suspense>
         </div>
-        <div className="grid min-h-0 grid-cols-1 gap-3 lg:col-span-5 lg:grid-rows-2">
-          <div className="min-h-[240px] lg:min-h-0">
-            <Suspense fallback={<CardSkeleton />}>
-              <TopExpensesCardServer />
-            </Suspense>
-          </div>
-          <div className="min-h-[240px] lg:min-h-0">
-            <Suspense fallback={<CardSkeleton />}>
-              <CategoryPieServer />
-            </Suspense>
-          </div>
+        <div className="min-h-[240px] lg:min-h-0">
+          <Suspense fallback={<CardSkeleton />}>
+            <IncomeVsSpendingServer />
+          </Suspense>
         </div>
       </div>
 
