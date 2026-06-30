@@ -222,6 +222,22 @@ export function ensureSchema(db: SqliteDB) {
       tx_error TEXT
     );
     CREATE INDEX IF NOT EXISTS bank_sync_account_results_run_idx ON bank_sync_account_results(run_id);
+
+    CREATE TABLE IF NOT EXISTS holdings (
+      id TEXT PRIMARY KEY NOT NULL,
+      account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      label TEXT NOT NULL,
+      isin TEXT,
+      quote_symbol TEXT,
+      quantity REAL NOT NULL DEFAULT 0,
+      cost_basis REAL NOT NULL DEFAULT 0,
+      currency TEXT NOT NULL DEFAULT 'EUR',
+      last_price REAL,
+      last_price_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS holdings_account_idx ON holdings(account_id);
   `)
 
   addMissingColumns(sqlite)
@@ -268,6 +284,9 @@ function addMissingColumns(sqlite: Database.Database) {
     CREATE INDEX IF NOT EXISTS transactions_recurring_rule_idx ON transactions(recurring_rule_id) WHERE recurring_rule_id IS NOT NULL;
     CREATE UNIQUE INDEX IF NOT EXISTS transactions_recurrence_key_unique ON transactions(recurrence_key, account_id) WHERE recurrence_key IS NOT NULL;
   `)
+
+  // Phase 2 — portfolio valuation. Additive, defaults to 0 → net worth unchanged.
+  ensureColumn(sqlite, 'accounts', 'market_value', 'REAL NOT NULL DEFAULT 0')
 }
 
 function ensureColumn(

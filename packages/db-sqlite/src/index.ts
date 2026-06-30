@@ -1,10 +1,12 @@
 export { createSqliteClient, type SqliteDB } from './client'
 export { ensureSchema } from './migrations'
-export { createSqliteQueries, getNetWorth, getLoanLiabilities } from './queries'
+export { createSqliteQueries, getNetWorth, getLoanLiabilities, listHoldingsToPrice } from './queries'
 export {
   createSqliteMutations,
   reconcileLoanMirrorsForCategory,
   recomputeAccountBalance,
+  recomputeMarketValue,
+  applyHoldingQuoteMutation,
   listTransactionsForAccountQuery,
   listLoanPaymentsForAccountQuery,
   autoLinkInternalTransfersMutation,

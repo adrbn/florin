@@ -51,9 +51,11 @@ import {
   getCategorySpendingSeries,
 } from './reflect'
 import { getMonthPlanQuery } from './plan'
+import { getPortfolioValuation, listHoldings } from './portfolio'
 
 export { getNetWorth } from './dashboard'
 export { getLoanLiabilities } from './loan-liabilities'
+export { listHoldingsToPrice } from './portfolio'
 
 // ============ SQLite -> Core model mappers ============
 
@@ -285,5 +287,8 @@ export function createSqliteQueries(db: SqliteDB): FlorinQueries {
       const rows = await db.select().from(recurringRules).orderBy(asc(recurringRules.createdAt))
       return rows.map(mapRecurringRule)
     },
+
+    listHoldings: (accountId) => listHoldings(db, accountId),
+    getPortfolioValuation: (accountId) => getPortfolioValuation(db, accountId),
   }
 }

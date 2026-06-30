@@ -42,9 +42,15 @@ import {
   materializeScheduledTransactions,
 } from './recurring'
 import { mergeBankTransactionMutation, dismissMergeSuggestionMutation } from './reconcile'
+import {
+  addHoldingMutation,
+  updateHoldingMutation,
+  deleteHoldingMutation,
+} from './holdings'
 
 // Re-export standalone functions for callers that need them directly
-export { reconcileLoanMirrorsForCategory, recomputeAccountBalance } from './helpers'
+export { reconcileLoanMirrorsForCategory, recomputeAccountBalance, recomputeMarketValue } from './helpers'
+export { applyHoldingQuoteMutation } from './holdings'
 export {
   listTransactionsForAccountQuery,
   listLoanPaymentsForAccountQuery,
@@ -110,5 +116,10 @@ export function createPgMutations(db: PgDB): FlorinMutations {
     mergeBankTransaction: (bankTxId, candidateTxId) =>
       mergeBankTransactionMutation(db, bankTxId, candidateTxId),
     dismissMergeSuggestion: (bankTxId) => dismissMergeSuggestionMutation(db, bankTxId),
+
+    // Holdings / portfolio
+    addHolding: (input) => addHoldingMutation(db, input),
+    updateHolding: (id, input) => updateHoldingMutation(db, id, input),
+    deleteHolding: (id) => deleteHoldingMutation(db, id),
   }
 }
