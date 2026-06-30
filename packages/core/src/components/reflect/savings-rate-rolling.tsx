@@ -5,6 +5,9 @@ interface SavingsRateRollingProps {
   rates: SavingsRates
   title: string
   subtitle: string
+  /** Optional extra classes on the Card — e.g. `flex h-full flex-col` so the
+   *  card fills an equal-height dashboard grid cell. */
+  className?: string
   labels: {
     threeMonth: string
     sixMonth: string
@@ -19,7 +22,13 @@ interface SavingsRateRollingProps {
  * than a misleading 0% — happens when the user had no income in that
  * period (e.g. a student month, or early in a fresh Florin install).
  */
-export function SavingsRateRolling({ rates, title, subtitle, labels }: SavingsRateRollingProps) {
+export function SavingsRateRolling({
+  rates,
+  title,
+  subtitle,
+  className,
+  labels,
+}: SavingsRateRollingProps) {
   const cells: Array<{ label: string; value: number | null }> = [
     { label: labels.threeMonth, value: rates.threeMonth },
     { label: labels.sixMonth, value: rates.sixMonth },
@@ -27,12 +36,12 @@ export function SavingsRateRolling({ rates, title, subtitle, labels }: SavingsRa
   ]
 
   return (
-    <Card>
+    <Card className={className}>
       <CardHeader>
         <CardTitle>{title}</CardTitle>
         <p className="text-sm text-muted-foreground">{subtitle}</p>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1">{/* fill remaining height in h-full cards */}
         <div className="grid grid-cols-3 gap-3">
           {cells.map((c) => (
             <div key={c.label} className="rounded-md border border-border bg-muted/20 p-3">

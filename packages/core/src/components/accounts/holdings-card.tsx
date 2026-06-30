@@ -365,11 +365,11 @@ export function HoldingsCard({
                     </td>
                     <td className="px-2 py-1.5 text-right whitespace-nowrap">
                       {deletingId === h.id ? (
-                        <span className="inline-flex items-center gap-1">
+                        <span className="inline-flex items-center gap-1.5">
                           <Button
                             type="button"
                             variant="destructive"
-                            size="xs"
+                            size="sm"
                             onClick={() => onConfirmDelete(h.id)}
                             disabled={deletePending}
                           >
@@ -377,8 +377,8 @@ export function HoldingsCard({
                           </Button>
                           <Button
                             type="button"
-                            variant="ghost"
-                            size="xs"
+                            variant="outline"
+                            size="sm"
                             onClick={() => setDeletingId(null)}
                             disabled={deletePending}
                           >
@@ -386,20 +386,20 @@ export function HoldingsCard({
                           </Button>
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1">
+                        <span className="inline-flex items-center gap-1.5">
                           <Button
                             type="button"
-                            variant="ghost"
-                            size="xs"
+                            variant="outline"
+                            size="sm"
                             onClick={() => openEditForm(h)}
                           >
                             {t('holdings.edit', 'Edit')}
                           </Button>
                           <Button
                             type="button"
-                            variant="ghost"
-                            size="xs"
-                            className="text-muted-foreground hover:text-destructive"
+                            variant="outline"
+                            size="sm"
+                            className="text-muted-foreground hover:border-destructive/40 hover:text-destructive"
                             onClick={() => setDeletingId(h.id)}
                           >
                             {t('holdings.delete', 'Delete')}
@@ -469,7 +469,7 @@ export function HoldingsCard({
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="holding-currency">{t('common.status', 'Currency')}</Label>
+                <Label htmlFor="holding-currency">{t('holdings.currency', 'Currency')}</Label>
                 <Input
                   id="holding-currency"
                   value={draft.currency}

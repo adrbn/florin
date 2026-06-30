@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState, useTransition } from 'react'
-import { ArrowLeftRight } from 'lucide-react'
+import { ArrowLeftRight, Repeat } from 'lucide-react'
 import { Button } from '../ui/button'
 import {
   Dialog,
@@ -338,15 +338,31 @@ export function AddTransactionModal({
                 </div>
               </div>
 
-              <div className="space-y-2 rounded-md border border-input p-3">
-                <label className="flex cursor-pointer items-center gap-2 text-sm">
+              <div
+                className={cn(
+                  'space-y-2 rounded-md border p-3 transition-colors',
+                  recurring ? 'border-primary/50 bg-primary/5' : 'border-input bg-muted/20',
+                )}
+              >
+                <label className="flex cursor-pointer items-start gap-2.5 text-sm">
                   <input
                     type="checkbox"
                     checked={recurring}
                     onChange={(e) => setRecurring(e.target.checked)}
-                    className="h-3.5 w-3.5 cursor-pointer rounded border-border accent-foreground"
+                    className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-border accent-primary"
                   />
-                  <span>{t('txAdd.makeRecurring', 'Répéter chaque mois')}</span>
+                  <span className="min-w-0">
+                    <span className="flex items-center gap-1.5 font-medium text-foreground">
+                      <Repeat className="h-3.5 w-3.5 shrink-0 text-primary" />
+                      {t('txAdd.makeRecurring', 'Répéter chaque mois')}
+                    </span>
+                    <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                      {t(
+                        'txAdd.makeRecurringHint',
+                        'Schedule this transfer to repeat automatically every month (e.g. recurring savings).',
+                      )}
+                    </span>
+                  </span>
                 </label>
                 {recurring && (
                   <div className="grid grid-cols-2 gap-3 pt-1">
