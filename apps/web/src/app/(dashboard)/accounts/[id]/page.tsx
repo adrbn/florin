@@ -40,7 +40,7 @@ import {
   softDeleteTransaction,
   updateTransactionCategory,
 } from '@/server/actions/transactions'
-import { addHolding, updateHolding, deleteHolding } from '@/server/actions/holdings'
+import { addHolding, updateHolding, deleteHolding, buyHolding } from '@/server/actions/holdings'
 import { refreshPriceQuotes } from '@/server/actions/pricing'
 
 interface AccountDetailPageProps {
@@ -302,6 +302,7 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
           onUpdateHolding={updateHolding}
           onDeleteHolding={deleteHolding}
           onRefreshPrices={refreshPriceQuotes}
+          onBuyHolding={buyHolding}
         />
       )}
 

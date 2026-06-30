@@ -370,6 +370,25 @@ export interface AddHoldingInput {
 
 export type UpdateHoldingInput = Partial<Omit<AddHoldingInput, 'accountId'>>
 
+/**
+ * One-click "buy" inside a broker account: add `quantity` shares for `amount` €
+ * to a holding (existing via `holdingId`, or a new one) AND deduct `amount` from
+ * the account's cash in a single action — so the user never has to record a
+ * separate cash-out transaction. Avoids double-counting (cash → shares).
+ */
+export interface BuyHoldingInput {
+  accountId: string
+  /** Existing holding to add to; omit to create a new holding (needs `label`). */
+  holdingId?: string | null
+  label?: string
+  isin?: string | null
+  quoteSymbol?: string | null
+  /** Shares bought. */
+  quantity: number
+  /** € spent — added to cost basis and deducted from the account's cash. */
+  amount: number
+}
+
 // ============ Allocation & goal (Phase 3) ============
 
 /** Net-worth partitioned for the allocation donut. cash + invested = gross. */
@@ -656,6 +675,8 @@ export interface FlorinMutations {
   addHolding(input: AddHoldingInput): Promise<ActionResult<{ id: string }>>
   updateHolding(id: string, input: UpdateHoldingInput): Promise<ActionResult>
   deleteHolding(id: string): Promise<ActionResult>
+  /** One-click buy: add shares to a holding + deduct the cost from account cash. */
+  buyHolding(input: BuyHoldingInput): Promise<ActionResult<{ holdingId: string }>>
   // NB: price refresh lives at the app level (needs app-specific pricing config);
   // it is bound to the HoldingsCard onRefreshPrices prop per app.
 }

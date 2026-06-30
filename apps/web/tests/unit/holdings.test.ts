@@ -380,6 +380,84 @@ describe('addHolding / updateHolding / deleteHolding recompute market value', ()
 })
 
 // =====================================================================
+// 4b. buyHolding — one-click buy: add shares + deduct cash in one step
+// =====================================================================
+
+describe('buyHolding — cash → shares in one action', () => {
+  it('buying a NEW holding creates it (quantity/costBasis), drops cash, and market value follows a price', async () => {
+    const ctx = makeForecastDb()
+    // Broker with €1000 idle cash to buy from.
+    const broker = seedBroker(ctx, { openingBalance: 1000, currentBalance: 1000 })
+    const m = createSqliteMutations(ctx.db)
+    const q = createSqliteQueries(ctx.db)
+
+    const result = await m.buyHolding({
+      accountId: broker,
+      label: 'World ETF',
+      quoteSymbol: 'WPEA.PA',
+      quantity: 4,
+      amount: 500,
+    })
+    expect(result.success).toBe(true)
+    const holdingId = (result as { success: true; data: { holdingId: string } }).data.holdingId
+    expect(holdingId).not.toBe('')
+
+    // The new holding carries quantity 4 and costBasis = amount spent (500).
+    const views = await q.listHoldings(broker)
+    expect(views).toHaveLength(1)
+    expect(views[0].id).toBe(holdingId)
+    expect(views[0].quantity).toBe(4)
+    expect(views[0].costBasis).toBe(500)
+
+    // Cash dropped by the amount: 1000 − 500 = 500.
+    expect(readBalance(ctx, broker)).toBe(500)
+
+    // No price yet → market value 0; once priced it reflects qty × price.
+    expect(readMarketValue(ctx, broker)).toBe(0)
+    await applyHoldingQuoteMutation(ctx.db, holdingId, 130, todayIso())
+    await recomputeMarketValue(ctx.db, broker)
+    expect(readMarketValue(ctx, broker)).toBe(520) // 4 × 130
+  })
+
+  it('buying into an EXISTING holding increments quantity + costBasis and deducts cash again', async () => {
+    const ctx = makeForecastDb()
+    const broker = seedBroker(ctx, { openingBalance: 2000, currentBalance: 2000 })
+    const m = createSqliteMutations(ctx.db)
+    const q = createSqliteQueries(ctx.db)
+
+    // First buy: creates the holding (qty 4, costBasis 500), cash 2000 → 1500.
+    const first = await m.buyHolding({
+      accountId: broker,
+      label: 'World ETF',
+      quoteSymbol: 'WPEA.PA',
+      quantity: 4,
+      amount: 500,
+    })
+    expect(first.success).toBe(true)
+    const holdingId = (first as { success: true; data: { holdingId: string } }).data.holdingId
+    expect(readBalance(ctx, broker)).toBe(1500)
+
+    // Second buy into the SAME holding via holdingId: qty 4→6, costBasis 500→800.
+    const second = await m.buyHolding({
+      accountId: broker,
+      holdingId,
+      quantity: 2,
+      amount: 300,
+    })
+    expect(second.success).toBe(true)
+    expect((second as { success: true; data: { holdingId: string } }).data.holdingId).toBe(holdingId)
+
+    const views = await q.listHoldings(broker)
+    expect(views).toHaveLength(1) // still one holding, not a duplicate
+    expect(views[0].quantity).toBe(6) // 4 + 2
+    expect(views[0].costBasis).toBe(800) // 500 + 300
+
+    // Cash deducted again: 1500 − 300 = 1200.
+    expect(readBalance(ctx, broker)).toBe(1200)
+  })
+})
+
+// =====================================================================
 // 5. listHoldingsToPrice — only holdings with a quoteSymbol
 // =====================================================================
 

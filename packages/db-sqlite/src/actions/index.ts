@@ -46,6 +46,7 @@ import {
   addHoldingMutation,
   updateHoldingMutation,
   deleteHoldingMutation,
+  buyHoldingMutation,
 } from './holdings'
 
 // Re-export standalone functions for callers that need them directly
@@ -121,5 +122,6 @@ export function createSqliteMutations(db: SqliteDB): FlorinMutations {
     addHolding: (input) => addHoldingMutation(db, input),
     updateHolding: (id, input) => updateHoldingMutation(db, id, input),
     deleteHolding: (id) => deleteHoldingMutation(db, id),
+    buyHolding: (input) => buyHoldingMutation(db, input),
   }
 }
