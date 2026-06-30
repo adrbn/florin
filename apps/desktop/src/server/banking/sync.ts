@@ -17,7 +17,7 @@
  *   4. **Categorize on insert.** New transactions go through the existing
  *      rule engine so they land already classified when possible.
  */
-import { and, desc, eq, isNotNull, isNull } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNotNull, isNull, lte } from 'drizzle-orm'
 import {
   type EnableBankingConfig,
   EnableBankingError,
@@ -216,10 +216,21 @@ async function syncAccountTransactions(
 
   // Per-account watermark — pick up the day AFTER the latest existing
   // transaction on this account.
+  // The watermark must reflect only IMPORTED bank/legacy history dated <= today.
+  // Manual entries (esp. future-dated 'scheduled' forecasts) must never set it,
+  // or a future row pushes dateFrom past today and the bank stops returning
+  // recent transactions entirely.
   const latestExisting = await db
     .select()
     .from(transactions)
-    .where(and(eq(transactions.accountId, florinAccountId), isNull(transactions.deletedAt)))
+    .where(
+      and(
+        eq(transactions.accountId, florinAccountId),
+        isNull(transactions.deletedAt),
+        inArray(transactions.source, ['enable_banking', 'pytr', 'legacy_xlsx']),
+        lte(transactions.occurredAt, isoDate(dateTo)),
+      ),
+    )
     .orderBy(desc(transactions.occurredAt))
     .limit(1)
     .get()

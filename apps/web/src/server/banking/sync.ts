@@ -17,7 +17,7 @@
  *   4. **Categorize on insert.** New transactions go through the existing
  *      rule engine so they land already classified when possible.
  */
-import { and, desc, eq, isNotNull, isNull } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNotNull, isNull, lte } from 'drizzle-orm'
 import { db } from '@/db/client'
 import {
   accounts,
@@ -243,8 +243,17 @@ async function syncAccountTransactions(
   // duplicating overlapping days. Falls back to the connection's
   // syncStartDate when the account has no transactions yet (e.g. brand
   // new connection on a fresh Florin install).
+  // The watermark must reflect only IMPORTED bank/legacy history dated <= today.
+  // Manual entries (esp. future-dated 'scheduled' forecasts like a DCA) must
+  // never set it — otherwise a future-dated row pushes dateFrom past today and
+  // the bank stops returning recent transactions entirely.
   const latestExisting = await db.query.transactions.findFirst({
-    where: and(eq(transactions.accountId, florinAccountId), isNull(transactions.deletedAt)),
+    where: and(
+      eq(transactions.accountId, florinAccountId),
+      isNull(transactions.deletedAt),
+      inArray(transactions.source, ['enable_banking', 'pytr', 'legacy_xlsx']),
+      lte(transactions.occurredAt, dateTo),
+    ),
     orderBy: [desc(transactions.occurredAt)],
   })
   const accountWatermark = latestExisting
