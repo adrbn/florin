@@ -81,6 +81,11 @@ export const accounts = sqliteTable('accounts', {
     .default(true),
   currentBalance: real('current_balance').notNull().default(0),
   /**
+   * Live market value of a broker_portfolio account = SUM(quantity × lastPrice).
+   * Distinct from currentBalance (realized cash). Folded into net worth.
+   */
+  marketValue: real('market_value').notNull().default(0),
+  /**
    * Anchor value used to reconstruct currentBalance. For local-ledger accounts
    * (manual, legacy), we maintain the invariant:
    *   currentBalance = openingBalance + SUM(non-deleted transactions)
@@ -112,6 +117,36 @@ export const accounts = sqliteTable('accounts', {
     .notNull()
     .default(sql`(datetime('now'))`),
 })
+
+// ============ holdings ============
+// Mirror of db-pg holdings. quantity/costBasis/lastPrice are real; lastPriceAt
+// is an ISO string (Drizzle stores SQLite dates as text — see CLAUDE.md).
+export const holdings = sqliteTable(
+  'holdings',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    accountId: text('account_id')
+      .notNull()
+      .references(() => accounts.id, { onDelete: 'cascade' }),
+    label: text('label').notNull(),
+    isin: text('isin'),
+    quoteSymbol: text('quote_symbol'),
+    quantity: real('quantity').notNull().default(0),
+    costBasis: real('cost_basis').notNull().default(0),
+    currency: text('currency').notNull().default('EUR'),
+    lastPrice: real('last_price'),
+    lastPriceAt: text('last_price_at'),
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text('updated_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (t) => [index('holdings_account_idx').on(t.accountId)],
+)
 
 // ============ category_groups ============
 export const categoryGroups = sqliteTable('category_groups', {
@@ -425,6 +460,8 @@ export type CategorizationRule = typeof categorizationRules.$inferSelect
 export type NewCategorizationRule = typeof categorizationRules.$inferInsert
 export type RecurringRule = typeof recurringRules.$inferSelect
 export type NewRecurringRule = typeof recurringRules.$inferInsert
+export type Holding = typeof holdings.$inferSelect
+export type NewHolding = typeof holdings.$inferInsert
 export type Setting = typeof settings.$inferSelect
 export type BankSyncRun = typeof bankSyncRuns.$inferSelect
 export type NewBankSyncRun = typeof bankSyncRuns.$inferInsert
@@ -436,9 +473,17 @@ export type NewMonthlyBudget = typeof monthlyBudgets.$inferInsert
 // ============ Relations ============
 export const accountsRelations = relations(accounts, ({ many, one }) => ({
   transactions: many(transactions),
+  holdings: many(holdings),
   bankConnection: one(bankConnections, {
     fields: [accounts.bankConnectionId],
     references: [bankConnections.id],
+  }),
+}))
+
+export const holdingsRelations = relations(holdings, ({ one }) => ({
+  account: one(accounts, {
+    fields: [holdings.accountId],
+    references: [accounts.id],
   }),
 }))
 

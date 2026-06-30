@@ -98,6 +98,14 @@ export const accounts = pgTable('accounts', {
   isIncludedInNetWorth: boolean('is_included_in_net_worth').notNull().default(true),
   currentBalance: numeric('current_balance', { precision: 14, scale: 2 }).notNull().default('0'),
   /**
+   * Live market value of a broker_portfolio account = SUM(quantity × lastPrice)
+   * over its holdings, in the account currency. Refreshed on every price fetch /
+   * holding mutation. Stays 0 for non-broker accounts. Distinct from
+   * currentBalance, which remains the realized cash ledger. getNetWorth folds
+   * THIS (plus idle cash) into gross for broker_portfolio accounts.
+   */
+  marketValue: numeric('market_value', { precision: 14, scale: 2 }).notNull().default('0'),
+  /**
    * Anchor value used to reconstruct currentBalance. For local-ledger accounts
    * (manual, legacy), we maintain the invariant:
    *   currentBalance = openingBalance + SUM(non-deleted transactions)
@@ -134,6 +142,32 @@ export const accounts = pgTable('accounts', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
+
+// ============ holdings ============
+// One row per security position inside a broker_portfolio account.
+// quantity × lastPrice = the position's market value; costBasis is the total
+// amount paid for the position (PRU × quantity), used for plus-value latente.
+export const holdings = pgTable(
+  'holdings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => accounts.id, { onDelete: 'cascade' }),
+    label: text('label').notNull(),
+    isin: text('isin'),
+    /** Provider quote symbol, e.g. WPEA.PA (Euronext Paris). Null = price never fetched. */
+    quoteSymbol: text('quote_symbol'),
+    quantity: numeric('quantity', { precision: 18, scale: 6 }).notNull().default('0'),
+    costBasis: numeric('cost_basis', { precision: 14, scale: 2 }).notNull().default('0'),
+    currency: text('currency').notNull().default('EUR'),
+    lastPrice: numeric('last_price', { precision: 18, scale: 6 }),
+    lastPriceAt: timestamp('last_price_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('holdings_account_idx').on(t.accountId)],
+)
 
 // ============ category_groups ============
 export const categoryGroups = pgTable('category_groups', {
@@ -399,6 +433,8 @@ export type CategorizationRule = typeof categorizationRules.$inferSelect
 export type NewCategorizationRule = typeof categorizationRules.$inferInsert
 export type RecurringRule = typeof recurringRules.$inferSelect
 export type NewRecurringRule = typeof recurringRules.$inferInsert
+export type Holding = typeof holdings.$inferSelect
+export type NewHolding = typeof holdings.$inferInsert
 export type MonthlyBudget = typeof monthlyBudgets.$inferSelect
 export type NewMonthlyBudget = typeof monthlyBudgets.$inferInsert
 export type BankSyncRun = typeof bankSyncRuns.$inferSelect
@@ -409,9 +445,17 @@ export type NewBankSyncAccountResult = typeof bankSyncAccountResults.$inferInser
 // ============ Relations ============
 export const accountsRelations = relations(accounts, ({ many, one }) => ({
   transactions: many(transactions),
+  holdings: many(holdings),
   bankConnection: one(bankConnections, {
     fields: [accounts.bankConnectionId],
     references: [bankConnections.id],
+  }),
+}))
+
+export const holdingsRelations = relations(holdings, ({ one }) => ({
+  account: one(accounts, {
+    fields: [holdings.accountId],
+    references: [accounts.id],
   }),
 }))
 

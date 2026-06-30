@@ -33,6 +33,10 @@ export async function getNetWorth(db: SqliteDB): Promise<NetWorth> {
   for (const a of accountRows) {
     if (a.kind === 'loan') {
       liability += liabilityMap.get(a.id)?.remainingDebt ?? 0
+    } else if (a.kind === 'broker_portfolio') {
+      // Holdings market value (Σ qty × lastPrice) plus idle cash sitting in the
+      // wrapper (currentBalance = realized versements not yet invested).
+      gross += Number(a.marketValue) + Number(a.currentBalance)
     } else {
       gross += Number(a.currentBalance)
     }

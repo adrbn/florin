@@ -36,9 +36,11 @@ import {
   getCategorySpendingSeries,
 } from './reflect'
 import { getMonthPlanQuery } from './plan'
+import { getPortfolioValuation, listHoldings } from './portfolio'
 
 export { getNetWorth } from './dashboard'
 export { getLoanLiabilities } from './loan-liabilities'
+export { listHoldingsToPrice } from './portfolio'
 
 /**
  * Build a FlorinQueries implementation backed by a PostgreSQL connection.
@@ -140,5 +142,8 @@ export function createPgQueries(db: PgDB): FlorinQueries {
     listRecurringRules: async () => {
       return db.select().from(recurringRules).orderBy(asc(recurringRules.createdAt))
     },
+
+    listHoldings: (accountId) => listHoldings(db, accountId),
+    getPortfolioValuation: (accountId) => getPortfolioValuation(db, accountId),
   }
 }
