@@ -2,6 +2,7 @@ import { asc, eq } from 'drizzle-orm'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { AccountCardActions } from '@florin/core/components/accounts/account-card-actions'
+import { HoldingsCard } from '@florin/core/components/accounts/holdings-card'
 import { LoanDetailsCard } from '@florin/core/components/accounts/loan-details-card'
 import { AddTransactionModal } from '@florin/core/components/transactions/add-transaction-modal'
 import { DeleteTransactionButton } from '@florin/core/components/transactions/delete-transaction-button'
@@ -17,7 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from '@florin/core/components/ui/table'
-import { db } from '@/db/client'
+import { db, queries } from '@/db/client'
 import { categories, categoryGroups } from '@/db/schema'
 import { formatCurrency, formatCurrencySigned } from '@florin/core/lib/format'
 import { computeLoanLiability } from '@/lib/loan/liability'
@@ -39,6 +40,8 @@ import {
   softDeleteTransaction,
   updateTransactionCategory,
 } from '@/server/actions/transactions'
+import { addHolding, updateHolding, deleteHolding } from '@/server/actions/holdings'
+import { refreshPriceQuotes } from '@/server/actions/pricing'
 
 interface AccountDetailPageProps {
   params: Promise<{ id: string }>
@@ -58,6 +61,11 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
   if (!account) notFound()
 
   const isLoan = account.kind === 'loan'
+  const isBrokerPortfolio = account.kind === 'broker_portfolio'
+  const holdings = isBrokerPortfolio ? await queries.listHoldings(account.id) : []
+  const portfolioValuation = isBrokerPortfolio
+    ? await queries.getPortfolioValuation(account.id)
+    : null
   const [transactionList, allAccounts, categoryList, categoriesFlat] = await Promise.all([
     isLoan
       ? listLoanPaymentsForAccount(account.id, 500)
@@ -281,6 +289,19 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
           paymentsMade={loanOriginPayments.length}
           onUpdateLoanSettings={updateLoanSettings}
           onSetCategoryLoanLink={setCategoryLoanLink}
+        />
+      )}
+
+      {isBrokerPortfolio && portfolioValuation && (
+        <HoldingsCard
+          accountId={account.id}
+          holdings={holdings}
+          valuation={portfolioValuation}
+          locale={localeTag}
+          onAddHolding={addHolding}
+          onUpdateHolding={updateHolding}
+          onDeleteHolding={deleteHolding}
+          onRefreshPrices={refreshPriceQuotes}
         />
       )}
 
