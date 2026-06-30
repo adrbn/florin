@@ -74,6 +74,9 @@ export async function addTransactionMutation(
       )
     }
 
+    // A future-dated manual entry is a forecast → 'scheduled' (shown "Prévu",
+    // excluded from the realized balance) instead of 'cleared'.
+    const status = data.occurredAt.getTime() > Date.now() ? 'scheduled' : 'cleared'
     const [row] = await db
       .insert(transactions)
       .values({
@@ -85,6 +88,7 @@ export async function addTransactionMutation(
         memo: data.memo || null,
         categoryId,
         source: 'manual',
+        status,
       })
       .returning({ id: transactions.id })
 
@@ -92,7 +96,7 @@ export async function addTransactionMutation(
     // legacy accounts — whose full opening+SUM recompute is skipped — still
     // reflect the new transaction in their cached balance. Local-ledger
     // accounts ignore the delta and run the proper recompute instead.
-    await recomputeAccountBalance(db, data.accountId, data.amount)
+    await recomputeAccountBalance(db, data.accountId, status === 'scheduled' ? 0 : data.amount)
     if (row?.id) await syncLoanMirror(db, row.id)
 
     return { success: true, data: { id: row?.id ?? '' } }
@@ -143,6 +147,8 @@ export async function addTransferMutation(
 
     const transferPairId = randomUUID()
     const dateIso = data.occurredAt.toISOString().slice(0, 10)
+    // Future-dated transfer = forecast → both legs 'scheduled' (shown "Prévu").
+    const status = data.occurredAt.getTime() > Date.now() ? 'scheduled' : 'cleared'
 
     await db.insert(transactions).values([
       {
@@ -156,6 +162,7 @@ export async function addTransferMutation(
         source: 'manual',
         transferPairId,
         needsReview: false,
+        status,
       },
       {
         accountId: data.toAccountId,
@@ -168,6 +175,7 @@ export async function addTransferMutation(
         source: 'manual',
         transferPairId,
         needsReview: false,
+        status,
       },
     ])
 
@@ -176,8 +184,9 @@ export async function addTransferMutation(
     // reflect the money leaving/arriving. For local-ledger accounts the
     // deltas are ignored in favour of a proper `opening + SUM(tx)` recompute.
     const absAmount = Math.abs(data.amount)
-    await recomputeAccountBalance(db, data.fromAccountId, -absAmount)
-    await recomputeAccountBalance(db, data.toAccountId, absAmount)
+    const delta = status === 'scheduled' ? 0 : absAmount
+    await recomputeAccountBalance(db, data.fromAccountId, -delta)
+    await recomputeAccountBalance(db, data.toAccountId, delta)
 
     // "Repeat monthly": spawn a recurring rule whose first occurrence is the
     // NEXT period, then materialize upcoming scheduled occurrences.
