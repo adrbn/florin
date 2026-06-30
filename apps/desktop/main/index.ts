@@ -95,17 +95,36 @@ app.whenReady().then(async () => {
     }
   }
 
+  // Refresh security price quotes by delegating to the Next.js API route over
+  // localhost HTTPS — same rationale as syncAllFn: the pricing client, drizzle,
+  // and @/ aliases only resolve inside the Next.js server context. No-op when
+  // the user hasn't enabled a price provider. Fully fire-and-forget: an offline
+  // machine or disabled provider must never throw out of the scheduler.
+  const refreshPricesFn = async () => {
+    try {
+      await fetch(`https://127.0.0.1:${port}/api/pricing/refresh`, { method: 'POST' })
+    } catch {
+      // offline or server not ready — ignore
+    }
+  }
+
   // Register IPC handlers for tray widget data fetching and sync
   registerIpcHandlers(db, queries, mutations, () => syncAllFn('manual'))
 
   // Start background bank sync scheduler (2min warmup, then every 6h).
   // After each sync, tell the main window to re-fetch server data via
-  // router.refresh() (preserves client state), and refresh the tray widget.
+  // router.refresh() (preserves client state), refresh the tray widget, and
+  // refresh portfolio price quotes (cheap, fire-and-forget).
   startSyncScheduler(() => syncAllFn('scheduler'), () => {
     broadcastDataChanged('sync')
     const trayWin = getTrayWindow()
     if (trayWin) trayWin.webContents.send('tray:refresh')
+    void refreshPricesFn()
   })
+
+  // One-shot warmup refresh so a freshly-opened app shows fresh prices without
+  // waiting for the first 6h scheduler tick.
+  void refreshPricesFn()
 })
 
 app.on('window-all-closed', () => {

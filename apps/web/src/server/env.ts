@@ -33,6 +33,16 @@ const envSchema = z.object({
     .transform((v) =>
       v === '' || v === undefined ? 'https://localhost:3000/api/banking/callback' : v,
     ),
+  // ============ Security price fetching (Phase 2) ============
+  // Opt-in by default — `none` disables price fetching entirely so the refresh
+  // job is a no-op for self-hosters who don't track investments. `PRICE_API_KEY`
+  // is unused by the default `yahoo` provider but reserved for keyed providers
+  // added later. Empty strings collapse to undefined, mirroring the EB pattern.
+  PRICE_PROVIDER: z.enum(['yahoo', 'none']).default('none'),
+  PRICE_API_KEY: z
+    .string()
+    .optional()
+    .transform((v) => (v === '' ? undefined : v)),
 })
 
 export type Env = z.infer<typeof envSchema>
