@@ -52,6 +52,7 @@ describe('computeMonthForecast', () => {
     salaryCategoryName: 'Salary',
     monthIncome: 3000,
     monthSpent: 1000,
+    monthSpentFixed: 0,
     leftToSpend: 2000,
     dailyAvgSpent: 100,
     dailyBudgetRemaining: 100,
@@ -67,9 +68,12 @@ describe('computeMonthForecast', () => {
   })
 
   it('flags an overspend pace as off-track', () => {
-    const f = computeMonthForecast({ ...base, dailyAvgSpent: 150 })
-    expect(f.projectedSpend).toBe(1000 + 150 * 20) // 4000
-    expect(f.projectedMargin).toBe(-1000)
+    // The forecast extrapolates VARIABLE spend (monthSpent − monthSpentFixed)
+    // over the elapsed days, not raw dailyAvgSpent — so drive the overspend via
+    // a higher monthSpent. 1500 over 10 days → 150/day → +150×20 remaining.
+    const f = computeMonthForecast({ ...base, monthSpent: 1500 })
+    expect(f.projectedSpend).toBe(1500 + 150 * 20) // 4500
+    expect(f.projectedMargin).toBe(3000 - 4500) // −1500
     expect(f.onTrack).toBe(false)
   })
 
