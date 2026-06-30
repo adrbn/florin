@@ -41,11 +41,16 @@ export function SavingsRateRolling({
         <CardTitle>{title}</CardTitle>
         <p className="text-sm text-muted-foreground">{subtitle}</p>
       </CardHeader>
-      <CardContent className="flex-1">{/* fill remaining height in h-full cards */}
-        <div className="grid grid-cols-3 gap-3">
+      <CardContent className="flex flex-1 flex-col justify-center">
+        {/* Center the three buckets vertically so a tall (near-square) dashboard
+         *  tile reads as full rather than leaving a void below the row. */}
+        <div className="grid grid-cols-3 gap-2.5">
           {cells.map((c) => (
-            <div key={c.label} className="rounded-md border border-border bg-muted/20 p-3">
-              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+            <div
+              key={c.label}
+              className="flex flex-col items-center justify-center rounded-md border border-border bg-muted/20 px-2 py-4 text-center"
+            >
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
                 {c.label}
               </div>
               <div
@@ -55,7 +60,7 @@ export function SavingsRateRolling({
                 {c.value === null ? '—' : `${Math.round(c.value)}%`}
               </div>
               {c.value === null ? (
-                <div className="text-[10px] text-muted-foreground">{labels.noData}</div>
+                <div className="mt-0.5 text-[10px] text-muted-foreground">{labels.noData}</div>
               ) : null}
             </div>
           ))}
