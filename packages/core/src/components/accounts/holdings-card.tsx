@@ -26,6 +26,9 @@ interface HoldingsCardProps {
   onRefreshPrices: () => Promise<ActionResult>
 }
 
+/** PEA contribution ceiling in EUR — the regulatory cap on versements. */
+const PEA_CEILING = 150_000
+
 /** A blank add-form draft. */
 const EMPTY_DRAFT: HoldingDraft = {
   label: '',
@@ -245,6 +248,34 @@ export function HoldingsCard({
             )}
           </div>
         </div>
+        {valuation.verse > 0 && (
+          <div className="mt-3 space-y-1">
+            <div className="flex items-center justify-between gap-2 text-[11px] tabular-nums">
+              <span className="text-muted-foreground">
+                {t(
+                  'holdings.peaCeiling',
+                  { verse: formatCurrency(valuation.verse), ceiling: formatCurrency(PEA_CEILING) },
+                  `Contributed ${formatCurrency(valuation.verse)} / ${formatCurrency(PEA_CEILING)} (PEA cap)`,
+                )}
+              </span>
+              <span className="font-medium text-muted-foreground">
+                {Math.min(100, (valuation.verse / PEA_CEILING) * 100).toFixed(0)}%
+              </span>
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-primary"
+                style={{
+                  width: `${Math.min(100, Math.max(0, (valuation.verse / PEA_CEILING) * 100))}%`,
+                }}
+                aria-hidden="true"
+              />
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              {t('holdings.peaExemption', "Exonération d'impôt après 5 ans de détention")}
+            </p>
+          </div>
+        )}
       </CardHeader>
       <CardContent className="space-y-5">
         {refreshError && <p className="text-xs text-destructive">{refreshError}</p>}

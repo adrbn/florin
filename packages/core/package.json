@@ -9,6 +9,7 @@
     "./lib/format": "./src/lib/format/currency.ts",
     "./lib/categorization": "./src/lib/categorization/index.ts",
     "./lib/loan": "./src/lib/loan/liability.ts",
+    "./lib/goal": "./src/lib/goal.ts",
     "./lib/transactions": "./src/lib/transactions/index.ts",
     "./lib/reflect/age-of-money": "./src/lib/reflect/age-of-money.ts",
     "./lib/reflect/insights": "./src/lib/reflect/insights.ts",

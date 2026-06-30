@@ -11,6 +11,8 @@ import {
 } from '../schema'
 import {
   getNetWorth,
+  getNetWorthAllocation,
+  getInvestmentSnapshot,
   getProjectedNetWorth,
   getScheduledDeltaByAccount,
   getMonthBurn,
@@ -52,6 +54,8 @@ export function createPgQueries(db: PgDB): FlorinQueries {
     getNetWorth: () => getNetWorth(db),
     getProjectedNetWorth: (horizonDays) => getProjectedNetWorth(db, horizonDays),
     getScheduledDeltaByAccount: () => getScheduledDeltaByAccount(db),
+    getNetWorthAllocation: () => getNetWorthAllocation(db),
+    getInvestmentSnapshot: () => getInvestmentSnapshot(db),
     getMonthBurn: (opts) => getMonthBurn(db, opts),
     getAvgMonthlyBurn: (months) => getAvgMonthlyBurn(db, months),
     getPatrimonyTimeSeries: (months) => getPatrimonyTimeSeries(db, months),

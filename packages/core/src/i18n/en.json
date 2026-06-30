@@ -816,5 +816,28 @@
   "holdings.stale": "Stale price",
   "holdings.noPrice": "No price yet",
   "holdings.empty": "No holdings yet. Add your first.",
-  "holdings.priceOptIn": "Only the ticker symbol is sent to fetch the price."
+  "holdings.priceOptIn": "Only the ticker symbol is sent to fetch the price.",
+  "holdings.peaCeiling": "Contributed {verse} / {ceiling} (PEA cap)",
+  "holdings.peaExemption": "Tax exemption after 5 years of holding",
+
+  "alloc.title": "Net worth allocation",
+  "alloc.netSubtitle": "Net: {amount}",
+  "alloc.empty": "No assets yet",
+  "alloc.cash": "Cash",
+  "alloc.invested": "Invested",
+  "alloc.loans": "Loans",
+
+  "goal.title": "Goal: {target}",
+  "goal.currentValue": "Today: {amount}",
+  "goal.headline": "At this pace, {target} reached by {when}",
+  "goal.alreadyReached": "{target} already reached",
+  "goal.years": "{n} yr",
+  "goal.months": "{n} mo",
+  "goal.yearsMonths": "{years} {months}",
+  "goal.contributed": "Contributed",
+  "goal.market": "Market",
+  "goal.assumptions": "{contribution}/mo · {rate}%/yr",
+  "goal.disclaimer": "Assumption, not guaranteed.",
+  "goal.emptyTitle": "No projection yet",
+  "goal.empty": "Increase your savings to see a projection."
 }

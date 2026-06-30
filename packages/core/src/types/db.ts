@@ -370,6 +370,38 @@ export interface AddHoldingInput {
 
 export type UpdateHoldingInput = Partial<Omit<AddHoldingInput, 'accountId'>>
 
+// ============ Allocation & goal (Phase 3) ============
+
+/** Net-worth partitioned for the allocation donut. cash + invested = gross. */
+export interface NetWorthAllocation {
+  cash: number
+  invested: number
+  loans: number
+}
+
+/** Inputs for the goal projection, derived from investment accounts + DCA rules. */
+export interface InvestmentSnapshot {
+  /** Total value across investment accounts (marketValue + idle cash). */
+  investedValue: number
+  /** Sum of active monthly recurring transfers into investment accounts (the DCA). */
+  monthlyContribution: number
+}
+
+export interface GoalProjection {
+  target: number
+  currentValue: number
+  monthlyContribution: number
+  annualReturnPct: number
+  /** Months until the target is reached, or null if unreachable in the horizon. */
+  monthsToReach: number | null
+  /** ISO date (YYYY-MM-DD) the target is reached, or null. */
+  reachDateIso: string | null
+  /** currentValue + contributions paid in by the reach date ("ce que tu as versé"). */
+  contributed: number
+  /** target − contributed ("ce que le marché a fait"). */
+  marketGrowth: number
+}
+
 // ============ FlorinQueries interface ============
 
 export interface FlorinQueries {
@@ -423,6 +455,8 @@ export interface FlorinQueries {
   listRecurringRules(): Promise<RecurringRule[]>
   listHoldings(accountId: string): Promise<HoldingView[]>
   getPortfolioValuation(accountId: string): Promise<PortfolioValuation>
+  getNetWorthAllocation(): Promise<NetWorthAllocation>
+  getInvestmentSnapshot(): Promise<InvestmentSnapshot>
   getMonthPlan(year: number, month: number): Promise<MonthPlan>
 }
 
