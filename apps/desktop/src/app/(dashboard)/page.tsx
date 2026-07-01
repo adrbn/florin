@@ -268,24 +268,24 @@ export default async function DashboardPage() {
             </Suspense>
           </div>
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 xl:[grid-auto-rows:248px]">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 xl:[grid-auto-rows:300px]">
           <div className="min-h-0 h-full">
-            <Suspense fallback={<CardSkeleton className="h-[248px]" />}>
+            <Suspense fallback={<CardSkeleton className="h-[300px]" />}>
               <AllocationDonutServer />
             </Suspense>
           </div>
           <div className="min-h-0 h-full">
-            <Suspense fallback={<CardSkeleton className="h-[248px]" />}>
+            <Suspense fallback={<CardSkeleton className="h-[300px]" />}>
               <SavingsRateRollingServer />
             </Suspense>
           </div>
           <div className="min-h-0 h-full">
-            <Suspense fallback={<CardSkeleton className="h-[248px]" />}>
+            <Suspense fallback={<CardSkeleton className="h-[300px]" />}>
               <MonthForecastServer />
             </Suspense>
           </div>
           <div className="min-h-0 h-full">
-            <Suspense fallback={<CardSkeleton className="h-[248px]" />}>
+            <Suspense fallback={<CardSkeleton className="h-[300px]" />}>
               <GoalCardServer />
             </Suspense>
           </div>
