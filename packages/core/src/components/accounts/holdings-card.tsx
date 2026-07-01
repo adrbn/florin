@@ -26,10 +26,15 @@ interface HoldingsCardProps {
   onDeleteHolding: (id: string) => Promise<ActionResult>
   onRefreshPrices: () => Promise<ActionResult>
   onBuyHolding: (input: BuyHoldingInput) => Promise<ActionResult>
+  /**
+   * Contribution ceiling for a tax-wrapped account (France's PEA = 150 000 €).
+   * Drives the "versé / plafond" gauge. Pass 0 to hide it for accounts with no
+   * such cap. Defaults to the French PEA ceiling.
+   */
+  peaCeiling?: number
 }
 
-/** PEA contribution ceiling in EUR — the regulatory cap on versements. */
-const PEA_CEILING = 150_000
+const DEFAULT_PEA_CEILING = 150_000
 
 /** A blank add-form draft. */
 const EMPTY_DRAFT: HoldingDraft = {
@@ -161,6 +166,7 @@ export function HoldingsCard({
   onDeleteHolding,
   onRefreshPrices,
   onBuyHolding,
+  peaCeiling = DEFAULT_PEA_CEILING,
 }: HoldingsCardProps) {
   const t = useT()
   const [refreshPending, startRefresh] = useTransition()
@@ -352,25 +358,25 @@ export function HoldingsCard({
             )}
           </div>
         </div>
-        {valuation.verse > 0 && (
+        {peaCeiling > 0 && valuation.verse > 0 && (
           <div className="mt-3 space-y-1">
             <div className="flex items-center justify-between gap-2 text-[11px] tabular-nums">
               <span className="text-muted-foreground">
                 {t(
                   'holdings.peaCeiling',
-                  { verse: formatCurrency(valuation.verse), ceiling: formatCurrency(PEA_CEILING) },
-                  `Contributed ${formatCurrency(valuation.verse)} / ${formatCurrency(PEA_CEILING)} (PEA cap)`,
+                  { verse: formatCurrency(valuation.verse), ceiling: formatCurrency(peaCeiling) },
+                  `Contributed ${formatCurrency(valuation.verse)} / ${formatCurrency(peaCeiling)} (PEA cap)`,
                 )}
               </span>
               <span className="font-medium text-muted-foreground">
-                {Math.min(100, (valuation.verse / PEA_CEILING) * 100).toFixed(0)}%
+                {Math.min(100, (valuation.verse / peaCeiling) * 100).toFixed(0)}%
               </span>
             </div>
             <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
               <div
                 className="h-full rounded-full bg-primary"
                 style={{
-                  width: `${Math.min(100, Math.max(0, (valuation.verse / PEA_CEILING) * 100))}%`,
+                  width: `${Math.min(100, Math.max(0, (valuation.verse / peaCeiling) * 100))}%`,
                 }}
                 aria-hidden="true"
               />

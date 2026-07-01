@@ -15,6 +15,7 @@ import { formatCurrency } from '@florin/core/lib/format'
 import { OnboardingBanner } from '@florin/core/components/onboarding/onboarding-banner'
 import { projectGoal } from '@florin/core/lib/goal'
 import { queries } from '@/db/client'
+import { getAppConfig } from '@/lib/app-config'
 import { getServerT, getUserLocale } from '@/lib/locale'
 import { syncAllBanks } from '@/server/actions/banking'
 
@@ -173,11 +174,12 @@ async function GoalCardServer() {
   // non-investor would just see an empty goal card.
   if (snapshot.investedValue <= 0 && snapshot.monthlyContribution <= 0) return null
   const localeTag = locale === 'fr' ? 'fr-FR' : 'en-US'
+  const cfg = getAppConfig()
   const projection = projectGoal({
     currentValue: snapshot.investedValue,
     monthlyContribution: snapshot.monthlyContribution,
-    annualReturnPct: 7,
-    target: 100000,
+    annualReturnPct: cfg.goalReturnPct,
+    target: cfg.goalTarget,
   })
   return <GoalCard projection={projection} locale={localeTag} />
 }

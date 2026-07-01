@@ -5,12 +5,14 @@ import { SyncLogCard } from '@florin/core/components/settings/sync-log-card'
 import pkg from '../../../../package.json'
 import { db } from '@/db/client'
 import { getServerT } from '@/lib/locale'
+import { getAppConfig } from '@/lib/app-config'
 import { accounts, categories, settings, transactions } from '@/db/schema'
 import { isPinEnabled } from '@/server/actions/pin'
 import { listSyncLogRuns } from '@/server/banking/sync-log'
 import { PinSettings } from '@/components/pin-settings'
 import { BankingSettings } from '@/components/banking-settings'
 import { LocaleSettings } from '@/components/locale-settings'
+import { AppConfigSettings } from '@/components/app-config-settings'
 import { ImportData } from '@/components/import-data'
 
 interface Stat {
@@ -34,6 +36,7 @@ export default async function SettingsPage() {
     localeRow,
     currencyRow,
     syncLogRuns,
+    appConfig,
   ] = await Promise.all([
     db.select({ value: count() }).from(accounts).where(eq(accounts.isArchived, false)),
     db.select({ value: count() }).from(transactions).where(isNull(transactions.deletedAt)),
@@ -43,6 +46,7 @@ export default async function SettingsPage() {
     db.select().from(settings).where(eq(settings.key, 'user_locale')).get(),
     db.select().from(settings).where(eq(settings.key, 'user_currency')).get(),
     listSyncLogRuns(),
+    getAppConfig(),
   ])
 
   const bankingConfigured = Boolean(ebAppIdRow?.value)
@@ -94,6 +98,19 @@ export default async function SettingsPage() {
                 'Florin Desktop stores all data locally in a SQLite database. No server, no cloud.',
               )}
             </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">{t('appConfig.title', 'App defaults / Objectives')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <AppConfigSettings
+              goalTarget={appConfig.goalTarget}
+              goalReturnPct={appConfig.goalReturnPct}
+              peaCeiling={appConfig.peaCeiling}
+            />
           </CardContent>
         </Card>
 
