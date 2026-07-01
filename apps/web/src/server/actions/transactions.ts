@@ -14,6 +14,7 @@ import type {
   AddTransferInput,
   CreateRecurringRuleInput,
   UpdateRecurringRuleInput,
+  UpdateTransactionInput,
   ListTransactionsOptions,
   TransactionDirection,
 } from '@florin/core/types'
@@ -126,6 +127,20 @@ export async function updateTransactionCategory(
     revalidatePath('/accounts')
     revalidatePath('/')
     revalidatePath('/categories')
+  }
+  return result
+}
+
+export async function updateTransaction(
+  transactionId: string,
+  input: UpdateTransactionInput,
+): Promise<ActionResult> {
+  const result = await mutations.updateTransaction(transactionId, input)
+  if (result.success) {
+    revalidatePath('/transactions')
+    revalidatePath('/review')
+    revalidatePath('/accounts')
+    revalidatePath('/')
   }
   return result
 }

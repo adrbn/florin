@@ -2,9 +2,10 @@
 
 import { type CSSProperties, useCallback, useEffect, useMemo, useState } from 'react'
 import { DeleteTransactionButton } from '../transactions/delete-transaction-button'
+import { EditTransactionButton } from '../transactions/edit-transaction-button'
 import { TransactionCategoryCell } from '../transactions/transaction-category-cell'
 import { TxBulkActionBar } from './tx-bulk-action-bar'
-import type { ActionResult } from '../../types/index'
+import type { ActionResult, UpdateTransactionInput } from '../../types/index'
 import type { CategoryOption } from '../ui/category-picker'
 import { formatCurrencySigned } from '../../lib/format/currency'
 import { useT } from '../../i18n/context'
@@ -12,9 +13,17 @@ import { useT } from '../../i18n/context'
 export interface TransactionRowData {
   id: string
   date: string
+  /**
+   * ISO `yyyy-mm-dd` date used to prefill the edit dialog's date input.
+   * `date` above may be a localized display string, so it can't be parsed
+   * back reliably — pass this when the edit action is wired.
+   */
+  isoDate?: string
   payee: string
   accountName: string
   amount: number
+  /** Optional memo — used to prefill the edit dialog. */
+  memo?: string | null
   /** Lifecycle status — `scheduled` rows render dimmed + italic with a "Prévu" badge. */
   status: 'cleared' | 'scheduled'
   currentCategoryId: string | null
@@ -28,6 +37,10 @@ export interface TransactionsTableActions {
     categoryId: string | null,
   ) => Promise<ActionResult>
   onSoftDeleteTransaction: (id: string) => Promise<ActionResult>
+  onUpdateTransaction?: (
+    id: string,
+    input: UpdateTransactionInput,
+  ) => Promise<ActionResult>
   onBulkUpdateTransactionCategory?: (
     ids: ReadonlyArray<string>,
     categoryId: string | null,
@@ -328,7 +341,17 @@ function TransactionRow({
         >
           {formatCurrencySigned(row.amount)}
         </span>
-        <div className="flex shrink-0 items-center md:justify-self-center">
+        <div className="flex shrink-0 items-center gap-1 md:justify-self-center">
+          {actions.onUpdateTransaction && (
+            <EditTransactionButton
+              transactionId={row.id}
+              date={row.isoDate ?? row.date}
+              amount={row.amount}
+              payee={row.payee}
+              memo={row.memo}
+              onUpdateTransaction={actions.onUpdateTransaction}
+            />
+          )}
           <DeleteTransactionButton
             transactionId={row.id}
             payee={row.payee}

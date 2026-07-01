@@ -522,6 +522,15 @@
   "txDelete.confirm": "Delete \"{payee}\"?",
   "txDelete.deleteTransaction": "Delete transaction",
 
+  "txEdit.edit": "Edit transaction",
+  "txEdit.title": "Edit transaction",
+  "txEdit.date": "Date",
+  "txEdit.amount": "Amount (EUR)",
+  "txEdit.payee": "Payee",
+  "txEdit.memo": "Memo (optional)",
+  "txEdit.saving": "Saving…",
+  "txEdit.unknownError": "Unknown error",
+
   "settings.title": "Settings",
   "settings.subtitle": "Operational diagnostics and exports for your Florin instance.",
   "settings.profile": "Profile",

@@ -527,6 +527,21 @@ export interface AddTransferInput {
   recurring?: TransactionRecurringInput | null
 }
 
+/**
+ * Manual correction of an existing transaction's date / amount / payee / memo.
+ * Every field is optional — only the provided ones change. Editing the date
+ * re-derives status (future → 'scheduled', past → 'cleared') and the account
+ * balance is recomputed so realized totals stay correct. Primary use: moving a
+ * later reimbursement onto the day of the shared expense so a single day isn't
+ * over-counted.
+ */
+export interface UpdateTransactionInput {
+  occurredAt?: Date
+  amount?: number
+  payee?: string
+  memo?: string | null
+}
+
 export interface CreateRecurringRuleInput {
   name: string
   kind: RecurringKind
@@ -608,6 +623,14 @@ export interface FlorinMutations {
   updateTransactionCategory(
     transactionId: string,
     categoryId: string | null,
+  ): Promise<ActionResult>
+  /**
+   * Edit an existing transaction's date / amount / payee / memo. Re-derives
+   * status from the new date and recomputes the account balance.
+   */
+  updateTransaction(
+    transactionId: string,
+    input: UpdateTransactionInput,
   ): Promise<ActionResult>
   softDeleteTransaction(id: string): Promise<ActionResult>
   approveTransaction(transactionId: string): Promise<ActionResult>

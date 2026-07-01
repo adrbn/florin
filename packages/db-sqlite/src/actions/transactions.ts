@@ -6,6 +6,7 @@ import type {
   ActionResult,
   AddTransactionInput,
   AddTransferInput,
+  UpdateTransactionInput,
 } from '@florin/core/types'
 import type { SqliteDB } from '../client'
 import { accounts, categories, categorizationRules, transactions } from '../schema'
@@ -372,6 +373,83 @@ export async function updateTransactionCategoryMutation(
     return { success: true }
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to update category'
+    return { success: false, error: message }
+  }
+}
+
+const updateTransactionSchema = z
+  .object({
+    occurredAt: z.coerce.date().optional(),
+    amount: z.coerce.number().optional(),
+    payee: z.string().min(1).max(200).optional(),
+    memo: z.string().max(500).optional().nullable(),
+  })
+  .refine(
+    (v) =>
+      v.occurredAt !== undefined ||
+      v.amount !== undefined ||
+      v.payee !== undefined ||
+      v.memo !== undefined,
+    { message: 'Nothing to update' },
+  )
+
+/**
+ * SQLite twin of db-pg updateTransactionMutation. Dates are ISO YYYY-MM-DD
+ * strings and amounts are plain numbers. Edits date/amount/payee/memo, re-
+ * derives status from the new date, adjusts the balance by the change in
+ * realized contribution, and keeps any loan mirror in sync.
+ */
+export async function updateTransactionMutation(
+  db: SqliteDB,
+  id: string,
+  input: UpdateTransactionInput,
+): Promise<ActionResult> {
+  if (!z.uuid().safeParse(id).success) return { success: false, error: 'Invalid transaction id' }
+  const parsed = updateTransactionSchema.safeParse(input)
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues.map((i) => i.message).join(', ') }
+  }
+  const p = parsed.data
+  try {
+    const existing = await db.query.transactions.findFirst({
+      where: and(eq(transactions.id, id), isNull(transactions.deletedAt)),
+    })
+    if (!existing || !existing.accountId) return { success: false, error: 'Transaction not found' }
+
+    const existingDateStr = String(existing.occurredAt).slice(0, 10)
+    const newDate = p.occurredAt ?? new Date(`${existingDateStr}T00:00:00`)
+    const newDateStr = newDate.toISOString().slice(0, 10)
+    const newAmount = p.amount !== undefined ? p.amount : Number(existing.amount)
+    const dateChanged = p.occurredAt !== undefined && newDateStr !== existingDateStr
+    const newStatus = dateChanged
+      ? newDate.getTime() > Date.now()
+        ? 'scheduled'
+        : 'cleared'
+      : existing.status
+
+    const todayStr = new Date().toISOString().slice(0, 10)
+    const realized = (status: string, dateStr: string, amt: number): number =>
+      status === 'cleared' && dateStr <= todayStr ? amt : 0
+    const delta =
+      realized(newStatus, newDateStr, newAmount) -
+      realized(existing.status, existingDateStr, Number(existing.amount))
+
+    const set: Record<string, unknown> = { updatedAt: new Date().toISOString() }
+    if (p.occurredAt !== undefined) set.occurredAt = newDateStr
+    if (p.amount !== undefined) set.amount = newAmount
+    if (p.payee !== undefined) {
+      set.payee = p.payee
+      set.normalizedPayee = normalizePayee(p.payee)
+    }
+    if (p.memo !== undefined) set.memo = p.memo || null
+    if (dateChanged) set.status = newStatus
+
+    await db.update(transactions).set(set).where(eq(transactions.id, id))
+    await recomputeAccountBalance(db, existing.accountId, delta)
+    await syncLoanMirror(db, id)
+    return { success: true }
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to update transaction'
     return { success: false, error: message }
   }
 }
