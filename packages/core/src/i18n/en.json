@@ -861,5 +861,12 @@
   "goal.assumptions": "{contribution}/mo · {rate}%/yr",
   "goal.disclaimer": "Assumption, not guaranteed.",
   "goal.emptyTitle": "No projection yet",
-  "goal.empty": "Increase your savings to see a projection."
+  "goal.empty": "Increase your savings to see a projection.",
+
+  "appConfig.title": "App defaults / Objectives",
+  "appConfig.subtitle": "Tune the goal target, assumed return, and tax-wrapper ceiling used across your dashboard.",
+  "appConfig.goalTarget": "Goal target",
+  "appConfig.goalReturnPct": "Assumed annual return (%)",
+  "appConfig.peaCeiling": "PEA / tax-wrapper ceiling",
+  "appConfig.peaCeilingHint": "Set to 0 to hide the contribution gauge for accounts with no such cap."
 }

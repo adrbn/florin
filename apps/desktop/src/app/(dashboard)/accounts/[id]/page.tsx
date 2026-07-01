@@ -20,6 +20,7 @@ import {
   TableRow,
 } from '@florin/core/components/ui/table'
 import { db, queries } from '@/db/client'
+import { getAppConfig } from '@/lib/app-config'
 import { categories, categoryGroups } from '@/db/schema'
 import { formatCurrency, formatCurrencySigned } from '@florin/core/lib/format'
 import { computeLoanLiability } from '@florin/core/lib/loan'
@@ -66,6 +67,7 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
   const portfolioValuation = isBrokerPortfolio
     ? await queries.getPortfolioValuation(account.id)
     : null
+  const appConfig = isBrokerPortfolio ? await getAppConfig() : null
   const [transactionList, allAccounts, categoryList, categoriesFlat] = await Promise.all([
     isLoan
       ? listLoanPaymentsForAccount(account.id, 500)
@@ -281,6 +283,7 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
           onDeleteHolding={deleteHolding}
           onRefreshPrices={refreshPriceQuotes}
           onBuyHolding={buyHolding}
+          peaCeiling={appConfig?.peaCeiling}
         />
       )}
 

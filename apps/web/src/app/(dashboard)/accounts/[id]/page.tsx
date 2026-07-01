@@ -23,6 +23,7 @@ import { db, queries } from '@/db/client'
 import { categories, categoryGroups } from '@/db/schema'
 import { formatCurrency, formatCurrencySigned } from '@florin/core/lib/format'
 import { computeLoanLiability } from '@/lib/loan/liability'
+import { getAppConfig } from '@/lib/app-config'
 import { getServerT, getUserLocale } from '@/lib/locale'
 import {
   getAccountById,
@@ -305,6 +306,7 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
           onDeleteHolding={deleteHolding}
           onRefreshPrices={refreshPriceQuotes}
           onBuyHolding={buyHolding}
+          peaCeiling={getAppConfig().peaCeiling}
         />
       )}
 

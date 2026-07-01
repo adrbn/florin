@@ -861,5 +861,12 @@
   "goal.assumptions": "{contribution}/mois · {rate}% /an",
   "goal.disclaimer": "Hypothèse, non garanti.",
   "goal.emptyTitle": "Pas encore de projection",
-  "goal.empty": "Augmente ton épargne pour voir une projection."
+  "goal.empty": "Augmente ton épargne pour voir une projection.",
+
+  "appConfig.title": "Paramètres / Objectifs",
+  "appConfig.subtitle": "Ajuste l'objectif, le rendement supposé et le plafond de l'enveloppe fiscale utilisés sur ton tableau de bord.",
+  "appConfig.goalTarget": "Objectif de patrimoine",
+  "appConfig.goalReturnPct": "Rendement annuel supposé (%)",
+  "appConfig.peaCeiling": "Plafond PEA / enveloppe fiscale",
+  "appConfig.peaCeilingHint": "Mets 0 pour masquer la jauge de versement si ton compte n'a pas de plafond."
 }
