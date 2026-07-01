@@ -10,7 +10,11 @@ permissions:
 
 jobs:
   build-mac:
-    runs-on: macos-latest
+    # Pinned to macos-14 (arm64): macos-latest rolled to a newer image where
+    # electron-builder's bundled dmgbuild/hdiutil fails to detach the DMG volume
+    # (".background/background.tiff" + "hdiutil detach" errors). v1.2.2 built
+    # fine on macos-14; keep it until electron-builder ships a dmgbuild fix.
+    runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
