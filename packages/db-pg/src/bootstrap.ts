@@ -121,4 +121,35 @@ export async function ensurePgRuntimePatches(db: PgDB): Promise<void> {
   await db.execute(
     sql`CREATE INDEX IF NOT EXISTS "holdings_account_idx" ON "holdings" ("account_id")`,
   )
+
+  // 'adjustment' category kind — a home for balance-reconciliation plugs
+  // ("Balance Adjustment" rows Florin creates to match the bank) so they stop
+  // leaking into income/expense/savings/burn stats. ADD VALUE runs in its own
+  // autocommitted statement, so the value is committed before the inserts
+  // below use it. Everything here is idempotent and re-runs each boot, which
+  // also auto-files any freshly-created adjustment rows.
+  await db.execute(sql`ALTER TYPE "category_kind" ADD VALUE IF NOT EXISTS 'adjustment'`)
+  await db.execute(sql`
+    INSERT INTO "category_groups" ("id", "name", "kind", "display_order")
+    SELECT gen_random_uuid(), 'Ajustements', 'adjustment', 999
+    WHERE NOT EXISTS (SELECT 1 FROM "category_groups" WHERE "kind" = 'adjustment')
+  `)
+  await db.execute(sql`
+    INSERT INTO "categories" ("id", "group_id", "name", "display_order")
+    SELECT gen_random_uuid(), g."id", 'Ajustement', 0
+    FROM "category_groups" g
+    WHERE g."kind" = 'adjustment'
+      AND NOT EXISTS (SELECT 1 FROM "categories" c WHERE c."group_id" = g."id")
+  `)
+  await db.execute(sql`
+    UPDATE "transactions"
+    SET "category_id" = (
+      SELECT c."id" FROM "categories" c
+      JOIN "category_groups" g ON g."id" = c."group_id"
+      WHERE g."kind" = 'adjustment' LIMIT 1
+    )
+    WHERE "category_id" IS NULL
+      AND "deleted_at" IS NULL
+      AND "payee" ILIKE '%Balance Adjustment%'
+  `)
 }

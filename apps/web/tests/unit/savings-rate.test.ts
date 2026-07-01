@@ -4,17 +4,21 @@ import { makeForecastDb, seedAccount, seedTx, todayIso, type ForecastTestContext
 
 const GRP_INCOME = 'd1111111-1111-4111-8111-1111110000a1'
 const GRP_EXPENSE = 'd1111111-1111-4111-8111-1111110000a2'
+const GRP_ADJUST = 'd1111111-1111-4111-8111-1111110000a3'
 const CAT_SALARY = 'd2222222-2222-4222-8222-2222220000b1'
 const CAT_DINING = 'd2222222-2222-4222-8222-2222220000b2'
+const CAT_ADJUST = 'd2222222-2222-4222-8222-2222220000b3'
 
 function seedGroups(ctx: ForecastTestContext): void {
   ctx.raw.exec(`
     INSERT INTO category_groups (id, name, kind, display_order) VALUES
       ('${GRP_INCOME}', 'Income', 'income', 0),
-      ('${GRP_EXPENSE}', 'Dining', 'expense', 1);
+      ('${GRP_EXPENSE}', 'Dining', 'expense', 1),
+      ('${GRP_ADJUST}', 'Ajustements', 'adjustment', 999);
     INSERT INTO categories (id, group_id, name, display_order) VALUES
       ('${CAT_SALARY}', '${GRP_INCOME}', 'Salary', 0),
-      ('${CAT_DINING}', '${GRP_EXPENSE}', 'Restaurants', 1);
+      ('${CAT_DINING}', '${GRP_EXPENSE}', 'Restaurants', 1),
+      ('${CAT_ADJUST}', '${GRP_ADJUST}', 'Ajustement', 0);
   `)
 }
 
@@ -47,6 +51,22 @@ describe('getSavingsRates — reimbursements net against their expense category'
     seedTx(ctx, { accountId: acc, occurredAt: today, amount: 1000, payee: 'Employer', categoryId: CAT_SALARY })
     seedTx(ctx, { accountId: acc, occurredAt: today, amount: -200, payee: 'Rent', categoryId: CAT_DINING })
     seedTx(ctx, { accountId: acc, occurredAt: today, amount: 500, payee: 'Reconciliation Balance Adjustment', categoryId: null })
+
+    const rates = await getSavingsRates(ctx.db)
+    expect(rates.threeMonth).toBeCloseTo(80, 1)
+  })
+
+  it("excludes the 'adjustment' kind (balance-reconciliation plugs)", async () => {
+    const ctx = makeForecastDb()
+    seedGroups(ctx)
+    const acc = seedAccount(ctx, { openingBalance: 0 })
+    const today = todayIso()
+    // 1000 salary, 200 real expense → 80%. A −500 'adjustment' plug must NOT
+    // count as spending, and a +900 'adjustment' must NOT count as savings.
+    seedTx(ctx, { accountId: acc, occurredAt: today, amount: 1000, payee: 'Employer', categoryId: CAT_SALARY })
+    seedTx(ctx, { accountId: acc, occurredAt: today, amount: -200, payee: 'Rent', categoryId: CAT_DINING })
+    seedTx(ctx, { accountId: acc, occurredAt: today, amount: -500, payee: 'Reconciliation Balance Adjustment', categoryId: CAT_ADJUST })
+    seedTx(ctx, { accountId: acc, occurredAt: today, amount: 900, payee: 'Manual Balance Adjustment', categoryId: CAT_ADJUST })
 
     const rates = await getSavingsRates(ctx.db)
     expect(rates.threeMonth).toBeCloseTo(80, 1)

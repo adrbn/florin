@@ -11,7 +11,9 @@ export type AccountKind =
 
 export type SyncProvider = 'enable_banking' | 'pytr' | 'manual' | 'legacy'
 
-export type CategoryKind = 'income' | 'expense'
+// 'adjustment' = balance-reconciliation plugs / untracked-account transfers,
+// excluded from every income/expense/savings/burn stat.
+export type CategoryKind = 'income' | 'expense' | 'adjustment'
 
 export type TransactionSource =
   | 'enable_banking'

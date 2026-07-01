@@ -170,7 +170,7 @@ async function computeNetMonthAgo(db: PgDB, currentNet: number): Promise<number 
  */
 const burnAmountSql = sql<string>`COALESCE(SUM(CASE
   WHEN ${isUncategorizedTransfer()} THEN 0
-  WHEN ${transactions.amount} < 0 AND (${categoryGroups.kind} IS NULL OR ${categoryGroups.kind} <> 'income') THEN ${transactions.amount}
+  WHEN ${transactions.amount} < 0 AND (${categoryGroups.kind} IS NULL OR ${categoryGroups.kind} = 'expense') THEN ${transactions.amount}
   WHEN ${transactions.amount} > 0 AND ${categoryGroups.kind} = 'expense' THEN ${transactions.amount}
   ELSE 0
 END), 0)`
@@ -690,7 +690,7 @@ export async function getDailySpend(db: PgDB, days = 91): Promise<DailySpend[]> 
         sql`${transactions.amount} < 0`,
         sql`${transactions.transferPairId} IS NULL`,
         eq(accounts.isArchived, false),
-        sql`(${categoryGroups.kind} IS NULL OR ${categoryGroups.kind} <> 'income')`,
+        sql`(${categoryGroups.kind} IS NULL OR ${categoryGroups.kind} = 'expense')`,
         // External SEPA outgoing transfers ("VIREMENT POUR …", "VIREMENT
         // VERS …", etc.) can't be auto-paired because the destination
         // account isn't in Florin. Treat them as transfers, not expenses,
@@ -734,7 +734,7 @@ export async function getDailySpendByCategory(
         sql`${transactions.amount} < 0`,
         sql`${transactions.transferPairId} IS NULL`,
         eq(accounts.isArchived, false),
-        sql`(${categoryGroups.kind} IS NULL OR ${categoryGroups.kind} <> 'income')`,
+        sql`(${categoryGroups.kind} IS NULL OR ${categoryGroups.kind} = 'expense')`,
         // External SEPA outgoing transfers ("VIREMENT POUR …", "VIREMENT
         // VERS …", etc.) can't be auto-paired because the destination
         // account isn't in Florin. Treat them as transfers, not expenses,
@@ -783,11 +783,10 @@ export async function getSavingsRates(db: PgDB): Promise<SavingsRates> {
         // negatives): a positive booked into an expense category — a friend
         // repaying their share of a shared bill, a merchant refund — OFFSETS
         // that category's outflow. Counting only negatives inflated expenses
-        // and crushed the rate. Uncategorized rows are deliberately excluded
-        // here (`<> 'income'` drops NULL): on real data they're dominated by
-        // synthetic balance-reconciliation adjustments and unlinked internal
-        // transfers, which aren't income or spending.
-        nonIncomeNet: sql<string>`COALESCE(SUM(CASE WHEN ${categoryGroups.kind} <> 'income' THEN ${transactions.amount} ELSE 0 END), 0)`,
+        // and crushed the rate. `= 'expense'` excludes uncategorized (NULL) and
+        // the 'adjustment' kind — balance-reconciliation plugs and untracked-
+        // account transfers, which aren't income or spending.
+        nonIncomeNet: sql<string>`COALESCE(SUM(CASE WHEN ${categoryGroups.kind} = 'expense' THEN ${transactions.amount} ELSE 0 END), 0)`,
       })
       .from(transactions)
       .innerJoin(accounts, eq(transactions.accountId, accounts.id))

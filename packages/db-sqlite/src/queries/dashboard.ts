@@ -176,7 +176,7 @@ async function computeNetMonthAgo(db: SqliteDB, currentNet: number): Promise<num
 // different banks. Same heuristic as getDailySpend.
 const burnAmountSql = sql<number>`COALESCE(SUM(CASE
   WHEN ${isUncategorizedTransfer()} THEN 0
-  WHEN ${transactions.amount} < 0 AND (${categoryGroups.kind} IS NULL OR ${categoryGroups.kind} <> 'income') THEN ${transactions.amount}
+  WHEN ${transactions.amount} < 0 AND (${categoryGroups.kind} IS NULL OR ${categoryGroups.kind} = 'expense') THEN ${transactions.amount}
   WHEN ${transactions.amount} > 0 AND ${categoryGroups.kind} = 'expense' THEN ${transactions.amount}
   ELSE 0
 END), 0)`
@@ -702,7 +702,7 @@ export async function getDailySpend(db: SqliteDB, days = 91): Promise<DailySpend
         sql`${transactions.amount} < 0`,
         sql`${transactions.transferPairId} IS NULL`,
         eq(accounts.isArchived, false),
-        sql`(${categoryGroups.kind} IS NULL OR ${categoryGroups.kind} <> 'income')`,
+        sql`(${categoryGroups.kind} IS NULL OR ${categoryGroups.kind} = 'expense')`,
         // External SEPA outgoing transfers ("VIREMENT POUR …", "VIREMENT
         // VERS …", etc.) can't be auto-paired because the destination
         // account isn't in Florin. Treating them as expenses pollutes the
@@ -743,7 +743,7 @@ export async function getDailySpendByCategory(
         sql`${transactions.amount} < 0`,
         sql`${transactions.transferPairId} IS NULL`,
         eq(accounts.isArchived, false),
-        sql`(${categoryGroups.kind} IS NULL OR ${categoryGroups.kind} <> 'income')`,
+        sql`(${categoryGroups.kind} IS NULL OR ${categoryGroups.kind} = 'expense')`,
       ),
     )
     .groupBy(
@@ -784,11 +784,10 @@ export async function getSavingsRates(db: SqliteDB): Promise<SavingsRates> {
         income: sql<number>`COALESCE(SUM(CASE WHEN ${categoryGroups.kind} = 'income' THEN ${transactions.amount} ELSE 0 END), 0)`,
         // Net the CATEGORIZED expense groups (sum all amounts, not just the
         // negatives): a positive in an expense category (a friend's share
-        // repaid, a refund) offsets that category's outflow. `<> 'income'`
-        // drops NULL, so uncategorized rows — dominated on real data by
-        // synthetic balance-reconciliation adjustments and unlinked internal
-        // transfers — are excluded rather than miscounted as spending.
-        nonIncomeNet: sql<number>`COALESCE(SUM(CASE WHEN ${categoryGroups.kind} <> 'income' THEN ${transactions.amount} ELSE 0 END), 0)`,
+        // repaid, a refund) offsets that category's outflow. `= 'expense'`
+        // excludes uncategorized (NULL) and the 'adjustment' kind — balance-
+        // reconciliation plugs and untracked-account transfers.
+        nonIncomeNet: sql<number>`COALESCE(SUM(CASE WHEN ${categoryGroups.kind} = 'expense' THEN ${transactions.amount} ELSE 0 END), 0)`,
       })
       .from(transactions)
       .innerJoin(accounts, eq(transactions.accountId, accounts.id))
