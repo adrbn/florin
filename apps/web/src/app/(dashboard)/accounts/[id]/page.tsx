@@ -6,6 +6,7 @@ import { HoldingsCard } from '@florin/core/components/accounts/holdings-card'
 import { LoanDetailsCard } from '@florin/core/components/accounts/loan-details-card'
 import { AddTransactionModal } from '@florin/core/components/transactions/add-transaction-modal'
 import { DeleteTransactionButton } from '@florin/core/components/transactions/delete-transaction-button'
+import { EditTransactionButton } from '@florin/core/components/transactions/edit-transaction-button'
 import { TransactionCategoryCell } from '@florin/core/components/transactions/transaction-category-cell'
 import { Badge } from '@florin/core/components/ui/badge'
 import { buttonVariants } from '@florin/core/components/ui/button'
@@ -38,6 +39,7 @@ import {
   addTransaction,
   addTransfer,
   softDeleteTransaction,
+  updateTransaction,
   updateTransactionCategory,
 } from '@/server/actions/transactions'
 import { addHolding, updateHolding, deleteHolding, buyHolding } from '@/server/actions/holdings'
@@ -385,11 +387,21 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
                         {formatCurrencySigned(amount)}
                       </TableCell>
                       <TableCell className="text-right">
-                        <DeleteTransactionButton
-                          transactionId={tx.id}
-                          payee={tx.payee || noPayeeLabel}
-                          onSoftDeleteTransaction={softDeleteTransaction}
-                        />
+                        <div className="flex items-center justify-end gap-1">
+                          <EditTransactionButton
+                            transactionId={tx.id}
+                            date={tx.occurredAt.toISOString().slice(0, 10)}
+                            amount={amount}
+                            payee={tx.payee}
+                            memo={tx.memo}
+                            onUpdateTransaction={updateTransaction}
+                          />
+                          <DeleteTransactionButton
+                            transactionId={tx.id}
+                            payee={tx.payee || noPayeeLabel}
+                            onSoftDeleteTransaction={softDeleteTransaction}
+                          />
+                        </div>
                       </TableCell>
                     </TableRow>
                   )

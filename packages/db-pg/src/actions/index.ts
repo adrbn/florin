@@ -14,6 +14,7 @@ import {
   addTransferMutation,
   linkAsInternalTransferMutation,
   updateTransactionCategoryMutation,
+  updateTransactionMutation,
   softDeleteTransactionMutation,
   approveTransactionMutation,
   approveAllTransactionsMutation,
@@ -82,6 +83,8 @@ export function createPgMutations(db: PgDB): FlorinMutations {
       linkAsInternalTransferMutation(db, transactionId, counterpartAccountId),
     updateTransactionCategory: (transactionId, categoryId) =>
       updateTransactionCategoryMutation(db, transactionId, categoryId),
+    updateTransaction: (transactionId, input) =>
+      updateTransactionMutation(db, transactionId, input),
     softDeleteTransaction: (id) => softDeleteTransactionMutation(db, id),
     approveTransaction: (transactionId) => approveTransactionMutation(db, transactionId),
     approveAllTransactions: () => approveAllTransactionsMutation(db),

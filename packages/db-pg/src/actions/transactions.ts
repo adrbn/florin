@@ -6,6 +6,7 @@ import type {
   ActionResult,
   AddTransactionInput,
   AddTransferInput,
+  UpdateTransactionInput,
 } from '@florin/core/types'
 import type { PgDB } from '../client'
 import { accounts, categories, categorizationRules, transactions } from '../schema'
@@ -380,6 +381,96 @@ export async function updateTransactionCategoryMutation(
     return { success: true }
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to update category'
+    return { success: false, error: message }
+  }
+}
+
+const updateTransactionSchema = z
+  .object({
+    occurredAt: z.coerce.date().optional(),
+    amount: z.coerce.number().optional(),
+    payee: z.string().min(1).max(200).optional(),
+    memo: z.string().max(500).optional().nullable(),
+  })
+  .refine(
+    (v) =>
+      v.occurredAt !== undefined ||
+      v.amount !== undefined ||
+      v.payee !== undefined ||
+      v.memo !== undefined,
+    { message: 'Nothing to update' },
+  )
+
+/** YYYY-MM-DD in the process's local tz — matches the SQL `CURRENT_DATE`
+ *  and `occurredAt::date` comparison used by {@link recomputeAccountBalance}. */
+function localDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/**
+ * Edit an existing transaction's date / amount / payee / memo. Only provided
+ * fields change. Moving the date re-derives status (future → 'scheduled', past
+ * → 'cleared'); the account balance is adjusted by the change in *realized*
+ * contribution so bank-synced accounts (delta-based) and local ledgers (full
+ * recompute) both stay correct. Any loan mirror is kept in sync.
+ */
+export async function updateTransactionMutation(
+  db: PgDB,
+  id: string,
+  input: UpdateTransactionInput,
+): Promise<ActionResult> {
+  if (!z.uuid().safeParse(id).success) return { success: false, error: 'Invalid transaction id' }
+  const parsed = updateTransactionSchema.safeParse(input)
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues.map((i) => i.message).join(', ') }
+  }
+  const p = parsed.data
+  try {
+    const existing = await db.query.transactions.findFirst({
+      where: and(eq(transactions.id, id), isNull(transactions.deletedAt)),
+    })
+    if (!existing || !existing.accountId) return { success: false, error: 'Transaction not found' }
+
+    const newOccurredAt = p.occurredAt ?? existing.occurredAt
+    const newAmount = p.amount !== undefined ? p.amount : Number(existing.amount)
+    const dateChanged =
+      p.occurredAt !== undefined &&
+      new Date(newOccurredAt).getTime() !== new Date(existing.occurredAt).getTime()
+    // Only re-derive status when the date actually moved, so a payee-only edit
+    // never silently flips an overdue 'scheduled' row to 'cleared'.
+    const newStatus = dateChanged
+      ? new Date(newOccurredAt).getTime() > Date.now()
+        ? 'scheduled'
+        : 'cleared'
+      : existing.status
+
+    // Realized contribution = counts toward the real balance (cleared AND dated
+    // on/before today). Delta feeds bank-synced accounts; local ledgers ignore
+    // it and re-sum from scratch.
+    const todayStr = localDateStr(new Date())
+    const realized = (status: string, when: Date, amt: number): number =>
+      status === 'cleared' && localDateStr(new Date(when)) <= todayStr ? amt : 0
+    const delta =
+      realized(newStatus, newOccurredAt, newAmount) -
+      realized(existing.status, existing.occurredAt, Number(existing.amount))
+
+    const set: Record<string, unknown> = { updatedAt: new Date() }
+    if (p.occurredAt !== undefined) set.occurredAt = newOccurredAt
+    if (p.amount !== undefined) set.amount = newAmount.toFixed(2)
+    if (p.payee !== undefined) {
+      set.payee = p.payee
+      set.normalizedPayee = normalizePayee(p.payee)
+    }
+    if (p.memo !== undefined) set.memo = p.memo || null
+    if (dateChanged) set.status = newStatus
+
+    await db.update(transactions).set(set).where(eq(transactions.id, id))
+    await recomputeAccountBalance(db, existing.accountId, delta)
+    // Propagate date/amount/payee onto any loan-mirror row (no-op otherwise).
+    await syncLoanMirror(db, id)
+    return { success: true }
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to update transaction'
     return { success: false, error: message }
   }
 }

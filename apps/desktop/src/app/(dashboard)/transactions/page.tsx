@@ -20,6 +20,7 @@ import {
   countTransactions,
   listTransactions,
   softDeleteTransaction,
+  updateTransaction,
   updateTransactionCategory,
   type TransactionDirection,
 } from '@/server/actions/transactions'
@@ -209,9 +210,11 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
             (t): TransactionRowData => ({
               id: t.id,
               date: dateFormatter.format(t.occurredAt),
+              isoDate: t.occurredAt.toISOString().slice(0, 10),
               payee: t.payee,
               accountName: t.account?.name ?? '—',
               amount: Number(t.amount),
+              memo: t.memo,
               status: t.status === 'scheduled' ? 'scheduled' : 'cleared',
               currentCategoryId: t.category?.id ?? null,
               currentCategoryName: t.category?.name ?? null,
@@ -227,6 +230,7 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
           actions={{
             onUpdateTransactionCategory: updateTransactionCategory,
             onSoftDeleteTransaction: softDeleteTransaction,
+            onUpdateTransaction: updateTransaction,
             onBulkUpdateTransactionCategory: bulkUpdateTransactionCategory,
             onBulkSoftDeleteTransactions: bulkSoftDeleteTransactions,
           }}
