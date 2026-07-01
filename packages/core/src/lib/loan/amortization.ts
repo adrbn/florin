@@ -140,6 +140,15 @@ export interface SimulationOptions {
    */
   lumpSumAmount?: number
   lumpSumMonth?: number
+  /**
+   * Hard-close the schedule on this 1-indexed month: when the loop reaches it
+   * with a positive balance, the whole remaining principal is folded into that
+   * instalment so the schedule ends exactly on the contract's term instead of
+   * trailing a rounding residual into an extra month — the way a lender adjusts
+   * the final payment. Leave unset for the early-repayment simulator, which is
+   * allowed to finish before the term.
+   */
+  finalMonth?: number
 }
 
 export function simulateSchedule(
@@ -151,6 +160,7 @@ export function simulateSchedule(
     extraPayments = {},
     lumpSumAmount = 0,
     lumpSumMonth = 0,
+    finalMonth = 0,
   } = options
 
   const rows: ScheduleRow[] = []
@@ -183,6 +193,15 @@ export function simulateSchedule(
     // Final-month adjustment: if the scheduled principal would over-shoot
     // the remaining balance, trim it to land exactly on zero.
     if (principal > balance) principal = balance
+
+    // Contractual last instalment: absorb any rounding residual so the loan
+    // closes exactly on its term rather than trailing a few cents into an
+    // extra month. Only kicks in for real contracts that set finalMonth — the
+    // early-repayment simulator leaves it unset and may finish sooner.
+    if (finalMonth > 0 && i >= finalMonth && balance - principal > 0.005) {
+      principal = balance
+      extra = 0
+    }
 
     const payment = round2(interest + principal - extra)
     const balanceBefore = round2(balance)
@@ -245,4 +264,81 @@ export function compareSchedules(
     baseEndDate: base.summary.endDate,
     newEndDate: simulated.summary.endDate,
   }
+}
+
+/**
+ * Recover the annual nominal rate implied by a loan's three hard numbers.
+ *
+ * Banks quote the TAEG (effective annual rate) but amortize on the taux
+ * débiteur; users typically type the TAEG into the rate field, which makes a
+ * naïve `annualRate / 12` monthly rate slightly too high and drifts our
+ * "capital restant dû" a few euros above the bank's over a couple of years.
+ * Given the principal, the real mensualité and the contractual term, the
+ * periodic rate is fully determined — solve for it so the schedule matches the
+ * lender to the cent regardless of which rate the user typed in.
+ *
+ * `payment(r)` is strictly increasing in `r`, so a plain bisection converges.
+ * Returns the annual rate as a decimal (monthlyRate × 12), or `null` when the
+ * three numbers can't describe a valid fixed-rate loan (non-positive inputs, or
+ * a payment too small to ever amortize the principal).
+ */
+export function solveAnnualRateFromPayment(args: {
+  principal: number
+  monthlyPayment: number
+  termMonths: number
+}): number | null {
+  const { principal: p, monthlyPayment: m, termMonths: n } = args
+  if (!(p > 0) || !(m > 0) || !(n > 0)) return null
+
+  const zeroRatePayment = p / n
+  // At or below the 0%-loan instalment there's no positive interest to solve
+  // for. Strictly below can't amortize the principal in n months at all.
+  if (m <= zeroRatePayment + 1e-9) {
+    return m >= zeroRatePayment - 1e-9 ? 0 : null
+  }
+
+  const paymentAt = (r: number): number => {
+    if (r <= 0) return p / n
+    const factor = (1 + r) ** n
+    return (p * r * factor) / (factor - 1)
+  }
+
+  let lo = 0
+  let hi = 1 // 100 %/month — absurdly high; guarantees paymentAt(hi) > m
+  let guard = 0
+  while (paymentAt(hi) < m && guard < 64) {
+    hi *= 2
+    guard += 1
+  }
+  for (let i = 0; i < 128; i += 1) {
+    const mid = (lo + hi) / 2
+    const pm = paymentAt(mid)
+    if (Math.abs(pm - m) < 1e-11) return mid * 12
+    if (pm < m) lo = mid
+    else hi = mid
+  }
+  return ((lo + hi) / 2) * 12
+}
+
+/**
+ * Return a copy of `inputs` whose `annualRate` has been recalibrated from the
+ * real mensualité and term via {@link solveAnnualRateFromPayment}. Use for real
+ * loan contracts where principal, payment and term are all known, so the
+ * amortization matches the bank whether the user typed the TAEG or the taux
+ * débiteur. No-op when the payment is missing or the numbers don't resolve to a
+ * valid rate — the caller's originally-entered rate is kept unchanged.
+ */
+export function calibrateAnnualRate(
+  inputs: LoanInputs,
+  monthlyPayment: number | null | undefined,
+): LoanInputs {
+  if (!monthlyPayment || monthlyPayment <= 0) return inputs
+  if (!(inputs.originalPrincipal > 0) || !(inputs.termMonths > 0)) return inputs
+  const solved = solveAnnualRateFromPayment({
+    principal: inputs.originalPrincipal,
+    monthlyPayment,
+    termMonths: inputs.termMonths,
+  })
+  if (solved === null) return inputs
+  return { ...inputs, annualRate: solved }
 }

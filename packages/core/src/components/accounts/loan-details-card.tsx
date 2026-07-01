@@ -19,6 +19,7 @@ import { useT } from '../../i18n/context'
 import { formatCurrency } from '../../lib/format/currency'
 import {
   buildSchedule,
+  calibrateAnnualRate,
   compareSchedules,
   computeTermMonths,
   type LoanInputs,
@@ -221,7 +222,29 @@ export function LoanDetailsCard({
     return missing
   }, [principal, ratePercent, startDate, termMonths, monthlyPayment, t])
 
-  const base = useMemo(() => (loanInputs ? buildSchedule(loanInputs) : null), [loanInputs])
+  // When the contract pins principal + mensualité + an EXPLICIT term, recover
+  // the exact periodic rate from those three numbers so the schedule matches
+  // the bank's "capital restant dû" to the cent, and hard-close it on the term
+  // so it doesn't spill a rounding residual into an extra month. The rate field
+  // the user typed (often the TAEG) is then only informational.
+  const hasExplicitTerm = termMonths !== '' && Number(termMonths) > 0
+  const calibratedInputs = useMemo(() => {
+    if (!loanInputs) return null
+    const m = Number(monthlyPayment)
+    if (!hasExplicitTerm || !Number.isFinite(m) || m <= 0) return loanInputs
+    return calibrateAnnualRate(loanInputs, m)
+  }, [loanInputs, hasExplicitTerm, monthlyPayment])
+
+  const contractFinalMonth = useMemo(() => {
+    const m = Number(monthlyPayment)
+    if (!calibratedInputs || !hasExplicitTerm || !Number.isFinite(m) || m <= 0) return undefined
+    return calibratedInputs.termMonths
+  }, [calibratedInputs, hasExplicitTerm, monthlyPayment])
+
+  const base = useMemo(
+    () => (calibratedInputs ? buildSchedule(calibratedInputs) : null),
+    [calibratedInputs],
+  )
 
   // Let the user override the computed mensualité (banks sometimes round
   // differently, or the loan contract has a non-standard payment). When
@@ -234,27 +257,28 @@ export function LoanDetailsCard({
   }, [monthlyPayment, base?.summary.monthlyPayment])
 
   const effectiveBase = useMemo(() => {
-    if (!loanInputs) return null
-    return simulateSchedule(loanInputs, { baseMonthlyPayment })
-  }, [loanInputs, baseMonthlyPayment])
+    if (!calibratedInputs) return null
+    return simulateSchedule(calibratedInputs, { baseMonthlyPayment, finalMonth: contractFinalMonth })
+  }, [calibratedInputs, baseMonthlyPayment, contractFinalMonth])
 
   // Simulator: stack the monthly extra table with the optional lump sum.
   const simulated = useMemo(() => {
-    if (!loanInputs) return null
+    if (!calibratedInputs) return null
     const extraMonthlyNum = Math.max(0, Number(extraMonthly) || 0)
     const extraTable: Record<number, number> = {}
     if (extraMonthlyNum > 0) {
-      for (let i = 1; i <= loanInputs.termMonths * 2; i++) {
+      for (let i = 1; i <= calibratedInputs.termMonths * 2; i++) {
         extraTable[i] = extraMonthlyNum
       }
     }
-    return simulateSchedule(loanInputs, {
+    return simulateSchedule(calibratedInputs, {
       baseMonthlyPayment,
       extraPayments: extraTable,
       lumpSumAmount: Math.max(0, Number(lumpSumAmount) || 0),
       lumpSumMonth: Math.max(1, Number(lumpSumMonth) || 1),
+      finalMonth: contractFinalMonth,
     })
-  }, [loanInputs, baseMonthlyPayment, extraMonthly, lumpSumAmount, lumpSumMonth])
+  }, [calibratedInputs, baseMonthlyPayment, extraMonthly, lumpSumAmount, lumpSumMonth, contractFinalMonth])
 
   const comparison = useMemo(() => {
     if (!effectiveBase || !simulated) return null
@@ -425,6 +449,14 @@ export function LoanDetailsCard({
         {saveError && <p className="text-xs text-destructive">{saveError}</p>}
         {savedAt && !saveError && (
           <p className="text-xs text-emerald-600">{t('loan.savedOk', 'Saved · loan details updated.')}</p>
+        )}
+        {contractFinalMonth && (
+          <p className="text-[11px] text-muted-foreground">
+            {t(
+              'loan.rateCalibratedHint',
+              'Rate auto-calibrated from the principal, payment and term so the remaining balance matches your bank to the cent — the % above is just for reference.',
+            )}
+          </p>
         )}
 
         {/* ============================ linked categories ============== */}

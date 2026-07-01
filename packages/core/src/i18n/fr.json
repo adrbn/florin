@@ -328,6 +328,7 @@
   "loan.saveSettings": "Enregistrer les paramètres",
   "loan.saveError": "Échec de l'enregistrement",
   "loan.savedOk": "Enregistré · paramètres du prêt mis à jour.",
+  "loan.rateCalibratedHint": "Taux auto-calibré à partir du capital, de la mensualité et de la durée pour que le capital restant dû colle à ta banque au centime — le % ci-dessus est juste indicatif.",
   "loan.linkedCategories": "Catégories liées à ce prêt",
   "loan.linkedCategoriesHelp": "Les transactions catégorisées dans une catégorie liée mettent automatiquement à jour le solde de ce prêt (comme un \"tracking account\" YNAB).",
   "loan.linkCategoryPlaceholder": "Lier une catégorie…",
