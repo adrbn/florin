@@ -779,7 +779,14 @@ export async function getSavingsRates(db: PgDB): Promise<SavingsRates> {
     const rows = await db
       .select({
         income: sql<string>`COALESCE(SUM(CASE WHEN ${categoryGroups.kind} = 'income' THEN ${transactions.amount} ELSE 0 END), 0)`,
-        expense: sql<string>`COALESCE(SUM(CASE WHEN ${categoryGroups.kind} <> 'income' AND ${transactions.amount} < 0 THEN ${transactions.amount} ELSE 0 END), 0)`,
+        // Everything that isn't income nets out to true spending. A positive
+        // amount booked into an expense category (a friend repaying their share
+        // of a shared bill, a merchant refund) OFFSETS that category's outflow,
+        // so it must be summed WITH the negatives — not dropped. The old query
+        // counted only negatives, so money that came back silently inflated
+        // expenses and crushed the savings rate. `IS DISTINCT FROM` also folds
+        // uncategorized rows into spending instead of ignoring them.
+        nonIncomeNet: sql<string>`COALESCE(SUM(CASE WHEN ${categoryGroups.kind} IS DISTINCT FROM 'income' THEN ${transactions.amount} ELSE 0 END), 0)`,
       })
       .from(transactions)
       .innerJoin(accounts, eq(transactions.accountId, accounts.id))
@@ -795,8 +802,11 @@ export async function getSavingsRates(db: PgDB): Promise<SavingsRates> {
         ),
       )
     const income = Number(rows[0]?.income ?? '0')
-    const expense = Math.abs(Number(rows[0]?.expense ?? '0'))
-    out[w.key] = income > 0 ? ((income - expense) / income) * 100 : null
+    // nonIncomeNet is negative overall (spending net of refunds/reimbursements);
+    // savings = income + nonIncomeNet = what actually stayed.
+    const nonIncomeNet = Number(rows[0]?.nonIncomeNet ?? '0')
+    const savings = income + nonIncomeNet
+    out[w.key] = income > 0 ? (savings / income) * 100 : null
   }
   return out
 }
