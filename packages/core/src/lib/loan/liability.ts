@@ -19,7 +19,12 @@
  * (3) a graceful fallback when loan params aren't configured yet.
  */
 
-import { computeTermMonths, type LoanInputs, simulateSchedule } from './amortization'
+import {
+  calibrateAnnualRate,
+  computeTermMonths,
+  type LoanInputs,
+  simulateSchedule,
+} from './amortization'
 
 /**
  * Shape we need from an account row. Kept structural (not pulled from Drizzle
@@ -132,11 +137,23 @@ export function computeLoanLiability(
     startDate: start,
   }
 
+  // When the contract pins all three of principal, mensualité and an EXPLICIT
+  // term, recover the exact periodic rate from them (see calibrateAnnualRate)
+  // and hard-close the schedule on the term. This makes "capital restant dû"
+  // match the bank to the cent — banks quote the TAEG but amortize on the taux
+  // débiteur, so a naïve annualRate/12 drifts a few € and spills an extra month.
+  const hasExplicitTerm = !!(account.loanTermMonths && account.loanTermMonths > 0)
+  const calibrate = hasExplicitTerm && monthlyPayment > 0
+  const scheduleInputs = calibrate ? calibrateAnnualRate(loanInputs, monthlyPayment) : loanInputs
+
   // Use the stored mensualité as the override when it's set — banks round
   // the payment differently from our formula (e.g. 200.00 € vs 200.39 €),
   // which compounds into a few units of balance drift over a couple of years.
   const baseMonthlyPayment = monthlyPayment > 0 ? monthlyPayment : undefined
-  const schedule = simulateSchedule(loanInputs, { baseMonthlyPayment })
+  const schedule = simulateSchedule(scheduleInputs, {
+    baseMonthlyPayment,
+    finalMonth: calibrate ? scheduleInputs.termMonths : undefined,
+  })
 
   if (paymentsMade <= 0) {
     return {

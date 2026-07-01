@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildSchedule,
+  calibrateAnnualRate,
   compareSchedules,
   computeMonthlyPayment,
   type LoanInputs,
   simulateSchedule,
+  solveAnnualRateFromPayment,
 } from '@/lib/loan/amortization'
+import { computeLoanLiability } from '@/lib/loan/liability'
 
 // 100k€ borrowed at 3.5% over 20 years (240 mo) — canonical amortization
 // example for sanity-checking the math against any public loan calculator.
@@ -74,5 +77,88 @@ describe('simulateSchedule with extra payments', () => {
     })
     expect(simulated.summary.months).toBe(base.summary.months)
     expect(simulated.summary.totalInterest).toBeCloseTo(base.summary.totalInterest, 0)
+  })
+})
+
+// Real-world loan from La Banque Postale: 10 000 € student loan, mensualité
+// 135,91 €, 84 months, started 2024-06-30. The bank amortizes on the taux
+// débiteur (~3,83 %) while its statement quotes the TAEG (3,90 %). After 25
+// payments the bank's "capital restant dû" reads 7 298,12 €.
+const lbpLoan: LoanInputs = {
+  originalPrincipal: 10_000,
+  annualRate: 0.039, // the TAEG, as a user would type it off the statement
+  termMonths: 84,
+  startDate: new Date(Date.UTC(2024, 5, 30)),
+}
+
+describe('solveAnnualRateFromPayment', () => {
+  it('recovers the periodic rate that makes principal/payment/term consistent', () => {
+    const annual = solveAnnualRateFromPayment({
+      principal: 10_000,
+      monthlyPayment: 135.91,
+      termMonths: 84,
+    })
+    expect(annual).not.toBeNull()
+    // Taux débiteur ≈ 3.83 %, distinctly below the entered 3.90 % TAEG.
+    expect(annual as number).toBeCloseTo(0.0383, 3)
+    // The recovered rate must reproduce the mensualité it was solved from.
+    const check = computeMonthlyPayment({ ...lbpLoan, annualRate: annual as number })
+    expect(check).toBeCloseTo(135.91, 2)
+  })
+
+  it('returns 0 for a 0% loan (payment = P/n)', () => {
+    expect(solveAnnualRateFromPayment({ principal: 1200, monthlyPayment: 100, termMonths: 12 })).toBe(0)
+  })
+
+  it('returns null when the payment is too small to ever amortize', () => {
+    expect(solveAnnualRateFromPayment({ principal: 10_000, monthlyPayment: 50, termMonths: 12 })).toBeNull()
+  })
+})
+
+describe('calibrateAnnualRate + finalMonth', () => {
+  it('lowers the entered TAEG to the true taux débiteur', () => {
+    const calibrated = calibrateAnnualRate(lbpLoan, 135.91)
+    expect(calibrated.annualRate).toBeLessThan(0.039)
+    expect(calibrated.annualRate).toBeCloseTo(0.0383, 3)
+  })
+
+  it('closes exactly on the contractual term instead of spilling a stub month', () => {
+    const calibrated = calibrateAnnualRate(lbpLoan, 135.91)
+    // Without finalMonth the rounding residual trails into an 85th month…
+    const spill = simulateSchedule(calibrated, { baseMonthlyPayment: 135.91 })
+    expect(spill.rows.length).toBe(85)
+    // …with finalMonth set, the last instalment absorbs it → exactly 84 rows.
+    const closed = simulateSchedule(calibrated, { baseMonthlyPayment: 135.91, finalMonth: 84 })
+    expect(closed.rows.length).toBe(84)
+    expect(closed.rows[closed.rows.length - 1]?.balanceAfter ?? 1).toBeLessThan(0.01)
+  })
+})
+
+describe('computeLoanLiability — matches the bank', () => {
+  const account = {
+    kind: 'loan' as const,
+    loanOriginalPrincipal: 10_000,
+    loanInterestRate: 0.039,
+    loanTermMonths: 84,
+    loanMonthlyPayment: 135.91,
+    loanStartDate: new Date(Date.UTC(2024, 5, 30)),
+  }
+
+  it('reports capital restant dû within ~1 € of the bank after 25 payments', () => {
+    const { remainingDebt, fromSchedule } = computeLoanLiability(account, 25)
+    expect(fromSchedule).toBe(true)
+    // Bank statement: 7 298,12 €. Calibrated schedule lands within a euro.
+    expect(Math.abs(remainingDebt - 7298.12)).toBeLessThan(1)
+  })
+
+  it('splits money paid into principal + interest that reconcile', () => {
+    const { principalPaid, interestPaid } = computeLoanLiability(account, 25)
+    // 10 000 − restant dû ≈ principal repaid.
+    expect(principalPaid).toBeCloseTo(10_000 - 7298.12, 0)
+    expect(interestPaid).toBeGreaterThan(0)
+  })
+
+  it('reaches zero debt at the end of the calibrated 84-month term', () => {
+    expect(computeLoanLiability(account, 84).remainingDebt).toBeLessThan(1)
   })
 })

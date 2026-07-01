@@ -328,6 +328,7 @@
   "loan.saveSettings": "Save loan settings",
   "loan.saveError": "Failed to save",
   "loan.savedOk": "Saved · loan details updated.",
+  "loan.rateCalibratedHint": "Rate auto-calibrated from the principal, payment and term so the remaining balance matches your bank to the cent — the % above is just for reference.",
   "loan.linkedCategories": "Categories linked to this loan",
   "loan.linkedCategoriesHelp": "Transactions categorized in a linked category automatically update the balance of this loan (like a YNAB \"tracking account\").",
   "loan.linkCategoryPlaceholder": "Link a category…",
