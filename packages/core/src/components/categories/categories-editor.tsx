@@ -7,6 +7,7 @@ import { Input } from '../ui/input'
 import { useT } from '../../i18n/context'
 import type {
   ActionResult,
+  CategoryKind,
   CreateCategoryInput,
   UpdateCategoryInput,
   CreateGroupInput,
@@ -22,7 +23,7 @@ interface CategoryRow {
 interface GroupRow {
   id: string
   name: string
-  kind: 'income' | 'expense'
+  kind: CategoryKind
   color: string | null
   categories: ReadonlyArray<CategoryRow>
 }
@@ -390,7 +391,7 @@ function NewGroupForm({ onDone, actions }: { onDone: () => void; actions: Catego
 function EditGroupForm({ group, onDone, actions }: { group: GroupRow; onDone: () => void; actions: CategoryActions }) {
   const [pending, startTransition] = useTransition()
   const [name, setName] = useState(group.name)
-  const [kind, setKind] = useState<'income' | 'expense'>(group.kind)
+  const [kind, setKind] = useState<CategoryKind>(group.kind)
   const [error, setError] = useState<string | null>(null)
 
   const submit = (e: React.FormEvent) => {

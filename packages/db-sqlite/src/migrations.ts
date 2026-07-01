@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import type Database from 'better-sqlite3'
 import { getRawSqlite, type SqliteDB } from './client'
 
@@ -241,6 +242,45 @@ export function ensureSchema(db: SqliteDB) {
   `)
 
   addMissingColumns(sqlite)
+  ensureAdjustmentCategory(sqlite)
+}
+
+/**
+ * Ensure the 'adjustment' category kind exists (a group + one category) and
+ * auto-file uncategorized balance-reconciliation plugs ("Balance Adjustment"
+ * rows) into it, so they stop leaking into income/expense/savings/burn stats.
+ * SQLite `kind` is free-text, so no enum migration is needed. Idempotent and
+ * re-run each boot, which also catches freshly-created adjustment rows.
+ */
+function ensureAdjustmentCategory(sqlite: Database.Database): void {
+  let grp = sqlite
+    .prepare(`SELECT id FROM category_groups WHERE kind = 'adjustment' LIMIT 1`)
+    .get() as { id: string } | undefined
+  if (!grp) {
+    const gid = randomUUID()
+    sqlite
+      .prepare(
+        `INSERT INTO category_groups (id, name, kind, display_order) VALUES (?, 'Ajustements', 'adjustment', 999)`,
+      )
+      .run(gid)
+    grp = { id: gid }
+  }
+  let cat = sqlite
+    .prepare(`SELECT id FROM categories WHERE group_id = ? LIMIT 1`)
+    .get(grp.id) as { id: string } | undefined
+  if (!cat) {
+    const cid = randomUUID()
+    sqlite
+      .prepare(`INSERT INTO categories (id, group_id, name, display_order) VALUES (?, ?, 'Ajustement', 0)`)
+      .run(cid, grp.id)
+    cat = { id: cid }
+  }
+  sqlite
+    .prepare(
+      `UPDATE transactions SET category_id = ?
+       WHERE category_id IS NULL AND deleted_at IS NULL AND payee LIKE '%Balance Adjustment%'`,
+    )
+    .run(cat.id)
 }
 
 /**

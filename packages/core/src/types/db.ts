@@ -230,7 +230,7 @@ export interface PlanGroup {
   /** category_groups.id */
   id: string
   name: string
-  kind: 'income' | 'expense'
+  kind: 'income' | 'expense' | 'adjustment'
   color: string | null
   categories: PlanCategory[]
   /** Sum of child .assigned. */
@@ -581,7 +581,7 @@ export interface UpdateCategoryInput {
 
 export interface CreateGroupInput {
   name: string
-  kind: 'income' | 'expense'
+  kind: 'income' | 'expense' | 'adjustment'
   color?: string | null
 }
 

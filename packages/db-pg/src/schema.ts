@@ -30,7 +30,10 @@ export const syncProviderEnum = pgEnum('sync_provider', [
   'legacy',
 ])
 
-export const categoryKindEnum = pgEnum('category_kind', ['income', 'expense'])
+// 'adjustment' = balance-reconciliation plugs and untracked-account transfers.
+// Deliberately excluded from every income/expense/savings/burn stat (see the
+// `kind = 'expense'` classification in queries/dashboard.ts).
+export const categoryKindEnum = pgEnum('category_kind', ['income', 'expense', 'adjustment'])
 
 export const transactionSourceEnum = pgEnum('transaction_source', [
   'enable_banking',
