@@ -782,11 +782,13 @@ export async function getSavingsRates(db: SqliteDB): Promise<SavingsRates> {
     const rows = await db
       .select({
         income: sql<number>`COALESCE(SUM(CASE WHEN ${categoryGroups.kind} = 'income' THEN ${transactions.amount} ELSE 0 END), 0)`,
-        // Net ALL non-income rows (not just negatives): a positive amount in an
-        // expense category (a friend's share repaid, a refund) offsets that
-        // category's outflow. Counting only negatives inflated expenses and
-        // crushed the rate. NULL kind (uncategorized) folds into spending too.
-        nonIncomeNet: sql<number>`COALESCE(SUM(CASE WHEN ${categoryGroups.kind} IS NULL OR ${categoryGroups.kind} <> 'income' THEN ${transactions.amount} ELSE 0 END), 0)`,
+        // Net the CATEGORIZED expense groups (sum all amounts, not just the
+        // negatives): a positive in an expense category (a friend's share
+        // repaid, a refund) offsets that category's outflow. `<> 'income'`
+        // drops NULL, so uncategorized rows — dominated on real data by
+        // synthetic balance-reconciliation adjustments and unlinked internal
+        // transfers — are excluded rather than miscounted as spending.
+        nonIncomeNet: sql<number>`COALESCE(SUM(CASE WHEN ${categoryGroups.kind} <> 'income' THEN ${transactions.amount} ELSE 0 END), 0)`,
       })
       .from(transactions)
       .innerJoin(accounts, eq(transactions.accountId, accounts.id))

@@ -37,6 +37,21 @@ describe('getSavingsRates — reimbursements net against their expense category'
     expect(rates.twelveMonth).toBeCloseTo(92.5, 1)
   })
 
+  it('ignores uncategorized rows (synthetic balance adjustments, unlinked transfers)', async () => {
+    const ctx = makeForecastDb()
+    seedGroups(ctx)
+    const acc = seedAccount(ctx, { openingBalance: 0 })
+    const today = todayIso()
+    // 1000 salary, 200 real categorized expense → 80%. A +500 UNcategorized
+    // "Balance Adjustment" must NOT lift the rate (it's not real income/spend).
+    seedTx(ctx, { accountId: acc, occurredAt: today, amount: 1000, payee: 'Employer', categoryId: CAT_SALARY })
+    seedTx(ctx, { accountId: acc, occurredAt: today, amount: -200, payee: 'Rent', categoryId: CAT_DINING })
+    seedTx(ctx, { accountId: acc, occurredAt: today, amount: 500, payee: 'Reconciliation Balance Adjustment', categoryId: null })
+
+    const rates = await getSavingsRates(ctx.db)
+    expect(rates.threeMonth).toBeCloseTo(80, 1)
+  })
+
   it('null (not 0%) when there is no income in the window', async () => {
     const ctx = makeForecastDb()
     seedGroups(ctx)

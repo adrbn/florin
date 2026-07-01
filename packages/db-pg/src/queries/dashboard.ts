@@ -779,14 +779,15 @@ export async function getSavingsRates(db: PgDB): Promise<SavingsRates> {
     const rows = await db
       .select({
         income: sql<string>`COALESCE(SUM(CASE WHEN ${categoryGroups.kind} = 'income' THEN ${transactions.amount} ELSE 0 END), 0)`,
-        // Everything that isn't income nets out to true spending. A positive
-        // amount booked into an expense category (a friend repaying their share
-        // of a shared bill, a merchant refund) OFFSETS that category's outflow,
-        // so it must be summed WITH the negatives — not dropped. The old query
-        // counted only negatives, so money that came back silently inflated
-        // expenses and crushed the savings rate. `IS DISTINCT FROM` also folds
-        // uncategorized rows into spending instead of ignoring them.
-        nonIncomeNet: sql<string>`COALESCE(SUM(CASE WHEN ${categoryGroups.kind} IS DISTINCT FROM 'income' THEN ${transactions.amount} ELSE 0 END), 0)`,
+        // Net the CATEGORIZED expense groups (sum all amounts, not just the
+        // negatives): a positive booked into an expense category — a friend
+        // repaying their share of a shared bill, a merchant refund — OFFSETS
+        // that category's outflow. Counting only negatives inflated expenses
+        // and crushed the rate. Uncategorized rows are deliberately excluded
+        // here (`<> 'income'` drops NULL): on real data they're dominated by
+        // synthetic balance-reconciliation adjustments and unlinked internal
+        // transfers, which aren't income or spending.
+        nonIncomeNet: sql<string>`COALESCE(SUM(CASE WHEN ${categoryGroups.kind} <> 'income' THEN ${transactions.amount} ELSE 0 END), 0)`,
       })
       .from(transactions)
       .innerJoin(accounts, eq(transactions.accountId, accounts.id))
