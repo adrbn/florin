@@ -726,6 +726,8 @@
   "bankSync.dAgo": "il y a {n} j",
   "bankSync.lastSyncedPrefix": "Dernière sync",
   "bankSync.daysLeft": "{n}j restants",
+  "bankSync.hintNoAccounts": "0 compte exposé — cette banque ne partage peut-être pas ses comptes via l'open banking (PSD2).",
+  "bankSync.hintNoTransactions": "Comptes trouvés mais 0 transaction — cette banque n'expose peut-être pas le détail des opérations.",
 
   "tray.syncNow": "Synchroniser",
   "tray.addTransaction": "+ Transaction",

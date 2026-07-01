@@ -53,6 +53,33 @@ function formatRelative(date: Date | null, t: TFunction): string {
   return t('bankSync.dAgo', { n: days }, '{n} d ago')
 }
 
+/**
+ * `lastSyncError` doubles as a status channel: a hard failure is a plain
+ * message (shown red), while a soft, non-error observation is written as
+ * `[info:<token>]` by the sync (shown amber). This maps the known tokens to a
+ * localized, actionable hint so a "synced fine but got nothing" run doesn't
+ * look identically healthy to a real sync. Returns null when it's not an info
+ * note.
+ */
+function bankInfoHint(raw: string | null, t: TFunction): string | null {
+  if (!raw || !raw.startsWith('[info')) return null
+  const token = raw.match(/^\[info:([a-z_]+)\]/)?.[1]
+  if (token === 'no_accounts') {
+    return t(
+      'bankSync.hintNoAccounts',
+      "0 account exposed — this bank may not share accounts over open banking (PSD2).",
+    )
+  }
+  if (token === 'no_transactions') {
+    return t(
+      'bankSync.hintNoTransactions',
+      'Accounts found but 0 transactions — this bank may not expose transaction details.',
+    )
+  }
+  // Unknown/freeform info note: strip the prefix and show the remainder.
+  return raw.replace(/^\[info:?[a-z_]*\]\s*/, '') || null
+}
+
 function statusTone(status: string, validUntil: Date): string {
   if (status !== 'active') return 'border-destructive/40 bg-destructive/10 text-destructive'
   const daysLeft = Math.round((validUntil.getTime() - Date.now()) / (24 * 60 * 60 * 1000))
@@ -86,6 +113,9 @@ export function BankConnectionList({
               (row.validUntil.getTime() - Date.now()) / (24 * 60 * 60 * 1000),
             )
             const tone = statusTone(row.status, row.validUntil)
+            const infoHint = bankInfoHint(row.lastSyncError, t)
+            const errorText =
+              row.lastSyncError && !row.lastSyncError.startsWith('[info') ? row.lastSyncError : null
             return (
               <li
                 key={row.id}
@@ -105,16 +135,20 @@ export function BankConnectionList({
                         : row.status.toUpperCase()}
                     </span>
                   </div>
-                  <p className="truncate text-[11px] text-muted-foreground" title={row.lastSyncError ?? undefined}>
+                  <p className="truncate text-[11px] text-muted-foreground" title={errorText ?? undefined}>
                     {lastSyncedPrefix} {formatRelative(row.lastSyncedAt, t)}
-                    {row.lastSyncError && !row.lastSyncError.startsWith('[info]') && (
+                    {errorText && (
                       <span className="ml-1 text-destructive">
-                        — {row.lastSyncError.length > 60
-                          ? `${row.lastSyncError.slice(0, 60)}…`
-                          : row.lastSyncError}
+                        — {errorText.length > 60 ? `${errorText.slice(0, 60)}…` : errorText}
                       </span>
                     )}
                   </p>
+                  {infoHint && (
+                    <p className="flex items-start gap-1 text-[11px] text-amber-700 dark:text-amber-300">
+                      <span aria-hidden>⚠</span>
+                      <span className="min-w-0">{infoHint}</span>
+                    </p>
+                  )}
                 </div>
                 <BankConnectionActions
                   connectionId={row.id}

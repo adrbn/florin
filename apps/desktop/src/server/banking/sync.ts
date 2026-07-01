@@ -771,6 +771,19 @@ export async function syncConnection(
     }
   }
 
+  const accountsTotal = session.accounts.length
+  // A clean run that returned nothing isn't a failure, but it shouldn't look
+  // identically healthy either. Record a soft `[info:<token>]` note the UI
+  // renders as an amber hint (e.g. PayPal exposes 0 accounts over PSD2).
+  const syncNote =
+    errors.length > 0
+      ? errors.map((e) => e.message).join('; ')
+      : accountsTotal === 0
+        ? '[info:no_accounts]'
+        : accountsSynced > 0 && totalInserted === 0
+          ? '[info:no_transactions]'
+          : null
+
   await db
     .update(bankConnections)
     .set({
@@ -781,12 +794,11 @@ export async function syncConnection(
       // status='active').
       status: 'active',
       lastSyncedAt: new Date().toISOString(),
-      lastSyncError: errors.length > 0 ? errors.map((e) => e.message).join('; ') : null,
+      lastSyncError: syncNote,
       updatedAt: new Date().toISOString(),
     })
     .where(eq(bankConnections.id, connectionId))
 
-  const accountsTotal = session.accounts.length
   const status: 'ok' | 'partial' | 'error' =
     errors.length === 0
       ? 'ok'

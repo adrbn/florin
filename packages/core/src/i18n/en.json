@@ -726,6 +726,8 @@
   "bankSync.dAgo": "{n} d ago",
   "bankSync.lastSyncedPrefix": "Last synced",
   "bankSync.daysLeft": "{n}d left",
+  "bankSync.hintNoAccounts": "0 account exposed — this bank may not share accounts over open banking (PSD2).",
+  "bankSync.hintNoTransactions": "Accounts found but 0 transactions — this bank may not expose transaction details.",
 
   "tray.syncNow": "Sync Now",
   "tray.addTransaction": "+ Transaction",
