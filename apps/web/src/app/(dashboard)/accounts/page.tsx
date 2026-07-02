@@ -65,10 +65,20 @@ export default async function AccountsPage({ searchParams }: AccountsPageProps) 
   ])
   const accounts = rawAccounts.map((a) => {
     const scheduledDelta = scheduledDeltaByAccount[a.id] ?? 0
-    if (a.kind !== 'loan') return { ...a, scheduledDelta }
-    const liability = liabilityMap.get(a.id)
-    if (!liability) return { ...a, scheduledDelta }
-    return { ...a, currentBalance: (-liability.remainingDebt).toFixed(2), scheduledDelta }
+    if (a.kind === 'loan') {
+      const liability = liabilityMap.get(a.id)
+      if (!liability) return { ...a, scheduledDelta }
+      return { ...a, currentBalance: (-liability.remainingDebt).toFixed(2), scheduledDelta }
+    }
+    if (a.kind === 'broker_portfolio') {
+      // The grouped list shows one figure per account; for an investment
+      // wrapper that's holdings market value + idle cash (matches the
+      // dashboard donut and net worth). Without this the row showed only the
+      // cash leg, so a fully-invested PEA looked like ~0 €.
+      const total = Number(a.marketValue ?? 0) + Number(a.currentBalance)
+      return { ...a, currentBalance: total.toFixed(2), scheduledDelta }
+    }
+    return { ...a, scheduledDelta }
   })
 
   // Fetch bank connection rows for the list

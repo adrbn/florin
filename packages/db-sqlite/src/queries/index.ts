@@ -74,6 +74,7 @@ function mapAccount(row: typeof accounts.$inferSelect): Account {
     ...row,
     kind: row.kind as AccountKind,
     currentBalance: String(row.currentBalance),
+    marketValue: String(row.marketValue),
     lastSyncedAt: toDate(row.lastSyncedAt),
     syncProvider: row.syncProvider as SyncProvider,
     loanOriginalPrincipal: row.loanOriginalPrincipal === null ? null : String(row.loanOriginalPrincipal),
