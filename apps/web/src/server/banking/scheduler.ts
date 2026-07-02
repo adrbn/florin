@@ -32,9 +32,15 @@
  */
 
 import { syncAllConnections } from './sync-all'
+import { refreshPriceQuotes } from '@/server/pricing/refresh'
 
 const SYNC_INTERVAL_MS = 6 * 60 * 60 * 1000 // 6 hours
 const INITIAL_DELAY_MS = 2 * 60 * 1000 // 2 minutes
+// Portfolio quotes refresh on their own (shorter) cadence so the stored
+// market value stays fresh even when nobody opens the dashboard. A 'none'
+// provider makes refreshPriceQuotes a zero-network no-op, and outside market
+// hours it just re-fetches the same close — cheap either way.
+const PRICE_INTERVAL_MS = 2 * 60 * 60 * 1000 // 2 hours
 
 let schedulerStarted = false
 
@@ -66,7 +72,23 @@ export function ensureAutoSyncScheduler(): void {
     }, SYNC_INTERVAL_MS)
   }, INITIAL_DELAY_MS)
 
+  const refreshPrices = async (): Promise<void> => {
+    try {
+      const r = await refreshPriceQuotes()
+      if (!r.skipped) {
+        console.log(`[florin:price-refresh] ${r.fetched} quotes fetched, ${r.failed} failed`)
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'unknown error'
+      console.error(`[florin:price-refresh] failed: ${message}`)
+    }
+  }
+  setTimeout(() => {
+    void refreshPrices()
+    setInterval(() => void refreshPrices(), PRICE_INTERVAL_MS)
+  }, INITIAL_DELAY_MS)
+
   console.log(
-    `[florin:auto-sync] registered — initial run in ${INITIAL_DELAY_MS / 1000}s, then every ${SYNC_INTERVAL_MS / 1000 / 3600}h`,
+    `[florin:auto-sync] registered — initial run in ${INITIAL_DELAY_MS / 1000}s, then every ${SYNC_INTERVAL_MS / 1000 / 3600}h; prices every ${PRICE_INTERVAL_MS / 1000 / 3600}h`,
   )
 }
