@@ -51,6 +51,8 @@ export interface Account {
   isArchived: boolean
   isIncludedInNetWorth: boolean
   currentBalance: string
+  /** Holdings market value for broker accounts (Σ qty × lastPrice); '0' otherwise. */
+  marketValue: string
   lastSyncedAt: Date | null
   syncProvider: SyncProvider
   syncExternalId: string | null
