@@ -158,6 +158,7 @@
   "accounts.connectBank": "Connect bank",
   "accounts.backToAccounts": "← Accounts",
   "accounts.currentBalance": "Current balance",
+  "accounts.totalValue": "Total value",
   "accounts.inflow": "Inflow (last {n} tx)",
   "accounts.outflow": "Outflow (last {n} tx)",
   "accounts.lastSynced": "Last synced {date}",

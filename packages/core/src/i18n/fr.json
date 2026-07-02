@@ -158,6 +158,7 @@
   "accounts.connectBank": "Connecter une banque",
   "accounts.backToAccounts": "← Comptes",
   "accounts.currentBalance": "Solde actuel",
+  "accounts.totalValue": "Valeur totale",
   "accounts.inflow": "Entrées (dernières {n} tx)",
   "accounts.outflow": "Sorties (dernières {n} tx)",
   "accounts.lastSynced": "Dernière sync {date}",
