@@ -28,14 +28,27 @@ export async function getEnableBankingConfig(): Promise<EnableBankingConfig | nu
 
 /**
  * Read the HMAC secret used for signing OAuth state tokens from the settings
- * table. Falls back to a deterministic but secret-per-install value derived
- * from the app id when no explicit secret is configured.
+ * table, generating a cryptographically random one on first use. The old
+ * fallback (deriving from the Enable Banking app id) was weak: the app id is
+ * a non-secret UUID visible in the EB console and API traffic, so anyone who
+ * knew it could forge state tokens.
  */
 export async function getAuthStateSecret(): Promise<string | null> {
   const row = await db.select().from(settings).where(eq(settings.key, 'auth_state_secret')).get()
   if (row?.value) return row.value
 
-  // Fallback: derive from app id if available (better than nothing).
-  const appIdRow = await db.select().from(settings).where(eq(settings.key, 'eb_app_id')).get()
-  return appIdRow?.value ?? null
+  const { randomBytes } = await import('node:crypto')
+  const secret = randomBytes(32).toString('hex')
+  await db
+    .insert(settings)
+    .values({ key: 'auth_state_secret', value: secret })
+    .onConflictDoNothing()
+  // Re-read: a concurrent caller may have won the insert race — both callers
+  // must agree on the same secret or the auth state check fails spuriously.
+  const persisted = await db
+    .select()
+    .from(settings)
+    .where(eq(settings.key, 'auth_state_secret'))
+    .get()
+  return persisted?.value ?? secret
 }

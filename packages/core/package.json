@@ -32,9 +32,15 @@
   },
   "typesVersions": {
     "*": {
-      "components/onboarding/wizard": ["./src/components/onboarding/wizard/index.ts"],
-      "components/plan": ["./src/components/plan/index.ts"],
-      "components/*": ["./src/components/*.tsx"]
+      "components/onboarding/wizard": [
+        "./src/components/onboarding/wizard/index.ts"
+      ],
+      "components/plan": [
+        "./src/components/plan/index.ts"
+      ],
+      "components/*": [
+        "./src/components/*.tsx"
+      ]
     }
   },
   "dependencies": {
@@ -60,14 +66,20 @@
     "next-themes": ">=0.4"
   },
   "peerDependenciesMeta": {
-    "next": { "optional": true },
-    "next-auth": { "optional": true },
-    "next-themes": { "optional": true }
+    "next": {
+      "optional": true
+    },
+    "next-auth": {
+      "optional": true
+    },
+    "next-themes": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "next": "^15.4.0-canary.75",
+    "next": "^15.5.20",
     "next-auth": "5.0.0-beta.30",
     "next-themes": "^0.4.6",
     "typescript": "^6.0.2"

@@ -133,9 +133,20 @@ export function registerIpcHandlers(
     return dest
   })
 
-  // Open a URL in the system browser (for bank SCA redirects)
+  // Open a URL in the system browser (for bank SCA redirects). Only http(s)
+  // is allowed — file:// or custom URI schemes reaching shell.openExternal
+  // from a compromised renderer could launch arbitrary local applications.
   ipcMain.on('shell:open-external', (_event, url: string) => {
-    shell.openExternal(url)
+    try {
+      const parsed = new URL(url)
+      if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+        console.warn('[ipc] blocked openExternal for non-http(s) URL:', url)
+        return
+      }
+      void shell.openExternal(url)
+    } catch {
+      console.warn('[ipc] blocked openExternal for invalid URL:', url)
+    }
   })
 
   ipcMain.on('quit-app', () => {

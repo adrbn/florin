@@ -26,6 +26,24 @@ function isPublic(pathname: string): boolean {
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
+  // Cross-origin guard for the API surface. The local server binds to
+  // 127.0.0.1 only, but any web page open in a browser on this machine can
+  // still fire fetch() calls at https://127.0.0.1:3847 — and routes like
+  // /api/import/json are destructive. Browsers attach an Origin header to
+  // cross-origin fetches; the Electron renderer's own requests come from the
+  // loopback origin and the main process sends no Origin at all, so both
+  // keep working.
+  if (pathname.startsWith('/api/')) {
+    const origin = request.headers.get('origin')
+    if (
+      origin &&
+      !origin.startsWith('https://127.0.0.1:') &&
+      !origin.startsWith('https://localhost:')
+    ) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+  }
+
   if (isPublic(pathname)) {
     return NextResponse.next()
   }

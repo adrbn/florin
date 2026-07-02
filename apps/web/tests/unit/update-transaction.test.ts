@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { recomputeAccountBalance } from '@florin/db-sqlite'
 import { createSqliteMutations } from '@florin/db-sqlite/actions'
 import {
   makeForecastDb,
@@ -19,10 +20,15 @@ describe('updateTransaction', () => {
     // A 300 € expense 5 days ago + a 225 € reimbursement 2 days ago.
     seedTx(ctx, { accountId: acc, occurredAt: isoOffsetDays(-5), amount: -300, payee: 'Group dinner' })
     const reimb = seedTx(ctx, { accountId: acc, occurredAt: isoOffsetDays(-2), amount: 225, payee: 'Refund' })
+    // seedTx writes rows without touching the account row — derive the real
+    // starting balance (-75) so `before` isn't a stale seeded 0.
+    await recomputeAccountBalance(ctx.db, acc)
     const m = createSqliteMutations(ctx.db)
 
     const before = readBalance(ctx, acc)
-    const res = await m.updateTransaction(reimb, { occurredAt: new Date(`${isoOffsetDays(-5)}T00:00:00`) })
+    // UTC-midnight construction, same as the UI (`new Date('YYYY-MM-DD')`) —
+    // a local-midnight Date would shift back a day for TZ east of UTC.
+    const res = await m.updateTransaction(reimb, { occurredAt: new Date(isoOffsetDays(-5)) })
     expect(res.success).toBe(true)
     // Net balance unchanged — both dates are past+cleared, only the day moved.
     expect(readBalance(ctx, acc)).toBeCloseTo(before, 2)

@@ -30,16 +30,53 @@ const DB_PATH = path.join(app.getPath('userData'), 'florin.db')
 process.env.FLORIN_DB_PATH = DB_PATH
 
 // Allow the self-signed localhost certificate used by our HTTPS server.
-// Without this, Electron's Chromium rejects the page load entirely.
-app.on('certificate-error', (event, _webContents, _url, _error, _cert, callback) => {
-  event.preventDefault()
-  callback(true)
+// Scoped strictly to the local loopback origin: any other host with a bad
+// certificate must still fail closed, otherwise the renderer could silently
+// load MITM'd external content.
+app.on('certificate-error', (event, _webContents, url, _error, _cert, callback) => {
+  if (url.startsWith('https://127.0.0.1:') || url.startsWith('https://localhost:')) {
+    event.preventDefault()
+    callback(true)
+  } else {
+    callback(false)
+  }
 })
 
-// Also allow Node.js fetch (used by the main process for sync API calls) to
-// accept the self-signed localhost cert. This only affects local loopback —
-// renderer-side HTTPS goes through Chromium's stack above.
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
+/**
+ * fetch()-shaped helper for calling our own local HTTPS server (self-signed
+ * cert). TLS verification is disabled for THIS request only — never set
+ * NODE_TLS_REJECT_UNAUTHORIZED globally: the Next.js server runs in this
+ * same process, and the global flag would strip certificate checks from its
+ * outbound calls to the Enable Banking API too.
+ */
+async function localFetch(
+  url: string,
+  options: { method?: string } = {},
+): Promise<{ ok: boolean; status: number; statusText: string; json: () => Promise<unknown> }> {
+  const { request } = await import('node:https')
+  return new Promise((resolve, reject) => {
+    const req = request(
+      url,
+      { method: options.method ?? 'GET', rejectUnauthorized: false },
+      (res) => {
+        const chunks: Buffer[] = []
+        res.on('data', (c: Buffer) => chunks.push(c))
+        res.on('end', () => {
+          const body = Buffer.concat(chunks).toString('utf8')
+          const status = res.statusCode ?? 0
+          resolve({
+            ok: status >= 200 && status < 300,
+            status,
+            statusText: res.statusMessage ?? '',
+            json: async () => JSON.parse(body),
+          })
+        })
+      },
+    )
+    req.on('error', reject)
+    req.end()
+  })
+}
 
 app.whenReady().then(async () => {
   // Initialize SQLite database — createSqliteClient enables WAL mode and
@@ -85,12 +122,14 @@ app.whenReady().then(async () => {
   // a bare dynamic import from the main process fails because @/ aliases
   // don't resolve outside webpack/Next.js.
   const syncAllFn = async (trigger: 'manual' | 'scheduler' = 'manual') => {
-    const res = await fetch(
+    const res = await localFetch(
       `https://127.0.0.1:${port}/api/banking/sync?trigger=${trigger}`,
       { method: 'POST' },
     )
     if (!res.ok) {
-      const body = await res.json().catch(() => ({ error: res.statusText }))
+      const body = (await res.json().catch(() => ({ error: res.statusText }))) as {
+        error?: string
+      }
       throw new Error(body.error ?? `Sync failed (${res.status})`)
     }
   }
@@ -102,7 +141,7 @@ app.whenReady().then(async () => {
   // machine or disabled provider must never throw out of the scheduler.
   const refreshPricesFn = async () => {
     try {
-      await fetch(`https://127.0.0.1:${port}/api/pricing/refresh`, { method: 'POST' })
+      await localFetch(`https://127.0.0.1:${port}/api/pricing/refresh`, { method: 'POST' })
     } catch {
       // offline or server not ready — ignore
     }

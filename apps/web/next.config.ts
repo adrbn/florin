@@ -13,6 +13,19 @@ const nextConfig: NextConfig = {
   // analyzes files like `instrumentation.ts` that can be loaded from either
   // runtime. At runtime we gate the db import behind `NEXT_RUNTIME === 'nodejs'`.
   serverExternalPackages: ['postgres'],
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+        ],
+      },
+    ]
+  },
 }
 
 export default nextConfig

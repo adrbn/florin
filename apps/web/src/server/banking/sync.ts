@@ -37,7 +37,13 @@ import {
 } from '@florin/core/lib/categorization'
 import { extractTrueDateFromText } from '@florin/core/lib/transactions'
 import { autoLinkInternalTransfersMutation, findMergeCandidateId } from '@florin/db-pg'
-import { getAccountDetails, getBalances, getSession, getTransactions } from './enable-banking'
+import {
+  EnableBankingError,
+  getAccountDetails,
+  getBalances,
+  getSession,
+  getTransactions,
+} from './enable-banking'
 import type { AccountDetails, BankTransaction } from './types'
 
 export interface SyncResult {
@@ -547,7 +553,32 @@ export async function syncConnection(
     throw new Error('Failed to create sync run row')
   }
 
-  const session = await getSession(connection.sessionId)
+  let session: Awaited<ReturnType<typeof getSession>>
+  try {
+    session = await getSession(connection.sessionId)
+  } catch (error: unknown) {
+    // 422 / 404 on the session endpoint means the consent is dead — mark
+    // the connection so the user knows to re-authenticate. Without this
+    // catch the bank_sync_runs row above stays 'running' forever.
+    const reason =
+      error instanceof EnableBankingError
+        ? `Session rejected (${error.status ?? '?'}) — reconnect this bank`
+        : 'Failed to reach Enable Banking'
+    await db
+      .update(bankConnections)
+      .set({ status: 'expired', lastSyncError: reason, updatedAt: new Date() })
+      .where(eq(bankConnections.id, connectionId))
+    const errors = [{ accountUid: '*', message: reason }]
+    await finalizeSyncRun(runId, startedAt, 'error', 0, 0, 0, errors, [])
+    return {
+      connectionId,
+      accountsSynced: 0,
+      transactionsInserted: 0,
+      errors,
+      durationMs: Date.now() - startedAt,
+    }
+  }
+
   if (session.status !== 'AUTHORIZED') {
     await db
       .update(bankConnections)

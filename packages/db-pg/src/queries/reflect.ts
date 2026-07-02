@@ -26,13 +26,20 @@ export async function getMonthlyFlows(db: PgDB, months = 12): Promise<MonthlyFlo
     })
     .from(transactions)
     .innerJoin(accounts, eq(transactions.accountId, accounts.id))
+    .leftJoin(categories, eq(transactions.categoryId, categories.id))
+    .leftJoin(categoryGroups, eq(categories.groupId, categoryGroups.id))
     .where(
       and(
         isNull(transactions.deletedAt),
+        eq(transactions.status, 'cleared'),
         gte(transactions.occurredAt, start),
         sql`${transactions.transferPairId} IS NULL`,
         // Hide uncategorized SEPA outgoing transfers — see getDailySpend.
         notUncategorizedTransfer(),
+        // Adjustment-kind rows (balance plugs, transfers from untracked
+        // accounts) are neither income nor spending — keep them out of the
+        // flows chart like every other income/expense stat.
+        sql`(${categoryGroups.kind} IS NULL OR ${categoryGroups.kind} <> 'adjustment')`,
         eq(accounts.isArchived, false),
       ),
     )

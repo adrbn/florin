@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, isNotNull, isNull, lte, sql } from 'drizzle-orm'
+import { and, desc, eq, gte, isNull, lte, sql } from 'drizzle-orm'
 import type { SqliteDB } from '../client'
 import { accounts, categories, categoryGroups, recurringRules, transactions } from '../schema'
 import { getLoanLiabilities } from './loan-liabilities'
@@ -61,9 +61,11 @@ export async function getNetWorthAllocation(db: SqliteDB): Promise<NetWorthAlloc
   for (const a of accountRows) {
     if (a.kind === 'loan') {
       loans += liabilityMap.get(a.id)?.remainingDebt ?? 0
-    } else if (a.kind === 'broker_portfolio') {
-      invested += Number(a.marketValue)
-      cash += Number(a.currentBalance)
+    } else if (a.kind === 'broker_portfolio' || a.kind === 'broker_cash') {
+      // Idle cash inside an investment wrapper (PEA versements not yet
+      // deployed) belongs to the "invested" slice — it left the day-to-day
+      // cash pool the moment it entered the envelope.
+      invested += Number(a.marketValue ?? 0) + Number(a.currentBalance)
     } else {
       cash += Number(a.currentBalance)
     }
@@ -399,6 +401,7 @@ export async function getTopExpenses(
   const start = formatDate(new Date(Date.now() - days * 24 * 60 * 60 * 1000))
   const conds = [
     isNull(transactions.deletedAt),
+    eq(transactions.status, 'cleared'),
     gte(transactions.occurredAt, start),
     sql`${transactions.amount} < 0`,
     sql`${transactions.transferPairId} IS NULL`,
@@ -444,6 +447,7 @@ export async function getTopSpend(
   const start = formatDate(new Date(Date.now() - days * 24 * 60 * 60 * 1000))
   const conds = [
     isNull(transactions.deletedAt),
+    eq(transactions.status, 'cleared'),
     gte(transactions.occurredAt, start),
     sql`${transactions.amount} < 0`,
     sql`${transactions.transferPairId} IS NULL`,
@@ -534,6 +538,7 @@ export async function countUncategorizedExpensesThisMonth(db: SqliteDB): Promise
     .where(
       and(
         isNull(transactions.deletedAt),
+        eq(transactions.status, 'cleared'),
         isNull(transactions.categoryId),
         gte(transactions.occurredAt, start),
         lte(transactions.occurredAt, end),
@@ -604,15 +609,21 @@ export async function getLeftToSpendThisMonth(db: SqliteDB): Promise<LeftToSpend
     .select({ categoryId: transactions.categoryId, categoryName: categories.name })
     .from(transactions)
     .innerJoin(accounts, eq(transactions.accountId, accounts.id))
-    .leftJoin(categories, eq(transactions.categoryId, categories.id))
+    .innerJoin(categories, eq(transactions.categoryId, categories.id))
+    .innerJoin(categoryGroups, eq(categories.groupId, categoryGroups.id))
     .where(
       and(
         isNull(transactions.deletedAt),
-        isNotNull(transactions.categoryId),
+        eq(transactions.status, 'cleared'),
         gte(transactions.occurredAt, lookback),
         sql`${transactions.amount} >= ${SALARY_MIN_AMOUNT}`,
         sql`${transactions.transferPairId} IS NULL`,
         eq(accounts.isArchived, false),
+        // Only income-kind categories qualify as "salary". Without this, a
+        // large inbound transfer categorized as an adjustment (e.g. topping
+        // up the checking account from an untracked savings account) would
+        // become the salary category and fake the whole month's margin.
+        eq(categoryGroups.kind, 'income'),
       ),
     )
     .orderBy(desc(transactions.occurredAt))
@@ -638,6 +649,7 @@ export async function getLeftToSpendThisMonth(db: SqliteDB): Promise<LeftToSpend
       .where(
         and(
           isNull(transactions.deletedAt),
+          eq(transactions.status, 'cleared'),
           eq(transactions.categoryId, salaryCategoryId),
           gte(transactions.occurredAt, lookback),
           sql`${transactions.amount} > 0`,
@@ -698,6 +710,7 @@ export async function getDailySpend(db: SqliteDB, days = 91): Promise<DailySpend
     .where(
       and(
         isNull(transactions.deletedAt),
+        eq(transactions.status, 'cleared'),
         gte(transactions.occurredAt, start),
         sql`${transactions.amount} < 0`,
         sql`${transactions.transferPairId} IS NULL`,
@@ -739,6 +752,7 @@ export async function getDailySpendByCategory(
     .where(
       and(
         isNull(transactions.deletedAt),
+        eq(transactions.status, 'cleared'),
         gte(transactions.occurredAt, start),
         sql`${transactions.amount} < 0`,
         sql`${transactions.transferPairId} IS NULL`,
@@ -796,6 +810,7 @@ export async function getSavingsRates(db: SqliteDB): Promise<SavingsRates> {
       .where(
         and(
           isNull(transactions.deletedAt),
+          eq(transactions.status, 'cleared'),
           gte(transactions.occurredAt, start),
           lte(transactions.occurredAt, end),
           sql`${transactions.transferPairId} IS NULL`,
@@ -833,6 +848,7 @@ export async function getSubscriptions(db: SqliteDB): Promise<SubscriptionMatch[
     .where(
       and(
         isNull(transactions.deletedAt),
+        eq(transactions.status, 'cleared'),
         gte(transactions.occurredAt, start),
         sql`${transactions.amount} < 0`,
         sql`${transactions.transferPairId} IS NULL`,

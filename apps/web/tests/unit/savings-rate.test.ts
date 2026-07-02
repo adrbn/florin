@@ -10,11 +10,13 @@ const CAT_DINING = 'd2222222-2222-4222-8222-2222220000b2'
 const CAT_ADJUST = 'd2222222-2222-4222-8222-2222220000b3'
 
 function seedGroups(ctx: ForecastTestContext): void {
+  // Names must not collide with the defaults ensureSchema seeds — a UNIQUE
+  // index guards category_groups.name and 'Ajustements' already exists.
   ctx.raw.exec(`
     INSERT INTO category_groups (id, name, kind, display_order) VALUES
-      ('${GRP_INCOME}', 'Income', 'income', 0),
-      ('${GRP_EXPENSE}', 'Dining', 'expense', 1),
-      ('${GRP_ADJUST}', 'Ajustements', 'adjustment', 999);
+      ('${GRP_INCOME}', 'Test Income', 'income', 0),
+      ('${GRP_EXPENSE}', 'Test Dining', 'expense', 1),
+      ('${GRP_ADJUST}', 'Test Ajustements', 'adjustment', 999);
     INSERT INTO categories (id, group_id, name, display_order) VALUES
       ('${CAT_SALARY}', '${GRP_INCOME}', 'Salary', 0),
       ('${CAT_DINING}', '${GRP_EXPENSE}', 'Restaurants', 1),

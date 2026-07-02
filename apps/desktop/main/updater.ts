@@ -18,8 +18,10 @@ export function initAutoUpdater() {
       )
     })
 
-    autoUpdater.on('error', () => {
-      // Silently ignore update errors (no network, no release, etc.)
+    autoUpdater.on('error', (err) => {
+      // Non-fatal (no network, no release, unsigned dev build…) but log it —
+      // a swallowed signing/config error is otherwise undiagnosable.
+      console.warn('[updater] update check failed:', err?.message ?? err)
     })
 
     ipcMain.on('install-update', () => {
