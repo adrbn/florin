@@ -149,6 +149,8 @@ async function computeNetMonthAgo(db: PgDB, currentNet: number): Promise<number 
     .select({ total: sql<string>`COALESCE(SUM(${transactions.amount}), 0)` })
     .from(transactions)
     .innerJoin(accounts, eq(transactions.accountId, accounts.id))
+    .leftJoin(categories, eq(transactions.categoryId, categories.id))
+    .leftJoin(categoryGroups, eq(categories.groupId, categoryGroups.id))
     .where(
       and(
         isNull(transactions.deletedAt),
@@ -159,6 +161,11 @@ async function computeNetMonthAgo(db: PgDB, currentNet: number): Promise<number 
         eq(transactions.status, 'cleared'),
         gt(transactions.occurredAt, target),
         lte(transactions.occurredAt, today),
+        // Exclude 'adjustment' plugs (balance reconciliations, transfers from
+        // untracked accounts). They move an account balance but aren't real
+        // wealth change for the period — counting them made "vs last month"
+        // jump by e.g. a +2000 "FONDS DE RLMT" consolidation.
+        sql`(${categoryGroups.kind} IS NULL OR ${categoryGroups.kind} <> 'adjustment')`,
       ),
     )
   const delta = Number(sumRow?.total ?? '0')
@@ -239,6 +246,8 @@ export async function getPatrimonyTimeSeries(db: PgDB, months = 12): Promise<Pat
     })
     .from(transactions)
     .innerJoin(accounts, eq(transactions.accountId, accounts.id))
+    .leftJoin(categories, eq(transactions.categoryId, categories.id))
+    .leftJoin(categoryGroups, eq(categories.groupId, categoryGroups.id))
     .where(
       and(
         isNull(transactions.deletedAt),
@@ -249,6 +258,13 @@ export async function getPatrimonyTimeSeries(db: PgDB, months = 12): Promise<Pat
         eq(accounts.isArchived, false),
         eq(accounts.isIncludedInNetWorth, true),
         sql`${accounts.kind} <> 'loan'`,
+        // Exclude 'adjustment' plugs from the historical walk. They move an
+        // account balance on their booking date but don't represent wealth
+        // created/lost that day (reconciliation, or a transfer in from an
+        // untracked account). Including them drew a phantom vertical step —
+        // e.g. a +2000 "FONDS DE RLMT" consolidation looked like a one-day
+        // spike even though the real wealth curve was flat.
+        sql`(${categoryGroups.kind} IS NULL OR ${categoryGroups.kind} <> 'adjustment')`,
       ),
     )
     .groupBy(sql`to_char(${transactions.occurredAt}, 'YYYY-MM-DD')`)
