@@ -455,6 +455,37 @@ describe('buyHolding — cash → shares in one action', () => {
     // Cash deducted again: 1500 − 300 = 1200.
     expect(readBalance(ctx, broker)).toBe(1200)
   })
+
+  it('files the buy under the adjustment kind so it never counts as spending', async () => {
+    const ctx = makeForecastDb()
+    const broker = seedBroker(ctx, { openingBalance: 1000, currentBalance: 1000 })
+    const m = createSqliteMutations(ctx.db)
+    const q = createSqliteQueries(ctx.db)
+
+    await m.buyHolding({
+      accountId: broker,
+      label: 'World ETF',
+      quoteSymbol: 'WPEA.PA',
+      quantity: 4,
+      amount: 500,
+    })
+
+    // The −500 buy must not show up in this month's burn — a cash→shares
+    // reallocation isn't spending. Filing it under the 'adjustment' kind is
+    // what keeps it out of burn/flows/savings/top-spend.
+    expect(await q.getMonthBurn()).toBe(0)
+
+    const row = ctx.raw
+      .prepare(
+        `SELECT cg.kind AS kind
+         FROM transactions t
+         JOIN categories c ON c.id = t.category_id
+         JOIN category_groups cg ON cg.id = c.group_id
+         WHERE t.payee = 'Achat World ETF'`,
+      )
+      .get() as { kind: string } | undefined
+    expect(row?.kind).toBe('adjustment')
+  })
 })
 
 // =====================================================================

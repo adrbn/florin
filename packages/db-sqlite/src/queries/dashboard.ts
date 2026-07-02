@@ -422,6 +422,11 @@ export async function getTopExpenses(
     sql`${transactions.amount} < 0`,
     sql`${transactions.transferPairId} IS NULL`,
     eq(accounts.isArchived, false),
+    // Exclude 'adjustment'-kind rows (e.g. cash→shares buys inside a broker
+    // wrapper) — they aren't spending and must not top the expense card.
+    sql`(${transactions.categoryId} IS NULL OR ${transactions.categoryId} NOT IN (
+      SELECT c.id FROM categories c JOIN category_groups cg ON cg.id = c.group_id
+      WHERE cg.kind = 'adjustment'))`,
   ]
   if (categoryId) {
     conds.push(eq(transactions.categoryId, categoryId))
@@ -468,6 +473,11 @@ export async function getTopSpend(
     sql`${transactions.amount} < 0`,
     sql`${transactions.transferPairId} IS NULL`,
     eq(accounts.isArchived, false),
+    // Exclude 'adjustment'-kind rows (e.g. cash→shares buys inside a broker
+    // wrapper) — they aren't spending and must not top the expense card.
+    sql`(${transactions.categoryId} IS NULL OR ${transactions.categoryId} NOT IN (
+      SELECT c.id FROM categories c JOIN category_groups cg ON cg.id = c.group_id
+      WHERE cg.kind = 'adjustment'))`,
   ]
   if (categoryId === 'none') {
     conds.push(isNull(transactions.categoryId))

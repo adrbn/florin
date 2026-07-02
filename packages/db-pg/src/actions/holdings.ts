@@ -8,8 +8,24 @@ import type {
   UpdateHoldingInput,
 } from '@florin/core/types'
 import type { PgDB } from '../client'
-import { holdings, transactions } from '../schema'
+import { categories, categoryGroups, holdings, transactions } from '../schema'
 import { recomputeAccountBalance, recomputeMarketValue } from './helpers'
+
+/**
+ * Resolve the 'adjustment'-kind category id (the self-healed "Ajustement"
+ * bucket). Buy transactions are filed here so a cash→shares reallocation
+ * inside an investment wrapper never counts as spending/income in the stats
+ * (burn, flows, savings, top-spend all exclude the adjustment kind).
+ */
+async function adjustmentCategoryId(db: PgDB): Promise<string | null> {
+  const [row] = await db
+    .select({ id: categories.id })
+    .from(categories)
+    .innerJoin(categoryGroups, eq(categories.groupId, categoryGroups.id))
+    .where(eq(categoryGroups.kind, 'adjustment'))
+    .limit(1)
+  return row?.id ?? null
+}
 
 const addSchema = z.object({
   accountId: z.uuid(),
@@ -172,7 +188,7 @@ export async function buyHoldingMutation(
       payee,
       normalizedPayee: normalizePayee(payee),
       memo: 'auto: achat de titre',
-      categoryId: null,
+      categoryId: await adjustmentCategoryId(db),
       source: 'manual',
       status: 'cleared',
       needsReview: false,
