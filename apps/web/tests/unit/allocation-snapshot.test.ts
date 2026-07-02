@@ -77,7 +77,7 @@ describe('getNetWorthAllocation', () => {
     seedTx(ctx, { accountId: checking, occurredAt: isoOffsetDays(-5), amount: 3000, status: 'cleared' })
     await recomputeAccountBalance(ctx.db, checking)
 
-    // Broker portfolio → invested (marketValue) + its idle cash.
+    // Broker portfolio → invested (marketValue + idle cash inside the wrapper).
     const broker = seedAccount(ctx, { name: 'PEA', kind: 'broker_portfolio' })
     seedHolding(ctx, { accountId: broker, quantity: 10, costBasis: 1000, lastPrice: 200 }) // mv 2000
     await recomputeMarketValue(ctx.db, broker)
@@ -91,10 +91,12 @@ describe('getNetWorthAllocation', () => {
 
     const alloc = await q.getNetWorthAllocation()
 
-    // cash = checking 3000 + broker idle cash 500.
-    expect(alloc.cash).toBe(3500)
-    // invested = broker marketValue only (holdings), not its cash.
-    expect(alloc.invested).toBe(2000)
+    // cash = checking only — money inside the investment wrapper is not
+    // day-to-day cash.
+    expect(alloc.cash).toBe(3000)
+    // invested = broker marketValue (holdings) + idle cash sitting in the
+    // wrapper (versements not yet deployed).
+    expect(alloc.invested).toBe(2500)
     // loans = remaining debt of the loan account (positive magnitude).
     expect(alloc.loans).toBeGreaterThan(0)
   })

@@ -20,7 +20,21 @@ import { getAuthStateSecret } from '@/server/banking/config'
 
 export const dynamic = 'force-dynamic'
 
-function htmlResponse(title: string, message: string, isError: boolean): NextResponse {
+/** Escape untrusted text before HTML interpolation — the error/description
+ * params come straight from the callback URL query string, so without this a
+ * crafted redirect is a reflected XSS in the system browser. */
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
+
+function htmlResponse(rawTitle: string, rawMessage: string, isError: boolean): NextResponse {
+  const title = escapeHtml(rawTitle)
+  const message = escapeHtml(rawMessage)
   const color = isError ? '#ef4444' : '#10b981'
   const icon = isError ? '&#10007;' : '&#10003;'
   const html = `<!DOCTYPE html>
@@ -41,7 +55,11 @@ function htmlResponse(title: string, message: string, isError: boolean): NextRes
   <p>${message}</p>
 </div></body></html>`
   return new NextResponse(html, {
-    headers: { 'Content-Type': 'text/html; charset=utf-8' },
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'X-Content-Type-Options': 'nosniff',
+      'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'",
+    },
   })
 }
 
