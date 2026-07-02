@@ -45,6 +45,10 @@ services:
       ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH}
       APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      # Live security price quotes (portfolio market value). 'yahoo' uses the
+      # free Yahoo Finance chart endpoint; 'none' (default) disables it.
+      PRICE_PROVIDER: ${PRICE_PROVIDER:-none}
+      PRICE_API_KEY: ${PRICE_API_KEY:-}
     ports:
       - "127.0.0.1:3000:3000"
     healthcheck:
