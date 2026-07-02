@@ -105,6 +105,12 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
   const loanPrincipalPaid = loanBreakdown?.principalPaid ?? 0
   const loanInterestPaid = loanBreakdown?.interestPaid ?? 0
 
+  // For an investment wrapper the headline figure is holdings market value +
+  // idle cash (matches the list, the donut, and net worth). The HoldingsCard
+  // below still breaks out "Valeur de marché" vs "Liquidités" separately.
+  const isBroker = account.kind === 'broker_portfolio'
+  const brokerTotalValue = Number(account.marketValue ?? 0) + Number(account.currentBalance)
+
   const accountOptions = allAccounts.map((a) => ({
     id: a.id,
     name: a.name,
@@ -234,11 +240,15 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
-                {t('accounts.currentBalance', 'Current balance')}
+                {isBroker
+                  ? t('accounts.totalValue', 'Total value')
+                  : t('accounts.currentBalance', 'Current balance')}
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold">{formatCurrency(account.currentBalance)}</p>
+              <p className="text-3xl font-bold">
+                {formatCurrency(isBroker ? brokerTotalValue : account.currentBalance)}
+              </p>
               {account.lastSyncedAt && (
                 <p className="mt-1 text-[11px] text-muted-foreground">
                   {t(

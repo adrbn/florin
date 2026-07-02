@@ -63,6 +63,9 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
 
   const isLoan = account.kind === 'loan'
   const isBrokerPortfolio = account.kind === 'broker_portfolio'
+  // Headline value for a broker wrapper = holdings market value + idle cash
+  // (matches the accounts list, the donut, and net worth).
+  const brokerTotalValue = Number(account.marketValue ?? 0) + Number(account.currentBalance)
   const holdings = isBrokerPortfolio ? await queries.listHoldings(account.id) : []
   const portfolioValuation = isBrokerPortfolio
     ? await queries.getPortfolioValuation(account.id)
@@ -215,11 +218,13 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
-                Current balance
+                {isBrokerPortfolio ? 'Total value' : 'Current balance'}
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold">{formatCurrency(account.currentBalance)}</p>
+              <p className="text-3xl font-bold">
+                {formatCurrency(isBrokerPortfolio ? brokerTotalValue : account.currentBalance)}
+              </p>
               {account.lastSyncedAt && (
                 <p className="mt-1 text-[11px] text-muted-foreground">
                   Last synced {new Date(account.lastSyncedAt).toLocaleString('fr-FR')}
