@@ -11,9 +11,8 @@ export interface GoalCardProps {
   locale: string
 }
 
-/** Colours for the versé-vs-marché split bar (match the holdings palette). */
+/** Progress-bar fill colour (matches the holdings palette). */
 const CONTRIBUTED_COLOR = '#3b82f6'
-const MARKET_COLOR = '#10b981'
 
 /**
  * Format a month count as "X ans et Y mois" / "X yrs Y mo" using the locale.
@@ -58,14 +57,13 @@ export function GoalCard({ projection, locale }: GoalCardProps) {
   const targetLabel = fmt.format(projection.target)
   const reachable = projection.monthsToReach !== null
 
-  const split = useMemo(() => {
-    const total = projection.contributed + projection.marketGrowth
-    if (total <= 0) return { contributedPct: 0, marketPct: 0 }
-    return {
-      contributedPct: (projection.contributed / total) * 100,
-      marketPct: (projection.marketGrowth / total) * 100,
-    }
-  }, [projection.contributed, projection.marketGrowth])
+  // Where you ARE today: current value as a share of the target. Not a
+  // projection — that's what the headline reach-date is for.
+  const progressPct = useMemo(() => {
+    if (projection.target <= 0) return 0
+    return Math.min(100, Math.max(0, (projection.currentValue / projection.target) * 100))
+  }, [projection.currentValue, projection.target])
+  const progressLabel = progressPct < 0.1 ? '<0,1' : progressPct.toFixed(1).replace('.', ',')
 
   const headline = useMemo(() => {
     if (projection.monthsToReach === null) return null
@@ -104,50 +102,23 @@ export function GoalCard({ projection, locale }: GoalCardProps) {
           <>
             <p className="text-sm font-semibold leading-snug">{headline}</p>
 
-            {/* versé vs marché split — the PROJECTED make-up of the target at
-                the reach date, not today's balance. Captioned to avoid reading
-                "Versé 67 500" as money already put in (it's 500 today). */}
+            {/* Where you are TODAY: current value as a share of the target. */}
             <div className="space-y-1.5">
-              <p className="text-[11px] text-muted-foreground">
-                {t('goal.splitCaption', { target: targetLabel }, `Projected make-up of ${targetLabel}`)}
-              </p>
-              <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-muted">
-                {split.contributedPct > 0 && (
-                  <div
-                    style={{ width: `${split.contributedPct}%`, backgroundColor: CONTRIBUTED_COLOR }}
-                    aria-hidden="true"
-                  />
-                )}
-                {split.marketPct > 0 && (
-                  <div
-                    style={{ width: `${split.marketPct}%`, backgroundColor: MARKET_COLOR }}
-                    aria-hidden="true"
-                  />
-                )}
+              <div className="flex items-center justify-between text-[11px] tabular-nums">
+                <span className="font-medium">
+                  {fmt.format(projection.currentValue)}{' '}
+                  <span className="text-muted-foreground">/ {targetLabel}</span>
+                </span>
+                <span className="text-muted-foreground">{progressLabel}%</span>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-[11px] tabular-nums">
-                <div className="flex items-center gap-1.5">
-                  <span
-                    className="inline-block h-2 w-2 shrink-0 rounded-full"
-                    style={{ backgroundColor: CONTRIBUTED_COLOR }}
-                    aria-hidden="true"
-                  />
-                  <span className="min-w-0">
-                    <span className="text-muted-foreground">{t('goal.contributed', 'Versé')}: </span>
-                    <span className="font-medium">{fmt.format(projection.contributed)}</span>
-                  </span>
-                </div>
-                <div className="flex items-center justify-end gap-1.5 text-right">
-                  <span
-                    className="inline-block h-2 w-2 shrink-0 rounded-full"
-                    style={{ backgroundColor: MARKET_COLOR }}
-                    aria-hidden="true"
-                  />
-                  <span className="min-w-0">
-                    <span className="text-muted-foreground">{t('goal.market', 'Marché')}: </span>
-                    <span className="font-medium">{fmt.format(projection.marketGrowth)}</span>
-                  </span>
-                </div>
+              <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                  style={{
+                    width: `${Math.max(progressPct, 1)}%`,
+                    backgroundColor: CONTRIBUTED_COLOR,
+                  }}
+                  aria-hidden="true"
+                />
               </div>
             </div>
 
