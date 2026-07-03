@@ -111,6 +111,28 @@ export async function getInvestmentSnapshot(db: SqliteDB): Promise<InvestmentSna
       }
     }
   }
+  // No explicit recurring DCA rule? Derive a rate from what actually went INTO
+  // the wrapper: the trailing-3-month average of incoming transfers to broker
+  // accounts. This self-corrects — each new versement lifts it, a pause lets
+  // it decay — instead of showing a demoralising "0 €/mois → year 2104".
+  if (monthlyContribution === 0 && brokerIds.size > 0) {
+    const since = formatDate(new Date(Date.now() - 90 * 24 * 60 * 60 * 1000))
+    const [row] = await db
+      .select({ total: sql<number>`COALESCE(SUM(${transactions.amount}), 0)` })
+      .from(transactions)
+      .innerJoin(accounts, eq(transactions.accountId, accounts.id))
+      .where(
+        and(
+          isNull(transactions.deletedAt),
+          eq(transactions.status, 'cleared'),
+          sql`${transactions.amount} > 0`,
+          sql`${transactions.transferPairId} IS NOT NULL`,
+          gte(transactions.occurredAt, since),
+          sql`${accounts.kind} IN ('broker_portfolio', 'broker_cash')`,
+        ),
+      )
+    monthlyContribution = Number(row?.total ?? 0) / 3
+  }
   return { investedValue, monthlyContribution }
 }
 
@@ -694,6 +716,7 @@ export async function getLeftToSpendThisMonth(db: SqliteDB): Promise<LeftToSpend
 
   const monthSpent = await getMonthBurn(db)
   const monthSpentFixed = await getMonthBurn(db, { fixedOnly: true })
+  const expectedMonthlySpend = await getAvgMonthlyBurn(db, 6)
   const leftToSpend = monthIncome - monthSpent
 
   const today = new Date()
@@ -710,6 +733,7 @@ export async function getLeftToSpendThisMonth(db: SqliteDB): Promise<LeftToSpend
     monthIncome,
     monthSpent,
     monthSpentFixed,
+    expectedMonthlySpend,
     leftToSpend,
     dailyAvgSpent,
     dailyBudgetRemaining,

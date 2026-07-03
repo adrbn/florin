@@ -165,6 +165,13 @@ export interface LeftToSpend {
    * month forecast subtracts these before projecting. See computeMonthForecast.
    */
   monthSpentFixed: number
+  /**
+   * Trailing average monthly burn (typical full-month spend). Used as a floor
+   * for the month projection so that early in the month — when few bills have
+   * posted and reimbursements can briefly exceed spend — the forecast doesn't
+   * collapse to "you'll spend nothing" and show the whole salary as margin.
+   */
+  expectedMonthlySpend: number
   leftToSpend: number
   /** Average daily spend so far this month (monthSpent / daysElapsed). */
   dailyAvgSpent: number
