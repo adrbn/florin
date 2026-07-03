@@ -721,7 +721,9 @@ export async function getLeftToSpendThisMonth(db: SqliteDB): Promise<LeftToSpend
     monthIncome = Number((currentRow ?? fallbackRow)?.total ?? 0)
   }
 
-  const monthSpent = await getMonthBurn(db)
+  // Gross so "spent so far" reads what actually went out and matches the
+  // dashboard burn card + tray; a reimbursement shouldn't zero it early-month.
+  const monthSpent = await getMonthBurn(db, { gross: true })
   const monthSpentFixed = await getMonthBurn(db, { fixedOnly: true })
   const expectedMonthlySpend = await getAvgMonthlyBurn(db, 6)
   const leftToSpend = monthIncome - monthSpent
