@@ -104,8 +104,13 @@ export function GoalCard({ projection, locale }: GoalCardProps) {
           <>
             <p className="text-sm font-semibold leading-snug">{headline}</p>
 
-            {/* versé vs marché split */}
+            {/* versé vs marché split — the PROJECTED make-up of the target at
+                the reach date, not today's balance. Captioned to avoid reading
+                "Versé 67 500" as money already put in (it's 500 today). */}
             <div className="space-y-1.5">
+              <p className="text-[11px] text-muted-foreground">
+                {t('goal.splitCaption', { target: targetLabel }, `Projected make-up of ${targetLabel}`)}
+              </p>
               <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-muted">
                 {split.contributedPct > 0 && (
                   <div
