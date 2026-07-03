@@ -53,6 +53,9 @@ describe('computeMonthForecast', () => {
     monthIncome: 3000,
     monthSpent: 1000,
     monthSpentFixed: 0,
+    // Low typical burn so the pace projection wins in these pace-focused tests;
+    // a dedicated test below exercises the floor.
+    expectedMonthlySpend: 1200,
     leftToSpend: 2000,
     dailyAvgSpent: 100,
     dailyBudgetRemaining: 100,
@@ -64,6 +67,23 @@ describe('computeMonthForecast', () => {
     const f = computeMonthForecast(base)
     expect(f.projectedSpend).toBe(1000 + 100 * 20) // 3000
     expect(f.projectedMargin).toBe(0) // 3000 income − 3000 spend
+    expect(f.onTrack).toBe(true)
+  })
+
+  it('floors the projection at the typical monthly burn early in the month', () => {
+    // Day 2 of the month, only €30 spent, a reimbursement means almost no
+    // net spend yet. Pace alone would project ~€450 and a fantasy €2550 margin.
+    // The floor (typical €2400/mo) keeps the projection honest.
+    const f = computeMonthForecast({
+      ...base,
+      monthSpent: 30,
+      monthSpentFixed: 0,
+      expectedMonthlySpend: 2400,
+      daysElapsed: 2,
+      daysRemaining: 28,
+    })
+    expect(f.projectedSpend).toBe(2400) // floored, not the ~450 pace figure
+    expect(f.projectedMargin).toBe(3000 - 2400) // 600, realistic
     expect(f.onTrack).toBe(true)
   })
 

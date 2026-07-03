@@ -110,7 +110,15 @@ export interface MonthForecast {
 export function computeMonthForecast(lts: LeftToSpend): MonthForecast {
   const variableSpent = Math.max(0, lts.monthSpent - lts.monthSpentFixed)
   const dailyAvgVariable = lts.daysElapsed > 0 ? variableSpent / lts.daysElapsed : 0
-  const projectedSpend = lts.monthSpent + dailyAvgVariable * lts.daysRemaining
+  const paceProjection = lts.monthSpent + dailyAvgVariable * lts.daysRemaining
+  // Floor the projection at the typical full-month burn. Early in the month
+  // the pace-based figure is unreliable — big fixed bills (rent, loan) haven't
+  // posted yet and a reimbursement can briefly outweigh the few expenses that
+  // have — which otherwise projects ~0 spend and a fantasy full-salary margin.
+  // As the month fills in and actual spend overtakes the average, the pace
+  // figure wins. Only floor when a month is still meaningfully ahead.
+  const floor = lts.daysRemaining > 0 ? lts.expectedMonthlySpend : lts.monthSpent
+  const projectedSpend = Math.max(paceProjection, floor)
   const hasIncome = lts.monthIncome > 0
   const projectedMargin = hasIncome ? lts.monthIncome - projectedSpend : null
   return {
