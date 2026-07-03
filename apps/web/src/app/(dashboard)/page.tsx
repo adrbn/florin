@@ -181,12 +181,18 @@ async function GoalCardServer() {
   ])
   // Only render when there's actual investment activity — otherwise a
   // non-investor would just see an empty goal card.
-  if (snapshot.investedValue <= 0 && snapshot.monthlyContribution <= 0) return null
-  const localeTag = locale === 'fr' ? 'fr-FR' : 'en-US'
   const cfg = getAppConfig()
+  // A stated "I invest X/month" (config) beats guessing from history. Falls
+  // back to the detected rate when the user hasn't set a planned amount.
+  const monthlyContribution =
+    cfg.plannedMonthlyInvestment > 0 ? cfg.plannedMonthlyInvestment : snapshot.monthlyContribution
+  // Only render when there's actual investment activity — otherwise a
+  // non-investor would just see an empty goal card.
+  if (snapshot.investedValue <= 0 && monthlyContribution <= 0) return null
+  const localeTag = locale === 'fr' ? 'fr-FR' : 'en-US'
   const projection = projectGoal({
     currentValue: snapshot.investedValue,
-    monthlyContribution: snapshot.monthlyContribution,
+    monthlyContribution,
     annualReturnPct: cfg.goalReturnPct,
     target: cfg.goalTarget,
   })

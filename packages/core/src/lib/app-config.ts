@@ -21,12 +21,20 @@ export interface AppConfig {
    * account has no such cap.
    */
   peaCeiling: number
+  /**
+   * Planned monthly investment (the DCA the user intends to keep up), in the
+   * app currency. Feeds the goal projection directly — a stated intention, not
+   * a guess from history. 0 means "not set": the goal falls back to detecting
+   * the rate from recent contributions.
+   */
+  plannedMonthlyInvestment: number
 }
 
 export const DEFAULT_APP_CONFIG: AppConfig = {
   goalTarget: 100_000,
   goalReturnPct: 7,
   peaCeiling: 150_000,
+  plannedMonthlyInvestment: 0,
 }
 
 /** Parse a possibly-undefined string/number override, falling back to `fallback`. */
@@ -50,5 +58,9 @@ export function resolveAppConfig(
     goalTarget: resolveNumber(overrides.goalTarget, DEFAULT_APP_CONFIG.goalTarget),
     goalReturnPct: resolveNumber(overrides.goalReturnPct, DEFAULT_APP_CONFIG.goalReturnPct),
     peaCeiling: resolveNumber(overrides.peaCeiling, DEFAULT_APP_CONFIG.peaCeiling),
+    plannedMonthlyInvestment: resolveNumber(
+      overrides.plannedMonthlyInvestment,
+      DEFAULT_APP_CONFIG.plannedMonthlyInvestment,
+    ),
   }
 }

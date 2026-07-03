@@ -49,6 +49,13 @@ services:
       # free Yahoo Finance chart endpoint; 'none' (default) disables it.
       PRICE_PROVIDER: ${PRICE_PROVIDER:-none}
       PRICE_API_KEY: ${PRICE_API_KEY:-}
+      # Investing/goal tuning (all optional; sensible France/EUR defaults apply).
+      APP_GOAL_TARGET: ${APP_GOAL_TARGET:-}
+      APP_GOAL_RETURN_PCT: ${APP_GOAL_RETURN_PCT:-}
+      APP_PEA_CEILING: ${APP_PEA_CEILING:-}
+      # Planned monthly investment (DCA) feeding the goal projection. Empty =
+      # fall back to detecting the rate from recent contributions.
+      APP_DCA_MONTHLY: ${APP_DCA_MONTHLY:-}
     ports:
       - "127.0.0.1:3000:3000"
     healthcheck:

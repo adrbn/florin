@@ -87,10 +87,13 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
     listCategoriesFlat(),
   ])
 
-  const inflow = transactionList
+  // Only realized (cleared) rows count toward inflow/outflow — scheduled
+  // ("Prévu") forecast rows must not inflate the "last N tx" totals.
+  const realized = transactionList.filter((t) => t.status === 'cleared')
+  const inflow = realized
     .filter((t) => Number(t.amount) > 0)
     .reduce((acc, t) => acc + Number(t.amount), 0)
-  const outflow = transactionList
+  const outflow = realized
     .filter((t) => Number(t.amount) < 0)
     .reduce((acc, t) => acc + Math.abs(Number(t.amount)), 0)
 
