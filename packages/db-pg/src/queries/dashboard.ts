@@ -206,6 +206,13 @@ const burnAmountSql = sql<string>`COALESCE(SUM(CASE
   ELSE 0
 END), 0)`
 
+// Gross variant: outflows only, no positive-refund netting. See BurnOptions.gross.
+const grossBurnAmountSql = sql<string>`COALESCE(SUM(CASE
+  WHEN ${isUncategorizedTransfer()} THEN 0
+  WHEN ${transactions.amount} < 0 AND (${categoryGroups.kind} IS NULL OR ${categoryGroups.kind} = 'expense') THEN ${transactions.amount}
+  ELSE 0
+END), 0)`
+
 export async function getMonthBurn(db: PgDB, opts: BurnOptions = {}): Promise<number> {
   const start = startOfMonth(new Date())
   const end = endOfMonth(new Date())
@@ -221,7 +228,7 @@ export async function getMonthBurn(db: PgDB, opts: BurnOptions = {}): Promise<nu
     conds.push(eq(categories.isFixed, true))
   }
   const rows = await db
-    .select({ total: burnAmountSql })
+    .select({ total: opts.gross ? grossBurnAmountSql : burnAmountSql })
     .from(transactions)
     .innerJoin(accounts, eq(transactions.accountId, accounts.id))
     .leftJoin(categories, eq(transactions.categoryId, categories.id))

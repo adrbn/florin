@@ -298,6 +298,7 @@
   "kpi.perDay": "/day",
   "kpi.sixMoAvg": "6-mo avg: {amount}",
   "kpi.vsLastMonth": "vs last month",
+  "kpi.savedThisMonth": "saved this month",
 
   "categories.title": "Categories",
   "categories.subtitle": "Organize spending into buckets. Edit names, recolor groups, mark recurring categories as fixed, or delete the ones you don't use.",

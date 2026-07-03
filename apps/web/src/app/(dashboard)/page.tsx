@@ -51,17 +51,24 @@ async function DataSourcePillServer() {
 }
 
 async function NetWorthCardServer() {
-  const [nw, t] = await Promise.all([queries.getNetWorth(), getServerT()])
+  const [nw, flows, t] = await Promise.all([
+    queries.getNetWorth(),
+    queries.getMonthlyFlows(1),
+    getServerT(),
+  ])
+  // Current calendar month's net flow (income − expenses) = savings so far
+  // this month. Clearer than the old rolling 30-day delta.
+  const monthSavings = flows[flows.length - 1]?.net ?? null
   return (
     <NetWorthCard
       gross={nw.gross}
       liability={nw.liability}
       net={nw.net}
-      netMonthAgo={nw.netMonthAgo}
+      monthSavings={monthSavings}
       title={t('kpi.netWorth', 'Net worth')}
       grossLabel={t('kpi.grossPrefix', 'Gross')}
       debtLabel={t('kpi.debtPrefix', '− Debt')}
-      vsLastMonthLabel={t('kpi.vsLastMonth', 'vs last month')}
+      monthSavingsLabel={t('kpi.savedThisMonth', 'saved this month')}
     />
   )
 }
@@ -71,7 +78,9 @@ async function BurnRateCardServer() {
   const month = String(now.getMonth() + 1).padStart(2, '0')
   const year = now.getFullYear()
   const [thisMonth, avg, t] = await Promise.all([
-    queries.getMonthBurn(),
+    // Gross spend so the "spent this month" figure reads what actually went
+    // out, not a near-zero net when a reimbursement offsets early expenses.
+    queries.getMonthBurn({ gross: true }),
     queries.getAvgMonthlyBurn(6),
     getServerT(),
   ])

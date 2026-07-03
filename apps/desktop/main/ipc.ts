@@ -63,7 +63,10 @@ export function registerIpcHandlers(
   ipcMain.handle('tray:get-data', async () => {
     const [netWorth, burn, topExpenses, reviewCount] = await Promise.all([
       queries.getNetWorth(),
-      queries.getMonthBurn(),
+      // Gross spend: what actually went out this month. The netted burn can
+      // read 0 early in the month when a reimbursement offsets the few
+      // expenses posted so far — misleading in the menu-bar widget.
+      queries.getMonthBurn({ gross: true }),
       queries.getTopExpenses(3, 7),
       queries.countNeedsReview(),
     ])

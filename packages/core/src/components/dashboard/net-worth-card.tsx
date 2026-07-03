@@ -7,24 +7,30 @@ interface NetWorthCardProps {
   gross: number
   liability: number
   net: number
-  netMonthAgo?: number | null
+  /**
+   * Calendar-month savings so far (income − expenses this month). Clearer than
+   * a rolling 30-day net-worth delta, which swung with where salary/rent fell.
+   * Null hides the line.
+   */
+  monthSavings?: number | null
   title?: string
   grossLabel?: string
   debtLabel?: string
-  vsLastMonthLabel?: string
+  monthSavingsLabel?: string
 }
 
 export function NetWorthCard({
   gross,
   net,
-  netMonthAgo,
+  monthSavings,
   title = 'Net worth',
   grossLabel = 'Gross',
-  vsLastMonthLabel = 'vs last month',
+  monthSavingsLabel = 'saved this month',
 }: NetWorthCardProps) {
-  const delta =
-    netMonthAgo !== null && netMonthAgo !== undefined ? net - netMonthAgo : null
-  const deltaLine = delta !== null ? renderDelta(delta, vsLastMonthLabel) : null
+  const deltaLine =
+    monthSavings !== null && monthSavings !== undefined
+      ? renderDelta(monthSavings, monthSavingsLabel)
+      : null
 
   const hint: ReactNode = (
     <span className="flex flex-col leading-tight tabular-nums">

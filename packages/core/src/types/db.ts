@@ -27,6 +27,15 @@ export interface NetWorth {
 
 export interface BurnOptions {
   fixedOnly?: boolean
+  /**
+   * Gross spend: sum only outflows, without letting positive refunds
+   * (reimbursements booked into an expense category) net against them. Used
+   * for the "spent this month" display so it reads what you actually spent —
+   * otherwise a reimbursement early in the month can cancel out the few
+   * expenses posted and the figure collapses to 0. The default (netted) is
+   * kept for margin/left-to-spend, where refunds legitimately reduce spend.
+   */
+  gross?: boolean
 }
 
 /**
