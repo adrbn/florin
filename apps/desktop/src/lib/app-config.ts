@@ -4,7 +4,12 @@ import { db } from '@/db/client'
 import { settings } from '@/db/schema'
 
 /** Settings-table keys backing the tunable app defaults. */
-export const APP_CONFIG_KEYS = ['goal_target', 'goal_return_pct', 'pea_ceiling'] as const
+export const APP_CONFIG_KEYS = [
+  'goal_target',
+  'goal_return_pct',
+  'pea_ceiling',
+  'planned_monthly_investment',
+] as const
 
 /**
  * Desktop resolves the tunable defaults from the SQLite `settings` table (the
@@ -23,6 +28,7 @@ export async function getAppConfig(): Promise<AppConfig> {
       goalTarget: map.get('goal_target'),
       goalReturnPct: map.get('goal_return_pct'),
       peaCeiling: map.get('pea_ceiling'),
+      plannedMonthlyInvestment: map.get('planned_monthly_investment'),
     })
   } catch {
     return resolveAppConfig()

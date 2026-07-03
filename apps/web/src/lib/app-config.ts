@@ -14,5 +14,6 @@ export function getAppConfig(): AppConfig {
     goalTarget: process.env.APP_GOAL_TARGET,
     goalReturnPct: process.env.APP_GOAL_RETURN_PCT,
     peaCeiling: process.env.APP_PEA_CEILING,
+    plannedMonthlyInvestment: process.env.APP_DCA_MONTHLY,
   })
 }
