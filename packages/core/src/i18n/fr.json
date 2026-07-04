@@ -299,6 +299,7 @@
   "kpi.sixMoAvg": "Moy. 6 mois : {amount}",
   "kpi.vsLastMonth": "vs mois dernier",
   "kpi.savedThisMonth": "épargné ce mois-ci",
+  "kpi.monthlyTrend": "/mois en moyenne",
 
   "categories.title": "Catégories",
   "categories.subtitle": "Organisez vos dépenses. Renommez, recolorez les groupes, marquez les catégories récurrentes comme fixes, ou supprimez celles que vous n'utilisez pas.",

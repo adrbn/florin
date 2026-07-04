@@ -8,28 +8,28 @@ interface NetWorthCardProps {
   liability: number
   net: number
   /**
-   * Calendar-month savings so far (income − expenses this month). Clearer than
-   * a rolling 30-day net-worth delta, which swung with where salary/rent fell.
-   * Null hides the line.
+   * Average monthly change of net worth (OLS trend, same as the patrimony
+   * chart). This is what belongs under a net-worth figure — how it's growing —
+   * rather than a timing-sensitive "this month" savings number. Null hides it.
    */
-  monthSavings?: number | null
+  monthlyTrend?: number | null
   title?: string
   grossLabel?: string
   debtLabel?: string
-  monthSavingsLabel?: string
+  monthlyTrendLabel?: string
 }
 
 export function NetWorthCard({
   gross,
   net,
-  monthSavings,
+  monthlyTrend,
   title = 'Net worth',
   grossLabel = 'Gross',
-  monthSavingsLabel = 'saved this month',
+  monthlyTrendLabel = '/mo trend',
 }: NetWorthCardProps) {
   const deltaLine =
-    monthSavings !== null && monthSavings !== undefined
-      ? renderDelta(monthSavings, monthSavingsLabel)
+    monthlyTrend !== null && monthlyTrend !== undefined
+      ? renderDelta(monthlyTrend, monthlyTrendLabel)
       : null
 
   const hint: ReactNode = (

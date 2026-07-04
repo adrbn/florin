@@ -14,6 +14,7 @@ import { SavingsRateRolling } from '@florin/core/components/reflect/savings-rate
 import { formatCurrency } from '@florin/core/lib/format'
 import { OnboardingBanner } from '@florin/core/components/onboarding/onboarding-banner'
 import { projectGoal } from '@florin/core/lib/goal'
+import { monthlyNetWorthTrend } from '@florin/core/lib/trend'
 import { queries } from '@/db/client'
 import { getAppConfig } from '@/lib/app-config'
 import { getServerT, getUserLocale } from '@/lib/locale'
@@ -51,22 +52,22 @@ async function DataSourcePillServer() {
 }
 
 async function NetWorthCardServer() {
-  const [nw, flows, t] = await Promise.all([
+  const [nw, series, t] = await Promise.all([
     queries.getNetWorth(),
-    queries.getMonthlyFlows(1),
+    queries.getPatrimonyTimeSeries(12),
     getServerT(),
   ])
-  const monthSavings = flows[flows.length - 1]?.net ?? null
+  const monthlyTrend = monthlyNetWorthTrend(series)
   return (
     <NetWorthCard
       gross={nw.gross}
       liability={nw.liability}
       net={nw.net}
-      monthSavings={monthSavings}
+      monthlyTrend={monthlyTrend}
       title={t('kpi.netWorth', 'Net worth')}
       grossLabel={t('kpi.grossPrefix', 'Gross')}
       debtLabel={t('kpi.debtPrefix', '− Debt')}
-      monthSavingsLabel={t('kpi.savedThisMonth', 'saved this month')}
+      monthlyTrendLabel={t('kpi.monthlyTrend', '/mo trend')}
     />
   )
 }
