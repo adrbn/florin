@@ -12,6 +12,7 @@
     "./lib/loan/amortization": "./src/lib/loan/amortization.ts",
     "./lib/app-config": "./src/lib/app-config.ts",
     "./lib/goal": "./src/lib/goal.ts",
+    "./lib/trend": "./src/lib/trend.ts",
     "./lib/transactions": "./src/lib/transactions/index.ts",
     "./lib/reflect/age-of-money": "./src/lib/reflect/age-of-money.ts",
     "./lib/reflect/insights": "./src/lib/reflect/insights.ts",
