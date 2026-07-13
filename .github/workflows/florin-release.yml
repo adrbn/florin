@@ -27,12 +27,28 @@ jobs:
         run: cd node_modules/.pnpm/better-sqlite3@*/node_modules/better-sqlite3 && npx --yes node-gyp@11 rebuild --release
       - name: Build main process + Next.js
         run: cd apps/desktop && pnpm build
-      - name: Build DMG
+      - name: Build, sign & notarize
+        # electron-builder decodes CSC_LINK (base64 Developer ID .p12) into a
+        # temp keychain and signs; `notarize: true` (electron-builder.yml) runs
+        # notarytool with the APPLE_* creds and staples the result. If these
+        # secrets are unset the build is produced unsigned instead of failing.
         run: cd apps/desktop && pnpm exec electron-builder --mac --publish never
-      - name: Upload desktop DMGs to Release
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      - name: Upload desktop artifacts to Release
+        # DMGs for manual install + the zip/blockmaps/latest-mac.yml that
+        # electron-updater reads to detect and download in-place updates.
         uses: softprops/action-gh-release@v2
         with:
-          files: apps/desktop/dist/*.dmg
+          files: |
+            apps/desktop/dist/*.dmg
+            apps/desktop/dist/*.zip
+            apps/desktop/dist/*.blockmap
+            apps/desktop/dist/latest-mac.yml
 
   attach-server:
     runs-on: ubuntu-latest
