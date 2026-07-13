@@ -35,8 +35,24 @@ extraResources:
 mac:
   icon: assets/icon.icns
   category: public.app-category.finance
+  # Signing + notarization. electron-builder auto-detects the "Developer ID
+  # Application" cert from CSC_LINK/CSC_KEY_PASSWORD (base64 .p12 + password),
+  # and `notarize: true` runs notarytool with the APPLE_* env creds. When those
+  # env vars are absent (local dev), electron-builder produces an unsigned build
+  # and skips notarization — CI is the only place the secrets exist.
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  notarize: true
   target:
+    # dmg = manual install / first bootstrap; zip = what electron-updater
+    # downloads for in-place auto-update on macOS (it can't update from a dmg).
     - target: dmg
+      arch:
+        - arm64
+        - x64
+    - target: zip
       arch:
         - arm64
         - x64
