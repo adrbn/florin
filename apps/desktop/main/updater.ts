@@ -1,21 +1,40 @@
 import { autoUpdater } from 'electron-updater'
 import { BrowserWindow, ipcMain } from 'electron'
 
+export type UpdateState = 'available' | 'downloading' | 'ready'
+export type UpdateStatus = { state: UpdateState; version: string } | null
+
+// Last-known update status, kept so the renderer can pull it on mount (the
+// initial check often fires before any window subscribes) as well as receive
+// live pushes. `null` = no update / not checked yet.
+let current: UpdateStatus = null
+
+function setStatus(next: UpdateStatus) {
+  current = next
+  for (const w of BrowserWindow.getAllWindows()) {
+    w.webContents.send('update:status', current)
+  }
+}
+
 export function initAutoUpdater() {
   try {
     autoUpdater.autoDownload = true
     autoUpdater.autoInstallOnAppQuit = true
 
     autoUpdater.on('update-available', (info) => {
-      BrowserWindow.getAllWindows().forEach((w) =>
-        w.webContents.send('update-available', info.version)
-      )
+      setStatus({ state: 'available', version: info.version })
+    })
+
+    // Fires repeatedly while downloading — only broadcast the one-time
+    // available → downloading transition, not every progress tick.
+    autoUpdater.on('download-progress', () => {
+      if (current?.state === 'available') {
+        setStatus({ state: 'downloading', version: current.version })
+      }
     })
 
     autoUpdater.on('update-downloaded', (info) => {
-      BrowserWindow.getAllWindows().forEach((w) =>
-        w.webContents.send('update-downloaded', info.version)
-      )
+      setStatus({ state: 'ready', version: info.version })
     })
 
     autoUpdater.on('error', (err) => {
@@ -24,6 +43,7 @@ export function initAutoUpdater() {
       console.warn('[updater] update check failed:', err?.message ?? err)
     })
 
+    ipcMain.handle('update:get-status', () => current)
     ipcMain.on('install-update', () => {
       autoUpdater.quitAndInstall()
     })

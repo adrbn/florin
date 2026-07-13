@@ -5,10 +5,12 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { ThemeToggle } from '@florin/core/components/theme/theme-toggle'
 import { LocaleSwitcher } from '@florin/core/components/shell/locale-switcher'
+import { UpdatePill } from '@florin/core/components/shell/update-pill'
 import { PrivacyToggle } from '@florin/core/privacy'
 import { cn } from '@florin/core/lib/utils'
 import { useT } from '@florin/core/i18n/context'
 import { isExactLinkActive, isLinkActive, type NavBadges, visibleNavLinks } from '@florin/core/components/shell/nav-links'
+import { useUpdateStatus } from './use-update-status'
 
 interface DesktopSidebarProps {
   badges?: NavBadges
@@ -18,6 +20,7 @@ export function DesktopSidebar({ badges }: DesktopSidebarProps) {
   const pathname = usePathname()
   const t = useT()
   const links = visibleNavLinks(badges)
+  const update = useUpdateStatus()
   return (
     <aside className="hidden w-60 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground md:flex">
       <div
@@ -98,6 +101,15 @@ export function DesktopSidebar({ badges }: DesktopSidebarProps) {
         })}
       </nav>
       <div className="space-y-0.5 p-3">
+        {update && (
+          <UpdatePill
+            update={update}
+            onClick={() => {
+              if (update.state === 'ready') window.florin?.installUpdate?.()
+            }}
+            className="mb-1.5"
+          />
+        )}
         <LocaleSwitcher endpoint="/api/settings/locale" />
         <PrivacyToggle />
         <ThemeToggle />

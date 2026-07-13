@@ -1,5 +1,10 @@
 /** Global type for the Electron preload bridge exposed as `window.florin`. */
 declare global {
+  /** Auto-updater status pushed from the main process. `null` = app is current. */
+  type UpdateStatus =
+    | { state: 'available' | 'downloading' | 'ready'; version: string }
+    | null
+
   interface Window {
     florin?: {
       // Tray IPC
@@ -21,7 +26,8 @@ declare global {
       onRefresh: (cb: () => void) => void
       onDataChanged: (cb: (reason: string) => void) => () => void
       // Auto-updater
-      onUpdateDownloaded: (cb: (version: string) => void) => void
+      getUpdateStatus: () => Promise<UpdateStatus>
+      onUpdateStatus: (cb: (status: UpdateStatus) => void) => () => void
       installUpdate: () => void
       // File picker for PEM import
       importPem: () => Promise<string | null>

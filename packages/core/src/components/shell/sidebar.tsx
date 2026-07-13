@@ -1,18 +1,32 @@
 'use client'
 
+import { useState } from 'react'
 import { LogOut } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from 'next-auth/react'
 import { ThemeToggle } from '../theme/theme-toggle'
 import { LocaleSwitcher } from './locale-switcher'
+import { UpdatePill } from './update-pill'
+import { UpdateModal } from './update-modal'
 import { PrivacyToggle } from '../../privacy/toggle'
 import { useT } from '../../i18n/context'
 import { cn } from '../../lib/utils'
 import { isExactLinkActive, isLinkActive, type NavBadges, visibleNavLinks } from './nav-links'
 
+/** New release detected on GitHub. `null` when the instance is up to date. */
+export interface SidebarUpdate {
+  /** Latest version, without a leading `v` (e.g. `"1.2.25"`). */
+  version: string
+  /** GitHub release page for the changelog. */
+  changelogUrl: string
+  /** Shell command to redeploy the self-hosted container. */
+  command: string
+}
+
 interface SidebarProps {
   badges?: NavBadges
+  update?: SidebarUpdate | null
 }
 
 /**
@@ -20,10 +34,11 @@ interface SidebarProps {
  * component takes over there. Keeping this desktop-only lets us use a
  * stable 15rem rail without stealing horizontal space on phones.
  */
-export function Sidebar({ badges }: SidebarProps = {}) {
+export function Sidebar({ badges, update }: SidebarProps = {}) {
   const pathname = usePathname()
   const links = visibleNavLinks(badges)
   const t = useT()
+  const [updateOpen, setUpdateOpen] = useState(false)
   return (
     <aside className="hidden w-60 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground md:flex">
       <div className="flex items-center px-6 py-5">
@@ -101,6 +116,22 @@ export function Sidebar({ badges }: SidebarProps = {}) {
         })}
       </nav>
       <div className="space-y-0.5 p-3">
+        {update && (
+          <>
+            <UpdatePill
+              update={{ version: update.version, state: 'available' }}
+              onClick={() => setUpdateOpen(true)}
+              className="mb-1.5"
+            />
+            <UpdateModal
+              open={updateOpen}
+              onOpenChange={setUpdateOpen}
+              version={update.version}
+              changelogUrl={update.changelogUrl}
+              command={update.command}
+            />
+          </>
+        )}
         <PrivacyToggle />
         <LocaleSwitcher />
         <ThemeToggle />
