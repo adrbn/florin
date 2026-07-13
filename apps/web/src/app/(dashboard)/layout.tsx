@@ -6,6 +6,8 @@ import { KeyboardShortcuts } from '@florin/core/components/shortcuts/keyboard-sh
 import { mutations, queries } from '@/db/client'
 import { countNeedsReview } from '@/server/actions/transactions'
 import { ensureAutoSyncScheduler } from '@/server/banking/scheduler'
+import { getUpdateStatus, UPDATE_COMMAND } from '@/server/updates/github'
+import pkg from '../../../package.json'
 
 // Every page under (dashboard) reads live database state, so none of them
 // should be statically prerendered at build time. Pin the whole group to
@@ -37,10 +39,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // already on /onboarding to avoid an infinite loop — that page lives in this
   // same route group, so the layout wraps it too. The pathname comes from the
   // `x-pathname` header set by middleware.
-  const [headersList, reviewCount, accountList] = await Promise.all([
+  const [headersList, reviewCount, accountList, update] = await Promise.all([
     headers(),
     countNeedsReview(),
     queries.listAccounts(),
+    getUpdateStatus(pkg.version),
   ])
 
   const pathname = headersList.get('x-pathname') ?? ''
@@ -60,7 +63,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // last 16px of the page.
   return (
     <div className="flex h-dvh w-full flex-col overflow-hidden md:flex-row">
-      <Sidebar badges={badges} />
+      <Sidebar
+        badges={badges}
+        update={update ? { ...update, command: UPDATE_COMMAND } : null}
+      />
       <MobileTopBar badges={badges} />
       <main className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-4 pt-4 pb-[calc(1rem_+_env(safe-area-inset-bottom))] md:p-6 lg:p-8">
         {children}

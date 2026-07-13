@@ -149,12 +149,42 @@ interface BuiltSeries {
    * when there aren't enough points to fit a slope.
    */
   slopePerDay: number | null
-  /**
-   * balance − trend at the latest real point (today): how far above (+) or
-   * below (−) the average savings pace the user currently sits. `null` when
-   * there aren't enough points to fit a trend.
-   */
-  currentDeviation: number | null
+}
+
+/**
+ * Net-worth change over the trailing calendar month: the latest balance minus
+ * the balance as of the same calendar day one month earlier (carry-forward, so
+ * a day with no recorded point uses the most recent prior balance). This is the
+ * actual month the user lived — a stable figure that slides one day at a time —
+ * rather than a residual against a fitted line, which was noisy and near
+ * circular for day-to-day tracking. Computed from the FULL history, so it never
+ * shifts with the trend-window picker. `null` when the series is empty or the
+ * history doesn't reach back a full month (no baseline to compare against).
+ */
+function monthOverMonthGain(data: ReadonlyArray<PatrimonyPoint>): number | null {
+  if (data.length === 0) return null
+  const sorted = [...data].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+  )
+  const last = sorted[sorted.length - 1]
+  if (!last) return null
+  const lastDate = new Date(last.date)
+  // Same calendar day, previous month — clamp the day to the previous month's
+  // length so e.g. 31 Mar maps to 28/29 Feb instead of rolling into March.
+  const y = lastDate.getUTCFullYear()
+  const m = lastDate.getUTCMonth()
+  const daysInPrevMonth = new Date(Date.UTC(y, m, 0)).getUTCDate()
+  const day = Math.min(lastDate.getUTCDate(), daysInPrevMonth)
+  const targetTs = Date.UTC(y, m - 1, day)
+  // Carry-forward: the balance in effect on the target date is the latest point
+  // dated on or before it. Null baseline ⇒ the series starts after that date.
+  let baseline: number | null = null
+  for (const p of sorted) {
+    if (new Date(p.date).getTime() <= targetTs) baseline = p.balance
+    else break
+  }
+  if (baseline === null) return null
+  return last.balance - baseline
 }
 
 /**
@@ -174,7 +204,7 @@ interface BuiltSeries {
  * sees and "the trend" changes with the scale they pick.
  */
 function buildSeries(data: ReadonlyArray<PatrimonyPoint>, forecast: boolean): BuiltSeries {
-  if (data.length === 0) return { points: [], slopePerDay: null, currentDeviation: null }
+  if (data.length === 0) return { points: [], slopePerDay: null }
 
   const firstTs = new Date(data[0]?.date ?? '').getTime()
   const lastTs = new Date(data[data.length - 1]?.date ?? '').getTime()
@@ -221,12 +251,8 @@ function buildSeries(data: ReadonlyArray<PatrimonyPoint>, forecast: boolean): Bu
     })
   }
 
-  const lastBalance = out[out.length - 1]?.balance ?? currentBalance
-  const lastTrend = out[out.length - 1]?.trend ?? lastBalance
-  const currentDeviation = fit ? lastBalance - lastTrend : null
-
   if (!forecast || slopePerDay === null) {
-    return { points: out, slopePerDay, currentDeviation }
+    return { points: out, slopePerDay }
   }
 
   // Project the straight trend forward by whole calendar months. The band
@@ -239,7 +265,7 @@ function buildSeries(data: ReadonlyArray<PatrimonyPoint>, forecast: boolean): Bu
     const ts = future.getTime()
     out.push({ ts, balance: null, trend: trendAt(ts), lower: null, ahead: null, behind: null })
   }
-  return { points: out, slopePerDay, currentDeviation }
+  return { points: out, slopePerDay }
 }
 
 interface PatrimonyChartProps {
@@ -264,8 +290,7 @@ export function PatrimonyChart({
   const perMonthLabel = t('dashboard.perMonth', '/mo')
   const balanceLabel = t('dashboard.balance', 'Balance')
   const deviationLabel = t('dashboard.deviation', 'Deviation')
-  const aboveTrendLabel = t('dashboard.aboveTrend', 'above pace')
-  const belowTrendLabel = t('dashboard.belowTrend', 'below pace')
+  const monthChangeLabel = t('dashboard.monthChange', 'Past month')
   const todayLabel = t('dashboard.today', 'today')
   const forecastedSuffix = t('dashboard.forecastedSuffix', ' · +12 months projected')
   const noDataYet = t('dashboard.noDataYet', 'No data yet.')
@@ -284,10 +309,14 @@ export function PatrimonyChart({
     () => filterVisibleData(data, trendWindow?.days ?? null),
     [data, trendWindow?.days],
   )
-  const { points: series, slopePerDay, currentDeviation } = useMemo(
+  const { points: series, slopePerDay } = useMemo(
     () => buildSeries(visibleData, forecast),
     [visibleData, forecast],
   )
+  // Actual net-worth change over the trailing calendar month (today vs the same
+  // day last month), from the FULL history so it doesn't move with the trend
+  // window. Replaces the old residual-against-the-fitted-line "deviation".
+  const monthGain = useMemo(() => monthOverMonthGain(data), [data])
   // Headline trend figure: the visible window's slope expressed per month, so
   // the number changes with whatever scale the user is looking at.
   const slopePerMonth = slopePerDay !== null ? slopePerDay * DAYS_PER_MONTH : null
@@ -297,11 +326,11 @@ export function PatrimonyChart({
       : slopePerMonth > 0
         ? 'text-emerald-600 dark:text-emerald-400'
         : 'text-destructive'
-  // Current gap to the average pace. Above the line (saving faster) reads as
-  // good (emerald); below as a warning (destructive). Hidden when negligible.
-  const showDeviation = currentDeviation !== null && Math.abs(currentDeviation) >= 1
-  const deviationTone =
-    currentDeviation !== null && currentDeviation >= 0
+  // Trailing-month gain: growth reads as good (emerald), a drop as a warning
+  // (destructive). Hidden when negligible or history is shorter than a month.
+  const showMonthGain = monthGain !== null && Math.abs(monthGain) >= 1
+  const monthGainTone =
+    monthGain !== null && monthGain >= 0
       ? 'text-emerald-600 dark:text-emerald-400'
       : 'text-destructive'
   const lastRealTs =
@@ -350,13 +379,10 @@ export function PatrimonyChart({
               </span>
             </p>
           )}
-          {showDeviation && (
+          {showMonthGain && (
             <p className="text-[11px] font-medium tabular-nums">
-              <span className="text-muted-foreground">{deviationLabel}: </span>
-              <span className={deviationTone}>
-                {formatCurrencySigned(currentDeviation as number)}{' '}
-                {(currentDeviation as number) >= 0 ? aboveTrendLabel : belowTrendLabel}
-              </span>
+              <span className="text-muted-foreground">{monthChangeLabel}: </span>
+              <span className={monthGainTone}>{formatCurrencySigned(monthGain as number)}</span>
             </p>
           )}
         </div>

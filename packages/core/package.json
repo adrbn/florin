@@ -17,6 +17,7 @@
     "./lib/reflect/age-of-money": "./src/lib/reflect/age-of-money.ts",
     "./lib/reflect/insights": "./src/lib/reflect/insights.ts",
     "./lib/utils": "./src/lib/utils.ts",
+    "./lib/version": "./src/lib/version.ts",
     "./lib/chart/palette": "./src/lib/chart/palette.ts",
     "./lib/calculators/compound": "./src/lib/calculators/compound.ts",
     "./lib/calculators/loan": "./src/lib/calculators/loan.ts",

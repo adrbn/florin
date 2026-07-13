@@ -8,7 +8,6 @@ import { PrivacyProvider, PrivacyBodyClass } from '@florin/core/privacy'
 import { setCurrencyConfig } from '@florin/core/lib/format'
 import { cn } from '@florin/core/lib/utils'
 import { DataRefresher } from '@/components/data-refresher'
-import { UpdateBanner } from '@/components/update-banner'
 import { db } from '@/db/client'
 import { settings } from '@/db/schema'
 
@@ -54,7 +53,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <PrivacyBodyClass />
               {children}
               <DataRefresher />
-              <UpdateBanner />
             </PrivacyProvider>
           </I18nProvider>
         </ThemeProvider>

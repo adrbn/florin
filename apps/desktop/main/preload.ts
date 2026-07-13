@@ -28,8 +28,16 @@ contextBridge.exposeInMainWorld('florin', {
       ipcRenderer.removeListener('florin:data-changed', listener)
     }
   },
-  onUpdateDownloaded: (cb: (version: string) => void) => {
-    ipcRenderer.on('update-downloaded', (_event, version) => cb(version))
+  // Auto-updater. `getUpdateStatus` pulls the current status on mount (the
+  // initial check can fire before the renderer subscribes); `onUpdateStatus`
+  // streams live changes and returns an unsubscribe fn.
+  getUpdateStatus: () => ipcRenderer.invoke('update:get-status'),
+  onUpdateStatus: (cb: (status: unknown) => void) => {
+    const listener = (_event: unknown, status: unknown) => cb(status)
+    ipcRenderer.on('update:status', listener)
+    return () => {
+      ipcRenderer.removeListener('update:status', listener)
+    }
   },
   // Fired when the main process intercepts ⌘H before macOS's native
   // "Hide Application" so the renderer can toggle privacy mode instead.
