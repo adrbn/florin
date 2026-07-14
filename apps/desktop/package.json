@@ -1,6 +1,6 @@
 {
   "name": "@florin/desktop",
-  "version": "1.2.27",
+  "version": "1.2.28",
   "private": true,
   "main": "dist-main/index.cjs",
   "scripts": {

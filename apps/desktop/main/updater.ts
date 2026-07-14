@@ -2,7 +2,9 @@ import { autoUpdater } from 'electron-updater'
 import { BrowserWindow, ipcMain } from 'electron'
 
 export type UpdateState = 'available' | 'downloading' | 'ready'
-export type UpdateStatus = { state: UpdateState; version: string } | null
+export type UpdateStatus =
+  | { state: UpdateState; version: string; percent?: number }
+  | null
 
 // Last-known update status, kept so the renderer can pull it on mount (the
 // initial check often fires before any window subscribes) as well as receive
@@ -25,12 +27,11 @@ export function initAutoUpdater() {
       setStatus({ state: 'available', version: info.version })
     })
 
-    // Fires repeatedly while downloading — only broadcast the one-time
-    // available → downloading transition, not every progress tick.
-    autoUpdater.on('download-progress', () => {
-      if (current?.state === 'available') {
-        setStatus({ state: 'downloading', version: current.version })
-      }
+    // Fires repeatedly while downloading — broadcast the live percentage so the
+    // sidebar pill can show a progress bar / "Téléchargement… 45%".
+    autoUpdater.on('download-progress', (p) => {
+      const version = current?.version ?? ''
+      setStatus({ state: 'downloading', version, percent: Math.round(p?.percent ?? 0) })
     })
 
     autoUpdater.on('update-downloaded', (info) => {
