@@ -2,7 +2,7 @@
 declare global {
   /** Auto-updater status pushed from the main process. `null` = app is current. */
   type UpdateStatus =
-    | { state: 'available' | 'downloading' | 'ready'; version: string }
+    | { state: 'available' | 'downloading' | 'ready'; version: string; percent?: number }
     | null
 
   interface Window {

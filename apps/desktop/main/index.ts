@@ -2,7 +2,7 @@ import { app, BrowserWindow } from 'electron'
 import path from 'node:path'
 import { createSqliteClient, createSqliteQueries, createSqliteMutations, ensureSchema, schema } from '@florin/db-sqlite'
 import { eq } from 'drizzle-orm'
-import { broadcastDataChanged, createWindow, getMainWindow, syncPinCookie } from './window'
+import { broadcastDataChanged, createWindow, getMainWindow, showMainWindow, syncPinCookie } from './window'
 import { setupTray, getTrayWindow } from './tray'
 import { registerIpcHandlers } from './ipc'
 import { startSyncScheduler, stopSyncScheduler } from './scheduler'
@@ -168,6 +168,14 @@ app.whenReady().then(async () => {
 
 app.on('window-all-closed', () => {
   // Don't quit — keep running in tray (tray added in Task 9)
+})
+
+// macOS: closing the window only HIDES it (see window.ts), and after an
+// auto-update relaunch the app can come back with no visible window. Re-show
+// (and focus) the main window whenever the app is activated — Dock click, ⌘-Tab,
+// or the post-update relaunch — so it never sits "running but invisible".
+app.on('activate', () => {
+  showMainWindow()
 })
 
 app.on('before-quit', () => {

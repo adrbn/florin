@@ -10,6 +10,8 @@ export interface UpdateInfo {
   /** Version being offered, without a leading `v` (e.g. `"1.2.25"`). */
   version: string
   state: UpdateState
+  /** Download progress 0–100, only meaningful while `state === 'downloading'`. */
+  percent?: number
 }
 
 interface UpdatePillProps {
@@ -36,15 +38,17 @@ export function UpdatePill({ update, onClick, className }: UpdatePillProps) {
   const t = useT()
   if (!update) return null
 
-  const { state, version } = update
+  const { state, version, percent } = update
   const downloading = state === 'downloading'
   const ready = state === 'ready'
+  const hasPercent = downloading && typeof percent === 'number'
 
-  const label = downloading
+  const baseLabel = downloading
     ? t('update.downloading', 'Downloading update…')
     : ready
       ? t('update.ready', 'Restart to update')
       : t('update.available', 'Update available')
+  const label = hasPercent ? `${baseLabel} ${percent}%` : baseLabel
 
   const Icon = downloading ? Loader2 : ready ? RefreshCw : Download
 
@@ -55,7 +59,7 @@ export function UpdatePill({ update, onClick, className }: UpdatePillProps) {
       disabled={downloading}
       aria-label={`${label} — v${version}`}
       className={cn(
-        'flex w-full items-center gap-3 rounded-md border px-3 py-2 text-sm font-medium transition-colors',
+        'relative flex w-full items-center gap-3 overflow-hidden rounded-md border px-3 py-2 text-sm font-medium transition-colors',
         'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
         'hover:bg-emerald-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40',
         'disabled:cursor-default disabled:hover:bg-emerald-500/10',
@@ -65,7 +69,10 @@ export function UpdatePill({ update, onClick, className }: UpdatePillProps) {
     >
       <Icon className={cn('h-4 w-4 shrink-0', downloading && 'animate-spin')} />
       <span className="flex min-w-0 flex-1 flex-col items-start leading-tight">
-        <span className="truncate">{label}</span>
+        {/* `w-full` + wrapping bounds the text to the sidebar width so a long
+            label ("Redémarrer pour installer") wraps to two lines instead of
+            overflowing the rail. */}
+        <span className="w-full break-words text-left">{label}</span>
         <span className="text-[11px] font-normal text-emerald-700/70 dark:text-emerald-300/70">
           v{version}
         </span>
@@ -74,6 +81,17 @@ export function UpdatePill({ update, onClick, className }: UpdatePillProps) {
         <span className="relative flex h-2 w-2 shrink-0" aria-hidden="true">
           <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500/70 motion-safe:animate-ping" />
           <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+        </span>
+      )}
+      {hasPercent && (
+        <span
+          className="absolute inset-x-0 bottom-0 h-0.5 bg-emerald-500/20"
+          aria-hidden="true"
+        >
+          <span
+            className="block h-full bg-emerald-500 transition-[width] duration-200"
+            style={{ width: `${percent}%` }}
+          />
         </span>
       )}
     </button>
