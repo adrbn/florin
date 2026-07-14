@@ -42,8 +42,8 @@ mac:
   # and skips notarization — CI is the only place the secrets exist.
   hardenedRuntime: true
   gatekeeperAssess: false
-  entitlements: build/entitlements.mac.plist
-  entitlementsInherit: build/entitlements.mac.plist
+  entitlements: entitlements.mac.plist
+  entitlementsInherit: entitlements.mac.plist
   notarize: true
   target:
     # dmg = manual install / first bootstrap; zip = what electron-updater

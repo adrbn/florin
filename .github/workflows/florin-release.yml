@@ -33,15 +33,15 @@ jobs:
         # notarytool with the APPLE_* creds and staples the result. If these
         # secrets are unset the build is produced unsigned instead of failing.
         #
-        # Entitlements are passed as an ABSOLUTE path: in this pnpm monorepo the
-        # relative `build/entitlements.mac.plist` from electron-builder.yml gets
-        # resolved by codesign against the wrong CWD ("cannot read entitlement
-        # data"). $PWD is apps/desktop here, so this always resolves.
+        # Entitlements passed as an ABSOLUTE path so codesign always resolves it
+        # regardless of its CWD. The plist lives at apps/desktop/entitlements.mac.plist
+        # (NOT under build/, which .gitignore excludes — that's why an earlier
+        # run got "cannot read entitlement data": the file wasn't committed).
         run: |
           cd apps/desktop
           pnpm exec electron-builder --mac --publish never \
-            --config.mac.entitlements="$PWD/build/entitlements.mac.plist" \
-            --config.mac.entitlementsInherit="$PWD/build/entitlements.mac.plist"
+            --config.mac.entitlements="$PWD/entitlements.mac.plist" \
+            --config.mac.entitlementsInherit="$PWD/entitlements.mac.plist"
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
