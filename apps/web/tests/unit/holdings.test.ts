@@ -70,13 +70,19 @@ function seedHolding(ctx: ForecastTestContext, input: SeedHoldingInput): string 
   return id
 }
 
-/** Insert a transfer leg with optional status/deletedAt that seedTx can't set. */
+/**
+ * Insert a transfer leg with optional status/deletedAt that seedTx can't set.
+ * Pass `transferPairId: null` with a transfer-style `payee` (e.g. "Transfer
+ * from CCP") to model a manual, not-yet-paired versement — the case the
+ * uncategorized-transfer heuristic must still count toward `verse`.
+ */
 function seedTransferLeg(
   ctx: ForecastTestContext,
   input: {
     accountId: string
     amount: number
-    transferPairId: string
+    transferPairId?: string | null
+    payee?: string
     status?: 'cleared' | 'scheduled'
     deletedAt?: string | null
     occurredAt?: string
@@ -88,7 +94,7 @@ function seedTransferLeg(
       `INSERT INTO transactions
          (id, account_id, occurred_at, amount, status, source, payee,
           transfer_pair_id, deleted_at, needs_review)
-       VALUES (?, ?, ?, ?, ?, 'manual', '', ?, ?, 0)`,
+       VALUES (?, ?, ?, ?, ?, 'manual', ?, ?, ?, 0)`,
     )
     .run(
       id,
@@ -96,7 +102,8 @@ function seedTransferLeg(
       input.occurredAt ?? isoOffsetDays(-3),
       input.amount,
       input.status ?? 'cleared',
-      input.transferPairId,
+      input.payee ?? '',
+      input.transferPairId ?? null,
       input.deletedAt ?? null,
     )
   return id
@@ -241,7 +248,7 @@ describe('getNetWorth — broker portfolio folding', () => {
 // =====================================================================
 
 describe('getPortfolioValuation', () => {
-  it('computes the full aggregate with only inbound cleared transfer legs as verse', async () => {
+  it('computes the full aggregate with net cleared transfer legs as verse', async () => {
     const ctx = makeForecastDb()
     const broker = seedBroker(ctx)
     const q = createSqliteQueries(ctx.db)
@@ -251,14 +258,15 @@ describe('getPortfolioValuation', () => {
     seedHolding(ctx, { accountId: broker, quantity: 5, costBasis: 800, lastPrice: 100 }) //  mv 500
     await recomputeMarketValue(ctx.db, broker) // market_value = 2000, costBasis Σ = 1800
 
-    // Idle cash: a cleared positive deposit (no transfer pair) raises currentBalance.
+    // Idle cash: a cleared positive deposit with an empty payee (not a transfer,
+    // not caught by the heuristic) raises currentBalance but NOT verse.
     seedTx(ctx, { accountId: broker, occurredAt: isoOffsetDays(-4), amount: 300, status: 'cleared' })
 
     // Inbound cleared transfer legs (count toward verse): +1000 and +500.
     seedTransferLeg(ctx, { accountId: broker, amount: 1000, transferPairId: randomUUID(), status: 'cleared' })
     seedTransferLeg(ctx, { accountId: broker, amount: 500, transferPairId: randomUUID(), status: 'cleared' })
 
-    // Outbound cleared transfer leg (negative) — must NOT count toward verse.
+    // Outbound cleared transfer leg (negative) — nets AGAINST verse (money left).
     seedTransferLeg(ctx, { accountId: broker, amount: -200, transferPairId: randomUUID(), status: 'cleared' })
 
     // Uncleared/scheduled inbound transfer leg — must NOT count toward verse.
@@ -284,10 +292,60 @@ describe('getPortfolioValuation', () => {
     expect(v.marketValue).toBe(2000)
     expect(v.costBasis).toBe(1800)
     expect(v.plusValue).toBe(200) // 2000 − 1800
-    // verse counts ONLY inbound (amount>0), cleared, non-deleted transfer legs = 1000 + 500.
-    expect(v.verse).toBe(1500)
-    // marche = (marketValue + cash) − verse = (2000 + 1600) − 1500 = 2100.
-    expect(v.marche).toBe(2100)
+    // verse = net cleared, non-deleted transfer legs = 1000 + 500 − 200.
+    expect(v.verse).toBe(1300)
+    // marche = (marketValue + cash) − verse = (2000 + 1600) − 1300 = 2300.
+    expect(v.marche).toBe(2300)
+  })
+
+  it('counts UNPAIRED transfer-payee deposit legs toward verse (regression)', async () => {
+    // The real-world bug: a manual "Transfer from CCP" versement whose CCP
+    // counterpart has not been paired yet (transfer_pair_id NULL). Requiring a
+    // pair silently dropped it, so a 2500 deposit vanished from "Versé".
+    const ctx = makeForecastDb()
+    const broker = seedBroker(ctx)
+    const q = createSqliteQueries(ctx.db)
+
+    // Paired deposit — always counted.
+    seedTransferLeg(ctx, {
+      accountId: broker,
+      amount: 500,
+      payee: 'Transfer from CCP',
+      transferPairId: randomUUID(),
+      status: 'cleared',
+    })
+    // UNPAIRED deposit with a transfer payee — must still count via the heuristic.
+    seedTransferLeg(ctx, {
+      accountId: broker,
+      amount: 2500,
+      payee: 'Transfer from CCP',
+      transferPairId: null,
+      status: 'cleared',
+    })
+    // UNPAIRED sweep-back to CCP — nets against verse.
+    seedTransferLeg(ctx, {
+      accountId: broker,
+      amount: -5.69,
+      payee: 'Transfer to CCP',
+      transferPairId: null,
+      status: 'cleared',
+    })
+    // The buy itself is categorized (adjustment) → not a transfer → excluded.
+    const catRow = ctx.raw
+      .prepare("SELECT id FROM categories LIMIT 1")
+      .get() as { id: string } | undefined
+    seedTx(ctx, {
+      accountId: broker,
+      occurredAt: isoOffsetDays(-1),
+      amount: -498.56,
+      status: 'cleared',
+      payee: 'Achat World ETF',
+      categoryId: catRow?.id ?? null,
+    })
+
+    const v = await q.getPortfolioValuation(broker)
+    // 500 + 2500 − 5.69 = 2994.31 (the buy is excluded).
+    expect(v.verse).toBeCloseTo(2994.31, 2)
   })
 
   it('empty broker → all zeros', async () => {

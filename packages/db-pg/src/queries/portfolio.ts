@@ -2,6 +2,7 @@ import { and, asc, eq, isNotNull, isNull, sql } from 'drizzle-orm'
 import type { HoldingView, PortfolioValuation } from '@florin/core/types'
 import type { PgDB } from '../client'
 import { accounts, holdings, transactions } from '../schema'
+import { isUncategorizedTransfer } from './transfer-filter'
 
 const STALE_MS = 48 * 60 * 60 * 1000
 
@@ -57,18 +58,23 @@ export async function getPortfolioValuation(
     .where(eq(holdings.accountId, accountId))
   const costBasis = Number(cbRow?.total ?? '0')
 
-  // Versé = sum of inbound, cleared transfer legs into this account (external
-  // money the user moved in), mirroring the loan-liabilities transfer pattern.
+  // Versé = net external cash the user moved into this account: the sum over all
+  // cleared, non-deleted transfer legs (inbound deposits minus outbound
+  // withdrawals / sweep-backs). A leg counts as a transfer if it is explicitly
+  // paired OR matches the uncategorized-transfer payee heuristic — manual
+  // "Transfer from CCP" versements are frequently left unpaired (their CCP
+  // counterpart syncs in late via PSD2), so requiring a pair silently dropped
+  // real contributions. Summing net (not inbound-only) keeps `marche` a true P/L
+  // and cancels the sweep-back cash returned to the funding account.
   const [vRow] = await db
     .select({ total: sql<string>`COALESCE(SUM(${transactions.amount}), 0)` })
     .from(transactions)
     .where(
       and(
         eq(transactions.accountId, accountId),
-        isNotNull(transactions.transferPairId),
-        sql`${transactions.amount} > 0`,
         isNull(transactions.deletedAt),
         eq(transactions.status, 'cleared'),
+        sql`(${transactions.transferPairId} IS NOT NULL OR ${isUncategorizedTransfer()})`,
       ),
     )
   const verse = Number(vRow?.total ?? '0')
