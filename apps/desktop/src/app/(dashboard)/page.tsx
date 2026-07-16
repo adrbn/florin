@@ -270,7 +270,7 @@ export default async function DashboardPage() {
        * Objectif) sit on one short row. On mobile everything stacks + scrolls.
        */}
       <div className="flex min-h-0 flex-1 flex-col gap-3">
-        <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 [grid-auto-rows:minmax(280px,1fr)] lg:grid-cols-3 lg:[grid-auto-rows:minmax(0,1fr)]">
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 [grid-auto-rows:minmax(280px,1fr)] lg:grid-cols-3 lg:[grid-auto-rows:minmax(340px,1fr)]">
           <div className="min-h-0 h-full lg:col-span-2">
             <Suspense fallback={<CardSkeleton />}>
               <PatrimonyChartServer />
