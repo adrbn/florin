@@ -138,6 +138,8 @@ async function finalizeSyncRun(
  */
 const TX_LOOKBACK_DAYS = 90
 const TX_LOOKBACK_DAYS_INITIAL = 90
+/** Re-scanned window on every delta sync, to catch late-posted/backdated rows. */
+const TX_OVERLAP_DAYS = 7
 
 function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10)
@@ -262,8 +264,23 @@ async function syncAccountTransactions(
     ),
     orderBy: [desc(transactions.occurredAt)],
   })
+  // Once an account is bank-synced, re-scan the last TX_OVERLAP_DAYS instead of
+  // starting the day AFTER the newest row. Banks (LBP especially) post card
+  // purchases days late while keeping the ORIGINAL transaction date, so a
+  // "latest + 1 day" watermark steps straight over them and they are missed
+  // FOREVER — this is how the web permanently lost two 13/14-07 purchases that
+  // the desktop (whose watermark was further back when it synced) did pick up.
+  // Re-fetched rows are idempotent via the (source, external_id) unique index,
+  // so the overlap only ever inserts genuine late arrivals.
+  // At the legacy boundary keep the +1 day: there the overlap would let bank
+  // rows duplicate legacy_xlsx history for the same days (different source =
+  // no unique-index collision to save us).
+  const isBankSynced = latestExisting?.source === 'enable_banking'
   const accountWatermark = latestExisting
-    ? new Date(latestExisting.occurredAt.getTime() + 24 * 60 * 60 * 1000)
+    ? new Date(
+        latestExisting.occurredAt.getTime() +
+          (isBankSynced ? -TX_OVERLAP_DAYS : 1) * 24 * 60 * 60 * 1000,
+      )
     : syncStartDate
 
   // Pick the most-recent of (per-account watermark, PSD2 floor). PSD2
