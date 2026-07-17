@@ -670,6 +670,10 @@ export async function syncConnection(
   const accountLogs: AccountLog[] = []
   let totalInserted = 0
   let accountsSynced = 0
+  // Whether any account already held transactions before this run. Distinguishes
+  // "bank exposes no transaction detail" (nothing, ever) from a healthy delta
+  // sync that simply returned no NEW rows this time.
+  let hadPriorTx = false
 
   for (const uid of session.accounts) {
     const log = newAccountLog(uid)
@@ -722,6 +726,7 @@ export async function syncConnection(
         .get()
 
       const isFirstSync = !priorTx
+      if (priorTx) hadPriorTx = true
       const { fetched, inserted } = await syncAccountTransactions(
         ebConfig,
         florinAccountId,
@@ -775,12 +780,15 @@ export async function syncConnection(
   // A clean run that returned nothing isn't a failure, but it shouldn't look
   // identically healthy either. Record a soft `[info:<token>]` note the UI
   // renders as an amber hint (e.g. PayPal exposes 0 accounts over PSD2).
+  // The no-transactions hint must only fire when the connection has NEVER held
+  // any transactions — otherwise every routine delta sync that returns no new
+  // rows (the common case once caught up) would falsely warn "0 transaction".
   const syncNote =
     errors.length > 0
       ? errors.map((e) => e.message).join('; ')
       : accountsTotal === 0
         ? '[info:no_accounts]'
-        : accountsSynced > 0 && totalInserted === 0
+        : accountsSynced > 0 && totalInserted === 0 && !hadPriorTx
           ? '[info:no_transactions]'
           : null
 

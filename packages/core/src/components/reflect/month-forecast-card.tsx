@@ -33,29 +33,29 @@ export function MonthForecastCard({ leftToSpend }: MonthForecastCardProps) {
       : 'text-destructive'
 
   return (
-    <Card className="flex h-full flex-col">
-      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+    <Card className="flex h-full flex-col gap-2">
+      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-1">
         <div className="min-w-0">
           <CardTitle className="text-sm font-medium">
             {t('reflect.insights.forecastTitle', 'Month forecast')}
           </CardTitle>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">
+          <p className="text-[11px] text-muted-foreground">
             {t('reflect.insights.forecastSubtitle', 'If your current pace holds')}
           </p>
         </div>
         <CalendarClock className="h-4 w-4 shrink-0 text-muted-foreground" />
       </CardHeader>
-      <CardContent className="flex min-h-0 flex-1 flex-col justify-between gap-3 pb-3">
+      <CardContent className="flex min-h-0 flex-1 flex-col justify-between gap-2 pb-3">
         <div>
           <p className={`text-2xl font-bold tabular-nums ${headlineTone}`}>{headlineValue}</p>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">
+          <p className="text-[11px] text-muted-foreground">
             {hasMargin
               ? t('reflect.insights.forecastMargin', 'projected margin')
               : t('reflect.insights.forecastSpend', 'projected spend')}
           </p>
         </div>
 
-        <div className="space-y-2 text-[11px] text-muted-foreground">
+        <div className="space-y-1 text-[11px] text-muted-foreground">
           <div className="flex items-center justify-between tabular-nums">
             <span>{t('reflect.insights.spentSoFar', 'Spent so far')}</span>
             <span className="text-foreground">{formatCurrency(f.monthSpent)}</span>
@@ -79,7 +79,7 @@ export function MonthForecastCard({ leftToSpend }: MonthForecastCardProps) {
             </div>
           </div>
           {f.fixedSpent > 0 && (
-            <p className="text-[10px] leading-snug text-muted-foreground/80">
+            <p className="text-[10px] leading-tight text-muted-foreground/80">
               {t(
                 'reflect.insights.forecastFixedNote',
                 { amount: formatCurrency(f.fixedSpent) },

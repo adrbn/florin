@@ -282,7 +282,7 @@ export default async function DashboardPage() {
             </Suspense>
           </div>
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 lg:[grid-auto-rows:clamp(150px,22vh,260px)]">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-4 lg:[grid-auto-rows:clamp(280px,30vh,312px)]">
           <div className="min-h-0 h-full">
             <Suspense fallback={<CardSkeleton className="h-[300px]" />}>
               <AllocationDonutServer />
