@@ -25,7 +25,9 @@
 ## Features
 
 - Multi-account tracking: checking, savings, cash, loans, brokerage
-- Dashboard: net worth, burn rate, safety gauge, monthly margin, 12-month patrimony chart with forecast, category breakdown
+- Dashboard: net worth, burn rate, safety gauge, monthly margin, patrimony chart with forecast, asset allocation, rolling savings rate, month-end projection, long-term goal
+- Investing: holdings with cost basis and unrealized P/L, opt-in live quotes, contributed-vs-market split, and a contribution-ceiling gauge for tax wrappers (France's PEA by default)
+- Loans: real amortization — solves the periodic rate from principal/payment/term so "capital restant dû" matches the bank to the cent
 - Review queue with bulk approve / recategorize / delete
 - Reflect analytics: 52-week spending heatmap, rolling savings rate, subscriptions radar, "if I stopped X" counterfactual, net worth over time
 - CSV / OFX / QFX import with auto column mapping
@@ -38,8 +40,8 @@ Native macOS app. Zero config, one-click install.
 
 - Menu bar tray widget (net worth, burn rate, recent transactions)
 - PIN lock, onboarding wizard
-- Auto-updater via GitHub Releases
-- All data in `~/Library/Application Support/Florin/florin.db`
+- Signed, notarized, and auto-updating via GitHub Releases
+- All data in `~/Library/Application Support/@florin/desktop/florin.db`
 
 ### Web (`apps/web`)
 
@@ -53,30 +55,30 @@ Single-admin Next.js 15 + Postgres stack behind a reverse proxy of your choice.
 
 Download the latest `.dmg` from [Releases](https://github.com/adrbn/florin/releases), drag Florin to Applications, launch. Onboarding walks you through language, categories, and your first account.
 
-### Gatekeeper / unsigned app
-
-The DMG is **not notarized** (no paid Apple Developer signing yet), so macOS Gatekeeper will block the first launch with an "unidentified developer" warning. Two ways around it:
-
-- **Right-click the app** in Applications → **Open** → confirm. macOS remembers the choice after the first run.
-- Or clear the quarantine flag from a terminal:
-  ```bash
-  xattr -dr com.apple.quarantine /Applications/Florin.app
-  ```
+Released builds are **signed with a Developer ID certificate and notarized by Apple**, so they open without Gatekeeper warnings and update in place — no `xattr` dance. Updates arrive automatically: Florin checks GitHub Releases on launch and every 6 hours, downloads in the background, and shows a "Restart to install" pill in the sidebar. (Quitting the app also installs a pending update.)
 
 ### Build the desktop app from source
+
+Requires **Node 22** — `better-sqlite3` has no prebuilt binary for newer Node majors and its native build fails there. CI pins 22 too.
 
 ```bash
 pnpm install
 pnpm --filter @florin/desktop run pack
 ```
 
-`pack` builds the Electron main process (esbuild) and the Next.js app, then runs `electron-builder`, which rebuilds the `better-sqlite3` native module against Electron for the target arch before packaging. The unnotarized `.dmg` lands in `apps/desktop/dist/` (`Florin-<version>-<arch>.dmg`).
+`pack` builds the Electron main process (esbuild) and the Next.js app, then runs `electron-builder`, which rebuilds the `better-sqlite3` native module against Electron for the target arch before packaging. The `.dmg` lands in `apps/desktop/dist/` (`Florin-<version>-<arch>.dmg`).
+
+Local builds are **unsigned** — signing and notarization only happen in CI, where the `CSC_*` / `APPLE_*` secrets exist. To run an unsigned local build, right-click → **Open**, or `xattr -dr com.apple.quarantine /Applications/Florin.app`.
+
+Releases are cut by pushing a `Florin-v*` tag (matching the `version` in **both** `apps/web/package.json` and `apps/desktop/package.json`); the workflow builds both arches, signs, notarizes, and attaches them to a GitHub Release. Wait for the run to finish before expecting auto-update to see it — a release whose `latest-mac.yml` hasn't uploaded yet shadows the previous one and update checks fail until it does.
 
 ### Forking / self-distributing
 
 If you fork Florin and ship your own desktop builds, change `publish.owner` and `publish.repo` in `apps/desktop/electron-builder.yml` to point at **your** GitHub repo before distributing. Otherwise the built-in auto-updater will check the upstream `adrbn/florin` releases and try to update users onto the upstream binaries.
 
 ## Install — Web (self-host)
+
+Needs Docker, plus **Node 22** + pnpm for the password-hash and migrate steps (`pnpm install` resolves the whole workspace, and `better-sqlite3` won't compile on newer Node majors).
 
 ```bash
 git clone https://github.com/adrbn/florin.git
@@ -118,6 +120,21 @@ Visit `http://localhost:3000`. **Do not expose Florin to the public internet wit
    - **Desktop:** Settings → Bank Sync → enter App ID and import the `.pem`. The key is copied into Application Support and never leaves your machine.
    - **Web:** set `ENABLE_BANKING_APP_ID`, `ENABLE_BANKING_PRIVATE_KEY_PATH`, `ENABLE_BANKING_REDIRECT_URL` in `.env`.
 
+## Configure
+
+Florin's defaults are France/EUR-first. Every assumption is a knob — on **web** they're env vars in `.env`, on **desktop** the same settings live in Settings → App (no env needed).
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| `APP_CURRENCY` | `EUR` | Display currency + number formatting |
+| `APP_GOAL_TARGET` | `100000` | Long-term wealth target on the goal card |
+| `APP_GOAL_RETURN_PCT` | `7` | Assumed net annual return for the projection |
+| `APP_PEA_CEILING` | `150000` | Contribution cap for a tax wrapper (France's PEA). **Set `0` to hide the gauge** if your country has no such cap |
+| `APP_DCA_MONTHLY` | *(blank)* | Planned monthly investment. Blank = inferred from your history |
+| `PRICE_PROVIDER` | `none` | `yahoo` opts into live quotes for holdings. Off by default — no outbound calls unless you ask |
+
+Live prices are **opt-in**: with `PRICE_PROVIDER=none` the refresh job is a no-op and Florin never talks to a quote API. Set `yahoo` and give each holding a symbol (e.g. `CW8.PA`) to have market values refresh in the background.
+
 ## Import data
 
 Drag-and-drop CSV / OFX / QFX onto an account's detail page — column mapping, European date and number formats are auto-detected.
@@ -140,7 +157,7 @@ docker exec florin-db pg_dump -U florin -d florin --no-owner --no-privileges \
   | gzip -9 > "backups/florin-$(date -u +%Y%m%dT%H%M%SZ).sql.gz"
 ```
 
-**Desktop (SQLite):** copy `~/Library/Application Support/Florin/florin.db` — single file. JSON export also available in Settings → Data.
+**Desktop (SQLite):** copy `~/Library/Application Support/@florin/desktop/florin.db` — single file, best taken with the app closed. JSON export also available in Settings → Data.
 
 ## Repo layout
 
@@ -159,6 +176,8 @@ compose.yaml
 
 ## Development
 
+**Node 22 + pnpm.** `better-sqlite3` ships no prebuilt binary for newer Node majors and fails to compile against them, so `pnpm install` breaks the whole workspace on Node 26. CI pins 22.
+
 ```bash
 # Web
 make install && make dev
@@ -167,6 +186,8 @@ make test   lint   migrate   seed
 # Desktop
 cd apps/desktop && pnpm dev
 ```
+
+`packages/db-pg` and `packages/db-sqlite` are deliberate twins — same schema shape and query surface over different drivers. A query or sync fix almost always has to land in **both**, and likewise for the `apps/web` / `apps/desktop` server actions that wrap them.
 
 ## License
 
