@@ -62,13 +62,22 @@ export function AllocationDonut({ allocation, locale }: AllocationDonutProps) {
             : t('alloc.empty', 'Aucun actif')}
         </p>
       </CardHeader>
-      <CardContent className="flex min-h-0 flex-1 flex-col pb-3">
+      <CardContent className="@container/alloc flex min-h-0 flex-1 flex-col pb-3">
         {assets === 0 ? (
           <p className="text-xs text-muted-foreground">{t('alloc.empty', 'Aucun actif')}</p>
         ) : (
-          <div className="flex min-h-0 flex-1 items-center gap-2">
+          /*
+           * Donut beside the legend needs ~300px of card width, otherwise the
+           * legend can't fit "Liquidités 11 660,58 €" and the labels truncate to
+           * "Liqui…" while the donut shrinks to a stub (four tiles on one row in
+           * a windowed app leaves each only ~275px). Under that, stack instead:
+           * the donut sits above a full-width legend — bigger donut, no label
+           * ever cut. Container query, so it keys off the tile's real width
+           * rather than guessing from the viewport.
+           */
+          <div className="flex min-h-0 flex-1 flex-col items-center gap-2 @[300px]/alloc:flex-row @[300px]/alloc:gap-3">
             {/* Donut with the share invested in the center. */}
-            <div className="relative h-full min-h-[130px] w-[38%] shrink-0">
+            <div className="relative min-h-[100px] w-full max-w-[150px] flex-1 @[300px]/alloc:h-full @[300px]/alloc:w-[42%] @[300px]/alloc:max-w-none @[300px]/alloc:flex-none">
               <NoSSR fallback={<div className="h-full w-full" />}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -117,7 +126,7 @@ export function AllocationDonut({ allocation, locale }: AllocationDonutProps) {
             </div>
 
             {/* Legend — invested first (the number that matters), then cash, then loans. */}
-            <ul className="flex min-w-0 flex-1 flex-col justify-center gap-1.5 text-[11px] tabular-nums">
+            <ul className="flex w-full min-w-0 shrink-0 flex-col justify-center gap-1.5 text-[11px] tabular-nums @[300px]/alloc:w-auto @[300px]/alloc:flex-1">
               <li className="flex items-center justify-between gap-2">
                 <span className="flex min-w-0 items-center gap-1.5">
                   <span
