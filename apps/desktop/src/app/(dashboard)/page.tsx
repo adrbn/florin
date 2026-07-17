@@ -282,7 +282,13 @@ export default async function DashboardPage() {
             </Suspense>
           </div>
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-4 lg:[grid-auto-rows:clamp(280px,30vh,312px)]">
+        {/*
+         * The tall fixed row height ONLY applies at xl, where all four tiles sit
+         * on ONE row. Below xl the grid is 2-col — two rows — and forcing 2×312px
+         * would eat the whole viewport and collapse the flex-1 charts to zero.
+         * There the rows size to content instead (no clipping, charts survive).
+         */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 xl:[grid-auto-rows:clamp(280px,30vh,312px)]">
           <div className="min-h-0 h-full">
             <Suspense fallback={<CardSkeleton className="h-[300px]" />}>
               <AllocationDonutServer />
