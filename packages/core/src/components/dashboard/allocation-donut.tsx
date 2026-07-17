@@ -66,9 +66,9 @@ export function AllocationDonut({ allocation, locale }: AllocationDonutProps) {
         {assets === 0 ? (
           <p className="text-xs text-muted-foreground">{t('alloc.empty', 'Aucun actif')}</p>
         ) : (
-          <div className="flex min-h-0 flex-1 items-center gap-4">
+          <div className="flex min-h-0 flex-1 items-center gap-2">
             {/* Donut with the share invested in the center. */}
-            <div className="relative h-full min-h-[150px] w-[46%] shrink-0">
+            <div className="relative h-full min-h-[130px] w-[38%] shrink-0">
               <NoSSR fallback={<div className="h-full w-full" />}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -117,7 +117,7 @@ export function AllocationDonut({ allocation, locale }: AllocationDonutProps) {
             </div>
 
             {/* Legend — invested first (the number that matters), then cash, then loans. */}
-            <ul className="flex min-w-0 flex-1 flex-col justify-center gap-2.5 text-xs tabular-nums">
+            <ul className="flex min-w-0 flex-1 flex-col justify-center gap-1.5 text-[11px] tabular-nums">
               <li className="flex items-center justify-between gap-2">
                 <span className="flex min-w-0 items-center gap-1.5">
                   <span
