@@ -1,5 +1,5 @@
 import { autoUpdater } from 'electron-updater'
-import { BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain } from 'electron'
 
 export type UpdateState = 'available' | 'downloading' | 'ready'
 export type UpdateStatus =
@@ -46,6 +46,12 @@ export function initAutoUpdater() {
 
     ipcMain.handle('update:get-status', () => current)
     ipcMain.on('install-update', () => {
+      // quitAndInstall() closes every window and only calls app.quit() once
+      // they are ALL closed. The main window's `close` handler hides-to-tray
+      // unless `isQuitting` is set (window.ts), so without this flag the window
+      // merely disappears, the quit never happens and the update never
+      // installs. Mirrors the 'quit-app' handler in ipc.ts.
+      app.isQuitting = true
       autoUpdater.quitAndInstall()
     })
 
