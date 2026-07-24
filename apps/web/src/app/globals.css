@@ -193,6 +193,33 @@ html.privacy-hidden [data-amount]:hover {
   }
 }
 
+/* iOS Safari renders <input type="date"> (and the other date/time types) as a
+   native control that ignores `min-width: 0` — it refuses to shrink below its
+   intrinsic content width. In a two-column row (e.g. the "Nouveau virement"
+   Date + Montant grid) the date field then overflows its `minmax(0,1fr)` track
+   and squeezes the amount field, so the two look mismatched. Resetting the
+   webkit appearance turns it back into a normal, shrinkable box that fills its
+   column exactly like the text/number inputs beside it. Our own classes supply
+   the border/padding/radius, so nothing visual is lost; desktop browsers
+   already honor min-width:0, making this a no-op there. */
+input[type="date"],
+input[type="datetime-local"],
+input[type="time"],
+input[type="month"] {
+  -webkit-appearance: none;
+  appearance: none;
+}
+input::-webkit-date-and-time-value {
+  text-align: left;
+  margin: 0;
+}
+input::-webkit-datetime-edit {
+  padding: 0;
+}
+input::-webkit-calendar-picker-indicator {
+  margin-left: auto;
+}
+
 /* Recharts adds tabindex to SVG groups; the browser draws a giant focus
    rectangle around the whole chart on click. Keep focus-visible (keyboard)
    but kill the mouse-click outline. */
