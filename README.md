@@ -120,6 +120,22 @@ Visit `http://localhost:3000`. **Do not expose Florin to the public internet wit
    - **Desktop:** Settings → Bank Sync → enter App ID and import the `.pem`. The key is copied into Application Support and never leaves your machine.
    - **Web:** set `ENABLE_BANKING_APP_ID`, `ENABLE_BANKING_PRIVATE_KEY_PATH`, `ENABLE_BANKING_REDIRECT_URL` in `.env`.
 
+### Desktop: connect your bank (no self-hosting)
+
+Running the `.dmg`? You don't self-host anything — but Florin has no shared bank connection, so each person registers their own **free** Enable Banking application once. It stays entirely yours: your credentials live only on your Mac, and your bank consents run through your own account, not anyone else's.
+
+1. Sign up at <https://enablebanking.com/> and **create an application** (the free tier is enough).
+2. Generate a key pair in Terminal and upload `enablebanking-public.pem` to the application:
+   ```bash
+   openssl genrsa -out enablebanking-private.pem 2048
+   openssl rsa -in enablebanking-private.pem -pubout -out enablebanking-public.pem
+   ```
+3. In the application's settings, add this exact **redirect URI**:
+   `https://127.0.0.1:3847/api/banking/callback`
+4. In Florin: **Settings → Bank Sync** → paste your **App ID** and **import `enablebanking-private.pem`**. Done — "Synchroniser" now links your bank.
+
+Not comfortable with steps 1–3? Skip bank sync entirely and use Florin with **manual entry + CSV/OFX import** ([below](#import-data)) — everything else works without Enable Banking.
+
 ## Configure
 
 Florin's defaults are France/EUR-first. Every assumption is a knob — on **web** they're env vars in `.env`, on **desktop** the same settings live in Settings → App (no env needed).
