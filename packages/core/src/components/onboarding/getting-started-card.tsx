@@ -36,6 +36,13 @@ interface StepView {
   hint: string
   href: StepHref
   done: boolean
+  /**
+   * Shown as a suggestion but doesn't keep the card alive. Connecting a bank is
+   * a choice (CSV-only users never will), and the review queue is an ongoing
+   * chore that refills forever — gating on either would pin this card to an
+   * established user's dashboard permanently.
+   */
+  optional?: boolean
 }
 
 /**
@@ -85,6 +92,7 @@ export function GettingStartedCard({
       hint: t('gettingStarted.stepBankHint', 'Optional — transactions import themselves afterwards.'),
       href: '/accounts/connect',
       done: hasBankSync,
+      optional: true,
     },
     {
       key: 'transactions',
@@ -99,11 +107,15 @@ export function GettingStartedCard({
       hint: t('gettingStarted.stepReviewHint', 'Florin guesses categories — confirm them in the review queue.'),
       href: '/review',
       done: hasTransactions && needsReviewCount === 0,
+      optional: true,
     },
   ]
 
   const doneCount = steps.filter((s) => s.done).length
-  const allDone = doneCount === steps.length
+  // Setup is "done" once the required steps are — an account with transactions
+  // in it. The optional rows stay visible while the card is up, but never keep
+  // it from retiring.
+  const allDone = steps.every((s) => s.optional || s.done)
 
   // Never shown before the first account exists (the welcome banner covers
   // that), once everything is done, or after an explicit dismissal.
@@ -173,7 +185,14 @@ export function GettingStartedCard({
               >
                 <span className="h-4 w-4 shrink-0 rounded-full border border-muted-foreground/40" />
                 <span className="min-w-0 flex-1">
-                  <span className="block text-xs font-medium text-foreground">{step.label}</span>
+                  <span className="block text-xs font-medium text-foreground">
+                    {step.label}
+                    {step.optional && (
+                      <span className="ml-1.5 font-normal text-[10px] text-muted-foreground">
+                        ({t('common.optional', 'optional')})
+                      </span>
+                    )}
+                  </span>
                   <span className="block text-[11px] text-muted-foreground">{step.hint}</span>
                 </span>
                 <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
