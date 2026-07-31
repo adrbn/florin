@@ -2,15 +2,13 @@
 
 import { useState } from 'react'
 import { useT } from '../../../../i18n/context'
+import { SUPPORTED_LOCALES } from '../../../../i18n'
 
 interface LocalePickerStepProps {
   onSave: (locale: string, currency: string) => Promise<void>
 }
 
-const LANGUAGE_OPTIONS = [
-  { value: 'en', label: 'English' },
-  { value: 'fr', label: 'Français' },
-]
+const LANGUAGE_OPTIONS = SUPPORTED_LOCALES.map((l) => ({ value: l.code, label: l.name }))
 
 const CURRENCY_OPTIONS = [
   { value: 'EUR', label: 'EUR — Euro' },

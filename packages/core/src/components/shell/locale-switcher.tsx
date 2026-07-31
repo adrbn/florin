@@ -3,11 +3,9 @@
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { Languages } from 'lucide-react'
 import { useLocale } from '../../i18n/context'
+import { normalizeLocale, SUPPORTED_LOCALES, type SupportedLocale } from '../../i18n'
 
-const LOCALES: Array<{ code: 'en' | 'fr'; label: string }> = [
-  { code: 'fr', label: 'FR' },
-  { code: 'en', label: 'EN' },
-]
+const LOCALES = SUPPORTED_LOCALES
 
 interface LocaleSwitcherProps {
   endpoint?: string
@@ -27,7 +25,7 @@ export function LocaleSwitcher({ endpoint = '/api/locale', variant = 'inline' }:
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const ctxLocale = useLocale()
-  const current: 'en' | 'fr' = ctxLocale.toLowerCase().startsWith('fr') ? 'fr' : 'en'
+  const current: SupportedLocale = normalizeLocale(ctxLocale)
 
   useEffect(() => {
     if (variant !== 'compact' || !open) return
@@ -38,7 +36,7 @@ export function LocaleSwitcher({ endpoint = '/api/locale', variant = 'inline' }:
     return () => document.removeEventListener('mousedown', onDocClick)
   }, [variant, open])
 
-  const onPick = (locale: 'en' | 'fr') => {
+  const onPick = (locale: SupportedLocale) => {
     if (locale === current) {
       setOpen(false)
       return
@@ -87,7 +85,7 @@ export function LocaleSwitcher({ endpoint = '/api/locale', variant = 'inline' }:
                     (active ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/60')
                   }
                 >
-                  {l.label}
+                  {l.name}
                 </button>
               )
             })}
