@@ -111,7 +111,7 @@ export function BankingSettings({ configured, currentAppId }: BankingSettingsPro
 
       <div className="space-y-3">
         <div className="space-y-1.5">
-          <label htmlFor="eb-app-id" className="text-xs font-medium">
+          <label htmlFor="eb-app-id" className="block text-xs font-medium">
             {t('banking.appIdLabel', 'App ID')}
           </label>
           <input
@@ -125,7 +125,17 @@ export function BankingSettings({ configured, currentAppId }: BankingSettingsPro
         </div>
 
         <div className="space-y-2">
-          <label className="text-xs font-medium">{t('banking.privateKeyLabel', 'RSA key')}</label>
+          {/* `block` matters: a bare <label> is inline, so the inline-flex
+              button below would sit on the same line and cover it. */}
+          <label className="block text-xs font-medium">
+            {t('banking.privateKeyLabel', 'RSA key')}
+          </label>
+
+          {configured && !keyPath && (
+            <p className="text-[11px] text-muted-foreground">
+              {t('banking.keyAlreadyImported', 'A key is already configured. Generate or import a new one only to replace it.')}
+            </p>
+          )}
 
           {/* Recommended: generate the key pair in-app — no terminal. */}
           <button
@@ -187,12 +197,6 @@ export function BankingSettings({ configured, currentAppId }: BankingSettingsPro
               )}
             </div>
           </details>
-
-          {!keyPath && configured && (
-            <p className="text-[11px] text-muted-foreground">
-              {t('banking.keyAlreadyImported', 'A key is already configured. Generate or import a new one only to replace it.')}
-            </p>
-          )}
         </div>
       </div>
 
