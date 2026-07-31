@@ -296,7 +296,7 @@ export default async function DashboardPage() {
        * Objectif) sit on one short row. On mobile everything stacks + scrolls.
        */}
       <div className="flex min-h-0 flex-1 flex-col gap-3">
-        <div data-tour="charts" className="grid min-h-0 flex-1 grid-cols-1 gap-3 [grid-auto-rows:minmax(280px,1fr)] lg:grid-cols-3 lg:[grid-auto-rows:minmax(0,1fr)]">
+        <div data-tour="charts" className="grid min-h-[300px] flex-1 grid-cols-1 gap-3 [grid-auto-rows:minmax(280px,1fr)] lg:grid-cols-3 lg:[grid-auto-rows:minmax(0,1fr)]">
           <div className="min-h-0 h-full lg:col-span-2">
             <Suspense fallback={<CardSkeleton />}>
               <PatrimonyChartServer />
@@ -314,7 +314,7 @@ export default async function DashboardPage() {
          * would eat the whole viewport and collapse the flex-1 charts to zero.
          * There the rows size to content instead (no clipping, charts survive).
          */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 xl:[grid-auto-rows:clamp(280px,30vh,312px)]">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 xl:[grid-auto-rows:clamp(200px,26vh,312px)]">
           <div className="min-h-0 h-full">
             <Suspense fallback={<CardSkeleton className="h-[300px]" />}>
               <AllocationDonutServer />
