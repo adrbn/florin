@@ -3,16 +3,9 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useT } from '@florin/core/i18n/context'
+import { SUPPORTED_LOCALES } from '@florin/core/i18n'
 
-const LOCALES = [
-  { value: 'en', label: 'English' },
-  { value: 'fr-FR', label: 'Français' },
-  { value: 'de-DE', label: 'Deutsch' },
-  { value: 'es-ES', label: 'Español' },
-  { value: 'it-IT', label: 'Italiano' },
-  { value: 'pt-PT', label: 'Português' },
-  { value: 'nl-NL', label: 'Nederlands' },
-]
+const LOCALES = SUPPORTED_LOCALES.map((l) => ({ value: l.code, label: l.name }))
 
 const CURRENCIES = [
   { value: 'EUR', label: 'EUR — Euro' },

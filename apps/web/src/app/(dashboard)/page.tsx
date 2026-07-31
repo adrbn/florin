@@ -20,6 +20,7 @@ import { queries } from '@/db/client'
 import { getAppConfig } from '@/lib/app-config'
 import { getServerT, getUserLocale } from '@/lib/locale'
 import { syncAllBanks } from '@/server/actions/banking'
+import { toLocaleTag } from '@florin/core/i18n'
 
 function CardSkeleton({ className }: { className?: string }) {
   return (
@@ -194,7 +195,7 @@ async function AllocationDonutServer() {
     queries.getNetWorthAllocation(),
     getUserLocale(),
   ])
-  const localeTag = locale === 'fr' ? 'fr-FR' : 'en-US'
+  const localeTag = toLocaleTag(locale)
   return <AllocationDonut allocation={allocation} locale={localeTag} />
 }
 
@@ -213,7 +214,7 @@ async function GoalCardServer() {
   // Only render when there's actual investment activity — otherwise a
   // non-investor would just see an empty goal card.
   if (snapshot.investedValue <= 0 && monthlyContribution <= 0) return null
-  const localeTag = locale === 'fr' ? 'fr-FR' : 'en-US'
+  const localeTag = toLocaleTag(locale)
   const projection = projectGoal({
     currentValue: snapshot.investedValue,
     monthlyContribution,

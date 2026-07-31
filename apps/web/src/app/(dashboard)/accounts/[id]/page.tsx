@@ -45,6 +45,7 @@ import {
 } from '@/server/actions/transactions'
 import { addHolding, updateHolding, deleteHolding, buyHolding } from '@/server/actions/holdings'
 import { refreshPriceQuotes } from '@/server/actions/pricing'
+import { toLocaleTag } from '@florin/core/i18n'
 
 interface AccountDetailPageProps {
   params: Promise<{ id: string }>
@@ -53,7 +54,7 @@ interface AccountDetailPageProps {
 export default async function AccountDetailPage({ params }: AccountDetailPageProps) {
   const t = await getServerT()
   const locale = await getUserLocale()
-  const localeTag = locale === 'fr' ? 'fr-FR' : 'en-US'
+  const localeTag = toLocaleTag(locale)
   const dateFormatter = new Intl.DateTimeFormat(localeTag, {
     day: '2-digit',
     month: '2-digit',
