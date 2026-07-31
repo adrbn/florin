@@ -1,122 +1,63 @@
 'use client'
 
-import { useState } from 'react'
+import { Landmark } from 'lucide-react'
 import { useT } from '../../../../i18n/context'
 
 interface BankingSetupStepProps {
-  onSave: (appId: string, keyPath: string) => Promise<void>
+  /**
+   * Kept for API compatibility with existing callers. The wizard no longer
+   * collects credentials — see the note on the component below.
+   */
+  onSave?: (appId: string, keyPath: string) => Promise<void>
   onSkip: () => void
 }
 
-export function BankingSetupStep({ onSave, onSkip }: BankingSetupStepProps) {
+/**
+ * Onboarding's bank step — deliberately informational.
+ *
+ * It used to ask a brand-new user for an App ID and the "absolute path to your
+ * RSA private key file (.pem)", which is both impossible for a non-technical
+ * user and pointless: the desktop wizard's onSave was a no-op, so anything
+ * typed here was silently discarded.
+ *
+ * Bank linking now lives in one place — Settings → Bank Sync — where the key is
+ * generated for you in three guided steps. Onboarding just says it exists, that
+ * it is optional, and where to find it.
+ */
+export function BankingSetupStep({ onSkip }: BankingSetupStepProps) {
   const t = useT()
-  const [appId, setAppId] = useState('')
-  const [keyPath, setKeyPath] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  async function handleSave() {
-    if (!appId.trim() || !keyPath.trim()) {
-      setError(t('onboarding.banking.required', 'Both App ID and RSA key path are required.'))
-      return
-    }
-    setSaving(true)
-    setError(null)
-    try {
-      await onSave(appId.trim(), keyPath.trim())
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : t('onboarding.banking.saveError', 'Failed to save banking config'),
-      )
-    } finally {
-      setSaving(false)
-    }
-  }
 
   return (
     <div className="space-y-6">
       <div className="space-y-1">
         <h2 className="text-xl font-semibold">
-          {t('onboarding.banking.heading', 'Enable Banking (optional)')}
+          {t('onboarding.banking.heading', 'Connect your bank (optional)')}
         </h2>
         <p className="text-sm text-muted-foreground">
           {t(
             'onboarding.banking.body',
-            'Connect to EU banks via PSD2 to import transactions automatically. You can skip this and add everything manually.',
+            'Link your bank and transactions import themselves. You can also use Florin entirely by hand, or by importing a CSV/OFX file.',
           )}
         </p>
       </div>
 
-      <div className="rounded-md border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
-        <strong className="text-foreground">
-          {t('onboarding.banking.psd2Title', 'PSD2 / Enable Banking')}
-        </strong>{' '}
-        —{' '}
-        {t(
-          'onboarding.banking.psd2Note',
-          'Florin uses the Enable Banking API to fetch transactions from your bank. Your credentials never leave your machine; the API key is stored locally and used only to sign requests.',
-        )}
+      <div className="flex gap-3 rounded-md border border-border bg-muted/30 p-3">
+        <Landmark className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+        <p className="text-xs text-muted-foreground">
+          {t(
+            'onboarding.banking.whereTo',
+            'When you are ready, open Settings → Bank Sync. It walks you through it in three steps and takes about two minutes — once, and never again.',
+          )}
+        </p>
       </div>
 
-      <div className="space-y-4">
-        <div className="space-y-1.5">
-          <label htmlFor="app-id-input" className="text-sm font-medium">
-            {t('onboarding.banking.appIdLabel', 'App ID')}
-          </label>
-          <input
-            id="app-id-input"
-            type="text"
-            value={appId}
-            onChange={(e) => setAppId(e.target.value)}
-            placeholder={t(
-              'onboarding.banking.appIdPlaceholder',
-              'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
-            )}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-          />
-        </div>
-
-        <div className="space-y-1.5">
-          <label htmlFor="key-path-input" className="text-sm font-medium">
-            {t('onboarding.banking.keyPathLabel', 'RSA Private Key Path')}
-          </label>
-          <input
-            id="key-path-input"
-            type="text"
-            value={keyPath}
-            onChange={(e) => setKeyPath(e.target.value)}
-            placeholder={t('onboarding.banking.keyPathPlaceholder', '/path/to/private.pem')}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-          />
-          <p className="text-[11px] text-muted-foreground">
-            {t('onboarding.banking.keyPathHint', 'Absolute path to your RSA private key file (.pem).')}
-          </p>
-        </div>
-      </div>
-
-      {error && <p className="text-sm text-destructive">{error}</p>}
-
-      <div className="flex gap-3">
-        <button
-          type="button"
-          onClick={onSkip}
-          className="flex-1 rounded-md border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
-        >
-          {t('onboarding.banking.skip', 'Skip for now')}
-        </button>
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={saving}
-          className="flex-1 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-        >
-          {saving
-            ? t('onboarding.banking.saving', 'Saving…')
-            : t('onboarding.banking.enable', 'Enable Banking')}
-        </button>
-      </div>
+      <button
+        type="button"
+        onClick={onSkip}
+        className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+      >
+        {t('onboarding.banking.continue', 'Continue')}
+      </button>
     </div>
   )
 }
