@@ -39,7 +39,7 @@ export default function AboutPage() {
 
       <div className="space-y-4 rounded-lg border bg-card p-6">
         <Row label={t('about.version', 'Version')} value={version} />
-        <Row label={t('about.developer', 'Developer')} value="Goldian" />
+        <Row label={t('about.developer', 'Developer')} value="adrbn" />
         <Row label={t('about.license', 'License')} value={t('about.licenseValue', 'Commercial')} />
       </div>
 
