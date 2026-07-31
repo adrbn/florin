@@ -31,6 +31,9 @@ declare global {
       installUpdate: () => void
       // File picker for PEM import
       importPem: () => Promise<string | null>
+      // Generate an RSA key pair in-app (no terminal). Stores the private key
+      // and returns its path + the public key PEM to upload to Enable Banking.
+      generateEbKey: () => Promise<{ keyPath: string; publicKey: string }>
       // Open URL in system browser
       openExternal: (url: string) => void
     }

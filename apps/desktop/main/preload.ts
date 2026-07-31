@@ -50,5 +50,7 @@ contextBridge.exposeInMainWorld('florin', {
   },
   installUpdate: () => ipcRenderer.send('install-update'),
   importPem: () => ipcRenderer.invoke('dialog:import-pem') as Promise<string | null>,
+  generateEbKey: () =>
+    ipcRenderer.invoke('banking:generate-key') as Promise<{ keyPath: string; publicKey: string }>,
   openExternal: (url: string) => ipcRenderer.send('shell:open-external', url),
 })

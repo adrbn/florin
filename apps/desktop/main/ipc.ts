@@ -1,5 +1,6 @@
 import { app, dialog, ipcMain, shell } from 'electron'
-import { copyFile } from 'node:fs/promises'
+import { copyFile, writeFile } from 'node:fs/promises'
+import { generateKeyPairSync } from 'node:crypto'
 import path from 'node:path'
 import { eq } from 'drizzle-orm'
 import type { FlorinQueries, FlorinMutations } from '@florin/core/types'
@@ -134,6 +135,23 @@ export function registerIpcHandlers(
     const dest = path.join(app.getPath('userData'), 'private.pem')
     await copyFile(src, dest)
     return dest
+  })
+
+  // Generate an RSA-2048 key pair in-app so the user never touches a terminal.
+  // The PKCS#8 private key is written to userData/private.pem (the same path
+  // importPem uses, so the existing save flow only needs the App ID) and stays
+  // on this machine; the SPKI public key PEM is returned for the user to paste
+  // into their own Enable Banking application. RS256 signing (createSign in
+  // @florin/core/banking) accepts this PKCS#8 key as-is.
+  ipcMain.handle('banking:generate-key', async () => {
+    const { publicKey, privateKey } = generateKeyPairSync('rsa', {
+      modulusLength: 2048,
+      publicKeyEncoding: { type: 'spki', format: 'pem' },
+      privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+    })
+    const dest = path.join(app.getPath('userData'), 'private.pem')
+    await writeFile(dest, privateKey, { mode: 0o600 })
+    return { keyPath: dest, publicKey: publicKey.toString() }
   })
 
   // Open a URL in the system browser (for bank SCA redirects). Only http(s)
