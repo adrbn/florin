@@ -13,6 +13,7 @@ import { MonthForecastCard } from '@florin/core/components/reflect/month-forecas
 import { SavingsRateRolling } from '@florin/core/components/reflect/savings-rate-rolling'
 import { formatCurrency } from '@florin/core/lib/format'
 import { OnboardingBanner } from '@florin/core/components/onboarding/onboarding-banner'
+import { DashboardOnboarding } from '@florin/core/components/onboarding/dashboard-onboarding'
 import { projectGoal } from '@florin/core/lib/goal'
 import { monthlyNetWorthTrend } from '@florin/core/lib/trend'
 import { queries } from '@/db/client'
@@ -32,6 +33,27 @@ function CardSkeleton({ className }: { className?: string }) {
 async function OnboardingBannerServer() {
   const accounts = await queries.listAccounts()
   return <OnboardingBanner accountCount={accounts.length} />
+}
+
+/**
+ * "First steps" checklist + one-time spotlight tour for a new user. Every flag
+ * comes from a query that already exists, so this adds no DB surface. Renders
+ * nothing once the user is set up (the component self-hides).
+ */
+async function DashboardOnboardingServer() {
+  const [accounts, txCount, needsReviewCount] = await Promise.all([
+    queries.listAccounts(),
+    queries.countTransactions(),
+    queries.countNeedsReview(),
+  ])
+  return (
+    <DashboardOnboarding
+      hasAccount={accounts.length > 0}
+      hasBankSync={accounts.some((a) => a.syncProvider === 'enable_banking')}
+      hasTransactions={txCount > 0}
+      needsReviewCount={needsReviewCount}
+    />
+  )
 }
 
 async function SyncAllButtonServer() {
@@ -231,6 +253,9 @@ export default async function DashboardPage() {
       <Suspense fallback={null}>
         <OnboardingBannerServer />
       </Suspense>
+      <Suspense fallback={null}>
+        <DashboardOnboardingServer />
+      </Suspense>
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
@@ -240,7 +265,7 @@ export default async function DashboardPage() {
             {t('dashboard.subtitle', 'Your money, in one screen')}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div data-tour="sync" className="flex items-center gap-2">
           <SyncAllButtonServer />
           <Suspense
             fallback={
@@ -252,7 +277,7 @@ export default async function DashboardPage() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
+      <div data-tour="kpis" className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
         <Suspense fallback={<CardSkeleton className="h-[120px]" />}>
           <NetWorthCardServer />
         </Suspense>
@@ -275,7 +300,10 @@ export default async function DashboardPage() {
        * Objectif) sit on one short row. On mobile everything stacks + scrolls.
        */}
       <div className="flex min-h-0 flex-1 flex-col gap-3">
-        <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 [grid-auto-rows:minmax(280px,1fr)] lg:grid-cols-3 lg:[grid-auto-rows:minmax(0,1fr)]">
+        <div
+          data-tour="charts"
+          className="grid min-h-0 flex-1 grid-cols-1 gap-3 [grid-auto-rows:minmax(280px,1fr)] lg:grid-cols-3 lg:[grid-auto-rows:minmax(0,1fr)]"
+        >
           <div className="min-h-0 h-full lg:col-span-2">
             <Suspense fallback={<CardSkeleton />}>
               <PatrimonyChartServer />

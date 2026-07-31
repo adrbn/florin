@@ -1,7 +1,6 @@
 {
   "app.name": "Florin",
   "app.tagline": "Your finances, your machine.",
-
   "common.save": "Save",
   "common.saving": "Saving…",
   "common.saved": "Saved",
@@ -25,7 +24,6 @@
   "common.to": "To",
   "common.of": "of",
   "common.status": "Status",
-
   "nav.dashboard": "Dashboard",
   "nav.transactions": "Transactions",
   "nav.accounts": "Accounts",
@@ -41,18 +39,15 @@
   "nav.tools": "Tools",
   "nav.about": "About",
   "nav.plan": "Plan",
-
   "shell.signOut": "Sign out",
   "shell.lightMode": "Light mode",
   "shell.darkMode": "Dark mode",
-
   "login.email": "Email",
   "login.password": "Password",
   "login.submit": "Sign in",
   "login.submitting": "Signing in…",
   "login.invalid": "Invalid credentials",
   "login.noAdmin": "No admin account configured — set ADMIN_EMAIL and ADMIN_PASSWORD_HASH.",
-
   "kpi.netWorth": "Net Worth",
   "kpi.burnRate": "Burn Rate",
   "kpi.safetyGauge": "Safety gauge",
@@ -62,7 +57,6 @@
   "kpi.months": "months",
   "kpi.grossPrefix": "Gross",
   "kpi.debtPrefix": "− Debt",
-
   "dashboard.title": "Dashboard",
   "dashboard.subtitle": "Your money, in one screen",
   "dashboard.patrimony": "Patrimony",
@@ -117,7 +111,6 @@
   "dashboard.trendLookbackWindow": "Trend lookback window",
   "dashboard.trendWindow": "Trend window",
   "dashboard.lastNd": "Last {n}d",
-
   "transactions.title": "Transactions",
   "transactions.subtitle": "Recent activity across all accounts.",
   "transactions.add": "Add transaction",
@@ -158,7 +151,6 @@
   "transactions.bulkConfirmDelete": "Delete {count} transaction(s)? This cannot be undone.",
   "transactions.bulkSuccess": "{count} updated",
   "transactions.bulkDeleteSuccess": "{count} deleted",
-
   "accounts.title": "Accounts",
   "accounts.subtitle": "Bank accounts, cash, brokers, and loans",
   "accounts.addAccount": "Add account",
@@ -186,7 +178,6 @@
   "accounts.groupAccounts": "Accounts",
   "accounts.groupInvesting": "Investing",
   "accounts.groupOther": "Other",
-
   "account.transactions": "Transactions",
   "account.noTransactions": "No transactions yet. Click \"+ Add transaction\" above to record one.",
   "account.addTransactionTrigger": "+ Add transaction",
@@ -203,7 +194,6 @@
   "account.loanTitle": "Loan payments",
   "account.loanHint": "Transactions categorized in a category linked to this loan, plus manual adjustments on the loan account itself.",
   "account.loanNoPayments": "No payments yet. Link a category above and categorize your payments to see them here.",
-
   "reflect.title": "Reflect",
   "reflect.emptyTitle": "Not enough data yet",
   "reflect.emptyBody": "Come back after recording some transactions — your analytics will appear here.",
@@ -249,14 +239,12 @@
   "reflect.spendingBreakdown": "Spending breakdown — last 90 days",
   "reflect.savingsRateHint": "{pct} savings rate",
   "reflect.days": "d",
-
   "reflect.savingsRolling": "Savings rate — rolling",
   "reflect.savingsRollingSubtitle": "Saved ÷ income over 3, 6, 12 months.",
   "reflect.threeMonth": "3 mo",
   "reflect.sixMonth": "6 mo",
   "reflect.twelveMonth": "12 mo",
   "reflect.noIncome": "no income",
-
   "reflect.heatmap.title": "Spending heatmap",
   "reflect.heatmap.subtitle": "Cooler days = lower spend. Click a cell to inspect that day.",
   "reflect.heatmap.mon": "Mon",
@@ -272,7 +260,6 @@
   "reflect.heatmap.showOnlyCategories": "Show only",
   "reflect.heatmap.presetNoRent": "Without rent",
   "reflect.heatmap.noCategories": "No categorised spending in range.",
-
   "reflect.categoryTrends": "Spending by category — last 12 months",
   "reflect.categoryTrendsTitle": "Spending by category",
   "reflect.categoryTrendsSubtitle": "One sparkline per category — sorted by total spend in the window.",
@@ -283,7 +270,6 @@
   "reflect.trendLabel": "Trend",
   "reflect.maxMonthLabel": "Peak",
   "reflect.seeTransactions": "See transactions",
-
   "reflect.subscriptions": "Subscriptions radar",
   "reflect.subscriptionsSubtitle": "Recurring charges detected in the last 6 months.",
   "reflect.subscriptionsEmpty": "No recurring charges detected yet.",
@@ -291,13 +277,11 @@
   "reflect.cadenceMonthly": "monthly",
   "reflect.cadenceWeekly": "weekly",
   "reflect.cadenceOther": "every {n} days",
-
   "reflect.counterfactual": "If I stopped…",
   "reflect.counterfactualSubtitle": "Tick categories you could cut. Projected from the last 90 days.",
   "reflect.counterfactualSavings": "You’d save",
   "reflect.year": "year",
   "reflect.noSpendingData": "Not enough spending history yet.",
-
   "kpi.leftToSpend": "Monthly margin",
   "kpi.leftToSpendCategory": "Based on “{category}”",
   "kpi.leftToSpendNoIncome": "No salary detected in the last 90 days.",
@@ -308,7 +292,6 @@
   "kpi.vsLastMonth": "vs last month",
   "kpi.savedThisMonth": "saved this month",
   "kpi.monthlyTrend": "/mo on average",
-
   "categories.title": "Categories",
   "categories.subtitle": "Organize spending into buckets. Edit names, recolor groups, mark recurring categories as fixed, or delete the ones you don't use.",
   "categories.newGroup": "New group",
@@ -317,7 +300,6 @@
   "categories.fixed": "FIXED",
   "categories.income": "INCOME",
   "categories.expense": "EXPENSE",
-
   "loan.kindLabel": "loan",
   "loan.restantARembourser": "Remaining to repay",
   "loan.dejaRembourse": "Already repaid",
@@ -384,7 +366,6 @@
   "loan.payments": "Payments on this loan",
   "loan.paymentsHelp": "Transactions categorized in a category linked to this loan, plus manual adjustments on the loan account itself.",
   "loan.noPaymentsYet": "No payments yet. Link a category above and categorize your payments to see them here.",
-
   "plan.overspent": "{n} overspent",
   "plan.overspentOne": "1 overspent",
   "plan.assigned": "Assigned",
@@ -431,7 +412,6 @@
   "plan.monthOctober": "October",
   "plan.monthNovember": "November",
   "plan.monthDecember": "December",
-
   "review.title": "Review",
   "review.subtitle": "New imports waiting for approval. Confirm payee + category before they count.",
   "review.approve": "Approve",
@@ -466,7 +446,6 @@
   "review.transferNoAccounts": "No other accounts available.",
   "review.transferHint": "Auto-pairs with a matching row on that account, or creates one if none found.",
   "review.transferFailed": "Could not mark as transfer",
-
   "tools.title": "Tools",
   "tools.subtitle": "Pure-math helpers — they don't read your accounts.",
   "tools.compound.title": "Compound interest calculator",
@@ -490,7 +469,6 @@
   "tools.loan.year": "Year {label}",
   "tools.loan.legendRemaining": "Remaining",
   "tools.loan.legendPrincipalPaid": "Principal paid",
-
   "loan.uncategorized": "uncategorized",
   "loan.hideSchedule2": "Hide schedule",
   "loan.showSchedule2": "Show schedule",
@@ -500,7 +478,6 @@
   "loan.simulated": "Simulated",
   "loan.linkAriaLabel": "Link a category to this loan",
   "loan.unlinkAriaLabel": "Unlink {name}",
-
   "txAdd.title": "New transaction",
   "txAdd.description": "Negative amount = expense, positive = income.",
   "txAdd.account": "Account",
@@ -524,15 +501,12 @@
   "txAdd.transferAmount": "Amount (EUR)",
   "txAdd.submitTransfer": "Save transfer",
   "txAdd.transferSameAccount": "Source and destination must differ.",
-
   "txCategoryCell.uncategorized": "uncategorized",
   "txCategoryCell.filter": "Filter…",
   "txCategoryCell.clear": "✕ Clear category",
   "txCategoryCell.noMatches": "No matches.",
-
   "txDelete.confirm": "Delete \"{payee}\"?",
   "txDelete.deleteTransaction": "Delete transaction",
-
   "txEdit.edit": "Edit transaction",
   "txEdit.title": "Edit transaction",
   "txEdit.date": "Date",
@@ -541,7 +515,6 @@
   "txEdit.memo": "Memo (optional)",
   "txEdit.saving": "Saving…",
   "txEdit.unknownError": "Unknown error",
-
   "settings.title": "Settings",
   "settings.subtitle": "Operational diagnostics and exports for your Florin instance.",
   "settings.profile": "Profile",
@@ -587,7 +560,6 @@
   "settings.exportButton": "Export all data (JSON)",
   "settings.exporting": "Exporting…",
   "settings.exportFailed": "Export failed",
-
   "settings.syncLog": "Sync log",
   "settings.syncLogEmpty": "No sync runs recorded yet. Connect a bank and the first sync will appear here.",
   "settings.syncLogAccounts": "Accounts",
@@ -600,7 +572,6 @@
   "settings.syncLogColIssues": "Issues",
   "settings.syncLogNoBalance": "balance: not fetched",
   "settings.syncLogOk": "ok",
-
   "banking.apiConfigured": "Banking API configured",
   "banking.psd2Intro": "connect to EU banks to auto-import transactions. Your API credentials stay on this machine. Get credentials at",
   "banking.appIdLabel": "App ID",
@@ -624,7 +595,6 @@
   "banking.saving": "Saving…",
   "banking.updateCredentials": "Update Credentials",
   "banking.configureBanking": "Configure Banking",
-
   "pin.chooseNewPrompt": "Choose a new 4-digit PIN. You will be prompted for it each time you open Florin.",
   "pin.choosePrompt": "Choose a 4-digit PIN. You will be prompted for it each time you open Florin.",
   "pin.removeConfirm": "Remove the PIN? Florin will open without a lock screen.",
@@ -636,7 +606,6 @@
   "pin.removeFailed": "Failed to remove PIN.",
   "pin.enabledHint": "PIN protection is active. Florin prompts for a PIN on each launch.",
   "pin.disabledHint": "No PIN set. Florin opens without a lock screen.",
-
   "onboarding.welcome.title": "Welcome to Florin",
   "onboarding.welcome.subtitle": "Your finances, your machine. All data stays on this computer.",
   "onboarding.locale.title": "Language & Currency",
@@ -651,7 +620,6 @@
   "onboarding.account.subtitle": "Create your first account to start tracking.",
   "onboarding.tutorial.title": "Quick Tour",
   "onboarding.tutorial.subtitle": "Let us show you around.",
-
   "onboarding.stepOf": "Step {current} of {total}",
   "onboarding.welcomeTitle": "Welcome to Florin 👋",
   "onboarding.welcomeBody1": "Florin is a self-hostable personal finance dashboard. Your data lives in your own Postgres — there is no cloud, no telemetry, and no third party between you and your numbers.",
@@ -738,7 +706,6 @@
   "onboarding.tutorial.body": "Your accounts and categories are ready. Would you like a quick walkthrough of the main features?",
   "onboarding.tutorial.start": "Start interactive tutorial",
   "onboarding.tutorial.skip": "Skip to dashboard",
-
   "bankSync.never": "never",
   "bankSync.justNow": "just now",
   "bankSync.minAgo": "{n} min ago",
@@ -748,7 +715,6 @@
   "bankSync.daysLeft": "{n}d left",
   "bankSync.hintNoAccounts": "0 account exposed — this bank may not share accounts over open banking (PSD2).",
   "bankSync.hintNoTransactions": "Accounts found but 0 transactions — this bank may not expose transaction details.",
-
   "tray.syncNow": "Sync Now",
   "tray.addTransaction": "+ Transaction",
   "tray.openDashboard": "Dashboard",
@@ -775,10 +741,8 @@
   "tray.added": "Added!",
   "tray.failed": "Failed",
   "tray.failedToAdd": "Failed to add",
-
   "privacy.hide": "Hide amounts",
   "privacy.show": "Show amounts",
-
   "about.tagline": "Your finances, your machine.",
   "about.version": "Version",
   "about.developer": "Developer",
@@ -862,7 +826,6 @@
   "holdings.amountSpent": "Amount invested (€)",
   "holdings.buyHint": "The amount is deducted from the account's cash (cash → shares).",
   "holdings.amountInvalid": "Amount invested",
-
   "alloc.title": "Net worth allocation",
   "alloc.netSubtitle": "Net: {amount}",
   "alloc.empty": "No assets yet",
@@ -870,7 +833,6 @@
   "alloc.invested": "Invested",
   "alloc.loans": "Loans",
   "alloc.investedShareLabel": "invested",
-
   "goal.title": "Goal: {target}",
   "goal.currentValue": "Today: {amount}",
   "goal.headline": "At this pace, {target} reached by {when}",
@@ -885,11 +847,33 @@
   "goal.disclaimer": "Assumption, not guaranteed.",
   "goal.emptyTitle": "No projection yet",
   "goal.empty": "Increase your savings to see a projection.",
-
   "appConfig.title": "App defaults / Objectives",
   "appConfig.subtitle": "Tune the goal target, assumed return, and tax-wrapper ceiling used across your dashboard.",
   "appConfig.goalTarget": "Goal target",
   "appConfig.goalReturnPct": "Assumed annual return (%)",
   "appConfig.peaCeiling": "PEA / tax-wrapper ceiling",
-  "appConfig.peaCeilingHint": "Set to 0 to hide the contribution gauge for accounts with no such cap."
+  "appConfig.peaCeilingHint": "Set to 0 to hide the contribution gauge for accounts with no such cap.",
+  "gettingStarted.title": "First steps",
+  "gettingStarted.subtitle": "{done} of {total} done",
+  "gettingStarted.dismiss": "Hide",
+  "gettingStarted.replayTour": "Replay the tour",
+  "gettingStarted.stepAccount": "Create an account",
+  "gettingStarted.stepAccountHint": "Checking, savings, cash — anything you want to track.",
+  "gettingStarted.stepBank": "Connect your bank",
+  "gettingStarted.stepBankHint": "Optional — transactions import themselves afterwards.",
+  "gettingStarted.stepTransactions": "Get some transactions in",
+  "gettingStarted.stepTransactionsHint": "Sync your bank, drop in a CSV/OFX file, or add one by hand.",
+  "gettingStarted.stepReview": "Categorize your spending",
+  "gettingStarted.stepReviewHint": "Florin guesses categories — confirm them in the review queue.",
+  "tour.checklistTitle": "Your first steps",
+  "tour.checklistBody": "This checklist tracks what is left to set up. It disappears once you are done.",
+  "tour.kpisTitle": "Your key figures",
+  "tour.kpisBody": "Net worth, what you spent this month, what is left, and how long your savings would last.",
+  "tour.chartsTitle": "Your trends",
+  "tour.chartsBody": "How your wealth evolves over time, and income versus spending month by month.",
+  "tour.syncTitle": "Refresh your data",
+  "tour.syncBody": "Fetch the latest transactions from your bank whenever you like — it also runs on its own.",
+  "tour.next": "Next",
+  "tour.skip": "Skip",
+  "tour.done": "Got it"
 }

@@ -1,7 +1,6 @@
 {
   "app.name": "Florin",
   "app.tagline": "Vos finances, votre machine.",
-
   "common.save": "Enregistrer",
   "common.saving": "Enregistrement…",
   "common.saved": "Enregistré",
@@ -25,7 +24,6 @@
   "common.to": "Au",
   "common.of": "sur",
   "common.status": "Statut",
-
   "nav.dashboard": "Tableau de bord",
   "nav.transactions": "Transactions",
   "nav.accounts": "Comptes",
@@ -41,18 +39,15 @@
   "nav.tools": "Outils",
   "nav.about": "À propos",
   "nav.plan": "Plan",
-
   "shell.signOut": "Déconnexion",
   "shell.lightMode": "Mode clair",
   "shell.darkMode": "Mode sombre",
-
   "login.email": "E-mail",
   "login.password": "Mot de passe",
   "login.submit": "Se connecter",
   "login.submitting": "Connexion…",
   "login.invalid": "Identifiants invalides",
   "login.noAdmin": "Aucun compte administrateur configuré — définissez ADMIN_EMAIL et ADMIN_PASSWORD_HASH.",
-
   "kpi.netWorth": "Patrimoine net",
   "kpi.burnRate": "Dépenses du mois",
   "kpi.safetyGauge": "Réserve de sécurité",
@@ -62,7 +57,6 @@
   "kpi.months": "mois",
   "kpi.grossPrefix": "Brut",
   "kpi.debtPrefix": "− Dette",
-
   "dashboard.title": "Tableau de bord",
   "dashboard.subtitle": "Vos finances, d'un seul coup d'œil",
   "dashboard.patrimony": "Patrimoine",
@@ -117,7 +111,6 @@
   "dashboard.trendLookbackWindow": "Fenêtre d'analyse",
   "dashboard.trendWindow": "Fenêtre",
   "dashboard.lastNd": "{n} derniers jours",
-
   "transactions.title": "Transactions",
   "transactions.subtitle": "Activité récente sur tous les comptes.",
   "transactions.add": "Ajouter une transaction",
@@ -158,7 +151,6 @@
   "transactions.bulkConfirmDelete": "Supprimer {count} transaction(s) ? Action irréversible.",
   "transactions.bulkSuccess": "{count} mises à jour",
   "transactions.bulkDeleteSuccess": "{count} supprimée(s)",
-
   "accounts.title": "Comptes",
   "accounts.subtitle": "Comptes bancaires, espèces, courtiers et prêts",
   "accounts.addAccount": "Ajouter un compte",
@@ -186,7 +178,6 @@
   "accounts.groupAccounts": "Comptes",
   "accounts.groupInvesting": "Investissement",
   "accounts.groupOther": "Autres",
-
   "account.transactions": "Transactions",
   "account.noTransactions": "Aucune transaction pour l'instant. Cliquez sur \"+ Ajouter une transaction\" ci-dessus pour en enregistrer une.",
   "account.addTransactionTrigger": "+ Ajouter une transaction",
@@ -203,7 +194,6 @@
   "account.loanTitle": "Paiements sur ce prêt",
   "account.loanHint": "Transactions catégorisées dans une catégorie liée à ce prêt, plus les ajustements manuels sur le compte prêt lui-même.",
   "account.loanNoPayments": "Aucun paiement pour le moment. Liez une catégorie ci-dessus et catégorisez vos paiements pour les voir ici.",
-
   "reflect.title": "Analyse",
   "reflect.emptyTitle": "Pas encore assez de données",
   "reflect.emptyBody": "Revenez après avoir enregistré quelques transactions — vos analyses apparaîtront ici.",
@@ -249,14 +239,12 @@
   "reflect.spendingBreakdown": "Répartition des dépenses — 90 derniers jours",
   "reflect.savingsRateHint": "Taux d'épargne : {pct}",
   "reflect.days": "j",
-
   "reflect.savingsRolling": "Taux d'épargne — glissant",
   "reflect.savingsRollingSubtitle": "Épargne ÷ revenus sur 3, 6 et 12 mois.",
   "reflect.threeMonth": "3 mois",
   "reflect.sixMonth": "6 mois",
   "reflect.twelveMonth": "12 mois",
   "reflect.noIncome": "pas de revenus",
-
   "reflect.heatmap.title": "Carte des dépenses",
   "reflect.heatmap.subtitle": "Jours plus frais = moins de dépenses. Clique une case pour voir ce jour.",
   "reflect.heatmap.mon": "Lun",
@@ -272,7 +260,6 @@
   "reflect.heatmap.showOnlyCategories": "Afficher seulement",
   "reflect.heatmap.presetNoRent": "Sans loyer",
   "reflect.heatmap.noCategories": "Aucune dépense catégorisée sur la période.",
-
   "reflect.categoryTrends": "Dépenses par catégorie — 12 derniers mois",
   "reflect.categoryTrendsTitle": "Dépenses par catégorie",
   "reflect.categoryTrendsSubtitle": "Une courbe par catégorie — triées par dépense totale sur la période.",
@@ -283,7 +270,6 @@
   "reflect.trendLabel": "Tendance",
   "reflect.maxMonthLabel": "Pic",
   "reflect.seeTransactions": "Voir les transactions",
-
   "reflect.subscriptions": "Radar des abonnements",
   "reflect.subscriptionsSubtitle": "Charges récurrentes détectées sur 6 mois.",
   "reflect.subscriptionsEmpty": "Aucune charge récurrente détectée pour le moment.",
@@ -291,13 +277,11 @@
   "reflect.cadenceMonthly": "mensuel",
   "reflect.cadenceWeekly": "hebdomadaire",
   "reflect.cadenceOther": "tous les {n} jours",
-
   "reflect.counterfactual": "Si j'arrêtais…",
   "reflect.counterfactualSubtitle": "Cochez les catégories que vous pourriez couper. Projeté sur les 90 derniers jours.",
   "reflect.counterfactualSavings": "Vous économiseriez",
   "reflect.year": "an",
   "reflect.noSpendingData": "Pas encore assez d'historique de dépenses.",
-
   "kpi.leftToSpend": "Marge du mois",
   "kpi.leftToSpendCategory": "Basé sur « {category} »",
   "kpi.leftToSpendNoIncome": "Aucun salaire détecté sur les 90 derniers jours.",
@@ -308,7 +292,6 @@
   "kpi.vsLastMonth": "vs mois dernier",
   "kpi.savedThisMonth": "épargné ce mois-ci",
   "kpi.monthlyTrend": "/mois en moyenne",
-
   "categories.title": "Catégories",
   "categories.subtitle": "Organisez vos dépenses. Renommez, recolorez les groupes, marquez les catégories récurrentes comme fixes, ou supprimez celles que vous n'utilisez pas.",
   "categories.newGroup": "Nouveau groupe",
@@ -317,7 +300,6 @@
   "categories.fixed": "FIXE",
   "categories.income": "REVENU",
   "categories.expense": "DÉPENSE",
-
   "loan.kindLabel": "prêt",
   "loan.restantARembourser": "Restant à rembourser",
   "loan.dejaRembourse": "Déjà remboursé",
@@ -384,7 +366,6 @@
   "loan.payments": "Paiements sur ce prêt",
   "loan.paymentsHelp": "Transactions catégorisées dans une catégorie liée à ce prêt, plus les ajustements manuels sur le compte prêt lui-même.",
   "loan.noPaymentsYet": "Aucun paiement pour le moment. Liez une catégorie ci-dessus et catégorisez vos paiements pour les voir ici.",
-
   "plan.overspent": "{n} dépassements",
   "plan.overspentOne": "1 dépassement",
   "plan.assigned": "Assigné",
@@ -431,7 +412,6 @@
   "plan.monthOctober": "Octobre",
   "plan.monthNovember": "Novembre",
   "plan.monthDecember": "Décembre",
-
   "review.title": "À vérifier",
   "review.subtitle": "Nouveaux imports en attente d'approbation. Confirmez le bénéficiaire + la catégorie avant qu'ils soient pris en compte.",
   "review.approve": "Approuver",
@@ -466,7 +446,6 @@
   "review.transferNoAccounts": "Aucun autre compte disponible.",
   "review.transferHint": "Appariée automatiquement avec une transaction correspondante, ou crée la contrepartie si absente.",
   "review.transferFailed": "Impossible de marquer comme virement",
-
   "tools.title": "Outils",
   "tools.subtitle": "Calculatrices — elles ne lisent pas vos comptes.",
   "tools.compound.title": "Calculateur d'intérêts composés",
@@ -490,7 +469,6 @@
   "tools.loan.year": "Année {label}",
   "tools.loan.legendRemaining": "Restant",
   "tools.loan.legendPrincipalPaid": "Capital remboursé",
-
   "loan.uncategorized": "sans catégorie",
   "loan.hideSchedule2": "Masquer l'échéancier",
   "loan.showSchedule2": "Afficher l'échéancier",
@@ -500,7 +478,6 @@
   "loan.simulated": "Simulé",
   "loan.linkAriaLabel": "Lier une catégorie à ce prêt",
   "loan.unlinkAriaLabel": "Délier {name}",
-
   "txAdd.title": "Nouvelle transaction",
   "txAdd.description": "Montant négatif = dépense, positif = revenu.",
   "txAdd.account": "Compte",
@@ -524,15 +501,12 @@
   "txAdd.transferAmount": "Montant (EUR)",
   "txAdd.submitTransfer": "Enregistrer le virement",
   "txAdd.transferSameAccount": "Source et destination doivent différer.",
-
   "txCategoryCell.uncategorized": "sans catégorie",
   "txCategoryCell.filter": "Filtrer…",
   "txCategoryCell.clear": "✕ Retirer la catégorie",
   "txCategoryCell.noMatches": "Aucun résultat.",
-
   "txDelete.confirm": "Supprimer « {payee} » ?",
   "txDelete.deleteTransaction": "Supprimer la transaction",
-
   "txEdit.edit": "Modifier la transaction",
   "txEdit.title": "Modifier la transaction",
   "txEdit.date": "Date",
@@ -541,7 +515,6 @@
   "txEdit.memo": "Note (facultatif)",
   "txEdit.saving": "Enregistrement…",
   "txEdit.unknownError": "Erreur inconnue",
-
   "settings.title": "Paramètres",
   "settings.subtitle": "Diagnostic opérationnel et exports pour votre instance Florin.",
   "settings.profile": "Profil",
@@ -587,7 +560,6 @@
   "settings.exportButton": "Exporter toutes les données (JSON)",
   "settings.exporting": "Export en cours…",
   "settings.exportFailed": "Échec de l'export",
-
   "settings.syncLog": "Journal de synchronisation",
   "settings.syncLogEmpty": "Aucune synchronisation enregistrée pour l'instant. Connectez une banque et la première synchro apparaîtra ici.",
   "settings.syncLogAccounts": "Comptes",
@@ -600,7 +572,6 @@
   "settings.syncLogColIssues": "Problèmes",
   "settings.syncLogNoBalance": "solde : non récupéré",
   "settings.syncLogOk": "ok",
-
   "banking.apiConfigured": "API bancaire configurée",
   "banking.psd2Intro": "connectez-vous aux banques européennes pour importer automatiquement vos transactions. Vos identifiants API restent sur cette machine. Obtenez les identifiants sur",
   "banking.appIdLabel": "Identifiant de l'app",
@@ -624,7 +595,6 @@
   "banking.saving": "Enregistrement…",
   "banking.updateCredentials": "Mettre à jour les identifiants",
   "banking.configureBanking": "Configurer la banque",
-
   "pin.chooseNewPrompt": "Choisissez un nouveau code PIN à 4 chiffres. Il vous sera demandé à chaque ouverture de Florin.",
   "pin.choosePrompt": "Choisissez un code PIN à 4 chiffres. Il vous sera demandé à chaque ouverture de Florin.",
   "pin.removeConfirm": "Supprimer le code PIN ? Florin s'ouvrira sans écran de verrouillage.",
@@ -636,7 +606,6 @@
   "pin.removeFailed": "Échec de la suppression du PIN.",
   "pin.enabledHint": "Protection par PIN active. Florin demande un code à chaque ouverture.",
   "pin.disabledHint": "Aucun PIN défini. Florin s'ouvre sans écran de verrouillage.",
-
   "onboarding.welcome.title": "Bienvenue sur Florin",
   "onboarding.welcome.subtitle": "Vos finances, votre machine. Toutes les données restent sur cet ordinateur.",
   "onboarding.locale.title": "Langue et devise",
@@ -651,7 +620,6 @@
   "onboarding.account.subtitle": "Créez votre premier compte pour commencer.",
   "onboarding.tutorial.title": "Visite guidée",
   "onboarding.tutorial.subtitle": "Laissez-nous vous faire découvrir l'application.",
-
   "onboarding.stepOf": "Étape {current} sur {total}",
   "onboarding.welcomeTitle": "Bienvenue sur Florin 👋",
   "onboarding.welcomeBody1": "Florin est un tableau de bord de finances personnelles auto-hébergeable. Vos données vivent sur votre propre Postgres — aucun cloud, aucune télémétrie, aucun tiers entre vous et vos chiffres.",
@@ -738,7 +706,6 @@
   "onboarding.tutorial.body": "Vos comptes et catégories sont prêts. Souhaitez-vous une présentation rapide des principales fonctionnalités ?",
   "onboarding.tutorial.start": "Démarrer la visite interactive",
   "onboarding.tutorial.skip": "Aller au tableau de bord",
-
   "bankSync.never": "jamais",
   "bankSync.justNow": "à l'instant",
   "bankSync.minAgo": "il y a {n} min",
@@ -748,7 +715,6 @@
   "bankSync.daysLeft": "{n}j restants",
   "bankSync.hintNoAccounts": "0 compte exposé — cette banque ne partage peut-être pas ses comptes via l'open banking (PSD2).",
   "bankSync.hintNoTransactions": "Comptes trouvés mais 0 transaction — cette banque n'expose peut-être pas le détail des opérations.",
-
   "tray.syncNow": "Synchroniser",
   "tray.addTransaction": "+ Transaction",
   "tray.openDashboard": "Tableau de bord",
@@ -775,10 +741,8 @@
   "tray.added": "Ajouté !",
   "tray.failed": "Échec",
   "tray.failedToAdd": "Impossible d'ajouter",
-
   "privacy.hide": "Masquer les montants",
   "privacy.show": "Afficher les montants",
-
   "about.tagline": "Vos finances, votre machine.",
   "about.version": "Version",
   "about.developer": "Développeur",
@@ -862,7 +826,6 @@
   "holdings.amountSpent": "Montant investi (€)",
   "holdings.buyHint": "Le montant est déduit des liquidités du compte (cash → parts).",
   "holdings.amountInvalid": "Montant investi",
-
   "alloc.title": "Répartition du patrimoine",
   "alloc.netSubtitle": "Net : {amount}",
   "alloc.empty": "Aucun actif pour l'instant",
@@ -870,7 +833,6 @@
   "alloc.invested": "Investi",
   "alloc.loans": "Emprunts",
   "alloc.investedShareLabel": "investi",
-
   "goal.title": "Objectif : {target}",
   "goal.currentValue": "Aujourd'hui : {amount}",
   "goal.headline": "À ce rythme, {target} atteint en {when}",
@@ -885,11 +847,33 @@
   "goal.disclaimer": "Hypothèse, non garanti.",
   "goal.emptyTitle": "Pas encore de projection",
   "goal.empty": "Augmente ton épargne pour voir une projection.",
-
   "appConfig.title": "Paramètres / Objectifs",
   "appConfig.subtitle": "Ajuste l'objectif, le rendement supposé et le plafond de l'enveloppe fiscale utilisés sur ton tableau de bord.",
   "appConfig.goalTarget": "Objectif de patrimoine",
   "appConfig.goalReturnPct": "Rendement annuel supposé (%)",
   "appConfig.peaCeiling": "Plafond PEA / enveloppe fiscale",
-  "appConfig.peaCeilingHint": "Mets 0 pour masquer la jauge de versement si ton compte n'a pas de plafond."
+  "appConfig.peaCeilingHint": "Mets 0 pour masquer la jauge de versement si ton compte n'a pas de plafond.",
+  "gettingStarted.title": "Premiers pas",
+  "gettingStarted.subtitle": "{done} sur {total} terminé",
+  "gettingStarted.dismiss": "Masquer",
+  "gettingStarted.replayTour": "Revoir la visite guidée",
+  "gettingStarted.stepAccount": "Créer un compte",
+  "gettingStarted.stepAccountHint": "Compte courant, épargne, espèces — tout ce que vous voulez suivre.",
+  "gettingStarted.stepBank": "Connecter votre banque",
+  "gettingStarted.stepBankHint": "Facultatif — vos transactions s'importent ensuite toutes seules.",
+  "gettingStarted.stepTransactions": "Ajouter des transactions",
+  "gettingStarted.stepTransactionsHint": "Synchronisez votre banque, importez un CSV/OFX, ou saisissez-en une à la main.",
+  "gettingStarted.stepReview": "Catégoriser vos dépenses",
+  "gettingStarted.stepReviewHint": "Florin devine les catégories — confirmez-les dans la file de vérification.",
+  "tour.checklistTitle": "Vos premiers pas",
+  "tour.checklistBody": "Cette liste suit ce qu'il reste à configurer. Elle disparaît une fois terminée.",
+  "tour.kpisTitle": "Vos chiffres clés",
+  "tour.kpisBody": "Patrimoine net, dépenses du mois, marge restante, et combien de temps votre épargne tiendrait.",
+  "tour.chartsTitle": "Vos tendances",
+  "tour.chartsBody": "L'évolution de votre patrimoine dans le temps, et vos revenus face à vos dépenses mois par mois.",
+  "tour.syncTitle": "Actualiser vos données",
+  "tour.syncBody": "Récupérez les dernières transactions de votre banque quand vous voulez — ça tourne aussi tout seul.",
+  "tour.next": "Suivant",
+  "tour.skip": "Passer",
+  "tour.done": "C'est compris"
 }
