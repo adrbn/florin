@@ -1,5 +1,6 @@
 import { count, eq } from 'drizzle-orm'
 import { OnboardingWizard } from '@florin/core/components/onboarding/onboarding-wizard'
+import { OnboardingGate } from '@florin/core/components/onboarding/intro/onboarding-gate'
 import { db } from '@/db/client'
 import { accounts, categories } from '@/db/schema'
 import { isEnableBankingConfigured } from '@/server/banking/enable-banking'
@@ -19,12 +20,14 @@ export default async function OnboardingPage() {
   const hasCategories = Number(categoryRow[0]?.value ?? 0) > 0
 
   return (
-    <OnboardingWizard
-      bankingEnabled={isEnableBankingConfigured()}
-      hasAccounts={hasAccounts}
-      hasCategories={hasCategories}
-      onCreateAccount={createAccount}
-      onUpdateAccount={updateAccount}
-    />
+    <OnboardingGate>
+      <OnboardingWizard
+        bankingEnabled={isEnableBankingConfigured()}
+        hasAccounts={hasAccounts}
+        hasCategories={hasCategories}
+        onCreateAccount={createAccount}
+        onUpdateAccount={updateAccount}
+      />
+    </OnboardingGate>
   )
 }
