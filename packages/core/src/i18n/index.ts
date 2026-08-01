@@ -21,7 +21,7 @@ export const SUPPORTED_LOCALES: ReadonlyArray<{
 
 /**
  * BCP-47 tag per locale, for Intl (currency, dates, number grouping). Kept here
- * so call sites stop hand-rolling `toLocaleTag(locale)`
+ * so call sites stop hand-rolling `locale === 'fr' ? 'fr-FR' : 'en-US'`
  * ternaries, which silently render any third language with US formatting.
  */
 const LOCALE_TAGS: Record<SupportedLocale, string> = {
