@@ -64,17 +64,26 @@ export function UpdateModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex items-stretch gap-2">
-          <code className="min-w-0 flex-1 overflow-x-auto whitespace-pre rounded-md border border-border bg-muted/50 px-3 py-2 font-mono text-[12px] leading-relaxed">
+        {/*
+         * The copy button sits INSIDE the command box. Beside it, the button sat
+         * flush against the dialog's p-4 edge and its 3px focus ring ate into
+         * that padding — it read as hanging off the modal. Tucked in here the
+         * row is a single box, and the ring stays within the command field.
+         * `pr-12` keeps the command text clear of the button.
+         */}
+        <div className="relative">
+          <code className="block overflow-x-auto whitespace-pre rounded-md border border-border bg-muted/50 py-2 pl-3 pr-12 font-mono text-[12px] leading-relaxed">
             {command}
           </code>
           <Button
             type="button"
-            variant="outline"
+            variant="ghost"
             size="icon"
             onClick={copy}
             aria-label={t('update.copyCommand', 'Copy command')}
-            className="shrink-0 self-center"
+            // bg-muted (not transparent) so a horizontally scrolled command
+            // slides under the button cleanly instead of showing through it.
+            className="absolute top-1/2 right-1.5 -translate-y-1/2 bg-muted hover:bg-muted-foreground/15"
           >
             {copied ? <Check className="text-emerald-500" /> : <Copy />}
           </Button>
