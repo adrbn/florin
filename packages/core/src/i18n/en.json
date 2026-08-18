@@ -240,7 +240,7 @@
   "reflect.savingsRateHint": "{pct} savings rate",
   "reflect.days": "d",
   "reflect.savingsRolling": "Savings rate — rolling",
-  "reflect.savingsRollingSubtitle": "Saved ÷ income over 3, 6, 12 months.",
+  "reflect.savingsRollingSubtitle": "Saved ÷ income over the last 3, 6, 12 complete months.",
   "reflect.threeMonth": "3 mo",
   "reflect.sixMonth": "6 mo",
   "reflect.twelveMonth": "12 mo",
