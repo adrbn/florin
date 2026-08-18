@@ -653,13 +653,24 @@ export async function getDataSourceInfo(db: SqliteDB): Promise<DataSourceInfo> {
 const SALARY_MIN_AMOUNT = 500
 
 /**
- * Find the category the user gets paid into by looking at the latest large
- * positive transaction (>= 500€) in the last 90 days. That category's income
- * this month becomes the "monthly ceiling"; subtract burn to get "left to
- * spend".
+ * Find the category the user gets paid into, among income categories that saw
+ * a large positive transaction (>= 500€) in the last 90 days. That category's
+ * income this month becomes the "monthly ceiling"; subtract burn to get "left
+ * to spend".
+ *
+ * Candidates are ranked by RECURRENCE, not recency. A salary lands in the same
+ * category every single month; a one-off inflow — a cheque paid in, a tax
+ * refund, a friend repaying a big shared holiday booking — lands once. Ranking
+ * on "most recent single transaction" let any such one-off hijack the salary
+ * category: a 500€ cheque booked to "Gains additionnels" outranked a 2 998,98€
+ * monthly salary, dropping the ceiling to that category's few hundred euros
+ * and turning both the monthly margin and the month forecast deeply negative
+ * overnight. Distinct months with a hit is the discriminator; total is the
+ * tie-break for someone with a single month of history.
  */
 export async function getLeftToSpendThisMonth(db: SqliteDB): Promise<LeftToSpend> {
   const lookback = formatDate(new Date(Date.now() - 90 * 24 * 60 * 60 * 1000))
+  const monthKey = sql`strftime('%Y-%m', ${transactions.occurredAt})`
   const latest = await db
     .select({ categoryId: transactions.categoryId, categoryName: categories.name })
     .from(transactions)
@@ -681,7 +692,12 @@ export async function getLeftToSpendThisMonth(db: SqliteDB): Promise<LeftToSpend
         eq(categoryGroups.kind, 'income'),
       ),
     )
-    .orderBy(desc(transactions.occurredAt))
+    .groupBy(transactions.categoryId, categories.name)
+    .orderBy(
+      sql`COUNT(DISTINCT ${monthKey}) DESC`,
+      sql`COALESCE(SUM(${transactions.amount}), 0) DESC`,
+      sql`MAX(${transactions.occurredAt}) DESC`,
+    )
     .limit(1)
 
   const salaryCategoryId = latest[0]?.categoryId ?? null
@@ -850,8 +866,14 @@ export async function getSavingsRates(db: SqliteDB): Promise<SavingsRates> {
   ]
   const out: SavingsRates = { threeMonth: null, sixMonth: null, twelveMonth: null }
   for (const w of windows) {
-    const start = formatDate(startOfMonth(addMonths(new Date(), -w.months + 1)))
-    const end = formatDate(endOfMonth(new Date()))
+    // COMPLETE calendar months only — the current month is still in progress
+    // and skews the ratio hard in whichever direction the user's payday falls:
+    // its spending is already booked while a salary paid on the 25th-28th is
+    // not. Mid-August that read −3% over 3 months against +6% / +17% over 6
+    // and 12, where the same broken month is diluted. Same reason
+    // `computeCategoryMovers` compares settled months only.
+    const start = formatDate(startOfMonth(addMonths(new Date(), -w.months)))
+    const end = formatDate(endOfMonth(addMonths(new Date(), -1)))
     const rows = await db
       .select({
         income: sql<number>`COALESCE(SUM(CASE WHEN ${categoryGroups.kind} = 'income' THEN ${transactions.amount} ELSE 0 END), 0)`,

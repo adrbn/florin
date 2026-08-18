@@ -240,7 +240,7 @@
   "reflect.savingsRateHint": "Taux d'épargne : {pct}",
   "reflect.days": "j",
   "reflect.savingsRolling": "Taux d'épargne — glissant",
-  "reflect.savingsRollingSubtitle": "Épargne ÷ revenus sur 3, 6 et 12 mois.",
+  "reflect.savingsRollingSubtitle": "Épargne ÷ revenus sur les 3, 6 et 12 derniers mois complets.",
   "reflect.threeMonth": "3 mois",
   "reflect.sixMonth": "6 mois",
   "reflect.twelveMonth": "12 mois",

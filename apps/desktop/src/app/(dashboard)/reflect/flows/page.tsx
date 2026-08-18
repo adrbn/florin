@@ -56,7 +56,7 @@ export default async function ReflectFlowsPage() {
         <SavingsRateRolling
           rates={savingsRates}
           title={t('reflect.savingsRolling', 'Savings rate — rolling')}
-          subtitle={t('reflect.savingsRollingSubtitle', 'Saved ÷ income over 3, 6, 12 months.')}
+          subtitle={t('reflect.savingsRollingSubtitle', 'Saved ÷ income over the last 3, 6, 12 complete months.')}
           labels={{
             threeMonth: t('reflect.threeMonth', '3 mo'),
             sixMonth: t('reflect.sixMonth', '6 mo'),

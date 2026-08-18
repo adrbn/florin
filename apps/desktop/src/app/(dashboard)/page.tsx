@@ -225,7 +225,7 @@ async function SavingsRateRollingServer() {
     <SavingsRateRolling
       rates={rates}
       title={t('reflect.savingsRolling', 'Savings rate — rolling')}
-      subtitle={t('reflect.savingsRollingSubtitle', 'Saved ÷ income over 3, 6, 12 months.')}
+      subtitle={t('reflect.savingsRollingSubtitle', 'Saved ÷ income over the last 3, 6, 12 complete months.')}
       className="flex h-full flex-col"
       labels={{
         threeMonth: t('reflect.threeMonth', '3 mo'),

@@ -240,7 +240,7 @@
   "reflect.savingsRateHint": "{pct} spaarpercentage",
   "reflect.days": "d",
   "reflect.savingsRolling": "Spaarpercentage — voortschrijdend",
-  "reflect.savingsRollingSubtitle": "Gespaard ÷ inkomsten over 3, 6 en 12 maanden.",
+  "reflect.savingsRollingSubtitle": "Gespaard ÷ inkomsten over de laatste 3, 6 en 12 volledige maanden.",
   "reflect.threeMonth": "3 mnd",
   "reflect.sixMonth": "6 mnd",
   "reflect.twelveMonth": "12 mnd",
