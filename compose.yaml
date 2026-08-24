@@ -56,6 +56,10 @@ services:
       # Planned monthly investment (DCA) feeding the goal projection. Empty =
       # fall back to detecting the rate from recent contributions.
       APP_DCA_MONTHLY: ${APP_DCA_MONTHLY:-}
+      # Bearer token for the v2 API the native iOS client calls. Those routes
+      # otherwise accept only a NextAuth session cookie, which an app has no way
+      # to present. Leave unset and the feed stays session-only.
+      FLORIN_API_TOKEN: ${FLORIN_API_TOKEN:-}
     ports:
       - "127.0.0.1:3000:3000"
     healthcheck:
