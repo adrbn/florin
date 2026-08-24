@@ -168,6 +168,25 @@ struct OverviewScreen: View {
 
         return ScrollView {
             VStack(alignment: .leading, spacing: 30) {
+                // Say plainly that these figures are not live, rather than
+                // letting an hour-old balance pass for the current one.
+                if let staleSince = model.staleSince {
+                    HStack(spacing: 7) {
+                        Image(systemName: "wifi.slash").font(.system(size: 12, weight: .semibold))
+                        Text(
+                            data.t("v2.overview.offline", "Hors ligne — données de {date}",
+                                   ["date": DayLabel.string(staleSince, locale: data.localeTag, t: data.t)])
+                        )
+                        .font(.system(size: 12.5))
+                        Spacer(minLength: 0)
+                    }
+                    .foregroundStyle(Florin.text2)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 9)
+                    .florinGlass(in: Capsule())
+                    .padding(.horizontal, Florin.gutter)
+                }
+
                 hero(data, points: points, shown: shown, delta: delta)
                 /*
                  * Straight after the hero, before the tiles.
@@ -260,6 +279,7 @@ struct OverviewScreen: View {
                 UISelectionFeedbackGenerator().selectionChanged()
                 withAnimation(.smooth(duration: 0.5)) { showGross.toggle() }
             }
+            .onLongPressGesture(minimumDuration: 0.45) { Privacy.shared.toggle() }
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isButton)
 
@@ -349,6 +369,7 @@ struct OverviewScreen: View {
                     )
                     .font(.system(size: 11.5))
                     .foregroundStyle(Florin.text3)
+                    .hiddenWhenPrivate()
                 }
             }
             }
@@ -365,6 +386,7 @@ struct OverviewScreen: View {
                     Text(data.t("v2.overview.spentAvg", "moy. 6 mois {amount}", ["amount": Money.string(data.burnAvg6, locale: data.localeTag, currency: data.currency, decimals: false)]))
                         .font(.system(size: 11.5))
                         .foregroundStyle(Florin.text3)
+                        .hiddenWhenPrivate()
                 }
             }
             }
@@ -418,6 +440,7 @@ struct OverviewScreen: View {
                     }
                     .font(.system(size: 11.5))
                     .foregroundStyle(Florin.text3)
+                    .hiddenWhenPrivate()
 
                     if data.incomeIsEstimated {
                         // Otherwise the card quietly claims money that has not
@@ -544,6 +567,7 @@ struct OverviewScreen: View {
                                 AmountText(value: goal.currentValue, locale: data.localeTag, currency: data.currency, decimals: false)
                                 Text(data.t("v2.common.of", "sur") + " " + Money.string(goal.target, locale: data.localeTag, currency: data.currency, decimals: false))
                                     .font(.system(size: 15)).foregroundStyle(Florin.text3)
+                                    .hiddenWhenPrivate()
                             }
                             Text(reached.map { data.t("v2.overview.goalReach", "Atteint en {date}", ["date": $0]) } ?? data.t("v2.overview.goalNever", "Hors d'atteinte à ce rythme"))
                                 .font(.system(size: 12.5)).foregroundStyle(Florin.text2)
@@ -575,6 +599,7 @@ struct OverviewScreen: View {
                         )
                     )
                     .font(.system(size: 11.5)).foregroundStyle(Florin.text3)
+                    .hiddenWhenPrivate()
                 }
             }
             .padding(.horizontal, Florin.gutter)

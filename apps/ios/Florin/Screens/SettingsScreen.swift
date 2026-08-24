@@ -11,6 +11,7 @@ struct SettingsScreen: View {
     @ObservedObject var model: OverviewModel
     var onClose: (() -> Void)?
     @EnvironmentObject private var server: ServerStore
+    @ObservedObject private var privacy = Privacy.shared
 
     @AppStorage("florin.appearance") private var appearanceRaw = Appearance.dark.rawValue
     @State private var editingServer = false
@@ -27,6 +28,7 @@ struct SettingsScreen: View {
                 Backdrop(tint: TabRoute.settings.tint)
                 Form {
                     appearanceSection
+                    privacySection
                     serverSection
                     languageSection
                     syncSection
@@ -97,6 +99,21 @@ struct SettingsScreen: View {
             .disabled(changingLocale || model.overview == nil)
         } footer: {
             Text("Change la langue de Florin, sur le téléphone comme dans le navigateur.")
+        }
+    }
+
+    private var privacySection: some View {
+        Section {
+            Toggle(
+                t("v2.settings.hideAmounts", "Masquer les montants"),
+                isOn: Binding(get: { privacy.hidden }, set: { privacy.set($0) })
+            )
+        } header: {
+            Text(t("v2.settings.privacy", "Discrétion"))
+        } footer: {
+            Text(
+                "Secoue le téléphone pour masquer ou réafficher tous les montants, ou maintiens le chiffre principal. Ça cache, ça ne verrouille pas : n'importe qui tenant le téléphone peut le rouvrir."
+            )
         }
     }
 

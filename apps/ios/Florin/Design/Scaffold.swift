@@ -102,6 +102,9 @@ struct HeroBlock<Sub: View>: View {
             UISelectionFeedbackGenerator().selectionChanged()
             onTap()
         }
+        // Hold the figure to cover every figure. Shaking is the fast way; this
+        // is the one you find without being told.
+        .onLongPressGesture(minimumDuration: 0.45) { Privacy.shared.toggle() }
         .accessibilityElement(children: .combine)
     }
 }

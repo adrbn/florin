@@ -84,6 +84,11 @@ struct FlorinClient: Sendable {
         return result
     }
 
+    /// The cache key for this base URL's overview feed. Keyed by host so
+    /// pointing the app at a different server does not show the previous one's
+    /// figures.
+    var overviewKey: String { "overview-\(base.host ?? "?")" }
+
     func overview() async throws -> Overview {
         // `base` points at the v2 page (…/m); the feed sits beside it.
         var components = URLComponents(url: base, resolvingAgainstBaseURL: false)
@@ -94,7 +99,9 @@ struct FlorinClient: Sendable {
             let (data, response) = try await session.data(for: FlorinAuth.request(url))
             guard let http = response as? HTTPURLResponse else { throw FlorinError.badStatus(0) }
             guard (200..<300).contains(http.statusCode) else { throw FlorinError.badStatus(http.statusCode) }
-            return try JSONDecoder().decode(Overview.self, from: data)
+            let decoded = try JSONDecoder().decode(Overview.self, from: data)
+            SnapshotCache.write(data, for: overviewKey)
+            return decoded
         } catch let error as FlorinError {
             throw error
         } catch let error as DecodingError {
@@ -114,6 +121,9 @@ final class OverviewModel: ObservableObject {
     }
 
     @Published private(set) var state: State = .loading
+    /// When the figures on screen were fetched, if they came from the cache
+    /// rather than the server. Nil means live.
+    @Published private(set) var staleSince: Date?
 
     /// The last successful payload, kept across a refresh so the add sheet and
     /// the toolbar do not blink out while the screen reloads.
@@ -212,12 +222,33 @@ final class OverviewModel: ObservableObject {
         if showSpinner, case .loaded = state {} else if showSpinner { state = .loading }
         do {
             let data = try await client.overview()
+            staleSince = nil
             state = .loaded(data)
         } catch {
             // Same reasoning as sync: a cancelled read is not an outage, and
             // replacing a loaded screen with "Florin est injoignable" because
             // the user let go of a pull is a lie.
-            if !isCancellation(error) { state = .failed(error.localizedDescription) }
+            guard !isCancellation(error) else { return }
+            /*
+             * Unreachable is not the same as having nothing to show.
+             *
+             * The last good payload is on disk; an hour-old balance beats an
+             * error screen every time, as long as the screen says so. A bad
+             * *response* — 401, 404 — is different: that is a configuration
+             * problem the user has to fix, and quietly serving yesterday's
+             * numbers would hide it.
+             */
+            let recoverable = (error as? FlorinError).map {
+                if case .unreachable = $0 { return true } else { return false }
+            } ?? true
+            if recoverable, overview == nil,
+               let cached = SnapshotCache.read(client.overviewKey),
+               let data = try? JSONDecoder().decode(Overview.self, from: cached.data) {
+                staleSince = cached.savedAt
+                state = .loaded(data)
+                return
+            }
+            if overview == nil { state = .failed(error.localizedDescription) }
         }
     }
 }

@@ -289,6 +289,7 @@ struct PlanRow: View {
             }
             .font(.system(size: 11))
             .foregroundStyle(Florin.text3)
+            .hiddenWhenPrivate()
         }
         .padding(.horizontal, Florin.gutter)
         .padding(.vertical, 12)
@@ -333,54 +334,69 @@ struct AssignSheet: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 24) {
-                    VStack(spacing: 6) {
-                        Text(category.emoji ?? "•").font(.system(size: 34))
-                        Text(category.name)
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(Florin.text)
-                        Text(
-                            t("v2.plan.spentShort", "Dépensé") + " "
-                                + Money.string(category.spent, locale: locale,
-                                               currency: currency, decimals: false)
-                        )
-                        .font(.system(size: 13))
-                        .foregroundStyle(Florin.text2)
-                    }
-                    .padding(.top, 10)
+            VStack(spacing: 22) {
+                VStack(spacing: 6) {
+                    Text(category.emoji ?? "•").font(.system(size: 32))
+                    Text(category.name)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(Florin.text)
+                    Text(
+                        t("v2.plan.spentShort", "Dépensé") + " "
+                            + Money.string(category.spent, locale: locale,
+                                           currency: currency, decimals: false)
+                    )
+                    .font(.system(size: 13))
+                    .foregroundStyle(Florin.text2)
+                }
+                .padding(.top, 6)
 
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        TextField("0", text: $text)
-                            .font(.system(size: 44, weight: .light))
-                            .monospacedDigit()
-                            .multilineTextAlignment(.trailing)
-                            .keyboardType(.decimalPad)
-                            .focused($focused)
-                            .frame(maxWidth: 200)
-                        Text(Money.currencySymbol(locale: locale, currency: currency))
-                            .font(.system(size: 22))
-                            .foregroundStyle(Florin.text3)
-                    }
-
-                    HStack(spacing: 10) {
-                        if category.spent > 0 {
-                            shortcut(
-                                t("v2.plan.matchSpent", "Couvrir le dépensé"),
-                                category.spent
-                            )
-                        }
-                        if readyToAssign > 0 {
-                            shortcut(
-                                t("v2.plan.assignRest", "Tout le reste"),
-                                category.assigned + readyToAssign
-                            )
-                        }
-                    }
-                    .padding(.horizontal, Florin.gutter)
+                /*
+                 * The figure sits in the middle of the sheet.
+                 *
+                 * A right-aligned field with the symbol beside it drifted off
+                 * centre as soon as the number got shorter, so the one thing
+                 * the screen is about moved every time you typed. Measuring the
+                 * text and sizing the field to it keeps the number *and* the
+                 * symbol centred as a unit at every length.
+                 */
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    TextField("0", text: $text)
+                        .font(.system(size: 46, weight: .light))
+                        .monospacedDigit()
+                        .multilineTextAlignment(.center)
+                        .keyboardType(.decimalPad)
+                        .focused($focused)
+                        .fixedSize()
+                    Text(Money.currencySymbol(locale: locale, currency: currency))
+                        .font(.system(size: 22))
+                        .foregroundStyle(Florin.text3)
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.bottom, 24)
+
+                // What this choice does to the envelope, live.
+                Text(outcome)
+                    .font(.system(size: 13))
+                    .foregroundStyle(outcomeTone)
+                    .frame(height: 18)
+                    .contentTransition(.numericText())
+
+                HStack(spacing: 10) {
+                    if category.spent > 0 {
+                        shortcut(t("v2.plan.matchSpent", "Couvrir le dépensé"), category.spent)
+                    }
+                    if readyToAssign > 0 {
+                        shortcut(
+                            t("v2.plan.assignRest", "Tout le reste"),
+                            category.assigned + readyToAssign
+                        )
+                    }
+                    if category.assigned > 0 {
+                        shortcut(t("v2.plan.clear", "Remettre à zéro"), 0)
+                    }
+                }
+                .padding(.horizontal, Florin.gutter)
+
+                Spacer(minLength: 0)
             }
             .background(Backdrop(tint: TabRoute.plan.tint))
             .navigationTitle(t("v2.plan.assign", "Répartir"))
@@ -396,7 +412,9 @@ struct AssignSheet: View {
             }
             .onAppear { focused = true }
         }
-        .presentationDetents([.medium])
+        // Sized to the content rather than half the screen: a medium detent
+        // left a void between the shortcuts and the keypad.
+        .presentationDetents([.height(430)])
     }
 
     private func shortcut(_ label: String, _ amount: Double) -> some View {
@@ -416,6 +434,27 @@ struct AssignSheet: View {
             .florinGlass(in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .buttonStyle(.plain)
+    }
+
+    /// The envelope's balance if this amount were saved.
+    private var outcome: String {
+        guard let value = parsed else { return "" }
+        let available = value - category.spent
+        if available < -0.005 {
+            return t(
+                "v2.plan.willOverspend", "Il manquera {amount}",
+                ["amount": Money.string(-available, locale: locale, currency: currency, decimals: false)]
+            )
+        }
+        return t(
+            "v2.plan.willRemain", "Il restera {amount}",
+            ["amount": Money.string(available, locale: locale, currency: currency, decimals: false)]
+        )
+    }
+
+    private var outcomeTone: Color {
+        guard let value = parsed else { return Florin.text3 }
+        return value - category.spent < -0.005 ? Florin.negative : Florin.text2
     }
 
     private var parsed: Double? {
