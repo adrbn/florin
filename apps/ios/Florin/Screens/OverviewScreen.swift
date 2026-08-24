@@ -256,6 +256,7 @@ struct OverviewScreen: View {
                                             currency: data.currency, decimals: false))
                             .font(.system(size: 14))
                             .foregroundStyle(Florin.text2)
+                            .hiddenWhenPrivate()
                     } else {
                         Image(systemName: delta >= 0 ? "arrowtriangle.up.fill" : "arrowtriangle.down.fill")
                             .font(.system(size: 9))

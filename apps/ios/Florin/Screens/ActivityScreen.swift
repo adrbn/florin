@@ -28,7 +28,7 @@ struct ActivityScreen: View {
 }
 
 /// The list itself, reused by Activité and by an account's ledger.
-struct TransactionList: View {
+struct TransactionList<Banner: View>: View {
     let base: URL
     let tint: Color
     let title: String
@@ -41,6 +41,9 @@ struct TransactionList: View {
     var startNeedsReview = false
     var showsBack = false
     var onProfile: () -> Void = {}
+    /// Optional block between the hero and the filters — a portfolio summary on
+    /// a broker account, nothing at all everywhere else.
+    @ViewBuilder var banner: Banner
 
     @Environment(\.dismiss) private var dismiss
     @StateObject private var model: ActivityModel
@@ -61,7 +64,8 @@ struct TransactionList: View {
         heroCaption: String? = nil,
         startNeedsReview: Bool = false,
         showsBack: Bool = false,
-        onProfile: @escaping () -> Void = {}
+        onProfile: @escaping () -> Void = {},
+        @ViewBuilder banner: () -> Banner = { EmptyView() }
     ) {
         self.base = base
         self.tint = tint
@@ -75,6 +79,7 @@ struct TransactionList: View {
         self.startNeedsReview = startNeedsReview
         self.showsBack = showsBack
         self.onProfile = onProfile
+        self.banner = banner()
         _model = StateObject(wrappedValue: ActivityModel(base: base))
     }
 
@@ -112,6 +117,12 @@ struct TransactionList: View {
                     size: 48
                 )
                 .padding(.bottom, 2)
+            }
+            // `Banner` is `EmptyView` on every screen but a broker account, and
+            // an empty card is a stray rectangle.
+            if Banner.self != EmptyView.self {
+                FlorinCard { banner }
+                    .padding(.horizontal, Florin.gutter)
             }
             ChipBar(options: chips, selection: scope)
             summary

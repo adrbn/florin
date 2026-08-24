@@ -37,61 +37,24 @@ struct AddTransactionSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    Picker("", selection: $isExpense) {
-                        Text(t("v2.add.expense", "Dépense")).tag(true)
-                        Text(t("v2.add.income", "Entrée")).tag(false)
-                    }
-                    .pickerStyle(.segmented)
-                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Spacer()
-                        TextField("0", text: $amount)
-                            .keyboardType(.decimalPad)
-                            .focused($amountFocused)
-                            .multilineTextAlignment(.trailing)
-                            .font(.system(size: 44, weight: .light))
-                            .monospacedDigit()
-                            .foregroundStyle(isExpense ? Florin.text : Florin.positive)
-                            .frame(maxWidth: 220)
-                        Text(Money.currencySymbol(locale: data.localeTag, currency: data.currency))
-                            .font(.system(size: 20, weight: .light))
-                            .foregroundStyle(Florin.text3)
-                        Spacer()
-                    }
-                    .padding(.vertical, 6)
-                    .listRowBackground(Color.clear)
-                }
-
-                Section {
-                    TextField(t("v2.add.payee", "Bénéficiaire"), text: $payee)
-                        .textInputAutocapitalization(.words)
-
-                    Picker(t("v2.add.account", "Compte"), selection: $accountId) {
-                        ForEach(usableAccounts) { Text($0.name).tag($0.id) }
-                    }
-
-                    Picker(t("v2.add.category", "Catégorie"), selection: $categoryId) {
-                        Text(t("v2.common.uncategorized", "Sans catégorie")).tag("")
-                        ForEach(data.categories) { category in
-                            Text("\(category.emoji.map { $0 + " " } ?? "")\(category.name)")
-                                .tag(category.id)
-                        }
-                    }
-
-                    DatePicker(t("v2.add.date", "Date"), selection: $date, displayedComponents: .date)
-                }
-
-                Section {
-                    TextField(t("v2.add.memo", "Note"), text: $memo, axis: .vertical)
-                } footer: {
+            ScrollView {
+                VStack(spacing: 20) {
+                    direction
+                    figure
+                    fields
                     if let errorMessage {
-                        Text(errorMessage).foregroundStyle(Florin.negative)
+                        Text(errorMessage)
+                            .font(.system(size: 13))
+                            .foregroundStyle(Florin.negative)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, Florin.gutter)
                     }
                 }
+                .padding(.top, 10)
+                .padding(.bottom, 28)
             }
+            .scrollDismissesKeyboard(.interactively)
+            .background(Backdrop(tint: TabRoute.overview.tint))
             .navigationTitle(t("v2.add.title", "Ajouter"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -105,10 +68,163 @@ struct AddTransactionSheet: View {
                 }
             }
         }
+        .presentationBackground(.clear)
         .onAppear {
             if accountId.isEmpty { accountId = usableAccounts.first?.id ?? "" }
             amountFocused = true
         }
+    }
+
+    /*
+     * Two glass chips, not a system segmented control.
+     *
+     * The sign is the single most consequential choice on this sheet — get it
+     * wrong and the figure lands on the wrong side of every total — so it is
+     * the first thing on screen, at a size you cannot mis-tap, in the same
+     * material as the rest of the app rather than a grey slab that belonged to
+     * the Form this sheet used to be.
+     */
+    private var direction: some View {
+        HStack(spacing: 10) {
+            directionChip(t("v2.add.expense", "Dépense"), expense: true, tint: Florin.negative)
+            directionChip(t("v2.add.income", "Entrée"), expense: false, tint: Florin.positive)
+        }
+        .padding(.horizontal, Florin.gutter)
+    }
+
+    private func directionChip(_ label: String, expense: Bool, tint: Color) -> some View {
+        let active = isExpense == expense
+        return Button {
+            UISelectionFeedbackGenerator().selectionChanged()
+            withAnimation(.snappy(duration: 0.2)) { isExpense = expense }
+        } label: {
+            HStack(spacing: 7) {
+                Image(systemName: expense ? "arrow.down.left" : "arrow.up.right")
+                    .font(.system(size: 13, weight: .bold))
+                Text(label).font(.system(size: 15, weight: active ? .semibold : .medium))
+            }
+            .foregroundStyle(active ? tint : Florin.text2)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 13)
+            .background(
+                active ? tint.opacity(0.16) : Color.clear,
+                in: Capsule()
+            )
+            .overlay(
+                Capsule().strokeBorder(
+                    active ? tint.opacity(0.5) : Florin.text.opacity(0.10),
+                    lineWidth: 1
+                )
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// Centred at every length, sign in front of it, so what you are recording
+    /// is legible at a glance before you commit it.
+    private var figure: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
+            Text(isExpense ? "−" : "+")
+                .font(.system(size: 34, weight: .light))
+                .foregroundStyle(isExpense ? Florin.negative : Florin.positive)
+                .opacity(magnitude > 0 ? 1 : 0.25)
+            TextField("0", text: $amount)
+                .keyboardType(.decimalPad)
+                .focused($amountFocused)
+                .multilineTextAlignment(.center)
+                .font(.system(size: 52, weight: .light))
+                .monospacedDigit()
+                .foregroundStyle(Florin.text)
+                .fixedSize()
+            Text(Money.currencySymbol(locale: data.localeTag, currency: data.currency))
+                .font(.system(size: 22, weight: .light))
+                .foregroundStyle(Florin.text3)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+    }
+
+    private var fields: some View {
+        RowGroup {
+            HStack(spacing: 12) {
+                Image(systemName: "person.crop.circle")
+                    .font(.system(size: 16))
+                    .foregroundStyle(Florin.text3)
+                    .frame(width: 24)
+                TextField(t("v2.add.payee", "Bénéficiaire"), text: $payee)
+                    .textInputAutocapitalization(.words)
+                    .font(.system(size: 16))
+            }
+            .padding(.horizontal, Florin.gutter)
+            .padding(.vertical, 14)
+
+            Hairline()
+
+            pickerRow(
+                symbol: "building.columns",
+                label: t("v2.add.account", "Compte")
+            ) {
+                Picker("", selection: $accountId) {
+                    ForEach(usableAccounts) { Text($0.name).tag($0.id) }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+            }
+
+            Hairline()
+
+            pickerRow(symbol: "tag", label: t("v2.add.category", "Catégorie")) {
+                Picker("", selection: $categoryId) {
+                    Text(t("v2.common.uncategorized", "Sans catégorie")).tag("")
+                    ForEach(data.categories) { category in
+                        Text("\(category.emoji.map { $0 + " " } ?? "")\(category.name)")
+                            .tag(category.id)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+            }
+
+            Hairline()
+
+            pickerRow(symbol: "calendar", label: t("v2.add.date", "Date")) {
+                DatePicker("", selection: $date, displayedComponents: .date)
+                    .labelsHidden()
+            }
+
+            Hairline()
+
+            HStack(spacing: 12) {
+                Image(systemName: "text.alignleft")
+                    .font(.system(size: 16))
+                    .foregroundStyle(Florin.text3)
+                    .frame(width: 24)
+                TextField(t("v2.add.memo", "Note"), text: $memo, axis: .vertical)
+                    .font(.system(size: 16))
+                    .lineLimit(1...3)
+            }
+            .padding(.horizontal, Florin.gutter)
+            .padding(.vertical, 14)
+        }
+        .padding(.horizontal, Florin.gutter)
+    }
+
+    private func pickerRow<Content: View>(
+        symbol: String,
+        label: String,
+        @ViewBuilder control: () -> Content
+    ) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: symbol)
+                .font(.system(size: 16))
+                .foregroundStyle(Florin.text3)
+                .frame(width: 24)
+            Text(label).font(.system(size: 16)).foregroundStyle(Florin.text)
+            Spacer(minLength: 8)
+            control()
+        }
+        .padding(.horizontal, Florin.gutter)
+        .padding(.vertical, 8)
     }
 
     private func save() {
