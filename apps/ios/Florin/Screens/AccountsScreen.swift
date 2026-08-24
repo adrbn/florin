@@ -78,6 +78,8 @@ struct AccountsScreen: View {
                 )
                 .font(.system(size: 14))
                 .foregroundStyle(Florin.text2)
+                // In gross mode this line prints the debt.
+                .hiddenWhenPrivate()
             }
 
             // The same curve the dashboard draws, at a glance — this screen is
@@ -235,6 +237,14 @@ struct AccountDetailScreen: View {
     @ObservedObject var model: OverviewModel
     let route: ActivityRoute
 
+    @StateObject private var portfolio: PortfolioModel
+
+    init(model: OverviewModel, route: ActivityRoute) {
+        self.model = model
+        self.route = route
+        _portfolio = StateObject(wrappedValue: PortfolioModel(base: model.base))
+    }
+
     private var account: Account? {
         guard let id = route.accountId else { return nil }
         return model.overview?.accounts.first { $0.id == id }
@@ -254,6 +264,86 @@ struct AccountDetailScreen: View {
                 a.institution?.isEmpty == false ? a.institution : a.name
             } ?? route.title,
             showsBack: true
-        )
+        ) {
+            portfolioBanner
+        }
+        .task {
+            guard let account, account.kind.hasPrefix("broker"), let id = route.accountId else { return }
+            await portfolio.load(accountId: id)
+        }
+    }
+
+    /// A wrapper's performance, above its ledger.
+    ///
+    /// Opening a PEA to a list of "Ajustement −2 496,52 €" rows answers nothing:
+    /// those are the mechanical re-valuations, not the story. The story is one
+    /// line — what went in, what it is worth, and the gap as a percentage.
+    @ViewBuilder
+    private var portfolioBanner: some View {
+        if let data = portfolio.payload {
+            let v = data.valuation
+            let locale = model.overview?.localeTag ?? "fr-FR"
+            let currency = model.overview?.currency ?? "EUR"
+            let up = v.marche >= 0
+
+            VStack(spacing: 14) {
+                HStack(spacing: 6) {
+                    Image(systemName: up ? "arrow.up.right" : "arrow.down.right")
+                        .font(.system(size: 13, weight: .bold))
+                    Text(Money.percent(v.performancePct, locale: locale, digits: 1))
+                        .font(.system(size: 26, weight: .medium))
+                        .monospacedDigit()
+                    AmountText(
+                        value: v.marche, locale: locale, currency: currency,
+                        decimals: false, signed: true, tone: .auto, size: 15
+                    )
+                }
+                .foregroundStyle(up ? Florin.positive : Florin.negative)
+
+                HStack(spacing: 0) {
+                    stat(model.overview?.t("v2.tools.contributed", "Versé") ?? "Versé",
+                         v.verse, locale, currency)
+                    stat(model.overview?.t("v2.account.marketValue", "Valeur") ?? "Valeur",
+                         v.marketValue + v.cash, locale, currency)
+                    if v.cash > 0.5 {
+                        stat(model.overview?.t("v2.overview.cash", "Liquidités") ?? "Liquidités",
+                             v.cash, locale, currency)
+                    }
+                }
+
+                if !data.holdings.isEmpty {
+                    VStack(spacing: 10) {
+                        ForEach(data.holdings) { holding in
+                            HStack(spacing: 10) {
+                                Text(holding.label)
+                                    .font(.system(size: 13.5))
+                                    .foregroundStyle(Florin.text)
+                                    .lineLimit(1)
+                                Spacer(minLength: 6)
+                                if let pct = holding.plusValuePct {
+                                    Text(Money.percent(pct, locale: locale, digits: 1))
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .monospacedDigit()
+                                        .foregroundStyle(pct >= 0 ? Florin.positive : Florin.negative)
+                                }
+                                AmountText(
+                                    value: holding.marketValue, locale: locale,
+                                    currency: currency, decimals: false, size: 13.5
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(.vertical, 4)
+        }
+    }
+
+    private func stat(_ label: String, _ value: Double, _ locale: String, _ currency: String) -> some View {
+        VStack(spacing: 3) {
+            Text(label).font(.system(size: 11)).foregroundStyle(Florin.text3)
+            AmountText(value: value, locale: locale, currency: currency, decimals: false, size: 14)
+        }
+        .frame(maxWidth: .infinity)
     }
 }

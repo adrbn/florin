@@ -163,6 +163,8 @@ struct ScreenSection<Content: View>: View {
                     Text(trailing)
                         .font(.system(size: 11.5))
                         .foregroundStyle(Florin.text3)
+                        // Most section trailers are a total.
+                        .hiddenWhenPrivate()
                 }
             }
             .padding(.horizontal, Florin.gutter)
@@ -189,38 +191,61 @@ struct ChipBar<Value: Hashable>: View {
     let options: [(value: Value, label: String, badge: Int)]
     @Binding var selection: Value
 
+    /*
+     * Fills the width when the chips fit, scrolls when they do not.
+     *
+     * A scroll view sizes itself to its content, so four short chips left a
+     * ragged gap down the right of the screen — the row read as an unfinished
+     * list rather than a set of tabs. `ViewThatFits` takes the laid-out row
+     * when there is room for it and falls back to scrolling for a longer set,
+     * which is the only honest way to do this without hard-coding a count.
+     */
     var body: some View {
-        ScrollView(.horizontal) {
+        ViewThatFits(in: .horizontal) {
             HStack(spacing: 8) {
-                ForEach(options, id: \.value) { option in
-                    let active = option.value == selection
-                    Button {
-                        UISelectionFeedbackGenerator().selectionChanged()
-                        withAnimation(.snappy(duration: 0.2)) { selection = option.value }
-                    } label: {
-                        HStack(spacing: 6) {
-                            Text(option.label)
-                                .font(.system(size: 14, weight: active ? .semibold : .medium))
-                            if option.badge > 0 {
-                                Text("\(option.badge)")
-                                    .font(.system(size: 11, weight: .bold))
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 1)
-                                    .background(Florin.negative, in: Capsule())
-                            }
-                        }
-                        .foregroundStyle(active ? Florin.text : Florin.text2)
-                        .padding(.horizontal, 15)
-                        .padding(.vertical, 9)
-                        .modifier(ChipGlass(active: active))
-                    }
-                    .buttonStyle(.plain)
-                }
+                ForEach(options, id: \.value) { chip($0, fill: true) }
             }
             .padding(.horizontal, Florin.gutter)
+
+            ScrollView(.horizontal) {
+                HStack(spacing: 8) {
+                    ForEach(options, id: \.value) { chip($0, fill: false) }
+                }
+                .padding(.horizontal, Florin.gutter)
+            }
+            .scrollIndicators(.hidden)
         }
-        .scrollIndicators(.hidden)
+    }
+
+    private func chip(
+        _ option: (value: Value, label: String, badge: Int),
+        fill: Bool
+    ) -> some View {
+        let active = option.value == selection
+        return Button {
+            UISelectionFeedbackGenerator().selectionChanged()
+            withAnimation(.snappy(duration: 0.2)) { selection = option.value }
+        } label: {
+            HStack(spacing: 6) {
+                Text(option.label)
+                    .font(.system(size: 14, weight: active ? .semibold : .medium))
+                    .lineLimit(1)
+                if option.badge > 0 {
+                    Text("\(option.badge)")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 1)
+                        .background(Florin.negative, in: Capsule())
+                }
+            }
+            .foregroundStyle(active ? Florin.text : Florin.text2)
+            .padding(.horizontal, fill ? 8 : 15)
+            .padding(.vertical, 9)
+            .frame(maxWidth: fill ? .infinity : nil)
+            .modifier(ChipGlass(active: active))
+        }
+        .buttonStyle(.plain)
     }
 }
 

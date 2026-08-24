@@ -123,6 +123,7 @@ struct PlanScreen: View {
             )
             .font(.system(size: 13))
             .foregroundStyle(over ? Florin.negative : Florin.text2)
+            .hiddenWhenPrivate()
         }
     }
 
@@ -347,6 +348,7 @@ struct AssignSheet: View {
                     )
                     .font(.system(size: 13))
                     .foregroundStyle(Florin.text2)
+                    .hiddenWhenPrivate()
                 }
                 .padding(.top, 6)
 
@@ -377,6 +379,7 @@ struct AssignSheet: View {
                 Text(outcome)
                     .font(.system(size: 13))
                     .foregroundStyle(outcomeTone)
+                    .hiddenWhenPrivate()
                     .frame(height: 18)
                     .contentTransition(.numericText())
 
@@ -427,6 +430,7 @@ struct AssignSheet: View {
                 Text(Money.string(amount, locale: locale, currency: currency, decimals: false))
                     .font(.system(size: 13, weight: .semibold))
                     .monospacedDigit()
+                    .hiddenWhenPrivate()
             }
             .foregroundStyle(Florin.text)
             .frame(maxWidth: .infinity)

@@ -137,6 +137,8 @@ struct AnalysisScreen: View {
                 .font(.system(size: 13))
                 .foregroundStyle(Florin.text2)
                 .multilineTextAlignment(.center)
+                // Some tabs put real amounts in this line.
+                .hiddenWhenPrivate()
         }
         .padding(.bottom, 2)
     }
@@ -379,37 +381,54 @@ struct AnalysisScreen: View {
         let open = expanded == row.id
         let tint = Florin.seriesColor(for: row.categoryName)
 
+        /*
+         * Stacked, not strung out.
+         *
+         * The first version put the name, the total, a sparkline and a delta
+         * chip on one line, and on a 393pt screen every one of them lost:
+         * "Vêtements & beauté" truncated to "Vêtements…", "1 405 € · sur 12
+         * mois" wrapped to two lines, and "426 %" broke across the chip. Giving
+         * the row three short lines — identity, figure, shape — fits every
+         * category name there is and makes the bars wide enough to read.
+         */
         return VStack(spacing: 0) {
             Button {
                 UISelectionFeedbackGenerator().selectionChanged()
                 withAnimation(.snappy(duration: 0.28)) { expanded = open ? nil : row.id }
             } label: {
-                HStack(spacing: 12) {
-                    Bubble(label: row.categoryName, emoji: row.emoji)
-                    VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 9) {
+                    HStack(spacing: 10) {
+                        Bubble(label: row.categoryName, emoji: row.emoji, size: 32)
                         Text(row.categoryName)
-                            .font(.system(size: 14.5, weight: .medium))
+                            .font(.system(size: 15, weight: .medium))
                             .foregroundStyle(Florin.text)
                             .lineLimit(1)
-                        Text(
-                            Money.string(row.total, locale: locale, currency: currency, decimals: false)
-                                + " · " + t("v2.analysis.over12", "sur 12 mois")
-                        )
-                        .font(.system(size: 12))
-                        .foregroundStyle(Florin.text2)
+                            .minimumScaleFactor(0.85)
+                        Spacer(minLength: 6)
+                        DeltaChip(delta: delta)
+                        Image(systemName: open ? "chevron.up" : "chevron.down")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Florin.text3)
                     }
-                    Spacer(minLength: 8)
+
+                    HStack(spacing: 6) {
+                        AmountText(
+                            value: row.total, locale: locale, currency: currency,
+                            decimals: false, size: 14
+                        )
+                        Text(t("v2.analysis.over12", "sur 12 mois"))
+                            .font(.system(size: 12))
+                            .foregroundStyle(Florin.text3)
+                        Spacer(minLength: 0)
+                    }
+
                     if !open {
                         SparkBars(values: row.monthly, tint: tint)
-                            .frame(width: 64, height: 26)
+                            .frame(height: 30)
                     }
-                    DeltaChip(delta: delta)
-                    Image(systemName: open ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Florin.text3)
                 }
                 .padding(.horizontal, Florin.gutter)
-                .padding(.vertical, 12)
+                .padding(.vertical, 13)
             }
             .buttonStyle(.plain)
 
@@ -421,21 +440,18 @@ struct AnalysisScreen: View {
                     )
                     .frame(height: 130)
 
-                    if let id = categoryIds.first(where: { $0.value == row.categoryId })?.value
-                        ?? Optional(row.categoryId) {
-                        Button {
-                            drill = ActivityRoute(categoryId: id, title: row.categoryName)
-                        } label: {
-                            Text(t("v2.analysis.openCategory", "Voir les opérations"))
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(Florin.accent)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 11)
-                                .background(Florin.accent.opacity(0.12),
-                                            in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        }
-                        .buttonStyle(.plain)
+                    Button {
+                        drill = ActivityRoute(categoryId: row.categoryId, title: row.categoryName)
+                    } label: {
+                        Text(t("v2.analysis.openCategory", "Voir les opérations"))
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(Florin.accent)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 11)
+                            .background(Florin.accent.opacity(0.12),
+                                        in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
+                    .buttonStyle(.plain)
                 }
                 .padding(.horizontal, Florin.gutter)
                 .padding(.bottom, 14)
@@ -546,8 +562,8 @@ struct AnalysisScreen: View {
                             .foregroundStyle(Florin.text)
                         Text(
                             t(
-                                "v2.analysis.subsEmptyHint",
-                                "Florin repère les prélèvements qui reviennent au même montant."
+                                "v2.analysis.subsEmptyWhy",
+                                "Florin cherche un même bénéficiaire, au même montant, au moins trois fois, toutes les 4 semaines environ ou toutes les semaines, sur les 6 derniers mois. Si ta banque colle une date ou un numéro de carte dans le libellé, chaque prélèvement compte comme un bénéficiaire différent et rien ne ressort."
                             )
                         )
                         .font(.system(size: 12.5))
@@ -587,6 +603,7 @@ struct AnalysisScreen: View {
                                     )
                                     .font(.system(size: 11))
                                     .foregroundStyle(Florin.text3)
+                                    .hiddenWhenPrivate()
                                 }
                             }
                             .padding(.horizontal, Florin.gutter)
@@ -853,15 +870,15 @@ struct DeltaChip: View {
                     .monospacedDigit()
             }
             .foregroundStyle(delta > 0 ? Florin.negative : Florin.positive)
+            .fixedSize()
             .padding(.horizontal, 7)
             .padding(.vertical, 3)
             .background(
                 (delta > 0 ? Florin.negative : Florin.positive).opacity(0.14),
                 in: Capsule()
             )
-            .frame(width: 52, alignment: .trailing)
         } else {
-            Color.clear.frame(width: 52, height: 1)
+            EmptyView()
         }
     }
 }
