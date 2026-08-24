@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { downsample, trimLeadingFlat } from '@florin/core/components/v2/lib/series'
 import { mapAccount, mapCategories, mapTx } from '@florin/core/components/v2/lib/map'
 import { V2_DICTS } from '@florin/core/components/v2/i18n'
+import { SUPPORTED_LOCALES, type SupportedLocale } from '@florin/core/i18n'
 import { projectGoal } from '@florin/core/lib/goal'
 import { monthlyNetWorthTrend } from '@florin/core/lib/trend'
 import { computeLoanLiability } from '@florin/core/lib/loan'
@@ -29,7 +30,22 @@ export const dynamic = 'force-dynamic'
 const HISTORY_MONTHS = 60
 const MAX_POINTS = 400
 
-export async function GET() {
+/*
+ * The client may name its own language.
+ *
+ * `getUserLocale()` reads a cookie, and a native app authenticating with a
+ * bearer token has none — so every request resolved to English no matter what
+ * the phone was set to. The query parameter lets a cookieless client say what
+ * it wants; a browser sends nothing and keeps the cookie behaviour.
+ */
+function requestedLocale(request: Request): SupportedLocale | null {
+  const raw = new URL(request.url).searchParams.get('locale')
+  return raw && SUPPORTED_LOCALES.some((l) => l.code === raw)
+    ? (raw as SupportedLocale)
+    : null
+}
+
+export async function GET(request: Request) {
   const [
     netWorth,
     rawSeries,
@@ -42,7 +58,7 @@ export async function GET() {
     recent,
     snapshot,
     reviewCount,
-    locale,
+    cookieLocale,
     categoryGroups,
     connections,
   ] = await Promise.all([
@@ -61,6 +77,8 @@ export async function GET() {
     queries.listCategoriesByGroup(),
     queries.listBankConnections(),
   ])
+
+  const locale = requestedLocale(request) ?? cookieLocale
 
   // A loan's stored balance is not its liability; getNetWorth derives the debt
   // from the amortization schedule. Ship that figure so a client summing the
