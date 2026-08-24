@@ -1,0 +1,178 @@
+import Foundation
+
+/// Mirrors of the v2 view models the server already serialises.
+///
+/// Field names match `packages/core/src/components/v2/types.ts` and the query
+/// layer's result types exactly, so the JSON decodes without a key strategy and
+/// a rename on either side fails loudly at decode time rather than silently
+/// rendering a zero.
+struct Overview: Decodable, Sendable {
+    let generatedAt: String
+    let locale: String
+    /// The v2 dictionary for `locale`, English underneath.
+    let strings: [String: String]
+    let lastSyncedAt: String?
+    let bankSyncConfigured: Bool
+    let currency: String
+    let netWorth: NetWorth
+    let monthlyTrend: Double
+    let series: [PatrimonyPoint]
+    /// Assets only, with the loan added back at every date.
+    let grossSeries: [PatrimonyPoint]?
+    /// Assets minus the debt *as it stood then*, not as it stands today.
+    let netSeries: [PatrimonyPoint]?
+    let leftToSpend: LeftToSpend
+    let burnThisMonth: Double
+    let burnAvg6: Double
+    let savings: SavingsRates
+    let allocation: Allocation
+    let goal: Goal?
+    let reviewCount: Int
+    /// This month's salary has not landed; the income figure is last month's. 
+    let incomeIsEstimated: Bool
+    let accounts: [Account]
+    let categories: [Category]
+    let recent: [Transaction]
+
+    var t: Strings { Strings(strings, localeTag: localeTag) }
+
+    var lastSynced: Date? {
+        guard let lastSyncedAt else { return nil }
+        return ISO8601DateFormatter.florin.date(from: lastSyncedAt)
+            ?? ISO8601DateFormatter.florinNoFraction.date(from: lastSyncedAt)
+    }
+
+    /// BCP-47 tag for the formatters; the server sends the short app locale.
+    var localeTag: String {
+        switch locale {
+        case "fr": return "fr-FR"
+        case "nl": return "nl-NL"
+        default: return "en-US"
+        }
+    }
+}
+
+struct NetWorth: Decodable, Sendable {
+    let gross: Double
+    let liability: Double
+    let net: Double
+    let netMonthAgo: Double?
+}
+
+struct PatrimonyPoint: Decodable, Sendable, Identifiable {
+    let date: String
+    let balance: Double
+    var projected: Bool?
+
+    var id: String { date }
+    var day: Date { PatrimonyPoint.parser.date(from: String(date.prefix(10))) ?? .distantPast }
+
+    nonisolated(unsafe) private static let parser: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.timeZone = TimeZone(secondsFromGMT: 0)
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
+}
+
+struct LeftToSpend: Decodable, Sendable {
+    let salaryCategoryName: String?
+    let monthIncome: Double
+    let monthSpent: Double
+    let monthSpentFixed: Double
+    let expectedMonthlySpend: Double
+    let leftToSpend: Double
+    let dailyAvgSpent: Double
+    let dailyBudgetRemaining: Double?
+    let daysElapsed: Int
+    let daysRemaining: Int
+}
+
+struct SavingsRates: Decodable, Sendable {
+    let threeMonth: Double?
+    let sixMonth: Double?
+    let twelveMonth: Double?
+}
+
+struct Allocation: Decodable, Sendable {
+    let cash: Double
+    let invested: Double
+    let loans: Double
+}
+
+struct Goal: Decodable, Sendable {
+    let target: Double
+    let currentValue: Double
+    let monthsToReach: Int?
+    let reachDateIso: String?
+    let contributed: Double
+    let marketGrowth: Double
+}
+
+struct Account: Decodable, Sendable, Identifiable {
+    let id: String
+    let name: String
+    let kind: String
+    let institution: String?
+    let balance: Double
+    let marketValue: Double
+    let total: Double
+    let netContribution: Double
+    let debt: Double?
+    let isIncludedInNetWorth: Bool
+    let isArchived: Bool
+    let displayIcon: String?
+
+    var isLoan: Bool { kind == "loan" }
+    /// What the row should print: a loan shows its amortized debt, negative.
+    var displayValue: Double { isLoan ? -(debt ?? total) : total }
+}
+
+struct Category: Decodable, Sendable, Identifiable {
+    let id: String
+    let name: String
+    let emoji: String?
+    let groupName: String
+}
+
+/// What the phone posts back to record a transaction.
+struct NewTransaction: Encodable, Sendable {
+    let accountId: String
+    /// Signed: the expense/income toggle decides, never the server.
+    let amount: Double
+    let payee: String
+    let occurredAt: String
+    let memo: String?
+    let categoryId: String?
+}
+
+struct Transaction: Decodable, Sendable, Identifiable {
+    let id: String
+    let date: String
+    let amount: Double
+    let payee: String
+    let memo: String?
+    let categoryName: String?
+    let categoryEmoji: String?
+    let accountName: String
+    let isTransfer: Bool
+    let needsReview: Bool
+    let isPending: Bool
+    let isScheduled: Bool
+
+    var day: Date {
+        ISO8601DateFormatter.florin.date(from: date)
+            ?? ISO8601DateFormatter.florinNoFraction.date(from: date)
+            ?? .distantPast
+    }
+}
+
+extension ISO8601DateFormatter {
+    nonisolated(unsafe) static let florin: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+    nonisolated(unsafe) static let florinNoFraction = ISO8601DateFormatter()
+}
