@@ -230,6 +230,10 @@ struct ChipBar<Value: Hashable>: View {
                 Text(option.label)
                     .font(.system(size: 14, weight: active ? .semibold : .medium))
                     .lineLimit(1)
+                    // Filling the width makes every chip a quarter of the row,
+                    // and "Tendances" does not fit a quarter at 14pt. Shrinking
+                    // a hair is invisible; truncating to "Tendan…" is not.
+                    .minimumScaleFactor(fill ? 0.72 : 1)
                 if option.badge > 0 {
                     Text("\(option.badge)")
                         .font(.system(size: 11, weight: .bold))
@@ -240,7 +244,7 @@ struct ChipBar<Value: Hashable>: View {
                 }
             }
             .foregroundStyle(active ? Florin.text : Florin.text2)
-            .padding(.horizontal, fill ? 8 : 15)
+            .padding(.horizontal, fill ? 6 : 15)
             .padding(.vertical, 9)
             .frame(maxWidth: fill ? .infinity : nil)
             .modifier(ChipGlass(active: active))

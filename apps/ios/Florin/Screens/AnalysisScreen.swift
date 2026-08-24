@@ -843,7 +843,11 @@ struct SparkBars: View {
                 / CGFloat(max(1, values.count)))
             HStack(alignment: .bottom, spacing: gap) {
                 ForEach(Array(values.enumerated()), id: \.offset) { index, value in
-                    Capsule()
+                    // A Capsule whose width exceeds its height stops being a
+                    // bar and becomes an oval — which is what a low month looked
+                    // like. A small fixed radius keeps them reading as bars at
+                    // every height.
+                    RoundedRectangle(cornerRadius: 2, style: .continuous)
                         .fill(tint.opacity(index == values.count - 1 ? 1 : 0.55))
                         .frame(
                             width: width,

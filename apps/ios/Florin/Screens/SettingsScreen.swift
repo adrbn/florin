@@ -109,7 +109,7 @@ struct SettingsScreen: View {
                 isOn: Binding(get: { privacy.hidden }, set: { privacy.set($0) })
             )
         } header: {
-            Text(t("v2.settings.privacy", "Discrétion"))
+            Text(t("v2.settings.discretion", "Discrétion"))
         } footer: {
             Text(
                 "Secoue le téléphone pour masquer ou réafficher tous les montants, ou maintiens le chiffre principal. Ça cache, ça ne verrouille pas : n'importe qui tenant le téléphone peut le rouvrir."
