@@ -35,10 +35,7 @@ enum ServerProbe {
     /// means the box is up and simply predates this app — which is a deploy,
     /// not a typo.
     static func check(_ base: URL) async -> ServerStatus {
-        var config = URLSessionConfiguration.ephemeral
-        config.timeoutIntervalForRequest = 8
-        config.waitsForConnectivity = false
-        let session = URLSession(configuration: config)
+        let session = FlorinAuth.session
 
         func status(_ path: String) async -> Int? {
             var components = URLComponents(url: base, resolvingAgainstBaseURL: false)

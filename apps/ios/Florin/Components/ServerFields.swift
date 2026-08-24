@@ -59,6 +59,14 @@ struct ServerFields: View {
         } header: {
             Text("Jeton")
         } footer: {
+            // Confirms *which* token is stored without revealing it — the
+            // difference between "I pasted nothing" and "I pasted the wrong
+            // one" is otherwise invisible.
+            if let stored = FlorinAuth.token, !stored.isEmpty {
+                Text("Enregistré : " + FlorinAuth.masked(stored))
+                    .monospaced()
+                    .padding(.bottom, 4)
+            }
             Text(
                 "Seulement pour un Florin web : la valeur de FLORIN_API_TOKEN sur ton serveur. L'app de bureau n'en demande pas — laisse vide."
             )

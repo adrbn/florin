@@ -71,7 +71,7 @@ extension FlorinClient {
             ]
         guard let url = components?.url else { throw FlorinError.unreachable(base.host ?? "?") }
 
-        let (data, response) = try await URLSession.shared.data(for: FlorinAuth.request(url))
+        let (data, response) = try await FlorinAuth.session.data(for: FlorinAuth.request(url))
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
             throw FlorinError.badStatus((response as? HTTPURLResponse)?.statusCode ?? 0)
         }
@@ -99,7 +99,7 @@ extension FlorinClient {
     }
 
     private func send(_ request: URLRequest) async throws {
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await FlorinAuth.session.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw FlorinError.badStatus(0) }
         guard (200..<300).contains(http.statusCode) else {
             let message = (try? JSONDecoder().decode([String: String].self, from: data))?["error"]
