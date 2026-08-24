@@ -54,7 +54,7 @@ final class PortfolioModel: ObservableObject {
         var components = URLComponents(url: base, resolvingAgainstBaseURL: false)
         components?.path = "/api/v2/accounts/\(accountId)/portfolio"
         if let url = components?.url,
-           let (data, response) = try? await URLSession.shared.data(for: FlorinAuth.request(url)),
+           let (data, response) = try? await FlorinAuth.session.data(for: FlorinAuth.request(url)),
            let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) {
             payload = try? JSONDecoder().decode(PortfolioPayload.self, from: data)
         }

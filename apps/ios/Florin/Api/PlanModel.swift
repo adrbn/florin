@@ -58,7 +58,7 @@ final class PlanModel: ObservableObject {
             components?.path = "/api/v2/plan"
             components?.queryItems = [URLQueryItem(name: "month", value: month)]
             guard let url = components?.url else { throw FlorinError.unreachable(base.host ?? "?") }
-            let (data, response) = try await URLSession.shared.data(for: FlorinAuth.request(url))
+            let (data, response) = try await FlorinAuth.session.data(for: FlorinAuth.request(url))
             guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
                 throw FlorinError.badStatus((response as? HTTPURLResponse)?.statusCode ?? 0)
             }
@@ -103,7 +103,7 @@ final class PlanModel: ObservableObject {
                 "categoryId": categoryId,
                 "amount": amount,
             ])
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await FlorinAuth.session.data(for: request)
             guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
                 let message = (try? JSONDecoder().decode([String: String].self, from: data))?["error"]
                 throw message.map { FlorinError.rejected($0) }

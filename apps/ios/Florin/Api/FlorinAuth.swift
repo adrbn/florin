@@ -29,6 +29,7 @@ enum FlorinAuth {
         }
         set {
             cached = .some(newValue)
+            sessionCache = nil
             write(newValue)
         }
     }
@@ -40,9 +41,45 @@ enum FlorinAuth {
         return request
     }
 
+    /*
+     * `Authorization` is a reserved header.
+     *
+     * Apple documents it alongside Host and Content-Length as one URLSession
+     * manages itself, and setting it on a `URLRequest` is not guaranteed to
+     * survive — which is exactly what happened: curl with the same token got a
+     * 200 while the app got a 401 against the same server. Putting it on the
+     * session's `httpAdditionalHeaders` is the supported way, so every request
+     * made through `session` carries it whether or not the request object does.
+     */
     static func authorize(_ request: inout URLRequest) {
         guard let token, !token.isEmpty else { return }
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+    }
+
+    /// Session for every call to a Florin server. Rebuilt when the token
+    /// changes, cached otherwise — a URLSession is expensive to create and
+    /// leaks its delegate queue if you make one per request.
+    private nonisolated(unsafe) static var sessionCache: (token: String?, session: URLSession)?
+
+    static var session: URLSession {
+        let current = token
+        if let cached = sessionCache, cached.token == current { return cached.session }
+
+        let config = URLSessionConfiguration.ephemeral
+        config.timeoutIntervalForRequest = 20
+        config.waitsForConnectivity = false
+        if let current, !current.isEmpty {
+            config.httpAdditionalHeaders = ["Authorization": "Bearer \(current)"]
+        }
+        let built = URLSession(configuration: config)
+        sessionCache = (current, built)
+        return built
+    }
+
+    /// First and last four characters, for confirming a token at a glance.
+    static func masked(_ token: String) -> String {
+        guard token.count > 10 else { return String(repeating: "•", count: token.count) }
+        return token.prefix(4) + "…" + token.suffix(4)
     }
 
     // MARK: - Keychain

@@ -74,7 +74,7 @@ final class AnalysisModel: ObservableObject {
             var components = URLComponents(url: base, resolvingAgainstBaseURL: false)
             components?.path = "/api/v2/analysis"
             guard let url = components?.url else { throw FlorinError.unreachable(base.host ?? "?") }
-            let (payload, response) = try await URLSession.shared.data(for: FlorinAuth.request(url))
+            let (payload, response) = try await FlorinAuth.session.data(for: FlorinAuth.request(url))
             guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
                 throw FlorinError.badStatus((response as? HTTPURLResponse)?.statusCode ?? 0)
             }

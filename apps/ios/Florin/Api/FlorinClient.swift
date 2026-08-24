@@ -29,14 +29,9 @@ enum FlorinError: LocalizedError {
 struct FlorinClient: Sendable {
     let base: URL
 
-    private var session: URLSession {
-        let config = URLSessionConfiguration.ephemeral
-        // A self-hosted box on the LAN should fail fast rather than spin: the
-        // user is standing in front of it and knows whether it is on.
-        config.timeoutIntervalForRequest = 12
-        config.waitsForConnectivity = false
-        return URLSession(configuration: config)
-    }
+    /// Carries the bearer token on the session rather than the request — see
+    /// `FlorinAuth.session`.
+    private var session: URLSession { FlorinAuth.session }
 
     private func endpoint(_ path: String) throws -> URL {
         var components = URLComponents(url: base, resolvingAgainstBaseURL: false)

@@ -270,7 +270,7 @@ struct SettingsScreen: View {
             request.httpMethod = "POST"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.httpBody = body
-            if let (_, response) = try? await URLSession.shared.data(for: request),
+            if let (_, response) = try? await FlorinAuth.session.data(for: request),
                let http = response as? HTTPURLResponse,
                (200..<300).contains(http.statusCode) {
                 break
