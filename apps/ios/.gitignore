@@ -1,0 +1,12 @@
+# Xcode build products and derived data. `install-on-device.sh` and the build
+# commands write these here rather than into ~/Library, so they must not be
+# committed — they are hundreds of megabytes and rebuild from source.
+build/
+build-*/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+
+# xcodegen writes the project from project.yml; the .xcodeproj is a build
+# product, not a source file.
+Florin.xcodeproj/

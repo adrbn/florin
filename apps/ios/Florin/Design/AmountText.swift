@@ -1,0 +1,141 @@
+import SwiftUI
+
+/// Currency formatting, matching the web `splitAmount`.
+enum Money {
+    nonisolated(unsafe) private static var cache: [String: NumberFormatter] = [:]
+
+    static func formatter(locale: String, currency: String, decimals: Bool, signed: Bool) -> NumberFormatter {
+        let key = "\(locale)|\(currency)|\(decimals)|\(signed)"
+        if let hit = cache[key] { return hit }
+        let f = NumberFormatter()
+        f.numberStyle = .currency
+        f.locale = Locale(identifier: locale)
+        f.currencyCode = currency
+        f.minimumFractionDigits = decimals ? 2 : 0
+        f.maximumFractionDigits = decimals ? 2 : 0
+        if signed { f.positivePrefix = "+" + f.positivePrefix }
+        cache[key] = f
+        return f
+    }
+
+    static func string(
+        _ value: Double,
+        locale: String,
+        currency: String,
+        decimals: Bool = true,
+        signed: Bool = false
+    ) -> String {
+        let text = formatter(locale: locale, currency: currency, decimals: decimals, signed: signed)
+            .string(from: NSNumber(value: value)) ?? "—"
+        // A hyphen-minus reads as a bullet next to lining figures.
+        return text.replacingOccurrences(of: "-", with: "\u{2212}")
+    }
+
+    /// "12,3 k €" for axes and chips.
+    static func compact(_ value: Double, locale: String, currency: String) -> String {
+        let f = NumberFormatter()
+        f.locale = Locale(identifier: locale)
+        f.numberStyle = .currency
+        f.currencyCode = currency
+        f.maximumFractionDigits = abs(value) >= 10_000 ? 0 : 1
+        if abs(value) >= 1000 {
+            let scaled = value / 1000
+            f.maximumFractionDigits = 1
+            let n = f.string(from: NSNumber(value: scaled)) ?? "—"
+            return n.replacingOccurrences(of: currencySymbol(locale: locale, currency: currency), with: "k " + currencySymbol(locale: locale, currency: currency))
+        }
+        return f.string(from: NSNumber(value: value)) ?? "—"
+    }
+
+    static func currencySymbol(locale: String, currency: String) -> String {
+        formatter(locale: locale, currency: currency, decimals: true, signed: false).currencySymbol ?? currency
+    }
+
+    static func percent(_ value: Double?, locale: String, digits: Int = 1) -> String {
+        guard let value, value.isFinite else { return "—" }
+        let f = NumberFormatter()
+        f.numberStyle = .percent
+        f.locale = Locale(identifier: locale)
+        f.minimumFractionDigits = digits
+        f.maximumFractionDigits = digits
+        f.positivePrefix = "+" + (f.positivePrefix ?? "")
+        return (f.string(from: NSNumber(value: value / 100)) ?? "—")
+            .replacingOccurrences(of: "-", with: "\u{2212}")
+    }
+}
+
+/// The headline figure, with the cents typographically demoted.
+///
+/// This is the single move that separates a premium finance app from a
+/// spreadsheet: "7 769" at full size, ",41 €" small and muted beside it. Doing
+/// it needs the integer part and the fraction as separate runs, which means
+/// splitting the formatted string on the locale's decimal separator rather
+/// than assembling it by hand — the grouping, the symbol side and the sign all
+/// have to stay whatever the locale says they are.
+struct HeroAmount: View {
+    let value: Double
+    let locale: String
+    let currency: String
+    var size: CGFloat = 52
+    var tone: Color = Florin.text
+
+    var body: some View {
+        let text = Money.string(value, locale: locale, currency: currency)
+        let separator = Locale(identifier: locale).decimalSeparator ?? ","
+
+        // Split at the LAST separator so a grouping character that happens to
+        // match (some locales group with ".") cannot cut the number in half.
+        if let range = text.range(of: separator, options: .backwards) {
+            HStack(alignment: .firstTextBaseline, spacing: 0) {
+                Text(text[text.startIndex..<range.lowerBound])
+                    .font(.system(size: size, weight: .light))
+                Text(text[range.lowerBound...])
+                    .font(.system(size: size * 0.44, weight: .regular))
+                    .foregroundStyle(Florin.text3)
+            }
+            .monospacedDigit()
+            .kerning(-1.2)
+            .foregroundStyle(tone)
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
+        } else {
+            Text(text)
+                .font(.system(size: size, weight: .light))
+                .monospacedDigit()
+                .foregroundStyle(tone)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+        }
+    }
+}
+
+/// Inline amount for rows and chips.
+struct AmountText: View {
+    let value: Double
+    let locale: String
+    let currency: String
+    var decimals: Bool = true
+    var signed: Bool = false
+    var tone: Tone = .neutral
+    var size: CGFloat = 15
+    var weight: Font.Weight = .medium
+
+    enum Tone { case neutral, auto, muted, positive, negative }
+
+    private var color: Color {
+        switch tone {
+        case .neutral: return Florin.text
+        case .muted: return Florin.text3
+        case .positive: return Florin.positive
+        case .negative: return Florin.negative
+        case .auto: return value > 0 ? Florin.positive : (value < 0 ? Florin.negative : Florin.text)
+        }
+    }
+
+    var body: some View {
+        Text(Money.string(value, locale: locale, currency: currency, decimals: decimals, signed: signed))
+            .font(.system(size: size, weight: weight))
+            .monospacedDigit()
+            .foregroundStyle(color)
+    }
+}

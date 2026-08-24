@@ -30,10 +30,35 @@
     "./components/onboarding/wizard": "./src/components/onboarding/wizard/index.ts",
     "./components/plan": "./src/components/plan/index.ts",
     "./components/shell/nav-links": "./src/components/shell/nav-links.ts",
+    "./components/v2/theme/v2.css": "./src/components/v2/theme/v2.css",
+    "./components/v2/types": "./src/components/v2/types.ts",
+    "./components/v2/lib/map": "./src/components/v2/lib/map.ts",
+    "./components/v2/lib/series": "./src/components/v2/lib/series.ts",
+    "./components/v2/lib/format": "./src/components/v2/lib/format.ts",
+    "./components/v2/i18n": "./src/components/v2/i18n/index.ts",
+    "./components/v2/shell/nav": "./src/components/v2/shell/nav.ts",
     "./components/*": "./src/components/*.tsx"
   },
   "typesVersions": {
     "*": {
+      "components/v2/types": [
+        "./src/components/v2/types.ts"
+      ],
+      "components/v2/lib/map": [
+        "./src/components/v2/lib/map.ts"
+      ],
+      "components/v2/lib/series": [
+        "./src/components/v2/lib/series.ts"
+      ],
+      "components/v2/lib/format": [
+        "./src/components/v2/lib/format.ts"
+      ],
+      "components/v2/i18n": [
+        "./src/components/v2/i18n/index.ts"
+      ],
+      "components/v2/shell/nav": [
+        "./src/components/v2/shell/nav.ts"
+      ],
       "components/onboarding/wizard": [
         "./src/components/onboarding/wizard/index.ts"
       ],

@@ -15,6 +15,15 @@ const envSchema = z.object({
     .transform((v) => (v === '' ? undefined : v)),
   APP_BASE_URL: z.url().default('http://localhost:3000'),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
+  // Optional bearer token for the read-only /api/v2 feed the native iOS client
+  // uses. A native app has no browser session to present, so without this the
+  // phone can only talk to the desktop build. Leave unset to keep the feed
+  // session-only.
+  FLORIN_API_TOKEN: z
+    .string()
+    .min(24, 'FLORIN_API_TOKEN must be at least 24 chars')
+    .optional()
+    .transform((v) => (v === '' ? undefined : v)),
   // ============ Enable Banking (PSD2 Open Banking) ============
   // All optional — Florin runs without bank linking until these are set.
   // Treat empty strings the same as missing so that bare .env templates do

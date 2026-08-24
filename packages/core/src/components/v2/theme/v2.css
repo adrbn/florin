@@ -1,0 +1,693 @@
+/*
+ * Layer order first.
+ *
+ * Tailwind v4 emits its utilities inside `@layer utilities`, and CSS says an
+ * UNLAYERED rule always beats a layered one regardless of specificity. Leaving
+ * this file unlayered therefore made `.v2-input` beat `pl-10`, `.v2-card-flush`
+ * beat `rounded-none`, and so on — every Tailwind override on a v2 class
+ * silently lost. Declaring the same order here (idempotent — the first
+ * declaration in the document wins) and putting the component rules in
+ * `components` restores the normal "utility overrides component" contract, no
+ * matter which stylesheet the bundler injects first.
+ */
+@layer theme, base, components, utilities;
+
+/*
+ * Florin v2 — "Obsidian" mobile design system.
+ *
+ * Everything here is scoped under [data-florin-v2] so the v2 route group can
+ * live beside the existing UI without touching a single one of its tokens.
+ * Light is designed, not derived: it is a warm off-white sheet with soft
+ * shadows, NOT an inverted dark theme (that is what makes most "dark-first"
+ * apps look cheap in daylight).
+ *
+ * next-themes writes `.dark` on <html>, so `.dark [data-florin-v2]` is an
+ * accurate switch for both the explicit toggle and the system preference.
+ */
+
+[data-florin-v2] {
+  /* ---- surfaces ---- */
+  --v2-bg: oklch(0.985 0.003 265);
+  --v2-bg-elev: oklch(1 0 0);
+  --v2-surface: oklch(1 0 0);
+  --v2-surface-2: oklch(0.968 0.004 265);
+  --v2-surface-3: oklch(0.945 0.005 265);
+  --v2-line: oklch(0.2 0.02 265 / 9%);
+  --v2-line-strong: oklch(0.2 0.02 265 / 16%);
+
+  /* ---- text ---- */
+  --v2-text: oklch(0.2 0.015 265);
+  --v2-text-2: oklch(0.46 0.012 265);
+  --v2-text-3: oklch(0.62 0.01 265);
+
+  /* ---- accent + semantics ---- */
+  --v2-accent: oklch(0.52 0.19 268);
+  --v2-accent-soft: oklch(0.52 0.19 268 / 10%);
+  --v2-accent-text: oklch(0.47 0.19 268);
+  --v2-on-accent: oklch(0.99 0 0);
+  --v2-pos: oklch(0.52 0.15 155);
+  --v2-pos-soft: oklch(0.52 0.15 155 / 11%);
+  --v2-neg: oklch(0.54 0.2 25);
+  --v2-neg-soft: oklch(0.54 0.2 25 / 10%);
+  --v2-warn: oklch(0.62 0.15 70);
+  --v2-warn-soft: oklch(0.62 0.15 70 / 12%);
+
+  /* ---- categorical series (charts, donuts, category chips) ---- */
+  --v2-s1: oklch(0.55 0.18 265);
+  --v2-s2: oklch(0.58 0.14 190);
+  --v2-s3: oklch(0.6 0.12 195);
+  --v2-s4: oklch(0.66 0.14 85);
+  --v2-s5: oklch(0.64 0.15 55);
+  --v2-s6: oklch(0.55 0.18 330);
+  --v2-s7: oklch(0.55 0.16 300);
+  --v2-s8: oklch(0.6 0.09 240);
+
+  /* ---- shape ---- */
+  --v2-r-xl: 26px;
+  --v2-r-lg: 20px;
+  --v2-r-md: 14px;
+  --v2-r-sm: 10px;
+  --v2-r-pill: 999px;
+
+  /* ---- elevation ---- */
+  --v2-shadow-card: 0 1px 2px oklch(0.2 0.02 265 / 5%), 0 10px 28px -14px oklch(0.2 0.02 265 / 16%);
+  --v2-shadow-float: 0 2px 6px oklch(0.2 0.02 265 / 8%), 0 18px 42px -16px oklch(0.2 0.02 265 / 26%);
+  --v2-card-ring: inset 0 0 0 1px oklch(0.2 0.02 265 / 5%);
+
+  /* ---- glass (tab bar, sticky headers) ---- */
+  --v2-glass: color-mix(in oklab, var(--v2-bg) 74%, transparent);
+  --v2-glass-strong: color-mix(in oklab, var(--v2-bg) 88%, transparent);
+
+  /* Segmented control needs its own pair: the generic surface ramp puts the
+     track and the thumb within 0.03 lightness of each other, which reads as
+     no thumb at all. */
+  --v2-spark-fill: 0.13;
+  --v2-seg-track: oklch(0.935 0.005 265);
+  --v2-seg-thumb: oklch(1 0 0);
+
+  /* ---- motion — the iOS sheet curve ---- */
+  --v2-ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --v2-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --v2-dur: 380ms;
+  --v2-dur-fast: 190ms;
+
+  /* ---- metrics ---- */
+  --v2-gutter: 18px;
+  --v2-tabbar-h: 62px;
+  --v2-header-h: 52px;
+  --v2-safe-b: env(safe-area-inset-bottom, 0px);
+  --v2-safe-t: env(safe-area-inset-top, 0px);
+}
+
+.dark [data-florin-v2] {
+  --v2-bg: oklch(0.145 0.008 265);
+  --v2-bg-elev: oklch(0.185 0.01 265);
+  --v2-surface: oklch(0.185 0.01 265);
+  --v2-surface-2: oklch(0.215 0.012 265);
+  --v2-surface-3: oklch(0.25 0.014 265);
+  --v2-line: oklch(1 0 0 / 8%);
+  --v2-line-strong: oklch(1 0 0 / 14%);
+
+  --v2-text: oklch(0.985 0.002 265);
+  --v2-text-2: oklch(0.72 0.012 265);
+  --v2-text-3: oklch(0.52 0.012 265);
+
+  --v2-accent: oklch(0.72 0.15 268);
+  --v2-accent-soft: oklch(0.72 0.15 268 / 16%);
+  --v2-accent-text: oklch(0.78 0.13 268);
+  --v2-on-accent: oklch(0.14 0.01 265);
+  --v2-pos: oklch(0.78 0.17 155);
+  --v2-pos-soft: oklch(0.78 0.17 155 / 15%);
+  --v2-neg: oklch(0.7 0.19 22);
+  --v2-neg-soft: oklch(0.7 0.19 22 / 11%);
+  --v2-warn: oklch(0.82 0.15 78);
+  --v2-warn-soft: oklch(0.82 0.15 78 / 16%);
+
+  --v2-s1: oklch(0.72 0.16 265);
+  --v2-s2: oklch(0.78 0.13 190);
+  --v2-s3: oklch(0.79 0.12 195);
+  --v2-s4: oklch(0.85 0.14 85);
+  --v2-s5: oklch(0.8 0.14 60);
+  --v2-s6: oklch(0.73 0.17 330);
+  --v2-s7: oklch(0.72 0.16 300);
+  --v2-s8: oklch(0.76 0.08 240);
+
+  --v2-shadow-card: 0 1px 0 oklch(1 0 0 / 4%) inset, 0 12px 32px -18px oklch(0 0 0 / 80%);
+  --v2-shadow-float: 0 1px 0 oklch(1 0 0 / 6%) inset, 0 20px 48px -18px oklch(0 0 0 / 90%);
+  --v2-card-ring: inset 0 0 0 1px oklch(1 0 0 / 5%);
+
+  --v2-glass: color-mix(in oklab, var(--v2-bg) 70%, transparent);
+  --v2-glass-strong: color-mix(in oklab, var(--v2-bg) 86%, transparent);
+
+  --v2-spark-fill: 0.22;
+  --v2-seg-track: oklch(0.205 0.011 265);
+  --v2-seg-thumb: oklch(0.325 0.017 265);
+}
+
+@layer components {
+  /* =====================================================================
+     Root / app frame
+     ===================================================================== */
+
+  [data-florin-v2] {
+    background: var(--v2-bg);
+    color: var(--v2-text);
+    -webkit-tap-highlight-color: transparent;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+
+  [data-florin-v2] *,
+  [data-florin-v2] *::before,
+  [data-florin-v2] *::after {
+    border-color: var(--v2-line);
+  }
+
+  /*
+   * The document itself scrolls — not an inner div.
+   *
+   * A `height:100dvh; overflow:auto` wrapper is the reflex, and it is wrong on
+   * mobile web: iOS Safari only collapses its address bar for the *document*
+   * scroller, so an inner container permanently loses ~90px of screen and the
+   * page never feels full-bleed. Window scrolling also gives sticky headers and
+   * momentum for free.
+   */
+  .v2-app {
+    min-height: 100dvh;
+    overflow-x: clip;
+    /* Bottom room so the floating tab bar never covers the last card. */
+    padding-bottom: calc(var(--v2-tabbar-h) + var(--v2-safe-b) + 34px);
+  }
+
+  .v2-gutter {
+    padding-left: max(var(--v2-gutter), env(safe-area-inset-left));
+    padding-right: max(var(--v2-gutter), env(safe-area-inset-right));
+  }
+
+  /* =====================================================================
+     Typography
+     ===================================================================== */
+
+  /* The money face. Thin, tight, tabular — so digits never dance when a value
+     animates during a chart scrub. */
+  .v2-num {
+    font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings: 'tnum' 1, 'lnum' 1;
+    letter-spacing: -0.035em;
+  }
+
+  .v2-hero {
+    font-size: clamp(40px, 12.5vw, 56px);
+    font-weight: 270;
+    line-height: 1;
+  }
+
+  .v2-hero-cents {
+    font-size: 0.44em;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+    color: var(--v2-text-3);
+    vertical-align: baseline;
+  }
+
+  .v2-eyebrow {
+    font-size: 11px;
+    font-weight: 560;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--v2-text-3);
+  }
+
+  .v2-title {
+    font-size: 15px;
+    font-weight: 560;
+    letter-spacing: -0.012em;
+    color: var(--v2-text);
+  }
+
+  .v2-sub {
+    font-size: 12.5px;
+    font-weight: 420;
+    color: var(--v2-text-2);
+    letter-spacing: -0.004em;
+  }
+
+  .v2-micro {
+    font-size: 11.5px;
+    font-weight: 450;
+    color: var(--v2-text-3);
+  }
+
+  /* =====================================================================
+     Surfaces
+     ===================================================================== */
+
+  .v2-card {
+    background: var(--v2-surface);
+    border-radius: var(--v2-r-xl);
+    box-shadow: var(--v2-card-ring), var(--v2-shadow-card);
+  }
+
+  .v2-card-flush {
+    background: var(--v2-surface);
+    border-radius: var(--v2-r-xl);
+    box-shadow: var(--v2-card-ring), var(--v2-shadow-card);
+    overflow: hidden;
+  }
+
+  .v2-inset {
+    background: var(--v2-surface-2);
+    border-radius: var(--v2-r-lg);
+  }
+
+  /* =====================================================================
+     Rows — the list primitive
+     ===================================================================== */
+
+  .v2-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 12px var(--v2-gutter);
+    text-align: left;
+    background: transparent;
+    transition: background-color var(--v2-dur-fast) var(--v2-ease-out);
+    touch-action: manipulation;
+  }
+  .v2-row + .v2-row {
+    box-shadow: inset 0 1px 0 var(--v2-line);
+  }
+  @media (hover: hover) {
+    .v2-row-tap:hover {
+      background: var(--v2-surface-2);
+    }
+  }
+  .v2-row-tap:active {
+    background: var(--v2-surface-3);
+  }
+
+  /* Merchant / account bubble. */
+  .v2-bubble {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 13px;
+    background: var(--v2-surface-2);
+    font-size: 15px;
+    font-weight: 560;
+    color: var(--v2-text-2);
+    letter-spacing: -0.02em;
+    overflow: hidden;
+  }
+
+  /* =====================================================================
+     Controls
+     ===================================================================== */
+
+  .v2-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 9px;
+    border-radius: var(--v2-r-pill);
+    font-size: 11.5px;
+    font-weight: 520;
+    letter-spacing: -0.005em;
+    background: var(--v2-surface-2);
+    color: var(--v2-text-2);
+    white-space: nowrap;
+  }
+  .v2-pill-pos { background: var(--v2-pos-soft); color: var(--v2-pos); }
+  .v2-pill-neg { background: var(--v2-neg-soft); color: var(--v2-neg); }
+  .v2-pill-warn { background: var(--v2-warn-soft); color: var(--v2-warn); }
+  .v2-pill-accent { background: var(--v2-accent-soft); color: var(--v2-accent-text); }
+/* The review chip when its filter is on: filled, so "I am looking at only
+   these" is unmistakable next to the neutral Filtres chip. */
+.v2-pill-review-on { background: var(--v2-warn); color: var(--v2-on-accent); }
+
+/* A row still waiting for a category. Just a whisper of warm tint — it already
+   says "À vérifier" in red on its own line, and the inset bar this replaces
+   read as a rendering artefact rather than a signal. */
+.v2-row-review {
+  background: color-mix(in oklab, var(--v2-warn) 4%, transparent);
+}
+
+  .v2-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    height: 44px;
+    padding: 0 18px;
+    border-radius: var(--v2-r-md);
+    font-size: 14.5px;
+    font-weight: 540;
+    letter-spacing: -0.01em;
+    touch-action: manipulation;
+    transition: transform var(--v2-dur-fast) var(--v2-ease-out), opacity var(--v2-dur-fast);
+  }
+  .v2-btn:active { transform: scale(0.975); }
+  .v2-btn:disabled { opacity: 0.45; }
+  .v2-btn-primary { background: var(--v2-accent); color: var(--v2-on-accent); }
+  .v2-btn-soft { background: var(--v2-surface-2); color: var(--v2-text); }
+  .v2-btn-ghost { background: transparent; color: var(--v2-accent-text); }
+  .v2-btn-danger { background: var(--v2-neg-soft); color: var(--v2-neg); }
+
+  .v2-input {
+    width: 100%;
+    height: 46px;
+    padding: 0 14px;
+    border-radius: var(--v2-r-md);
+    background: var(--v2-surface-2);
+    color: var(--v2-text);
+    font-size: 16px; /* < 16px makes iOS Safari zoom the viewport on focus */
+    letter-spacing: -0.01em;
+    box-shadow: inset 0 0 0 1px transparent;
+    transition: box-shadow var(--v2-dur-fast) var(--v2-ease-out);
+  }
+  .v2-input::placeholder { color: var(--v2-text-3); }
+  .v2-input:focus {
+    outline: none;
+    box-shadow: inset 0 0 0 1.5px var(--v2-accent);
+  }
+  textarea.v2-input { height: auto; padding: 12px 14px; resize: vertical; }
+  select.v2-input { appearance: none; -webkit-appearance: none; padding-right: 34px; }
+
+  /* Segmented control — the sliding pill is a separate absolutely-positioned
+     layer so the thumb can spring between segments instead of the labels
+     repainting their own backgrounds. */
+  .v2-seg {
+    position: relative;
+    display: flex;
+    padding: 3px;
+    border-radius: var(--v2-r-pill);
+    background: var(--v2-seg-track);
+    user-select: none;
+  }
+  .v2-seg-thumb {
+    position: absolute;
+    top: 3px;
+    bottom: 3px;
+    border-radius: var(--v2-r-pill);
+    background: var(--v2-seg-thumb);
+    box-shadow: 0 1px 3px oklch(0 0 0 / 14%), inset 0 0 0 1px oklch(1 0 0 / 6%);
+    transition: transform var(--v2-dur) var(--v2-ease), width var(--v2-dur) var(--v2-ease);
+  }
+  .v2-seg-scroll {
+  /* Fade the trailing edge so a clipped label reads as "there is more" rather
+     than as a layout bug. */
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 26px), transparent 100%);
+  mask-image: linear-gradient(to right, #000 calc(100% - 26px), transparent 100%);
+}
+.v2-seg-scroll[data-at-end='true'] {
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+.v2-seg-item {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    padding: 7px 4px;
+    border-radius: var(--v2-r-pill);
+    font-size: 12.5px;
+    font-weight: 520;
+    letter-spacing: -0.005em;
+    color: var(--v2-text-3);
+    white-space: nowrap;
+    transition: color var(--v2-dur-fast) var(--v2-ease-out);
+    touch-action: manipulation;
+  }
+  .v2-seg-item[data-active='true'] { color: var(--v2-text); }
+
+  /* =====================================================================
+     Tab bar
+     ===================================================================== */
+
+  .v2-tabbar {
+    position: fixed;
+    left: 50%;
+    bottom: calc(var(--v2-safe-b) + 12px);
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    width: min(calc(100vw - 28px), 440px);
+    height: var(--v2-tabbar-h);
+    padding: 0 6px;
+    border-radius: var(--v2-r-xl);
+    background: var(--v2-glass);
+    box-shadow: var(--v2-card-ring), var(--v2-shadow-float);
+    backdrop-filter: blur(26px) saturate(180%);
+    -webkit-backdrop-filter: blur(26px) saturate(180%);
+    transform: translateX(-50%);
+    transition: transform var(--v2-dur) var(--v2-ease), opacity var(--v2-dur-fast) linear;
+  }
+  /* Scroll down → the bar slides away; scroll up → it comes back. */
+  .v2-tabbar[data-hidden='true'] {
+    transform: translateX(-50%) translateY(calc(100% + var(--v2-safe-b) + 20px));
+    opacity: 0;
+  }
+
+  .v2-tab {
+    position: relative;
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    height: 100%;
+    border-radius: var(--v2-r-lg);
+    color: var(--v2-text-3);
+    font-size: 9.5px;
+    font-weight: 540;
+    letter-spacing: 0.005em;
+    touch-action: manipulation;
+    transition: color var(--v2-dur-fast) var(--v2-ease-out);
+  }
+  .v2-tab[data-active='true'] { color: var(--v2-text); }
+  .v2-tab:active { transform: scale(0.94); }
+
+  /* The centre action. */
+  .v2-tab-fab {
+    display: grid;
+    place-items: center;
+    width: 46px;
+    height: 38px;
+    margin: 0 2px;
+    border-radius: var(--v2-r-md);
+    background: var(--v2-accent);
+    color: var(--v2-on-accent);
+    flex: none;
+    box-shadow: 0 6px 18px -6px var(--v2-accent);
+    transition: transform var(--v2-dur-fast) var(--v2-ease-out);
+    touch-action: manipulation;
+  }
+  .v2-tab-fab:active { transform: scale(0.92); }
+
+  /* =====================================================================
+     Sheets
+     ===================================================================== */
+
+  .v2-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    background: oklch(0 0 0 / 42%);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    animation: v2-fade var(--v2-dur-fast) var(--v2-ease-out);
+  }
+  .v2-backdrop[data-closing='true'] { animation: v2-fade var(--v2-dur-fast) var(--v2-ease-out) reverse forwards; }
+
+  .v2-sheet {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 71;
+    display: flex;
+    flex-direction: column;
+    max-height: 92dvh;
+    border-radius: 30px 30px 0 0;
+    background: var(--v2-bg-elev);
+    box-shadow: 0 -1px 0 var(--v2-line) inset, 0 -24px 64px -24px oklch(0 0 0 / 55%);
+    animation: v2-sheet-in var(--v2-dur) var(--v2-ease);
+    will-change: transform;
+  }
+  .v2-sheet[data-closing='true'] { animation: v2-sheet-in var(--v2-dur-fast) var(--v2-ease) reverse forwards; }
+
+  .v2-grabber {
+    flex: none;
+    width: 38px;
+    height: 5px;
+    margin: 9px auto 3px;
+    border-radius: 999px;
+    background: var(--v2-line-strong);
+  }
+
+  .v2-sheet-body {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: calc(var(--v2-safe-b) + 18px);
+    scrollbar-width: none;
+  }
+  .v2-sheet-body::-webkit-scrollbar { display: none; }
+
+  @keyframes v2-sheet-in {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+  @keyframes v2-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  /* =====================================================================
+     Sticky screen header
+     ===================================================================== */
+
+  .v2-header {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    padding-top: var(--v2-safe-t);
+    background: transparent;
+    transition: background-color var(--v2-dur-fast) linear, box-shadow var(--v2-dur-fast) linear;
+  }
+  .v2-header[data-stuck='true'] {
+    background: var(--v2-glass-strong);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    box-shadow: 0 1px 0 var(--v2-line);
+  }
+  /* The screen title cross-fades into the header bar once the hero scrolls away. */
+  .v2-header-title {
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity var(--v2-dur-fast) var(--v2-ease-out), transform var(--v2-dur-fast) var(--v2-ease-out);
+  }
+  .v2-header[data-stuck='true'] .v2-header-title {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .v2-iconbtn {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: var(--v2-r-pill);
+    background: var(--v2-surface-2);
+    color: var(--v2-text-2);
+    flex: none;
+    touch-action: manipulation;
+    transition: transform var(--v2-dur-fast) var(--v2-ease-out), background-color var(--v2-dur-fast);
+  }
+  .v2-iconbtn:active { transform: scale(0.9); }
+
+  /* Sticky day separators in the transaction list. */
+  .v2-daybar {
+    position: sticky;
+    top: calc(var(--v2-safe-t) + var(--v2-header-h));
+    z-index: 20;
+    padding: 7px var(--v2-gutter);
+    background: var(--v2-glass-strong);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    font-size: 11px;
+    font-weight: 560;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--v2-text-3);
+  }
+
+  /* =====================================================================
+     Swipe-to-act rows
+     ===================================================================== */
+
+  .v2-swipe {
+    position: relative;
+    overflow: hidden;
+    background: var(--v2-surface);
+  }
+  .v2-swipe-actions {
+    position: absolute;
+    inset: 0 0 0 auto;
+    display: flex;
+    align-items: stretch;
+  }
+  .v2-swipe-action {
+    display: grid;
+    place-items: center;
+    width: 76px;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 560;
+    gap: 3px;
+  }
+  .v2-swipe-surface {
+    position: relative;
+    background: var(--v2-surface);
+    transition: transform var(--v2-dur) var(--v2-ease);
+    will-change: transform;
+  }
+  .v2-swipe-surface[data-dragging='true'] { transition: none; }
+
+  /* =====================================================================
+     Misc
+     ===================================================================== */
+
+  .v2-skel {
+    border-radius: var(--v2-r-lg);
+    background: linear-gradient(
+      90deg,
+      var(--v2-surface-2) 0%,
+      var(--v2-surface-3) 50%,
+      var(--v2-surface-2) 100%
+    );
+    background-size: 200% 100%;
+    animation: v2-shimmer 1.4s linear infinite;
+  }
+  @keyframes v2-shimmer {
+    from { background-position: 200% 0; }
+    to { background-position: -200% 0; }
+  }
+
+  .v2-track {
+    height: 6px;
+    border-radius: 999px;
+    background: var(--v2-surface-3);
+    overflow: hidden;
+  }
+  .v2-track > i {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    transition: width var(--v2-dur) var(--v2-ease);
+  }
+
+  .v2-divider { height: 1px; background: var(--v2-line); }
+
+  /* Focus ring that only shows for keyboard users. */
+  [data-florin-v2] :focus-visible {
+    outline: 2px solid var(--v2-accent);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-florin-v2] *,
+  [data-florin-v2] *::before,
+  [data-florin-v2] *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
