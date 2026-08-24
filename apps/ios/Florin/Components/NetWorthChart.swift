@@ -126,6 +126,9 @@ struct AllocationRing: View {
                     .foregroundStyle(Florin.text3)
             }
             .padding(.horizontal, size * 0.18)
+            // The ring's own shape says nothing about the amounts; the total in
+            // the middle says all of it.
+            .hiddenWhenPrivate()
         }
     }
 }

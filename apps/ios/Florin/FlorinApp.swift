@@ -41,6 +41,10 @@ struct RootView: View {
                 }
             }
 
+            // Zero-sized, but it owns the responder chain so a shake reaches
+            // us without swizzling UIWindow.
+            ShakeDetector().frame(width: 0, height: 0).allowsHitTesting(false)
+
             // Over the top rather than before it, so the feed is already
             // loading behind the animation instead of starting after it.
             if splashing {
@@ -52,6 +56,9 @@ struct RootView: View {
         }
         .tint(Florin.accent)
         .preferredColorScheme(appearance.colorScheme)
+        .onReceive(NotificationCenter.default.publisher(for: .florinShake)) { _ in
+            Privacy.shared.toggle()
+        }
         .sheet(isPresented: $showingSetup) {
             SetupView(isFirstRun: false).environmentObject(server)
         }

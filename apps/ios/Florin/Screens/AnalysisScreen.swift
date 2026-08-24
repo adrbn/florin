@@ -678,6 +678,7 @@ struct FlowChart: View {
                         Text(Money.compact(amount, locale: locale, currency: currency))
                             .font(.system(size: 9))
                             .foregroundStyle(Florin.text3)
+                            .hiddenWhenPrivate()
                     }
                 }
             }
@@ -750,6 +751,7 @@ struct CategoryYearChart: View {
                         Text(Money.compact(amount, locale: locale, currency: currency))
                             .font(.system(size: 9))
                             .foregroundStyle(Florin.text3)
+                            .hiddenWhenPrivate()
                     }
                 }
             }

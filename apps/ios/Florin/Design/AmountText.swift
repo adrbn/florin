@@ -98,6 +98,7 @@ struct HeroAmount: View {
             .foregroundStyle(tone)
             .lineLimit(1)
             .minimumScaleFactor(0.6)
+            .redactable(tint: tone, minWidth: size * 2.4)
         } else {
             Text(text)
                 .font(.system(size: size, weight: .light))
@@ -105,6 +106,7 @@ struct HeroAmount: View {
                 .foregroundStyle(tone)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
+                .redactable(tint: tone, minWidth: size * 2.4)
         }
     }
 }
@@ -137,5 +139,6 @@ struct AmountText: View {
             .font(.system(size: size, weight: weight))
             .monospacedDigit()
             .foregroundStyle(color)
+            .redactable(tint: color, minWidth: size * 2.2)
     }
 }
