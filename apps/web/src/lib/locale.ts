@@ -3,13 +3,23 @@ import { createT, normalizeLocale, type SupportedLocale } from '@florin/core/i18
 
 export const LOCALE_COOKIE = 'florin-locale'
 
+/**
+ * Deploy-time default language, for callers with no cookie.
+ *
+ * Florin web is single-tenant, so the instance has one language the same way it
+ * has one currency. It matters beyond taste: the native client authenticates
+ * with a bearer token and therefore sends no cookie, so without this every API
+ * response came back in English regardless of what the browser was set to.
+ */
+export const APP_LOCALE = normalizeLocale(process.env.APP_LOCALE?.trim())
+
 export async function getUserLocale(): Promise<SupportedLocale> {
   try {
     const store = await cookies()
     const raw = store.get(LOCALE_COOKIE)?.value
-    return normalizeLocale(raw)
+    return raw ? normalizeLocale(raw) : APP_LOCALE
   } catch {
-    return 'en'
+    return APP_LOCALE
   }
 }
 

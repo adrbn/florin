@@ -60,6 +60,9 @@ services:
       # otherwise accept only a NextAuth session cookie, which an app has no way
       # to present. Leave unset and the feed stays session-only.
       FLORIN_API_TOKEN: ${FLORIN_API_TOKEN:-}
+      # Instance language for callers with no cookie — notably the native app,
+      # which authenticates with a token and so never sends one.
+      APP_LOCALE: ${APP_LOCALE:-en}
     ports:
       - "127.0.0.1:3000:3000"
     healthcheck:
