@@ -164,25 +164,45 @@ struct AddTransactionSheet: View {
                 symbol: "building.columns",
                 label: t("v2.add.account", "Compte")
             ) {
-                Picker("", selection: $accountId) {
-                    ForEach(usableAccounts) { Text($0.name).tag($0.id) }
+                /*
+                 * A Menu, not a Picker.
+                 *
+                 * `.pickerStyle(.menu)` renders its current value as a Text
+                 * that wraps, and "Sans catégorie" promptly took two lines and
+                 * pushed itself over the Date row below. A Menu lets the label
+                 * be ours, so it can be held to one line and truncated like any
+                 * other value in a row.
+                 */
+                Menu {
+                    Picker("", selection: $accountId) {
+                        ForEach(usableAccounts) { Text($0.name).tag($0.id) }
+                    }
+                } label: {
+                    menuValue(
+                        usableAccounts.first { $0.id == accountId }?.name
+                            ?? t("v2.add.account", "Compte")
+                    )
                 }
-                .labelsHidden()
-                .pickerStyle(.menu)
             }
 
             Hairline()
 
             pickerRow(symbol: "tag", label: t("v2.add.category", "Catégorie")) {
-                Picker("", selection: $categoryId) {
-                    Text(t("v2.common.uncategorized", "Sans catégorie")).tag("")
-                    ForEach(data.categories) { category in
-                        Text("\(category.emoji.map { $0 + " " } ?? "")\(category.name)")
-                            .tag(category.id)
+                Menu {
+                    Picker("", selection: $categoryId) {
+                        Text(t("v2.common.uncategorized", "Sans catégorie")).tag("")
+                        ForEach(data.categories) { category in
+                            Text("\(category.emoji.map { $0 + " " } ?? "")\(category.name)")
+                                .tag(category.id)
+                        }
                     }
+                } label: {
+                    let selected = data.categories.first { $0.id == categoryId }
+                    menuValue(
+                        selected.map { "\($0.emoji.map { $0 + " " } ?? "")\($0.name)" }
+                            ?? t("v2.common.uncategorized", "Sans catégorie")
+                    )
                 }
-                .labelsHidden()
-                .pickerStyle(.menu)
             }
 
             Hairline()
@@ -207,6 +227,20 @@ struct AddTransactionSheet: View {
             .padding(.vertical, 14)
         }
         .padding(.horizontal, Florin.gutter)
+    }
+
+    /// One line, truncated, with the chevron the row would have had anyway.
+    private func menuValue(_ text: String) -> some View {
+        HStack(spacing: 4) {
+            Text(text)
+                .font(.system(size: 16))
+                .lineLimit(1)
+                .truncationMode(.tail)
+            Image(systemName: "chevron.up.chevron.down")
+                .font(.system(size: 11, weight: .semibold))
+        }
+        .foregroundStyle(Florin.accent)
+        .frame(maxWidth: 190, alignment: .trailing)
     }
 
     private func pickerRow<Content: View>(
