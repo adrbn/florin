@@ -151,10 +151,9 @@ struct TransactionList<Banner: View>: View {
                                 ? t("v2.review.selectNone", "Aucune")
                                 : t("v2.review.selectAll", "Tout")
                         )
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(Florin.text)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 11)
+                        .frame(width: 104, height: 54)
                         .florinGlass(in: Capsule())
                     }
                     .buttonStyle(.plain)
@@ -164,25 +163,29 @@ struct TransactionList<Banner: View>: View {
                         withAnimation(.snappy(duration: 0.2)) { selection = nil }
                         Task { await model.approve(ids, t: t) }
                     } label: {
-                        HStack(spacing: 7) {
+                        HStack(spacing: 8) {
                             Image(systemName: "checkmark")
-                                .font(.system(size: 14, weight: .bold))
+                                .font(.system(size: 16, weight: .bold))
                             Text(
                                 t("v2.review.approveCount", "Valider {count}",
                                   ["count": picked.count])
                             )
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.system(size: 17, weight: .semibold))
                         }
                         .foregroundStyle(.black)
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 12)
+                        // Takes the rest of the row: it is the action, and a
+                        // thumb reaching the bottom of the screen should not
+                        // have to aim.
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 54)
                         .background(Florin.positive, in: Capsule())
-                        .shadow(color: .black.opacity(0.35), radius: 12, y: 5)
+                        .shadow(color: .black.opacity(0.4), radius: 14, y: 6)
                     }
                     .buttonStyle(.plain)
                     .disabled(picked.isEmpty)
                     .opacity(picked.isEmpty ? 0.4 : 1)
                 }
+                .padding(.horizontal, Florin.gutter)
                 .padding(.bottom, 104)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
@@ -343,7 +346,10 @@ struct TransactionList<Banner: View>: View {
                     VStack(alignment: .leading, spacing: 10) {
                         HStack {
                             Eyebrow(text: t("v2.review.title", "À vérifier"))
-                            Text("\(pending.count)")
+                            // The ledger's count, not this page's — they differ
+                            // until every page is loaded, and the smaller of
+                            // the two is the misleading one.
+                            Text("\(max(model.reviewCount, pending.count))")
                                 .font(.system(size: 10, weight: .bold))
                                 .foregroundStyle(.white)
                                 .padding(.horizontal, 5)
@@ -352,11 +358,20 @@ struct TransactionList<Banner: View>: View {
                             Spacer()
                             Button {
                                 UISelectionFeedbackGenerator().selectionChanged()
-                                withAnimation(.snappy(duration: 0.2)) { selection = [] }
+                                // The same control has to be the way out, or it
+                                // sits there repeating an instruction the user
+                                // has already followed.
+                                withAnimation(.snappy(duration: 0.2)) {
+                                    selection = selection == nil ? [] : nil
+                                }
                             } label: {
-                                Text(t("v2.review.selectMany", "Sélectionner"))
-                                    .font(.system(size: 11.5, weight: .medium))
-                                    .foregroundStyle(Florin.accent)
+                                Text(
+                                    selection == nil
+                                        ? t("v2.review.selectMany", "Sélectionner")
+                                        : t("v2.review.selectDone", "Désélectionner")
+                                )
+                                .font(.system(size: 11.5, weight: .medium))
+                                .foregroundStyle(Florin.accent)
                             }
                             .buttonStyle(.plain)
 
@@ -475,10 +490,16 @@ struct TransactionList<Banner: View>: View {
     /// Grouped on the *local* day, not the ISO string's date part: a
     /// transaction booked at 23:30 UTC belongs to tomorrow in Paris, and
     /// grouping on the prefix produced two separate "Hier" headings.
-    /// Rows awaiting a decision, newest first. Capped: the pinned section is a
-    /// prompt, not the whole queue — "Tout voir" opens the filter for the rest.
+    /// Every loaded row awaiting a decision, newest first.
+    ///
+    /// Deliberately uncapped. It was capped at six on the theory that the
+    /// section is a prompt rather than the queue itself, and that was wrong on
+    /// its own terms: the header said nine, the list showed six, and approving
+    /// three left it still showing six. A queue you cannot see the end of is
+    /// not a queue. What the page has not fetched yet is what "Tout voir" is
+    /// for.
     private var pending: [Transaction] {
-        Array(model.rows.filter(\.needsReview).prefix(6))
+        model.rows.filter(\.needsReview)
     }
 
     private var days: [Day] {
