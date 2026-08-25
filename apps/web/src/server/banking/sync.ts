@@ -332,6 +332,7 @@ async function syncAccountTransactions(
         accountId: transactions.accountId,
         amount: transactions.amount,
         occurredAt: transactions.occurredAt,
+        payee: transactions.payee,
       })
       inserted += result.length
       // Reconciliation: flag freshly-imported bank rows that look like a
@@ -343,6 +344,10 @@ async function syncAccountTransactions(
           accountId: r.accountId,
           amount: Number(r.amount),
           occurredAt: r.occurredAt,
+          // Needed for the re-booking test: a bank that re-sends its own
+          // provisional entry under a fresh reference is only detectable by
+          // the label going from generic to named.
+          payee: r.payee ?? undefined,
           excludeId: r.id,
         })
         if (candidateId) {
