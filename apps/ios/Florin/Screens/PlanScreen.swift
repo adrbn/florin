@@ -396,7 +396,18 @@ struct AssignSheet: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 22) {
+            /*
+             * One scroll for the whole sheet.
+             *
+             * The spending list used to scroll inside its own ScrollView, which
+             * meant two scroll areas stacked in a 430pt sheet: you dragged the
+             * rows and the sheet stayed put, or dragged the sheet and the rows
+             * stayed put, and neither gesture did the obvious thing. Now the
+             * sheet itself scrolls and grows — drag it up and the transactions
+             * come with it.
+             */
+            ScrollView {
+                VStack(spacing: 22) {
                 VStack(spacing: 6) {
                     Text(category.emoji ?? "•").font(.system(size: 32))
                     Text(category.name)
@@ -460,8 +471,11 @@ struct AssignSheet: View {
                 }
                 .padding(.horizontal, Florin.gutter)
 
-                spending
+                    spending
+                }
+                .padding(.bottom, 24)
             }
+            .scrollDismissesKeyboard(.interactively)
             .background(Backdrop(tint: TabRoute.plan.tint))
             .navigationTitle(t("v2.plan.assign", "Répartir"))
             .navigationBarTitleDisplayMode(.inline)
@@ -478,7 +492,8 @@ struct AssignSheet: View {
         }
         // Sized to the content rather than half the screen: a medium detent
         // left a void between the shortcuts and the keypad.
-        .presentationDetents([.height(430)])
+        .presentationDetents([.height(430), .large])
+        .presentationDragIndicator(.visible)
     }
 
     /*
@@ -513,17 +528,13 @@ struct AssignSheet: View {
                     .padding(.horizontal, Florin.gutter)
                     .padding(.bottom, 12)
             } else {
-                ScrollView {
-                    RowGroup {
-                        ForEach(Array(rows.enumerated()), id: \.element.id) { index, tx in
-                            if index > 0 { Hairline() }
-                            TransactionRowView(tx: tx, locale: locale, currency: currency, t: t)
-                        }
+                RowGroup {
+                    ForEach(Array(rows.enumerated()), id: \.element.id) { index, tx in
+                        if index > 0 { Hairline() }
+                        TransactionRowView(tx: tx, locale: locale, currency: currency, t: t)
                     }
-                    .padding(.horizontal, Florin.gutter)
-                    .padding(.bottom, 16)
                 }
-                .scrollIndicators(.hidden)
+                .padding(.horizontal, Florin.gutter)
             }
         }
         .task(id: category.id) { await loadRows() }
