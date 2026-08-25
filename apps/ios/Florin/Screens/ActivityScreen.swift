@@ -186,7 +186,9 @@ struct TransactionList<Banner: View>: View {
                     .opacity(picked.isEmpty ? 0.4 : 1)
                 }
                 .padding(.horizontal, Florin.gutter)
-                .padding(.bottom, 104)
+                // Right on top of the tab bar: the two together read as one
+                // control zone, and it keeps the list visible above them.
+                .padding(.bottom, 86)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }

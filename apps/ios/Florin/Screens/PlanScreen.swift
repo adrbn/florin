@@ -44,6 +44,17 @@ struct PlanScreen: View {
 
             if let plan = model.plan {
                 hero(plan)
+                    /*
+                     * Swipe the headline band to change month.
+                     *
+                     * On the whole screen it swallowed the rows' taps: a
+                     * DragGesture attached to a container competes with the
+                     * drag recogniser every Button already uses, and the rows
+                     * simply stopped opening. Up here there is nothing to
+                     * tap, the list below keeps its own scrolling, and the
+                     * chevrons remain for anyone who never tries the gesture.
+                     */
+                    .contentShape(Rectangle())
                 summary(plan)
                 ForEach(plan.groups) { group in
                     groupSection(group)
@@ -67,12 +78,26 @@ struct PlanScreen: View {
                 locale: locale,
                 currency: currency,
                 t: t,
-                readyToAssign: model.plan?.readyToAssign ?? 0
+                readyToAssign: model.plan?.readyToAssign ?? 0,
+                month: model.month,
+                base: overview.base
             ) { amount in
                 await model.assign(amount, to: category.id)
             }
         }
         .florinToast($model.toast)
+    }
+
+    /// Horizontal only, and past a real distance, so it cannot be mistaken for
+    /// the vertical scroll it sits on top of.
+    private var monthSwipe: some Gesture {
+        DragGesture(minimumDistance: 24)
+            .onEnded { drag in
+                let dx = drag.translation.width
+                guard abs(dx) > abs(drag.translation.height) * 1.5, abs(dx) > 60 else { return }
+                UISelectionFeedbackGenerator().selectionChanged()
+                model.step(dx < 0 ? 1 : -1)
+            }
     }
 
     /// Month navigation lives in the middle of the top row, where the title
@@ -174,12 +199,7 @@ struct PlanScreen: View {
         let open = !collapsed.contains(group.id)
 
         return VStack(alignment: .leading, spacing: 10) {
-            Button {
-                UISelectionFeedbackGenerator().selectionChanged()
-                withAnimation(.snappy(duration: 0.22)) {
-                    if open { collapsed.insert(group.id) } else { collapsed.remove(group.id) }
-                }
-            } label: {
+            Group {
                 HStack(spacing: 8) {
                     Image(systemName: open ? "chevron.down" : "chevron.right")
                         .font(.system(size: 10, weight: .bold))
@@ -202,21 +222,40 @@ struct PlanScreen: View {
                 }
                 .padding(.horizontal, Florin.gutter)
             }
-            .buttonStyle(.plain)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                UISelectionFeedbackGenerator().selectionChanged()
+                withAnimation(.snappy(duration: 0.22)) {
+                    if open { collapsed.insert(group.id) } else { collapsed.remove(group.id) }
+                }
+            }
 
             if open {
                 RowGroup {
                     ForEach(Array(group.categories.enumerated()), id: \.element.id) { index, category in
                         if index > 0 { Hairline() }
-                        Button { editing = category } label: {
-                            PlanRow(
-                                category: category,
-                                locale: locale,
-                                currency: currency,
-                                t: t
-                            )
+                        /*
+                         * A tap gesture, not a Button.
+                         *
+                         * Wrapped in a Button these rows simply never fired —
+                         * not the sheet, not even the group's collapse toggle
+                         * next to them — while the same TabScaffold's rows on
+                         * Activité worked and this screen's own header buttons
+                         * worked. Whatever the ButtonStyle was doing inside
+                         * this particular stack, an explicit content shape with
+                         * a tap on it is unambiguous and does fire.
+                         */
+                        PlanRow(
+                            category: category,
+                            locale: locale,
+                            currency: currency,
+                            t: t
+                        )
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            UISelectionFeedbackGenerator().selectionChanged()
+                            editing = category
                         }
-                        .buttonStyle(.plain)
                     }
                 }
                 .padding(.horizontal, Florin.gutter)
@@ -252,15 +291,24 @@ struct PlanRow: View {
                     .foregroundStyle(Florin.text)
                     .lineLimit(1)
                 Spacer(minLength: 8)
-                VStack(alignment: .trailing, spacing: 1) {
+                VStack(alignment: .trailing, spacing: 2) {
                     AmountText(
                         value: category.available, locale: locale, currency: currency,
                         decimals: false, tone: over ? .negative : (category.available > 0 ? .neutral : .muted),
                         size: 14.5
                     )
-                    Text(t("v2.plan.available", "restant"))
-                        .font(.system(size: 10.5))
-                        .foregroundStyle(Florin.text3)
+                    if over {
+                        Text(t("v2.plan.overspentChip", "Dépassé"))
+                            .font(.system(size: 10.5, weight: .semibold))
+                            .foregroundStyle(Florin.negative)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Florin.negative.opacity(0.16), in: Capsule())
+                    } else {
+                        Text(t("v2.plan.available", "restant"))
+                            .font(.system(size: 10.5))
+                            .foregroundStyle(Florin.text3)
+                    }
                 }
             }
 
@@ -294,7 +342,11 @@ struct PlanRow: View {
         }
         .padding(.horizontal, Florin.gutter)
         .padding(.vertical, 12)
-        .background(over ? Florin.negative.opacity(0.05) : Color.clear)
+        // No wash. A tint on the row sits inside the card's clip as a second
+        // rounded shape with its own apparent radius, and the two never agree —
+        // the same thing that made the review rows read as pills in a table.
+        // Overspending is already carried by the red figure and the red bar; a
+        // chip beside the amount names it without inventing a shape.
     }
 }
 
@@ -309,11 +361,16 @@ struct AssignSheet: View {
     let currency: String
     let t: Strings
     let readyToAssign: Double
+    /// The month on screen, `yyyy-MM`, and where to read its rows from.
+    let month: String
+    let base: URL
     let onSave: (Double) async -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var text: String
     @State private var saving = false
+    @State private var rows: [Transaction] = []
+    @State private var loadingRows = true
     @FocusState private var focused: Bool
 
     init(
@@ -322,6 +379,8 @@ struct AssignSheet: View {
         currency: String,
         t: Strings,
         readyToAssign: Double,
+        month: String,
+        base: URL,
         onSave: @escaping (Double) async -> Void
     ) {
         self.category = category
@@ -329,6 +388,8 @@ struct AssignSheet: View {
         self.currency = currency
         self.t = t
         self.readyToAssign = readyToAssign
+        self.month = month
+        self.base = base
         self.onSave = onSave
         _text = State(initialValue: category.assigned > 0 ? Self.plain(category.assigned) : "")
     }
@@ -399,7 +460,7 @@ struct AssignSheet: View {
                 }
                 .padding(.horizontal, Florin.gutter)
 
-                Spacer(minLength: 0)
+                spending
             }
             .background(Backdrop(tint: TabRoute.plan.tint))
             .navigationTitle(t("v2.plan.assign", "Répartir"))
@@ -418,6 +479,88 @@ struct AssignSheet: View {
         // Sized to the content rather than half the screen: a medium detent
         // left a void between the shortcuts and the keypad.
         .presentationDetents([.height(430)])
+    }
+
+    /*
+     * What the envelope actually paid for, this month.
+     *
+     * Deciding what to assign to "Courses" without seeing the eleven rows that
+     * emptied it is guesswork — the figure above says how much went, and this
+     * says where. Scrolls on its own so the amount field and the shortcuts stay
+     * put while you read.
+     */
+    @ViewBuilder
+    private var spending: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Eyebrow(text: t("v2.plan.thisMonth", "Ce mois-ci"))
+                Spacer()
+                if !rows.isEmpty {
+                    Text(t("v2.activity.count", "{count} opérations", ["count": rows.count]))
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Florin.text3)
+                }
+            }
+            .padding(.horizontal, Florin.gutter)
+
+            if loadingRows {
+                ProgressView().frame(maxWidth: .infinity).padding(.vertical, 20)
+            } else if rows.isEmpty {
+                Text(t("v2.plan.noSpending", "Rien de dépensé sur cette catégorie ce mois-ci"))
+                    .font(.system(size: 13))
+                    .foregroundStyle(Florin.text2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, Florin.gutter)
+                    .padding(.bottom, 12)
+            } else {
+                ScrollView {
+                    RowGroup {
+                        ForEach(Array(rows.enumerated()), id: \.element.id) { index, tx in
+                            if index > 0 { Hairline() }
+                            TransactionRowView(tx: tx, locale: locale, currency: currency, t: t)
+                        }
+                    }
+                    .padding(.horizontal, Florin.gutter)
+                    .padding(.bottom, 16)
+                }
+                .scrollIndicators(.hidden)
+            }
+        }
+        .task(id: category.id) { await loadRows() }
+    }
+
+    private func loadRows() async {
+        loadingRows = true
+        defer { loadingRows = false }
+        var components = URLComponents(url: base, resolvingAgainstBaseURL: false)
+        components?.path = "/api/v2/transactions"
+        components?.queryItems = [
+            URLQueryItem(name: "categoryId", value: category.id),
+            URLQueryItem(name: "from", value: "\(month)-01"),
+            URLQueryItem(name: "to", value: Self.lastDay(of: month)),
+            URLQueryItem(name: "limit", value: "100"),
+        ]
+        guard let url = components?.url else { return }
+        guard let (data, response) = try? await URLSession.shared.data(for: FlorinAuth.request(url)),
+              let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
+              let page = try? JSONDecoder().decode(TransactionPage.self, from: data)
+        else { return }
+        rows = page.transactions
+    }
+
+    /// The route's `to` is inclusive of that day, so the window has to end on
+    /// the month's real last day rather than on the 30th of every month.
+    private static func lastDay(of month: String) -> String {
+        let parts = month.split(separator: "-").compactMap { Int($0) }
+        guard parts.count == 2 else { return "\(month)-28" }
+        var components = DateComponents()
+        components.year = parts[0]
+        components.month = parts[1]
+        let calendar = Calendar(identifier: .gregorian)
+        guard let start = calendar.date(from: components),
+              let range = calendar.range(of: .day, in: .month, for: start)
+        else { return "\(month)-28" }
+        return String(format: "%@-%02d", month, range.count)
     }
 
     private func shortcut(_ label: String, _ amount: Double) -> some View {
