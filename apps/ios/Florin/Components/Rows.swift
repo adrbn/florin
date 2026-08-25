@@ -152,7 +152,11 @@ struct TransactionRowView: View {
                 AmountText(value: tx.amount, locale: locale, currency: currency, signed: true, tone: .auto)
                 if tx.needsReview {
                     Text(t("v2.activity.needsReview", "À vérifier"))
-                        .font(.system(size: 11)).foregroundStyle(Florin.negative)
+                        .font(.system(size: 10.5, weight: .semibold))
+                        .foregroundStyle(Florin.warn)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Florin.warn.opacity(0.16), in: Capsule())
                 } else if tx.isScheduled {
                     Text(t("v2.activity.scheduled", "Prévu"))
                         .font(.system(size: 11)).foregroundStyle(Florin.text3)

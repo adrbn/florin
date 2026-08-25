@@ -239,6 +239,47 @@ struct TransactionList<Banner: View>: View {
             emptyState(symbol: "tray", text: t("v2.activity.empty", "Aucune opération"))
         } else {
             VStack(alignment: .leading, spacing: 22) {
+                /*
+                 * The queue floats to the top of its own section.
+                 *
+                 * Interleaved by date, four rows needing a decision sat between
+                 * twenty that did not, and the only thing distinguishing them
+                 * was a caption. Anything asking for an action belongs in one
+                 * place at the top — the rows are excluded from the day groups
+                 * below so nothing is listed twice.
+                 */
+                if !pending.isEmpty, !model.filter.needsReview {
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            Eyebrow(text: t("v2.review.title", "À vérifier"))
+                            Text("\(pending.count)")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 1)
+                                .background(Florin.warn, in: Capsule())
+                            Spacer()
+                            Button {
+                                scope.wrappedValue = .review
+                            } label: {
+                                Text(t("v2.common.seeAll", "Tout voir"))
+                                    .font(.system(size: 11.5, weight: .medium))
+                                    .foregroundStyle(Florin.accent)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.horizontal, Florin.gutter)
+
+                        RowGroup {
+                            ForEach(Array(pending.enumerated()), id: \.element.id) { index, tx in
+                                if index > 0 { Hairline() }
+                                row(tx)
+                            }
+                        }
+                        .padding(.horizontal, Florin.gutter)
+                    }
+                }
+
                 ForEach(days, id: \.key) { day in
                     VStack(alignment: .leading, spacing: 10) {
                         HStack {
@@ -275,9 +316,25 @@ struct TransactionList<Banner: View>: View {
     private func row(_ tx: Transaction) -> some View {
         Button { detail = tx } label: {
             TransactionRowView(tx: tx, locale: locale, currency: currency, t: t)
-                .background(
-                    tx.needsReview ? Florin.negative.opacity(0.06) : Color.clear
-                )
+                .background(tx.needsReview ? Florin.warn.opacity(0.10) : Color.clear)
+                /*
+                 * An edge marker, not a rounded wash.
+                 *
+                 * The tint fills the row and the card clips it, so the first
+                 * row inherited the card's 26pt top corners while its bottom
+                 * stayed square — which reads as a radius that does not match
+                 * anything. A full-height bar on the leading edge is a
+                 * rectangle inside the same clip, so it cannot disagree with
+                 * the card, and it is what mail apps use for unread: visible
+                 * down the whole column without shouting.
+                 */
+                .overlay(alignment: .leading) {
+                    if tx.needsReview {
+                        Rectangle()
+                            .fill(Florin.warn)
+                            .frame(width: 3)
+                    }
+                }
         }
         .buttonStyle(.plain)
         // Native swipe actions rather than a hand-rolled drag: they come with
@@ -321,12 +378,19 @@ struct TransactionList<Banner: View>: View {
     /// Grouped on the *local* day, not the ISO string's date part: a
     /// transaction booked at 23:30 UTC belongs to tomorrow in Paris, and
     /// grouping on the prefix produced two separate "Hier" headings.
+    /// Rows awaiting a decision, newest first. Capped: the pinned section is a
+    /// prompt, not the whole queue — "Tout voir" opens the filter for the rest.
+    private var pending: [Transaction] {
+        Array(model.rows.filter(\.needsReview).prefix(6))
+    }
+
     private var days: [Day] {
         var order: [String] = []
         var buckets: [String: [Transaction]] = [:]
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
-        for tx in model.rows {
+        let pinned = Set(pending.map(\.id))
+        for tx in model.rows where !(pinned.contains(tx.id) && !model.filter.needsReview) {
             let key = formatter.string(from: tx.day)
             if buckets[key] == nil { order.append(key) }
             buckets[key, default: []].append(tx)

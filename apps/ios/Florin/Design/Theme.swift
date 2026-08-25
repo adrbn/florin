@@ -21,6 +21,9 @@ enum Florin {
     static let accent = dynamic(light: 0x4B4FD6, dark: 0x8C8CF7)
     static let positive = dynamic(light: 0x1F8B5F, dark: 0x5FD9A0)
     static let negative = dynamic(light: 0xC4392F, dark: 0xF08072)
+    /// Needs a decision — not an error. Red already means "money left", so a
+    /// review flag drawn in it reads as a loss rather than as a question.
+    static let warn = dynamic(light: 0xB4690E, dark: 0xF0B357)
 
     /// Categorical series — never the semantic green or red, so a spending bar
     /// can't read as a gain.
