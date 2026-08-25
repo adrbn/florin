@@ -375,7 +375,7 @@ struct TransactionList<Banner: View>: View {
                         }
                         .padding(.horizontal, Florin.gutter)
 
-                        RowGroup {
+                        RowGroup(tint: Florin.warn.opacity(0.09)) {
                             ForEach(Array(pending.enumerated()), id: \.element.id) { index, tx in
                                 if index > 0 { Hairline() }
                                 row(tx)
@@ -429,27 +429,28 @@ struct TransactionList<Banner: View>: View {
         } label: {
             TransactionRowView(tx: tx, locale: locale, currency: currency, t: t)
                 /*
-                 * A wash, and nothing else.
+                 * The row paints nothing.
                  *
-                 * The rows needing a decision now sit in their own pinned
-                 * section with a counted header, so the row itself no longer
-                 * has to shout — the amber chip beside the amount is enough to
-                 * carry the state once the grouping has done the sorting. An
-                 * edge bar on top of that was a third signal for one fact.
+                 * A tint on the row sat inside the card's clip as a second
+                 * rounded shape with its own apparent radius, and the two never
+                 * agreed. The queue's card carries the colour now — one shape,
+                 * one radius, by construction. The amber chip beside the amount
+                 * still marks a lone review row inside an untinted day group.
+                 *
+                 * Padding first, overlay second: the other way round the tick
+                 * aligns to the content's own leading edge and lands on top of
+                 * the category bubble instead of in the gutter just opened.
                  */
-                .background(tx.needsReview ? Florin.warn.opacity(0.08) : Color.clear)
+                .padding(.leading, picking ? 38 : 0)
                 .overlay(alignment: .leading) {
-                    // Only rows that can be approved get a box; the others stay
-                    // exactly as they were so the list does not reflow.
                     if picking {
                         Image(systemName: picked ? "checkmark.circle.fill" : "circle")
-                            .font(.system(size: 20))
+                            .font(.system(size: 21))
                             .foregroundStyle(picked ? Florin.positive : Florin.text3)
-                            .padding(.leading, 14)
+                            .padding(.leading, 16)
                             .transition(.scale.combined(with: .opacity))
                     }
                 }
-                .padding(.leading, picking ? 34 : 0)
         }
         .buttonStyle(.plain)
         .animation(.snappy(duration: 0.2), value: picking)

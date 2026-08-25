@@ -184,11 +184,13 @@ enum DayLabel {
 
 /// A card that hosts rows edge to edge, with hairlines between them.
 struct RowGroup<Content: View>: View {
+    /// Colours the whole card rather than its rows — see `florinSurface`.
+    var tint: Color?
     @ViewBuilder var content: Content
 
     var body: some View {
         VStack(spacing: 0) { content }
-            .florinSurface()
+            .florinSurface(tint: tint)
     }
 }
 

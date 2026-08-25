@@ -134,7 +134,10 @@ extension View {
     /// a new material and used it everywhere. Content gets a tonal fill and a
     /// hairline. The heavy drop shadow this replaced was a web idiom; 26
     /// separates with tone, so the shadow is now a whisper.
-    func florinSurface(radius: CGFloat = Florin.cardRadius) -> some View {
+    /// - Parameter tint: blended over the surface for a card that is *about*
+    ///   something — the review queue, say. Tinting the rows instead gives two
+    ///   nested shapes with two radii, and the inner one always looks wrong.
+    func florinSurface(radius: CGFloat = Florin.cardRadius, tint: Color? = nil) -> some View {
         let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
         return self
             // Clip first: rows paint their own backgrounds (the amber wash on a
@@ -142,6 +145,7 @@ extension View {
             // card's rounded corners.
             .clipShape(shape)
             .background(Florin.surface, in: shape)
+            .background(tint ?? .clear, in: shape)
             .overlay(shape.strokeBorder(Florin.text.opacity(0.06), lineWidth: 0.5))
             .shadow(color: .black.opacity(0.10), radius: 8, x: 0, y: 3)
     }
