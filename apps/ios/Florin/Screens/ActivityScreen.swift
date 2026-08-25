@@ -21,6 +21,16 @@ struct ActivityScreen: View {
             locale: overview.overview?.localeTag ?? "fr-FR",
             currency: overview.overview?.currency ?? "EUR",
             t: overview.overview?.t ?? .empty,
+            /*
+             * Approving here has to reach Aperçu too.
+             *
+             * Each tab holds its own copy of the ledger, so rows cleared on
+             * this screen went on showing their amber chip on the dashboard —
+             * the same transaction, reviewed in one place and still pending in
+             * another. The overview is refetched quietly, without the spinner,
+             * so the tab is already correct by the time it is opened.
+             */
+            onLedgerChanged: { await overview.load(showSpinner: false) },
             startNeedsReview: startNeedsReview,
             onProfile: onOpenSettings
         )
@@ -35,6 +45,9 @@ struct TransactionList<Banner: View>: View {
     let locale: String
     let currency: String
     let t: Strings
+    /// Called after anything that changes a row's stored state, so screens
+    /// holding their own copy of the ledger can refetch.
+    var onLedgerChanged: () async -> Void = {}
     var preset: ActivityRoute?
     var heroValue: Double?
     var heroCaption: String?
@@ -61,6 +74,7 @@ struct TransactionList<Banner: View>: View {
         locale: String,
         currency: String,
         t: Strings,
+        onLedgerChanged: @escaping () async -> Void = {},
         preset: ActivityRoute? = nil,
         heroValue: Double? = nil,
         heroCaption: String? = nil,
@@ -75,6 +89,7 @@ struct TransactionList<Banner: View>: View {
         self.locale = locale
         self.currency = currency
         self.t = t
+        self.onLedgerChanged = onLedgerChanged
         self.preset = preset
         self.heroValue = heroValue
         self.heroCaption = heroCaption
@@ -161,7 +176,10 @@ struct TransactionList<Banner: View>: View {
                     Button {
                         let ids = Array(picked)
                         withAnimation(.snappy(duration: 0.2)) { selection = nil }
-                        Task { await model.approve(ids, t: t) }
+                        Task {
+                            await model.approve(ids, t: t)
+                            await onLedgerChanged()
+                        }
                     } label: {
                         HStack(spacing: 8) {
                             Image(systemName: "checkmark")
@@ -217,8 +235,14 @@ struct TransactionList<Banner: View>: View {
                 locale: locale,
                 currency: currency,
                 t: t,
-                onPatch: { patch in await model.apply(patch, to: tx.id, t: t) },
-                onDelete: { await model.delete(tx.id, t: t) }
+                onPatch: { patch in
+                    await model.apply(patch, to: tx.id, t: t)
+                    await onLedgerChanged()
+                },
+                onDelete: {
+                    await model.delete(tx.id, t: t)
+                    await onLedgerChanged()
+                }
             )
         }
         .florinToast($model.toast)

@@ -183,6 +183,20 @@ export async function syncLoanMirror(db: PgDB, transactionId: string): Promise<v
         amount: mirrorAmount,
         payee: mirrorPayee,
         normalizedPayee: normalizePayee(mirrorPayee),
+        /*
+         * A mirror never carries a category, and this is where that gets
+         * enforced rather than merely intended.
+         *
+         * Case 3 creates them with `categoryId: null` on purpose: `spent` in
+         * the plan sums by category across every account, so a mirror sharing
+         * its original's category contributes the opposite sign and cancels
+         * the very spending it reflects — a 136 € instalment nets to zero, a
+         * 929 € one wipes most of an envelope. Mirrors that acquired a
+         * category before this (or from an older path) survived here because
+         * the update only ever touched date, amount and payee, which is how
+         * one instalment showed up under Rent and the next under nothing.
+         */
+        categoryId: null,
         updatedAt: new Date(),
       })
       .where(eq(transactions.id, existingMirror.id))
