@@ -161,6 +161,16 @@ struct Transaction: Decodable, Sendable, Identifiable {
     let isPending: Bool
     let isScheduled: Bool
 
+    /// The same row, marked reviewed — for optimistic bulk approval.
+    func approved() -> Transaction {
+        Transaction(
+            id: id, date: date, amount: amount, payee: payee, memo: memo,
+            categoryName: categoryName, categoryEmoji: categoryEmoji,
+            accountName: accountName, isTransfer: isTransfer,
+            needsReview: false, isPending: isPending, isScheduled: isScheduled
+        )
+    }
+
     var day: Date {
         ISO8601DateFormatter.florin.date(from: date)
             ?? ISO8601DateFormatter.florinNoFraction.date(from: date)

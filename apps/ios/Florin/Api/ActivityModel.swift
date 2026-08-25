@@ -6,10 +6,41 @@ struct TxFilter: Equatable, Sendable {
     var search = ""
     var direction: Direction = .all
     var needsReview = false
+    var excludeTransfers = false
     var accountId: String?
     var categoryId: String?
+    var from: Date?
+    var to: Date?
 
     enum Direction: String, CaseIterable, Sendable { case all, expense, income }
+
+    /// The route takes plain `yyyy-MM-dd`; sending an ISO datetime would make
+    /// a same-day from/to pair an empty window.
+    static func day(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.timeZone = .current
+        return f.string(from: date)
+    }
+
+    /// Anything narrowing the ledger beyond the free-text search, which has its
+    /// own visible field and its own affordance for clearing.
+    var isFiltered: Bool {
+        direction != .all || needsReview || excludeTransfers
+            || accountId != nil || categoryId != nil || from != nil || to != nil
+    }
+
+    /// How many chips' worth of narrowing is on, for the badge on the button.
+    var activeCount: Int {
+        var n = 0
+        if direction != .all { n += 1 }
+        if needsReview { n += 1 }
+        if excludeTransfers { n += 1 }
+        if accountId != nil { n += 1 }
+        if categoryId != nil { n += 1 }
+        if from != nil || to != nil { n += 1 }
+        return n
+    }
 
     var query: [URLQueryItem] {
         var items: [URLQueryItem] = []
@@ -18,8 +49,11 @@ struct TxFilter: Equatable, Sendable {
         }
         if direction != .all { items.append(URLQueryItem(name: "direction", value: direction.rawValue)) }
         if needsReview { items.append(URLQueryItem(name: "needsReview", value: "1")) }
+        if excludeTransfers { items.append(URLQueryItem(name: "excludeTransfers", value: "1")) }
         if let accountId { items.append(URLQueryItem(name: "accountId", value: accountId)) }
         if let categoryId { items.append(URLQueryItem(name: "categoryId", value: categoryId)) }
+        if let from { items.append(URLQueryItem(name: "from", value: Self.day(from))) }
+        if let to { items.append(URLQueryItem(name: "to", value: Self.day(to))) }
         return items
     }
 }
@@ -76,6 +110,19 @@ extension FlorinClient {
             throw FlorinError.badStatus((response as? HTTPURLResponse)?.statusCode ?? 0)
         }
         return try JSONDecoder().decode(TransactionPage.self, from: data)
+    }
+
+    func bulkApprove(_ ids: [String]) async throws {
+        var components = URLComponents(url: base, resolvingAgainstBaseURL: false)
+        components?.path = "/api/v2/transactions/bulk"
+        guard let url = components?.url else { throw FlorinError.unreachable(base.host ?? "?") }
+        var request = FlorinAuth.request(url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(
+            withJSONObject: ["action": "approve", "ids": ids]
+        )
+        try await send(request)
     }
 
     func patch(_ id: String, _ patch: TxPatch) async throws {
@@ -188,6 +235,30 @@ final class ActivityModel: ObservableObject {
             try await client.patch(id, patch)
             if patch.approve == true { reviewCount = max(0, reviewCount - 1) }
             await refreshRow(id)
+        } catch {
+            toast = ToastMessage(text: error.localizedDescription, kind: .failure)
+            await reload()
+        }
+    }
+
+    /// Approve several rows in one call.
+    ///
+    /// Optimistic on the rows already on screen: the queue is the one place
+    /// where a round trip per row would be felt, because the whole point is
+    /// clearing twenty of them in a gesture.
+    func approve(_ ids: [String], t: Strings) async {
+        guard !ids.isEmpty else { return }
+        let marked = Set(ids)
+        for index in rows.indices where marked.contains(rows[index].id) {
+            rows[index] = rows[index].approved()
+        }
+        reviewCount = max(0, reviewCount - ids.count)
+        do {
+            try await client.bulkApprove(ids)
+            toast = ToastMessage(
+                text: t("v2.review.approvedCount", "{count} opérations vérifiées", ["count": ids.count]),
+                kind: .success
+            )
         } catch {
             toast = ToastMessage(text: error.localizedDescription, kind: .failure)
             await reload()
