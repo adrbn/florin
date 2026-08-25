@@ -47,9 +47,11 @@ struct TransactionList<Banner: View>: View {
 
     @Environment(\.dismiss) private var dismiss
     @StateObject private var model: ActivityModel
-    @State private var searching = false
     @State private var draft = ""
     @State private var detail: Transaction?
+    @State private var filtering = false
+    /// Non-nil while picking rows to approve in one go.
+    @State private var selection: Set<String>?
     @FocusState private var searchFocused: Bool
 
     init(
@@ -128,6 +130,73 @@ struct TransactionList<Banner: View>: View {
             summary
             list
         }
+        /*
+         * A floating pill, clear of the tab bar.
+         *
+         * A full-width bar pinned to the bottom is the obvious shape, and it
+         * cannot work here: the shell draws its tab bar above every tab's
+         * content, so the bar rendered *behind* it and its material ghosted
+         * through the glass. Sitting the controls above that zone sidesteps
+         * z-order entirely — and it still has to say how many, because
+         * "Valider 7" is a different decision from "Valider 1".
+         */
+        .overlay(alignment: .bottom) {
+            if let picked = selection {
+                HStack(spacing: 10) {
+                    Button {
+                        selection = picked.count == pending.count ? [] : Set(pending.map(\.id))
+                    } label: {
+                        Text(
+                            picked.count == pending.count
+                                ? t("v2.review.selectNone", "Aucune")
+                                : t("v2.review.selectAll", "Tout")
+                        )
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(Florin.text)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 11)
+                        .florinGlass(in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        let ids = Array(picked)
+                        withAnimation(.snappy(duration: 0.2)) { selection = nil }
+                        Task { await model.approve(ids, t: t) }
+                    } label: {
+                        HStack(spacing: 7) {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 14, weight: .bold))
+                            Text(
+                                t("v2.review.approveCount", "Valider {count}",
+                                  ["count": picked.count])
+                            )
+                            .font(.system(size: 15, weight: .semibold))
+                        }
+                        .foregroundStyle(.black)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 12)
+                        .background(Florin.positive, in: Capsule())
+                        .shadow(color: .black.opacity(0.35), radius: 12, y: 5)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(picked.isEmpty)
+                    .opacity(picked.isEmpty ? 0.4 : 1)
+                }
+                .padding(.bottom, 104)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .sheet(isPresented: $filtering) {
+            FilterSheet(
+                filter: $model.filter,
+                accounts: model.accounts,
+                categories: model.categories,
+                t: t
+            ) {
+                Task { await model.reload() }
+            }
+        }
         .task {
             if startNeedsReview { model.filter.needsReview = true }
             if let preset {
@@ -165,19 +234,41 @@ struct TransactionList<Banner: View>: View {
         TopBar(onProfile: { showsBack ? dismiss() : onProfile() }, back: showsBack) {
             searchField
         } trailing: {
-            CircleButton(
-                symbol: draft.isEmpty ? "line.3.horizontal.decrease" : "xmark",
-                size: 44
-            ) {
-                if draft.isEmpty {
-                    searchFocused = true
-                } else {
-                    draft = ""
-                    commitSearch("")
+            /*
+             * The corner is the filters, and stays the filters.
+             *
+             * It briefly held the "select rows" affordance instead, which made
+             * the one control on the screen change meaning depending on whether
+             * the queue happened to be empty — the filter button has to be
+             * where it always is. Selecting is entered from the queue's own
+             * header, next to the thing it acts on. While picking, the corner
+             * is the way out.
+             */
+            if selection != nil {
+                CircleButton(symbol: "xmark", size: 44) {
+                    withAnimation(.snappy(duration: 0.2)) { selection = nil }
                 }
+            } else {
+                filterButton
             }
         }
         .padding(.bottom, heroValue == nil ? 14 : 24)
+    }
+
+    private var filterButton: some View {
+        ZStack(alignment: .topTrailing) {
+            CircleButton(symbol: "line.3.horizontal.decrease", size: 44) { filtering = true }
+            if model.filter.activeCount > 0 {
+                Text("\(model.filter.activeCount)")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 1)
+                    .background(Florin.accent, in: Capsule())
+                    .offset(x: 3, y: -2)
+            }
+        }
+        .accessibilityLabel(t("v2.filters.title", "Filtres"))
     }
 
     /// A real text field, not a button that opens one.
@@ -260,6 +351,20 @@ struct TransactionList<Banner: View>: View {
                                 .background(Florin.warn, in: Capsule())
                             Spacer()
                             Button {
+                                UISelectionFeedbackGenerator().selectionChanged()
+                                withAnimation(.snappy(duration: 0.2)) { selection = [] }
+                            } label: {
+                                Text(t("v2.review.selectMany", "Sélectionner"))
+                                    .font(.system(size: 11.5, weight: .medium))
+                                    .foregroundStyle(Florin.accent)
+                            }
+                            .buttonStyle(.plain)
+
+                            Text("·")
+                                .font(.system(size: 11.5))
+                                .foregroundStyle(Florin.text3)
+
+                            Button {
                                 scope.wrappedValue = .review
                             } label: {
                                 Text(t("v2.common.seeAll", "Tout voir"))
@@ -314,7 +419,14 @@ struct TransactionList<Banner: View>: View {
     }
 
     private func row(_ tx: Transaction) -> some View {
-        Button { detail = tx } label: {
+        let picking = selection != nil && tx.needsReview
+        let picked = selection?.contains(tx.id) == true
+
+        return Button {
+            guard picking else { return detail = tx }
+            UISelectionFeedbackGenerator().selectionChanged()
+            if picked { selection?.remove(tx.id) } else { selection?.insert(tx.id) }
+        } label: {
             TransactionRowView(tx: tx, locale: locale, currency: currency, t: t)
                 /*
                  * A wash, and nothing else.
@@ -326,28 +438,21 @@ struct TransactionList<Banner: View>: View {
                  * edge bar on top of that was a third signal for one fact.
                  */
                 .background(tx.needsReview ? Florin.warn.opacity(0.08) : Color.clear)
+                .overlay(alignment: .leading) {
+                    // Only rows that can be approved get a box; the others stay
+                    // exactly as they were so the list does not reflow.
+                    if picking {
+                        Image(systemName: picked ? "checkmark.circle.fill" : "circle")
+                            .font(.system(size: 20))
+                            .foregroundStyle(picked ? Florin.positive : Florin.text3)
+                            .padding(.leading, 14)
+                            .transition(.scale.combined(with: .opacity))
+                    }
+                }
+                .padding(.leading, picking ? 34 : 0)
         }
         .buttonStyle(.plain)
-        // Native swipe actions rather than a hand-rolled drag: they come with
-        // the system's rubber-banding, full-swipe and VoiceOver rotor, none of
-        // which the web version could have.
-        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-            Button(role: .destructive) {
-                Task { await model.delete(tx.id, t: t) }
-            } label: {
-                Label(t("v2.common.delete", "Supprimer"), systemImage: "trash")
-            }
-        }
-        .swipeActions(edge: .leading, allowsFullSwipe: true) {
-            if tx.needsReview {
-                Button {
-                    Task { await model.apply(TxPatch(approve: true), to: tx.id, t: t) }
-                } label: {
-                    Label(t("v2.review.approve", "Vérifié"), systemImage: "checkmark")
-                }
-                .tint(Florin.positive)
-            }
-        }
+        .animation(.snappy(duration: 0.2), value: picking)
     }
 
     private func emptyState(symbol: String, text: String) -> some View {
