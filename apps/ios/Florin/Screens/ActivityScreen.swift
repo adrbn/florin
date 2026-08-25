@@ -316,25 +316,16 @@ struct TransactionList<Banner: View>: View {
     private func row(_ tx: Transaction) -> some View {
         Button { detail = tx } label: {
             TransactionRowView(tx: tx, locale: locale, currency: currency, t: t)
-                .background(tx.needsReview ? Florin.warn.opacity(0.10) : Color.clear)
                 /*
-                 * An edge marker, not a rounded wash.
+                 * A wash, and nothing else.
                  *
-                 * The tint fills the row and the card clips it, so the first
-                 * row inherited the card's 26pt top corners while its bottom
-                 * stayed square — which reads as a radius that does not match
-                 * anything. A full-height bar on the leading edge is a
-                 * rectangle inside the same clip, so it cannot disagree with
-                 * the card, and it is what mail apps use for unread: visible
-                 * down the whole column without shouting.
+                 * The rows needing a decision now sit in their own pinned
+                 * section with a counted header, so the row itself no longer
+                 * has to shout — the amber chip beside the amount is enough to
+                 * carry the state once the grouping has done the sorting. An
+                 * edge bar on top of that was a third signal for one fact.
                  */
-                .overlay(alignment: .leading) {
-                    if tx.needsReview {
-                        Rectangle()
-                            .fill(Florin.warn)
-                            .frame(width: 3)
-                    }
-                }
+                .background(tx.needsReview ? Florin.warn.opacity(0.08) : Color.clear)
         }
         .buttonStyle(.plain)
         // Native swipe actions rather than a hand-rolled drag: they come with

@@ -37,7 +37,8 @@
     "./components/v2/lib/format": "./src/components/v2/lib/format.ts",
     "./components/v2/i18n": "./src/components/v2/i18n/index.ts",
     "./components/v2/shell/nav": "./src/components/v2/shell/nav.ts",
-    "./components/*": "./src/components/*.tsx"
+    "./components/*": "./src/components/*.tsx",
+    "./lib/reconcile": "./src/lib/reconcile/placeholder.ts"
   },
   "typesVersions": {
     "*": {
