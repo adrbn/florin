@@ -98,8 +98,40 @@ extension LocalStore {
     /// failure here must not stop someone using the client they already have.
     /// It is loud in the log precisely because a silent failure would let the
     /// schema rot until the first ported query trips over it.
+    /*
+     * A one-shot self-test for the banking key, behind a debug flag.
+     *
+     * The signing path cannot be checked by reading it: a JWT with a subtly
+     * wrong DER header or a base64 variant that keeps its padding is accepted
+     * by every compiler and rejected by Enable Banking with a 401 that says
+     * nothing. This makes the phone produce a real key, a real PEM and a real
+     * signature so they can be verified against an independent implementation
+     * before any bank is involved.
+     */
+    static func probeBankingKey() {
+        guard ProcessInfo.processInfo.environment["FLORIN_BANKING_SELFTEST"] == "1" else { return }
+        do {
+            try BankingKey.generate()
+            let pem = try BankingKey.publicKeyPEM()
+            let token = try EnableBanking.jwt(
+                .init(appId: "selftest-app-id", redirectURL: "florin://banking/callback")
+            )
+            // One line, unwrapped: a PEM read back out of a multi-line log is
+            // one dropped line away from looking like a broken key.
+            let flat = pem
+                .replacingOccurrences(of: "-----BEGIN PUBLIC KEY-----", with: "")
+                .replacingOccurrences(of: "-----END PUBLIC KEY-----", with: "")
+                .replacingOccurrences(of: "\n", with: "")
+            log.notice("banking selftest spki \(flat, privacy: .public)")
+            log.notice("banking selftest jwt \(token, privacy: .public)")
+        } catch {
+            log.error("banking selftest failed: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
     static func probeAtLaunch() {
         do {
+            probeBankingKey()
             let store = try LocalStore()
             // A fresh install gets the same starting categories the other
             // surfaces create, so the first screen is a budget and not a form.
