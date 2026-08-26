@@ -71,6 +71,15 @@ final class AnalysisModel: ObservableObject {
         guard !loading else { return }
         loading = true
         do {
+            if base.scheme == "florin-local" {
+                guard let store = LocalStore.shared else {
+                    throw FlorinError.rejected("Florin could not open its database on this device.")
+                }
+                data = try LocalAnalysis.data(store: store)
+                failure = nil
+                loading = false
+                return
+            }
             var components = URLComponents(url: base, resolvingAgainstBaseURL: false)
             components?.path = "/api/v2/analysis"
             guard let url = components?.url else { throw FlorinError.unreachable(base.host ?? "?") }
