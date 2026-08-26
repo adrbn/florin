@@ -20,7 +20,10 @@ struct BankingSettings: View {
     @State private var query = ""
     @State private var country = "FR"
 
-    private var configured: Bool { hasKey && !appId.isEmpty }
+    /// Reads the stored value, not the typed one: the whole point of the bug
+    /// above was a screen that claimed to be ready on the strength of a
+    /// variable nothing had persisted.
+    private var configured: Bool { hasKey && BankingFlow.isConfigured }
 
     var body: some View {
         ZStack {
@@ -56,6 +59,8 @@ struct BankingSettings: View {
             }
         }
         .preferredColorScheme(.dark)
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
         .task {
             if let store = LocalStore.shared { appId = BankingFlow.appId(store) ?? "" }
         }
@@ -257,17 +262,44 @@ struct BankingSettings: View {
             .font(.system(size: 13))
             .foregroundStyle(Florin.text2)
 
-        TextField("00000000-0000-0000-0000-000000000000", text: $appId)
+        TextField("00000000-0000-0000-0000-000000000000", text: storedAppId)
             .font(.system(size: 14, design: .monospaced))
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
             .padding(.vertical, 12)
             .padding(.horizontal, 14)
             .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Florin.surface2))
-            .onChange(of: appId) { _, value in
-                guard let store = LocalStore.shared else { return }
-                try? BankingFlow.setAppId(store, value)
+    }
+
+    /*
+     * Writes on set, rather than from an .onChange on the field.
+     *
+     * The field lived inside the step-3 card, which disappears the instant the
+     * id becomes non-empty — `configured` flips and the whole step list is
+     * replaced by the "ready" card. SwiftUI tore the field down in the same
+     * update that changed its value, so the .onChange never ran: the screen
+     * said ready while the database had nothing, and the first API call failed
+     * with "not set up yet".
+     *
+     * A binding that writes as part of the assignment cannot be outrun by the
+     * view being removed.
+     */
+    private var storedAppId: Binding<String> {
+        Binding(
+            get: { appId },
+            set: { value in
+                appId = value
+                guard let store = LocalStore.shared else {
+                    flow.failure = "Florin n'a pas pu ouvrir sa base sur cet appareil."
+                    return
+                }
+                do {
+                    try BankingFlow.setAppId(store, value)
+                } catch {
+                    flow.failure = error.localizedDescription
+                }
             }
+        )
     }
 
     @ViewBuilder
