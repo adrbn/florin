@@ -55,7 +55,16 @@ struct FlorinClient: Sendable {
         return url
     }
 
+    /// The device's ledger, or a readable reason there is not one.
+    func localStore() throws -> LocalStore {
+        guard let store = LocalStore.shared else {
+            throw FlorinError.rejected("Florin could not open its database on this device.")
+        }
+        return store
+    }
+
     func add(_ tx: NewTransaction) async throws {
+        if isLocal { return try LocalLedger.add(store: try localStore(), tx) }
         var request = FlorinAuth.request(try endpoint("/api/v2/transactions"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")

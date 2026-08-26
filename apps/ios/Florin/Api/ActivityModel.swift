@@ -96,6 +96,11 @@ struct TxPatch: Encodable, Sendable {
 
 extension FlorinClient {
     func transactions(filter: TxFilter, offset: Int, limit: Int = 50) async throws -> TransactionPage {
+        if isLocal {
+            return try LocalLedger.page(
+                store: try localStore(), filter: filter, offset: offset, limit: limit
+            )
+        }
         var components = URLComponents(url: base, resolvingAgainstBaseURL: false)
         components?.path = "/api/v2/transactions"
         components?.queryItems =
@@ -113,6 +118,7 @@ extension FlorinClient {
     }
 
     func bulkApprove(_ ids: [String]) async throws {
+        if isLocal { return try LocalLedger.approve(store: try localStore(), ids: ids) }
         var components = URLComponents(url: base, resolvingAgainstBaseURL: false)
         components?.path = "/api/v2/transactions/bulk"
         guard let url = components?.url else { throw FlorinError.unreachable(base.host ?? "?") }
@@ -126,6 +132,7 @@ extension FlorinClient {
     }
 
     func patch(_ id: String, _ patch: TxPatch) async throws {
+        if isLocal { return try LocalLedger.patch(store: try localStore(), id: id, patch) }
         var components = URLComponents(url: base, resolvingAgainstBaseURL: false)
         components?.path = "/api/v2/transactions/\(id)"
         guard let url = components?.url else { throw FlorinError.unreachable(base.host ?? "?") }
@@ -137,6 +144,7 @@ extension FlorinClient {
     }
 
     func delete(_ id: String) async throws {
+        if isLocal { return try LocalLedger.delete(store: try localStore(), id: id) }
         var components = URLComponents(url: base, resolvingAgainstBaseURL: false)
         components?.path = "/api/v2/transactions/\(id)"
         guard let url = components?.url else { throw FlorinError.unreachable(base.host ?? "?") }
