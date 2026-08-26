@@ -41,6 +41,11 @@ struct RootView: View {
     @AppStorage("florin.appearance") private var appearanceRaw = Appearance.dark.rawValue
     @State private var showingSetup = false
     @State private var splashing = true
+    @State private var wantsServerForm = false
+    /// Changed when onboarding finishes, purely to re-evaluate the branch
+    /// above — `LocalOnboarding.isComplete` reads the database, which SwiftUI
+    /// has no way to observe on its own.
+    @State private var onboarded = UUID()
 
     private var appearance: Appearance { Appearance(rawValue: appearanceRaw) ?? .dark }
 
@@ -50,10 +55,26 @@ struct RootView: View {
                 if let url = server.resolvedURL {
                     MainTabs(base: url, onRequestSettings: { showingSetup = true })
                         .id(server.reloadToken)
-                } else {
+                } else if wantsServerForm || LocalOnboarding.isComplete {
+                    /*
+                     * The form, for people who came looking for it.
+                     *
+                     * It used to be the front door: a fresh install was asked
+                     * for a URL and a token before the app had said what it
+                     * was. Someone who has never run Florin anywhere has no
+                     * server and no way to guess that they were supposed to.
+                     * It stays one tap from the welcome screen, and it is what
+                     * you get back to once onboarding is behind you.
+                     */
                     SetupView(isFirstRun: true)
+                } else {
+                    OnboardingFlow(
+                        onFinish: { onboarded = UUID() },
+                        onUseServer: { wantsServerForm = true }
+                    )
                 }
             }
+            .id(onboarded)
 
             // Zero-sized, but it owns the responder chain so a shake reaches
             // us without swizzling UIWindow.
