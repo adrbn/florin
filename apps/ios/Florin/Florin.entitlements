@@ -4,7 +4,7 @@
 <dict>
 	<key>com.apple.developer.associated-domains</key>
 	<array>
-		<string>applinks:florin.pages.dev</string>
+		<string>applinks:florin-cpe.pages.dev</string>
 	</array>
 </dict>
 </plist>
