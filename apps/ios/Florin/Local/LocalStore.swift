@@ -101,12 +101,19 @@ extension LocalStore {
     static func probeAtLaunch() {
         do {
             let store = try LocalStore()
+            // A fresh install gets the same starting categories the other
+            // surfaces create, so the first screen is a budget and not a form.
+            let seeded = try LocalBootstrap.run(
+                on: store,
+                locale: Locale.current.identifier
+            )
             let count = try store.transactionCount()
+            let categories = try store.categoryCount()
             let range = try store.dateRange()
             log.notice("""
                 local ledger ready at \(store.url.path, privacy: .public) \
                 — schema v\(LocalSchema.version) \
-                — \(count) transactions \
+                — \(count) transactions, \(categories) categories\(seeded ? " (just seeded)" : "", privacy: .public) \
                 \(range.map { "(\($0.earliest) … \($0.latest))" } ?? "(empty)", privacy: .public)
                 """)
         } catch {
