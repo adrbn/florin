@@ -97,8 +97,10 @@ struct BankingSettings: View {
                 .multilineTextAlignment(.center)
                 .lineSpacing(2)
         }
-        .padding(.top, 30)
-        .padding(.bottom, 4)
+        // Clear of the close button, and of the sheet's own grabber: a title
+        // that starts right under the top edge reads as clipped.
+        .padding(.top, 54)
+        .padding(.bottom, 6)
     }
 
     private var ready: some View {
@@ -215,7 +217,7 @@ struct BankingSettings: View {
 
     @ViewBuilder
     private var registerStep: some View {
-        Text("Créez une application gratuite chez Enable Banking, collez-y la clé, et indiquez cette adresse de redirection :")
+        Text("Créez une application gratuite chez Enable Banking, collez-y la clé, et indiquez cette adresse de redirection — elle doit être recopiée exactement :")
             .font(.system(size: 13))
             .foregroundStyle(Florin.text2)
 

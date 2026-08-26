@@ -14,12 +14,27 @@ final class BankingFlow: NSObject, ObservableObject {
     @Published private(set) var busy = false
     @Published var failure: String?
 
-    /// Where the bank sends the user back. This exact string has to be
-    /// registered as a redirect URI in the Enable Banking console, and the
-    /// scheme has to be declared in Info.plist — the two must agree or the
-    /// bank refuses the request before the user ever sees a sign-in page.
-    static let redirectURL = "florin://banking/callback"
-    private static let scheme = "florin"
+    /*
+     * Where the bank sends the user back.
+     *
+     * An https URL, not a custom scheme: Enable Banking's console rejects
+     * anything else outright — "uses unsupported scheme" — so `florin://`
+     * never had a chance, whatever Info.plist said.
+     *
+     * So it is a universal link. iOS checks once, at install, that this host
+     * publishes an apple-app-site-association naming this app, and from then
+     * on hands the URL to Florin instead of opening a browser. The file is
+     * static and lives in `apps/site`; it is never in the critical path of a
+     * sync.
+     *
+     * This host, the Associated Domains entitlement and the redirect URI
+     * registered with Enable Banking all have to say the same thing. When they
+     * disagree the bank refuses before showing a sign-in page, and its error
+     * does not say which of the three is wrong.
+     */
+    static let redirectHost = "florin.pages.dev"
+    private static let redirectPath = "/banking/callback"
+    static var redirectURL: String { "https://\(redirectHost)\(redirectPath)" }
 
     /*
      * The nonce stays in memory, and is never transmitted.
@@ -126,7 +141,7 @@ final class BankingFlow: NSObject, ObservableObject {
         try await withCheckedThrowingContinuation { continuation in
             let session = ASWebAuthenticationSession(
                 url: url,
-                callbackURLScheme: Self.scheme
+                callback: .https(host: Self.redirectHost, path: Self.redirectPath)
             ) { callback, error in
                 if let callback {
                     continuation.resume(returning: callback)
