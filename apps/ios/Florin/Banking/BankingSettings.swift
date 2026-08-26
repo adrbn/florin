@@ -172,7 +172,7 @@ struct BankingSettings: View {
 
     @ViewBuilder
     private var keyStep: some View {
-        Text("Florin crée une clé qui reste sur ce téléphone. Seule sa moitié publique est partagée.")
+        Text("Florin crée une clé qui reste sur ce téléphone. Seul le certificat public en sort — c'est lui qu'Enable Banking demande.")
             .font(.system(size: 13))
             .foregroundStyle(Florin.text2)
 
@@ -192,7 +192,10 @@ struct BankingSettings: View {
                 copied = true
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
             } label: {
-                Label(copied ? "Clé copiée" : "Copier la clé", systemImage: copied ? "checkmark" : "doc.on.doc")
+                Label(
+                    copied ? "Certificat copié" : "Copier le certificat",
+                    systemImage: copied ? "checkmark" : "doc.on.doc"
+                )
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(Florin.text)
                     .frame(maxWidth: .infinity)
@@ -322,7 +325,10 @@ struct BankingSettings: View {
             // A new key means every signature the cached token carries is
             // worthless.
             EnableBanking.forgetToken()
-            publicKey = try BankingKey.publicKeyPEM()
+            // The console takes a certificate, not a bare public key — its own
+            // instructions are `openssl req -x509`, and an SPKI key pasted into
+            // that field is rejected.
+            publicKey = try BankingKey.certificatePEM()
             hasKey = true
             copied = false
         } catch {

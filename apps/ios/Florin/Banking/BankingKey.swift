@@ -121,6 +121,126 @@ enum BankingKey {
             .joined(separator: "\n")
     }
 
+    /*
+     * A self-signed X.509 certificate wrapping the public key.
+     *
+     * Enable Banking's console asks for a certificate, not a bare public key —
+     * its own instructions are `openssl req -new -x509`. A SPKI public key
+     * pasted into that field is rejected, so the device has to produce a real
+     * certificate.
+     *
+     * Hand-built rather than pulled from a package: this is the credential that
+     * reads someone's bank, the structure below is small and fixed, and the
+     * result is checkable — `openssl x509 -text` either parses it or does not.
+     * A dependency would be more code to trust, not less.
+     */
+    static func certificatePEM(
+        commonName: String = "Florin iOS",
+        days: Int = 3650
+    ) throws -> String {
+        let privateKey = try load()
+        guard let publicKey = SecKeyCopyPublicKey(privateKey) else {
+            throw Failure.export("no public half")
+        }
+        var error: Unmanaged<CFError>?
+        guard let rawPublic = SecKeyCopyExternalRepresentation(publicKey, &error) as Data? else {
+            throw Failure.export(message(from: error))
+        }
+
+        let rsaOID: [UInt8] = [
+            0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86,
+            0xf7, 0x0d, 0x01, 0x01, 0x01, 0x05, 0x00,
+        ]
+        var publicBits = Data([0x00])
+        publicBits.append(rawPublic)
+        var spkiInner = Data(rsaOID)
+        spkiInner.append(der(tag: 0x03, payload: publicBits))
+        let spki = der(tag: 0x30, payload: spkiInner)
+
+        /// sha256WithRSAEncryption, as both the TBS and the outer algorithm —
+        /// they have to agree or every verifier rejects the certificate.
+        let signatureOID: [UInt8] = [
+            0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86,
+            0xf7, 0x0d, 0x01, 0x01, 0x0b, 0x05, 0x00,
+        ]
+
+        // A single CN, used as both issuer and subject: self-signed means the
+        // two are the same name by definition.
+        let name = distinguishedName(commonName: commonName)
+
+        let now = Date()
+        let notAfter = Calendar(identifier: .gregorian)
+            .date(byAdding: .day, value: days, to: now) ?? now
+        var validity = Data()
+        validity.append(utcTime(now))
+        validity.append(utcTime(notAfter))
+        let validitySeq = der(tag: 0x30, payload: validity)
+
+        var tbs = Data()
+        // [0] EXPLICIT version, v3 = 2.
+        tbs.append(der(tag: 0xa0, payload: der(tag: 0x02, payload: Data([0x02]))))
+        // Serial: positive, non-zero, and unique per certificate.
+        tbs.append(der(tag: 0x02, payload: serialNumber()))
+        tbs.append(Data(signatureOID))
+        tbs.append(name)
+        tbs.append(validitySeq)
+        tbs.append(name)
+        tbs.append(spki)
+        let tbsCertificate = der(tag: 0x30, payload: tbs)
+
+        let signature = try sign(tbsCertificate)
+        var signatureBits = Data([0x00])
+        signatureBits.append(signature)
+
+        var certificate = Data()
+        certificate.append(tbsCertificate)
+        certificate.append(Data(signatureOID))
+        certificate.append(der(tag: 0x03, payload: signatureBits))
+
+        return pem(der(tag: 0x30, payload: certificate), label: "CERTIFICATE")
+    }
+
+    /// RDNSequence with one RDN: CN=<commonName>, as a PrintableString.
+    private static func distinguishedName(commonName: String) -> Data {
+        let commonNameOID: [UInt8] = [0x06, 0x03, 0x55, 0x04, 0x03]
+        var attribute = Data(commonNameOID)
+        attribute.append(der(tag: 0x13, payload: Data(commonName.utf8)))
+        let typeAndValue = der(tag: 0x30, payload: attribute)
+        let rdn = der(tag: 0x31, payload: typeAndValue)
+        return der(tag: 0x30, payload: rdn)
+    }
+
+    /// UTCTime, YYMMDDHHMMSSZ in UTC — the encoding X.509 uses for dates
+    /// before 2050.
+    private static func utcTime(_ date: Date) -> Data {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyMMddHHmmss'Z'"
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        return der(tag: 0x17, payload: Data(formatter.string(from: date).utf8))
+    }
+
+    /// Random, and forced positive: DER integers are signed, so a leading byte
+    /// above 0x7f would encode a negative serial, which parsers reject.
+    private static func serialNumber() -> Data {
+        var bytes = [UInt8](repeating: 0, count: 16)
+        _ = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+        bytes[0] &= 0x7f
+        if bytes[0] == 0 { bytes[0] = 1 }
+        return Data(bytes)
+    }
+
+    private static func pem(_ der: Data, label: String) -> String {
+        let body = der.base64EncodedString()
+        let wrapped = stride(from: 0, to: body.count, by: 64).map { offset -> String in
+            let start = body.index(body.startIndex, offsetBy: offset)
+            let end = body.index(start, offsetBy: min(64, body.count - offset))
+            return String(body[start..<end])
+        }
+        return (["-----BEGIN \(label)-----"] + wrapped + ["-----END \(label)-----"])
+            .joined(separator: "\n")
+    }
+
     /// RS256 over the JWT's signing input.
     static func sign(_ input: Data) throws -> Data {
         let key = try load()

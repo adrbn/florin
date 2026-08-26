@@ -123,6 +123,15 @@ extension LocalStore {
                 .replacingOccurrences(of: "-----END PUBLIC KEY-----", with: "")
                 .replacingOccurrences(of: "\n", with: "")
             log.notice("banking selftest spki \(flat, privacy: .public)")
+
+            // The certificate is what Enable Banking's console actually takes;
+            // a bare public key is rejected there.
+            let certificate = try BankingKey.certificatePEM()
+            let flatCertificate = certificate
+                .replacingOccurrences(of: "-----BEGIN CERTIFICATE-----", with: "")
+                .replacingOccurrences(of: "-----END CERTIFICATE-----", with: "")
+                .replacingOccurrences(of: "\n", with: "")
+            log.notice("banking selftest cert \(flatCertificate, privacy: .public)")
             log.notice("banking selftest jwt \(token, privacy: .public)")
         } catch {
             log.error("banking selftest failed: \(error.localizedDescription, privacy: .public)")
