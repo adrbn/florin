@@ -21,6 +21,7 @@ struct SettingsScreen: View {
     @State private var changingLocale = false
 
     private var t: Strings { model.overview?.t ?? .empty }
+    @State private var showingBanking = false
 
     var body: some View {
         NavigationStack {
@@ -42,6 +43,7 @@ struct SettingsScreen: View {
             }
             .navigationTitle(t("v2.settings.title", "Réglages"))
             .navigationBarTitleDisplayMode(.inline)
+            .sheet(isPresented: $showingBanking) { BankingSettings() }
             .toolbar {
                 ToolbarItem(placement: .principal) { Wordmark(size: 17) }
                 if let onClose {
@@ -133,13 +135,37 @@ struct SettingsScreen: View {
 
     private var syncSection: some View {
         Section {
-            LabeledContent(t("v2.settings.banking", "Synchronisation bancaire")) {
+            /*
+             * Only on a serverless install.
+             *
+             * With a server the bank lives there — its key, its consent, its
+             * scheduler — and offering to set up a second connection from the
+             * phone would create two half-connections to the same bank and
+             * burn PSD2 consent quota for nothing.
+             */
+            if model.base.scheme == "florin-local" {
+                Button {
+                    showingBanking = true
+                } label: {
+                    LabeledContent(t("v2.settings.banking", "Synchronisation bancaire")) {
+                        Text(
+                            BankingFlow.isConfigured
+                                ? t("v2.settings.bankingReady", "Configurée")
+                                : t("v2.settings.bankingMissing", "Non configurée")
+                        )
+                        .foregroundStyle(.secondary)
+                    }
+                }
+                .buttonStyle(.plain)
+            } else {
+                LabeledContent(t("v2.settings.banking", "Synchronisation bancaire")) {
                 Text(
                     model.overview?.bankSyncConfigured == true
                         ? t("v2.settings.bankingReady", "Configurée")
                         : t("v2.settings.bankingMissing", "Non configurée")
                 )
                 .foregroundStyle(.secondary)
+                }
             }
 
             if let last = model.overview?.lastSynced {
