@@ -41,6 +41,11 @@ targets:
           # developer mode on, and is ignored in App Store builds — so it costs
           # nothing to leave in and saves a day of wondering why nothing opens.
           - applinks:florin-cpe.pages.dev?mode=developer
+          # `webcredentials`, not just `applinks`. ASWebAuthenticationSession's
+          # https callback checks *this* service type, and says so only once it
+          # has already refused: "Using HTTPS callbacks requires Associated
+          # Domains using the webcredentials service type".
+          - webcredentials:florin-cpe.pages.dev?mode=developer
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.adrbn.florin

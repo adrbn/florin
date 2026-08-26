@@ -132,6 +132,14 @@ struct BankingSettings: View {
             }
             .buttonStyle(.plain)
 
+            if ProcessInfo.processInfo.environment["FLORIN_BANKING_SELFTEST"] == "1" {
+                Button("Tester l'ouverture") {
+                    Task { await flow.probePresentation() }
+                }
+                .font(.system(size: 12.5))
+                .foregroundStyle(Florin.warn)
+            }
+
             Button("Refaire la configuration") {
                 withAnimation { banks = []; appId = "" }
             }
