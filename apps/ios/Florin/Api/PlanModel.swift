@@ -54,6 +54,16 @@ final class PlanModel: ObservableObject {
     func load() async {
         loading = true
         do {
+            if base.scheme == "florin-local" {
+                let parts = month.split(separator: "-").compactMap { Int($0) }
+                guard parts.count == 2, let store = LocalStore.shared else {
+                    throw FlorinError.rejected("Florin could not open its database on this device.")
+                }
+                plan = try LocalPlan.month(store: store, year: parts[0], month: parts[1])
+                failure = nil
+                loading = false
+                return
+            }
             var components = URLComponents(url: base, resolvingAgainstBaseURL: false)
             components?.path = "/api/v2/plan"
             components?.queryItems = [URLQueryItem(name: "month", value: month)]
@@ -91,6 +101,17 @@ final class PlanModel: ObservableObject {
     func assign(_ amount: Double, to categoryId: String) async {
         guard let plan else { return }
         do {
+            if base.scheme == "florin-local" {
+                guard let store = LocalStore.shared else {
+                    throw FlorinError.rejected("Florin could not open its database on this device.")
+                }
+                try LocalPlan.assign(
+                    store: store, year: plan.year, month: plan.month,
+                    categoryId: categoryId, amount: amount
+                )
+                await load()
+                return
+            }
             var components = URLComponents(url: base, resolvingAgainstBaseURL: false)
             components?.path = "/api/v2/plan"
             guard let url = components?.url else { throw FlorinError.unreachable(base.host ?? "?") }
