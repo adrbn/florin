@@ -25,9 +25,24 @@ enum FlorinError: LocalizedError {
     }
 }
 
-/// Talks to the Florin server's read-only v2 feed.
+/// Talks to the Florin server's read-only v2 feed — or to the device itself.
+///
+/// The client is the seam between the two. Everything above it takes a `base:
+/// URL` and hands it around: the models, the screens, the sheets. Rather than
+/// rewrite that whole chain to carry a source enum, a serverless install gets
+/// a URL of its own — `florin-local://device` — and the client answers it from
+/// the on-device ledger instead of the network.
+///
+/// The point is that nothing above this file can tell the difference, which is
+/// the only way the port stays honest about looking identical: there is no
+/// second set of screens to drift.
 struct FlorinClient: Sendable {
     let base: URL
+
+    /// The address of the ledger on this phone.
+    static let localBase = URL(string: "florin-local://device")!
+
+    var isLocal: Bool { base.scheme == "florin-local" }
 
     /// Carries the bearer token on the session rather than the request — see
     /// `FlorinAuth.session`.
@@ -85,6 +100,13 @@ struct FlorinClient: Sendable {
     var overviewKey: String { "overview-\(base.host ?? "?")" }
 
     func overview() async throws -> Overview {
+        if isLocal {
+            guard let store = LocalStore.shared else {
+                throw FlorinError.rejected("Florin could not open its database on this device.")
+            }
+            return try LocalQueries.overview(store: store, locale: Locale.current.identifier)
+        }
+
         // `base` points at the v2 page (…/m); the feed sits beside it.
         var components = URLComponents(url: base, resolvingAgainstBaseURL: false)
         components?.path = "/api/v2/overview"

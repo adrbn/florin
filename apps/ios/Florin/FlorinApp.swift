@@ -55,7 +55,15 @@ struct RootView: View {
                 if let url = server.resolvedURL {
                     MainTabs(base: url, onRequestSettings: { showingSetup = true })
                         .id(server.reloadToken)
-                } else if wantsServerForm || LocalOnboarding.isComplete {
+                } else if LocalOnboarding.isComplete {
+                    // Same tabs, same screens — reading the phone instead of a
+                    // server. See `FlorinClient.localBase`.
+                    MainTabs(
+                        base: FlorinClient.localBase,
+                        onRequestSettings: { showingSetup = true }
+                    )
+                    .id(onboarded)
+                } else if wantsServerForm {
                     /*
                      * The form, for people who came looking for it.
                      *
