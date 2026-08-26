@@ -12,6 +12,20 @@ import SwiftUI
 struct FlorinApp: App {
     @StateObject private var server = ServerStore()
 
+    init() {
+        /*
+         * Open the on-device ledger at launch, and say so.
+         *
+         * Nothing reads from it yet — the app is still a thin client and every
+         * figure on screen still comes from the server. This runs so that the
+         * store's schema migration is exercised on a real device on every
+         * build, rather than being discovered to be broken on the day a query
+         * finally depends on it. When a port lands, the failure it prevents is
+         * already behind us.
+         */
+        LocalStore.probeAtLaunch()
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView().environmentObject(server)

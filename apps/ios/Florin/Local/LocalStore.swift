@@ -1,0 +1,116 @@
+import Foundation
+
+/// The device's own copy of the ledger.
+///
+/// The app is a thin client today: every figure on every screen is computed on
+/// a server and fetched over HTTP, so with no network there is nothing to show.
+/// This is the first piece of the way out of that — a real database on the
+/// phone, holding the same schema the desktop build already uses, so the
+/// arithmetic can move here one query at a time and be checked against the
+/// server's answer while both still exist.
+///
+/// It deliberately does not yet own anything. Nothing reads from it until a
+/// ported query has been proved to agree with the live figures to the cent.
+final class LocalStore {
+    static let shared = try? LocalStore()
+
+    let database: SQLiteDatabase
+    let url: URL
+
+    init(url: URL? = nil) throws {
+        let resolved = try url ?? Self.defaultURL()
+        self.url = resolved
+        database = try SQLiteDatabase(path: resolved.path)
+        try migrate()
+    }
+
+    /// Application Support, not Documents.
+    ///
+    /// Documents is user-visible in Files and gets backed up as documents; a
+    /// database is neither. Application Support is where a private store
+    /// belongs, and it is the same choice the desktop build makes.
+    private static func defaultURL() throws -> URL {
+        let base = try FileManager.default.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )
+        let folder = base.appendingPathComponent("Florin", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        var file = folder.appendingPathComponent("florin.db")
+        /*
+         * Excluded from iCloud backup, on purpose.
+         *
+         * A WAL database restored mid-write is a corrupt database, and this one
+         * is reconstructible: it is a local projection of a ledger that is
+         * either on the user's server or re-derivable from their bank. Backing
+         * it up trades a real corruption risk for a convenience we do not need.
+         */
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        try? file.setResourceValues(values)
+        return file
+    }
+
+    private func migrate() throws {
+        try database.exec(LocalSchema.ddl)
+        // `settings` is exactly (key, value) in this schema — no timestamps.
+        try database.run(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+            [.text("schema_version"), .text(String(LocalSchema.version))]
+        )
+    }
+
+    // MARK: - Facts about what is here
+
+    /// How many live transactions the device holds. Zero means "never seeded".
+    func transactionCount() throws -> Int {
+        try database.scalar(
+            "SELECT count(*) FROM transactions WHERE deleted_at IS NULL"
+        )?.int ?? 0
+    }
+
+    /// The newest and oldest dates held, for showing what a seed actually got.
+    func dateRange() throws -> (earliest: String, latest: String)? {
+        let rows = try database.query(
+            """
+            SELECT min(occurred_at) AS earliest, max(occurred_at) AS latest
+            FROM transactions WHERE deleted_at IS NULL
+            """
+        )
+        guard let row = rows.first,
+              let earliest = row.string("earliest"),
+              let latest = row.string("latest")
+        else { return nil }
+        return (earliest, latest)
+    }
+}
+
+import OSLog
+
+extension LocalStore {
+    private static let log = Logger(subsystem: "com.adrbn.florin", category: "local-store")
+
+    /// Open the store once at launch and report what is in it.
+    ///
+    /// Deliberately non-fatal: the app does not depend on this yet, so a
+    /// failure here must not stop someone using the client they already have.
+    /// It is loud in the log precisely because a silent failure would let the
+    /// schema rot until the first ported query trips over it.
+    static func probeAtLaunch() {
+        do {
+            let store = try LocalStore()
+            let count = try store.transactionCount()
+            let range = try store.dateRange()
+            log.notice("""
+                local ledger ready at \(store.url.path, privacy: .public) \
+                — schema v\(LocalSchema.version) \
+                — \(count) transactions \
+                \(range.map { "(\($0.earliest) … \($0.latest))" } ?? "(empty)", privacy: .public)
+                """)
+        } catch {
+            log.error("local ledger unavailable: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+}
