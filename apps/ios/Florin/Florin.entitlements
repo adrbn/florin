@@ -5,6 +5,7 @@
 	<key>com.apple.developer.associated-domains</key>
 	<array>
 		<string>applinks:florin-cpe.pages.dev?mode=developer</string>
+		<string>webcredentials:florin-cpe.pages.dev?mode=developer</string>
 	</array>
 </dict>
 </plist>

@@ -60,6 +60,8 @@ final class BankingFlow: NSObject, ObservableObject {
      * come from the auth we started cannot match.
      */
     private var pendingNonce: String?
+    /// When the current attempt began, to tell a refusal from a decision.
+    private var startedAt = Date()
     private var session: ASWebAuthenticationSession?
 
     // MARK: - Configuration
@@ -134,6 +136,7 @@ final class BankingFlow: NSObject, ObservableObject {
 
         do {
             let config = try Self.config(store)
+            startedAt = Date()
             step = "2/4 · demande d'autorisation"
             let nonce = UUID().uuidString
             pendingNonce = nonce
@@ -169,8 +172,35 @@ final class BankingFlow: NSObject, ObservableObject {
             step = nil
         } catch {
             step = nil
-            if (error as? ASWebAuthenticationSessionError)?.code == .canceledLogin { return }
+            /*
+             * A cancellation is only a cancellation if a person had time to
+             * make one.
+             *
+             * iOS reports its own refusals as `.canceledLogin` too, and this
+             * swallowed them: the associated domain was not configured, the
+             * session was killed in under a second, and the code returned
+             * quietly — leaving the step counter frozen at "3/4" with nothing
+             * to read. The real error said exactly what was wrong and nobody
+             * ever saw it.
+             */
+            let cancelled = (error as? ASWebAuthenticationSessionError)?.code == .canceledLogin
+            if cancelled, Date().timeIntervalSince(startedAt) > 1.5 { return }
             failure = error.localizedDescription
+        }
+    }
+
+    /// Opens the auth browser against a URL of our own, with no bank and no
+    /// Enable Banking involved, so a failure to *present* can be told apart
+    /// from a failure to authenticate. Debug builds only.
+    func probePresentation() async {
+        step = "test · ouverture"
+        do {
+            let url = URL(string: "https://\(Self.redirectHost)/")!
+            _ = try await present(url)
+            step = "test · revenu"
+        } catch {
+            step = nil
+            failure = "test : \(error.localizedDescription)"
         }
     }
 

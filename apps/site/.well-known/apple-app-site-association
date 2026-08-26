@@ -2,7 +2,9 @@
   "applinks": {
     "details": [
       {
-        "appIDs": ["2TWQF4T93E.com.adrbn.florin"],
+        "appIDs": [
+          "2TWQF4T93E.com.adrbn.florin"
+        ],
         "components": [
           {
             "/": "/banking/callback",
@@ -10,6 +12,11 @@
           }
         ]
       }
+    ]
+  },
+  "webcredentials": {
+    "apps": [
+      "2TWQF4T93E.com.adrbn.florin"
     ]
   }
 }
