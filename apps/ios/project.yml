@@ -35,7 +35,12 @@ targets:
         # browser. Must match BankingFlow.redirectHost and the redirect URI
         # registered with Enable Banking.
         com.apple.developer.associated-domains:
-          - applinks:florin-cpe.pages.dev
+          # `?mode=developer` makes iOS fetch the association file straight
+          # from the domain instead of waiting on Apple's CDN, which can lag by
+          # hours after a first deploy. It only takes effect on a device with
+          # developer mode on, and is ignored in App Store builds — so it costs
+          # nothing to leave in and saves a day of wondering why nothing opens.
+          - applinks:florin-cpe.pages.dev?mode=developer
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.adrbn.florin
