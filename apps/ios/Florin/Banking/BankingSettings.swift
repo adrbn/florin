@@ -324,23 +324,32 @@ struct BankingSettings: View {
                 : banks.filter { $0.name.localizedCaseInsensitiveContains(query) }
 
             ForEach(matches.prefix(40)) { bank in
-                Button {
-                    Task { await flow.connect(to: bank) }
-                } label: {
-                    HStack {
-                        Text(bank.name)
-                            .font(.system(size: 15))
-                            .foregroundStyle(Florin.text)
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(Florin.text3)
-                    }
-                    .padding(.vertical, 12)
-                    .contentShape(Rectangle())
+                /*
+                 * A tap gesture, not a Button.
+                 *
+                 * Wrapped in a Button these rows never fired — the same thing
+                 * that happened to Plan's category rows in the same kind of
+                 * stack, while buttons elsewhere on the screen worked. An
+                 * explicit content shape with a tap on it is unambiguous and
+                 * does fire.
+                 */
+                HStack {
+                    Text(bank.name)
+                        .font(.system(size: 15))
+                        .foregroundStyle(Florin.text)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Florin.text3)
                 }
-                .buttonStyle(.plain)
-                .disabled(flow.busy)
+                .padding(.vertical, 12)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    guard !flow.busy else { return }
+                    UISelectionFeedbackGenerator().selectionChanged()
+                    Task { await flow.connect(to: bank) }
+                }
+                .opacity(flow.busy ? 0.4 : 1)
 
                 if bank.id != matches.prefix(40).last?.id { Hairline() }
             }
