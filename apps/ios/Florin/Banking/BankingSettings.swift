@@ -311,6 +311,13 @@ struct BankingSettings: View {
                 if flow.busy || searching { ProgressView().controlSize(.small) }
             }
 
+            if let step = flow.step {
+                Text(step)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Florin.accent)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
             TextField("Rechercher", text: $query)
                 .font(.system(size: 15))
                 .padding(.vertical, 11)
