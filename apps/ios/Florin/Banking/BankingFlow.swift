@@ -1,5 +1,6 @@
 import AuthenticationServices
 import Foundation
+import OSLog
 
 /// Connecting a bank, from the phone.
 ///
@@ -108,8 +109,16 @@ final class BankingFlow: NSObject, ObservableObject {
 
     /// Send the user to their bank, then turn the code they come back with
     /// into a session and a set of accounts.
+    private static let log = Logger(subsystem: "com.adrbn.florin", category: "banking-flow")
+
     func connect(to aspsp: Aspsp) async {
-        guard let store = LocalStore.shared else { return }
+        // Loud on purpose: the failure that matters here is the one where
+        // nothing at all happens, which leaves no error to read.
+        Self.log.notice("connect tapped: \(aspsp.name, privacy: .public)")
+        guard let store = LocalStore.shared else {
+            failure = "Florin n'a pas pu ouvrir sa base sur cet appareil."
+            return
+        }
         busy = true
         defer { busy = false }
 
@@ -126,6 +135,7 @@ final class BankingFlow: NSObject, ObservableObject {
             let start = try await EnableBanking.startAuth(
                 config, aspsp: aspsp, state: nonce, validUntil: validUntil
             )
+            Self.log.notice("auth url received, presenting")
             guard let authURL = URL(string: start.url) else { throw EnableBanking.Failure.malformed }
 
             let callback = try await present(authURL)
