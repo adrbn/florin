@@ -14,6 +14,15 @@ import OSLog
 final class BankingFlow: NSObject, ObservableObject {
     @Published private(set) var busy = false
     @Published var failure: String?
+    /*
+     * What the flow is doing, on screen.
+     *
+     * Tapping a bank did nothing at all: no page, no error, no log I could
+     * reach — a physical device needs root to collect logs, so the usual way
+     * of telling "the tap never landed" from "the request failed silently" was
+     * closed. This puts that distinction where it can actually be read.
+     */
+    @Published private(set) var step: String?
 
     /*
      * Where the bank sends the user back.
@@ -115,6 +124,7 @@ final class BankingFlow: NSObject, ObservableObject {
         // Loud on purpose: the failure that matters here is the one where
         // nothing at all happens, which leaves no error to read.
         Self.log.notice("connect tapped: \(aspsp.name, privacy: .public)")
+        step = "1/4 · touche reçue"
         guard let store = LocalStore.shared else {
             failure = "Florin n'a pas pu ouvrir sa base sur cet appareil."
             return
@@ -124,6 +134,7 @@ final class BankingFlow: NSObject, ObservableObject {
 
         do {
             let config = try Self.config(store)
+            step = "2/4 · demande d'autorisation"
             let nonce = UUID().uuidString
             pendingNonce = nonce
 
@@ -136,6 +147,7 @@ final class BankingFlow: NSObject, ObservableObject {
                 config, aspsp: aspsp, state: nonce, validUntil: validUntil
             )
             Self.log.notice("auth url received, presenting")
+            step = "3/4 · ouverture de la banque"
             guard let authURL = URL(string: start.url) else { throw EnableBanking.Failure.malformed }
 
             let callback = try await present(authURL)
@@ -150,17 +162,25 @@ final class BankingFlow: NSObject, ObservableObject {
             guard returned == nonce else { throw EnableBanking.Failure.malformed }
             pendingNonce = nil
 
+            step = "4/4 · récupération des comptes"
             let session = try await EnableBanking.createSession(config, code: code)
             try save(session, aspsp: aspsp, store: store)
             try await BankingSync.run(store: store, config: config)
+            step = nil
         } catch {
+            step = nil
             if (error as? ASWebAuthenticationSessionError)?.code == .canceledLogin { return }
             failure = error.localizedDescription
         }
     }
 
     private func present(_ url: URL) async throws -> URL {
-        try await withCheckedThrowingContinuation { continuation in
+        guard Self.currentAnchor() != nil else {
+            throw EnableBanking.Failure.rejected(
+                "Florin n'a pas trouvé de fenêtre pour afficher la page de la banque."
+            )
+        }
+        return try await withCheckedThrowingContinuation { continuation in
             let session = ASWebAuthenticationSession(
                 url: url,
                 callback: .https(host: Self.redirectHost, path: Self.redirectPath)
@@ -192,6 +212,7 @@ final class BankingFlow: NSObject, ObservableObject {
              * error to show and nothing in the log. That is exactly what
              * tapping a bank did.
              */
+            step = "3/4 · ouverture de la banque…"
             guard session.start() else {
                 Self.log.error("ASWebAuthenticationSession refused to start")
                 continuation.resume(throwing: EnableBanking.Failure.rejected(
@@ -222,9 +243,27 @@ final class BankingFlow: NSObject, ObservableObject {
 }
 
 extension BankingFlow: ASWebAuthenticationPresentationContextProviding {
+    /*
+     * A window that is actually on screen.
+     *
+     * This used to fall back to `ASPresentationAnchor()` — a freshly made
+     * UIWindow with no scene and no frame. iOS accepts it, `start()` returns
+     * true, and then nothing happens: the sheet is presented onto a window
+     * nobody can see, the completion handler is never called, and the flow
+     * stops dead with no error. That is exactly what tapping a bank did after
+     * reaching "3/4".
+     *
+     * So: the foreground-active scene first, and only then any window scene.
+     * If there is genuinely nothing to present on, that is worth knowing, and
+     * `connect` turns it into a message rather than a hang.
+     */
+    static func currentAnchor() -> ASPresentationAnchor? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let active = scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
+        return active?.keyWindow ?? active?.windows.first
+    }
+
     func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        UIApplication.shared.connectedScenes
-            .compactMap { ($0 as? UIWindowScene)?.keyWindow }
-            .first ?? ASPresentationAnchor()
+        Self.currentAnchor() ?? ASPresentationAnchor()
     }
 }
