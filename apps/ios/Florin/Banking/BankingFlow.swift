@@ -32,7 +32,10 @@ final class BankingFlow: NSObject, ObservableObject {
      * disagree the bank refuses before showing a sign-in page, and its error
      * does not say which of the three is wrong.
      */
-    static let redirectHost = "florin.pages.dev"
+    /// `florin.pages.dev` was already taken globally; Cloudflare assigned this
+    /// one. It is now part of the app's identity — changing it breaks universal
+    /// links for every install that already exists, not just new ones.
+    static let redirectHost = "florin-cpe.pages.dev"
     private static let redirectPath = "/banking/callback"
     static var redirectURL: String { "https://\(redirectHost)\(redirectPath)" }
 

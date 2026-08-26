@@ -35,7 +35,7 @@ targets:
         # browser. Must match BankingFlow.redirectHost and the redirect URI
         # registered with Enable Banking.
         com.apple.developer.associated-domains:
-          - applinks:florin.pages.dev
+          - applinks:florin-cpe.pages.dev
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.adrbn.florin

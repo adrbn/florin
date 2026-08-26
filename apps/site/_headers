@@ -1,0 +1,6 @@
+# Apple's documentation asks for application/json on the association file.
+# Cloudflare Pages serves an extensionless file as application/octet-stream by
+# default, which iOS has accepted in practice — but "has accepted in practice"
+# is a bad thing to rest a bank connection on, and this costs one line.
+/.well-known/apple-app-site-association
+  Content-Type: application/json
