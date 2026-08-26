@@ -1,0 +1,15 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["2TWQF4T93E.com.adrbn.florin"],
+        "components": [
+          {
+            "/": "/banking/callback",
+            "comment": "The redirect Enable Banking sends the user back to after their bank's sign-in. iOS hands it to the app instead of opening a browser."
+          }
+        ]
+      }
+    ]
+  }
+}

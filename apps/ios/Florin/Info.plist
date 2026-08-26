@@ -54,24 +54,5 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
-	<!--
-	  The scheme the bank redirects back to after sign-in.
-
-	  This has to match BankingFlow.redirectURL *and* the redirect URI
-	  registered in the Enable Banking console. If the three disagree the bank
-	  refuses the request before the user is ever shown a sign-in page, and the
-	  error it returns does not say which of the three is wrong.
-	-->
-	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleURLName</key>
-			<string>com.adrbn.florin.banking</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>florin</string>
-			</array>
-		</dict>
-	</array>
 </dict>
 </plist>
