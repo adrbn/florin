@@ -1,0 +1,417 @@
+import SwiftUI
+
+/// The first thing a new install sees.
+///
+/// Until now that was the server form: a URL field and a token field, on an
+/// app that had not yet said what it was. Someone who has never run Florin
+/// anywhere was asked for an address before being told why. This replaces that
+/// as the front door and keeps the form behind a link, for the people who
+/// already know they have a server.
+///
+/// It is deliberately three steps and no more. Onboarding earns its keep by
+/// getting out of the way — the categories are already seeded, the language
+/// comes from the device, and everything else is a decision better made later
+/// with real numbers on screen than upfront in the abstract.
+struct OnboardingFlow: View {
+    /// Called once the local ledger has an account and is worth opening.
+    let onFinish: () -> Void
+    /// The escape hatch to the old server form.
+    let onUseServer: () -> Void
+
+    @State private var step = 0
+    @State private var path: StartPath?
+    @State private var name = ""
+    @State private var kind = AccountKind.checking
+    @State private var balanceText = ""
+    @State private var saving = false
+    @State private var failure: String?
+    @FocusState private var focus: Field?
+
+    private enum Field { case name, balance }
+
+    /*
+     * How the money gets in, asked before anything is asked about it.
+     *
+     * The first version went straight to "name your account, type its
+     * balance" — which is the wrong question for anyone who is about to
+     * connect a bank, because the bank supplies both and would contradict the
+     * answer within the minute. A starting balance is only ever a real
+     * question on the manual path, so it is only asked there.
+     */
+    enum StartPath {
+        case bank
+        case manual
+    }
+
+    /// The ground shifts colour as you advance — the same per-section tinting
+    /// the tab bar does, used here to make three steps feel like a journey
+    /// rather than three identical pages.
+    private var tint: Color {
+        switch step {
+        case 0: TabRoute.overview.tint
+        case 1, 2: TabRoute.accounts.tint
+        default: TabRoute.plan.tint
+        }
+    }
+
+    /// Three pages on the bank path, four on the manual one — the account
+    /// form only exists where it means something.
+    private var lastStep: Int { path == .manual ? 3 : 2 }
+
+    var body: some View {
+        ZStack {
+            Backdrop(tint: tint).ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                Spacer(minLength: 0)
+
+                Group {
+                    switch step {
+                    case 0: welcome
+                    case 1: fork
+                    case 2 where path == .manual: account
+                    default: ready
+                    }
+                }
+                .transition(.asymmetric(
+                    insertion: .move(edge: .trailing).combined(with: .opacity),
+                    removal: .move(edge: .leading).combined(with: .opacity)
+                ))
+
+                Spacer(minLength: 0)
+
+                dots
+                    .padding(.bottom, 18)
+
+                primaryAction
+                    .padding(.horizontal, Florin.gutter)
+                    .padding(.bottom, 10)
+
+                secondaryAction
+                    .frame(height: 30)
+                    .padding(.bottom, 18)
+            }
+        }
+        .animation(.snappy(duration: 0.32), value: step)
+        .animation(.snappy(duration: 0.32), value: tint)
+        .preferredColorScheme(.dark)
+        .alert(
+            "Onboarding",
+            isPresented: Binding(get: { failure != nil }, set: { if !$0 { failure = nil } })
+        ) {
+            Button("OK", role: .cancel) { failure = nil }
+        } message: {
+            Text(failure ?? "")
+        }
+    }
+
+    // MARK: - Steps
+
+    private var welcome: some View {
+        VStack(spacing: 18) {
+            /*
+             * The same coin the splash just flicked, at rest.
+             *
+             * Cutting from an animated mark straight to a text page throws away
+             * the one moment the app has already earned. Landing on the settled
+             * coin reads as the end of that gesture rather than the start of a
+             * different screen.
+             */
+            Image("CoinFace")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 74, height: 74)
+                .shadow(color: .black.opacity(0.45), radius: 18, y: 8)
+                .padding(.bottom, 4)
+
+            Text("Florin")
+                .font(.system(size: 40, weight: .semibold))
+                .foregroundStyle(Florin.text)
+
+            Text("Vos comptes, votre budget, votre patrimoine — sur votre téléphone, et nulle part ailleurs.")
+                .font(.system(size: 16))
+                .foregroundStyle(Florin.text2)
+                .multilineTextAlignment(.center)
+                .lineSpacing(3)
+                .padding(.horizontal, 34)
+
+            HStack(spacing: 8) {
+                Image(systemName: "lock.fill").font(.system(size: 11, weight: .semibold))
+                Text("Aucun compte à créer. Aucune donnée envoyée.")
+                    .font(.system(size: 12.5, weight: .medium))
+            }
+            .foregroundStyle(Florin.text3)
+            .padding(.top, 4)
+        }
+    }
+
+    private var fork: some View {
+        VStack(spacing: 18) {
+            Text("Comment voulez-vous commencer ?")
+                .font(.system(size: 25, weight: .semibold))
+                .foregroundStyle(Florin.text)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 28)
+
+            VStack(spacing: 10) {
+                choice(
+                    .bank,
+                    emoji: "🏛️",
+                    title: "Connecter ma banque",
+                    detail: "Vos comptes, vos soldes et vos opérations arrivent tout seuls."
+                )
+                choice(
+                    .manual,
+                    emoji: "✍️",
+                    title: "Saisir mes comptes",
+                    detail: "Vous entrez ce que vous avez, et vous ajoutez vos opérations vous-même."
+                )
+            }
+            .padding(.horizontal, Florin.gutter)
+            .padding(.top, 4)
+
+            if path == .bank {
+                /*
+                 * Said here rather than discovered two screens later.
+                 *
+                 * Connecting a bank still goes through a Florin server: the
+                 * on-device version of that flow — the key in the Keychain, the
+                 * signed request, the bank's own sign-in — is not built yet.
+                 * Offering the choice and staying quiet about what it needs
+                 * would be the kind of promise that turns into a dead end.
+                 */
+                Text("La connexion bancaire passe encore par un serveur Florin. La version sur l'appareil arrive.")
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(Florin.text3)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 30)
+                    .transition(.opacity)
+            }
+        }
+    }
+
+    private func choice(
+        _ value: StartPath,
+        emoji: String,
+        title: String,
+        detail: String
+    ) -> some View {
+        let picked = path == value
+        return Button {
+            UISelectionFeedbackGenerator().selectionChanged()
+            withAnimation(.snappy(duration: 0.22)) { path = value }
+        } label: {
+            HStack(spacing: 14) {
+                Text(emoji).font(.system(size: 26))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Florin.text)
+                    Text(detail)
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(Florin.text2)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: picked ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 19))
+                    .foregroundStyle(picked ? Florin.accent : Florin.text3)
+            }
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(picked ? Florin.accent.opacity(0.18) : .clear)
+            )
+            .florinGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var account: some View {
+        VStack(spacing: 20) {
+            Text("Votre premier compte")
+                .font(.system(size: 26, weight: .semibold))
+                .foregroundStyle(Florin.text)
+
+            Text("Celui que vous regardez en premier le matin.")
+                .font(.system(size: 14))
+                .foregroundStyle(Florin.text2)
+
+            TextField("Compte courant", text: $name)
+                .font(.system(size: 17, weight: .medium))
+                .multilineTextAlignment(.center)
+                .focused($focus, equals: .name)
+                .submitLabel(.next)
+                .onSubmit { focus = .balance }
+                .padding(.vertical, 15)
+                .padding(.horizontal, 18)
+                .florinGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .padding(.horizontal, Florin.gutter)
+                .padding(.top, 4)
+
+            kindPicker
+
+            VStack(spacing: 4) {
+                Text("Combien y a-t-il dessus aujourd'hui ?")
+                    .font(.system(size: 12.5, weight: .medium))
+                    .foregroundStyle(Florin.text3)
+
+                /*
+                 * Sized to the text so the number and its symbol stay centred
+                 * as a unit at every length — the same trick the assign sheet
+                 * uses, and for the same reason: a right-aligned field made the
+                 * one thing the screen is about drift as you typed.
+                 */
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    TextField("0", text: $balanceText)
+                        .font(.system(size: 40, weight: .light))
+                        .monospacedDigit()
+                        .multilineTextAlignment(.center)
+                        .keyboardType(.numbersAndPunctuation)
+                        .focused($focus, equals: .balance)
+                        .fixedSize()
+                    Text("€")
+                        .font(.system(size: 20))
+                        .foregroundStyle(Florin.text3)
+                }
+            }
+            .padding(.top, 6)
+        }
+    }
+
+    private var kindPicker: some View {
+        HStack(spacing: 8) {
+            ForEach(AccountKind.allCases, id: \.self) { option in
+                let picked = option == kind
+                Button {
+                    UISelectionFeedbackGenerator().selectionChanged()
+                    kind = option
+                } label: {
+                    VStack(spacing: 5) {
+                        Text(option.emoji).font(.system(size: 19))
+                        Text(option.label)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(picked ? Florin.text : Florin.text3)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(picked ? Florin.accent.opacity(0.22) : .clear)
+                    )
+                    .florinGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, Florin.gutter)
+    }
+
+    private var ready: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 52))
+                .foregroundStyle(Florin.positive)
+
+            Text("C'est prêt")
+                .font(.system(size: 28, weight: .semibold))
+                .foregroundStyle(Florin.text)
+
+            Text("Vos catégories sont en place. Ajoutez vos opérations, ou connectez votre banque depuis les réglages quand vous voudrez.")
+                .font(.system(size: 15))
+                .foregroundStyle(Florin.text2)
+                .multilineTextAlignment(.center)
+                .lineSpacing(3)
+                .padding(.horizontal, 32)
+        }
+    }
+
+    // MARK: - Chrome
+
+    private var dots: some View {
+        HStack(spacing: 7) {
+            ForEach(0...lastStep, id: \.self) { index in
+                Capsule()
+                    .fill(index == step ? Florin.text : Florin.text3.opacity(0.4))
+                    .frame(width: index == step ? 18 : 6, height: 6)
+            }
+        }
+        .animation(.snappy(duration: 0.28), value: step)
+    }
+
+    private var primaryAction: some View {
+        Button {
+            advance()
+        } label: {
+            HStack(spacing: 8) {
+                if saving { ProgressView().tint(.black) }
+                Text(step == lastStep ? "Commencer" : "Continuer")
+                    .font(.system(size: 17, weight: .semibold))
+            }
+            .foregroundStyle(.black)
+            .frame(maxWidth: .infinity)
+            .frame(height: 54)
+            .background(Florin.accent, in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .disabled(saving || !canAdvance)
+        .opacity(canAdvance ? 1 : 0.4)
+    }
+
+    /// Nothing to continue to until the fork has been answered — advancing
+    /// with no path chosen used to land on the closing page having skipped
+    /// the only question that decides what the app does next.
+    private var canAdvance: Bool { step != 1 || path != nil }
+
+    @ViewBuilder
+    private var secondaryAction: some View {
+        if step == 0 {
+            Button(action: onUseServer) {
+                Text("J'ai déjà un serveur Florin")
+                    .font(.system(size: 13.5, weight: .medium))
+                    .foregroundStyle(Florin.text3)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    // MARK: - Doing the thing
+
+    private func advance() {
+        focus = nil
+        guard step == lastStep else {
+            withAnimation { step += 1 }
+            return
+        }
+        // The bank path has nothing to write: the accounts and their balances
+        // arrive from the bank, and inventing a placeholder one here would put
+        // a fictional account in a real ledger.
+        if path == .bank {
+            onUseServer()
+            return
+        }
+        saving = true
+        do {
+            try LocalOnboarding.createFirstAccount(
+                name: name.trimmingCharacters(in: .whitespaces),
+                kind: kind,
+                balance: Self.parse(balanceText)
+            )
+            saving = false
+            onFinish()
+        } catch {
+            saving = false
+            failure = error.localizedDescription
+        }
+    }
+
+    /// Accepts what people actually type: a comma or a dot, spaces in the
+    /// thousands, a currency symbol left in by habit.
+    static func parse(_ text: String) -> Double {
+        let cleaned = text
+            .replacingOccurrences(of: ",", with: ".")
+            .filter { $0.isNumber || $0 == "." || $0 == "-" }
+        return Double(cleaned) ?? 0
+    }
+}
