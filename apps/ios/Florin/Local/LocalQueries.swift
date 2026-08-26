@@ -60,7 +60,7 @@ enum LocalQueries {
             leftToSpend: try leftToSpend(db),
             burnThisMonth: try burn(db, monthsBack: 0),
             burnAvg6: try burnAverage(db, months: 6),
-            savings: SavingsRates(threeMonth: nil, sixMonth: nil, twelveMonth: nil),
+            savings: try savingsRates(db),
             allocation: allocation(accounts),
             goal: nil,
             reviewCount: try db.scalar(
@@ -211,9 +211,82 @@ enum LocalQueries {
 
     // MARK: - This month
 
+    /// Anything smaller than this is not somebody's salary.
+    private static let salaryMinAmount = 500.0
+
+    /*
+     * The ceiling is the salary, and the salary is the *recurring* one.
+     *
+     * This ranking is not a detail. On the server it once picked the category
+     * of the single most recent income over 500, which let a one-off 500 EUR
+     * cheque booked to a side-income category outrank a 2998 EUR monthly wage
+     * and collapse the whole month's margin. Distinct months with a hit is the
+     * discriminator; the total is the tie-break for someone with one month of
+     * history. Only income-kind categories qualify, or a large inbound
+     * transfer booked as an adjustment becomes "salary" and fakes the month.
+     */
+    static func salaryCategory(_ db: SQLiteDatabase) throws -> (id: String, name: String)? {
+        let since = Self.dayFormatter.string(
+            from: Calendar(identifier: .gregorian)
+                .date(byAdding: .day, value: -90, to: Date()) ?? Date()
+        )
+        let rows = try db.query(
+            """
+            SELECT t.category_id AS id, c.name AS name
+            FROM transactions t
+            JOIN accounts a ON a.id = t.account_id
+            JOIN categories c ON c.id = t.category_id
+            JOIN category_groups g ON g.id = c.group_id
+            WHERE t.deleted_at IS NULL AND t.status = 'cleared'
+              AND t.occurred_at >= ? AND t.amount >= ?
+              AND t.transfer_pair_id IS NULL
+              AND a.is_archived = 0 AND g.kind = 'income'
+            GROUP BY t.category_id, c.name
+            ORDER BY count(DISTINCT substr(t.occurred_at, 1, 7)) DESC,
+                     coalesce(sum(t.amount), 0) DESC,
+                     max(t.occurred_at) DESC
+            LIMIT 1
+            """,
+            [.text(since), .real(salaryMinAmount)]
+        )
+        guard let row = rows.first, let id = row.string("id"), let name = row.string("name")
+        else { return nil }
+        return (id, name)
+    }
+
     static func leftToSpend(_ db: SQLiteDatabase) throws -> LeftToSpend {
         let month = Self.monthFormatter.string(from: Date())
-        let income = try sum(db, month: month, kind: "income")
+        let salary = try salaryCategory(db)
+
+        var income = 0.0
+        if let salary {
+            /*
+             * This month's salary, or the last month that saw one.
+             *
+             * Early in the month nothing has landed yet — wages arrive on the
+             * 25th to 28th — and a ceiling of zero would tell someone they have
+             * nothing to spend on the 3rd. Falling back to the most recent
+             * month that did see a hit keeps the figure meaningful.
+             */
+            let rows = try db.query(
+                """
+                SELECT substr(t.occurred_at, 1, 7) AS month,
+                       coalesce(sum(t.amount), 0) AS total
+                FROM transactions t
+                JOIN accounts a ON a.id = t.account_id
+                WHERE t.deleted_at IS NULL AND t.status = 'cleared'
+                  AND t.category_id = ? AND t.amount > 0
+                  AND t.transfer_pair_id IS NULL AND a.is_archived = 0
+                GROUP BY 1 ORDER BY 1 DESC
+                """,
+                [.text(salary.id)]
+            )
+            let current = rows.first { $0.string("month") == month }
+            income = (current ?? rows.first)?.double("total") ?? 0
+        }
+
+        // Gross, so "spent so far" reads what actually went out and a single
+        // reimbursement cannot zero it early in the month.
         let spent = try sum(db, month: month, kind: "expense")
         let fixed = try sum(db, month: month, kind: "expense", fixedOnly: true)
 
@@ -225,16 +298,73 @@ enum LocalQueries {
         let left = income - spent
 
         return LeftToSpend(
-            salaryCategoryName: nil,
+            salaryCategoryName: salary?.name,
             monthIncome: round2(income),
             monthSpent: round2(spent),
             monthSpentFixed: round2(fixed),
-            expectedMonthlySpend: round2(spent),
+            expectedMonthlySpend: try burnAverage(db, months: 6),
             leftToSpend: round2(left),
             dailyAvgSpent: elapsed > 0 ? round2(spent / Double(elapsed)) : 0,
-            dailyBudgetRemaining: remaining > 0 ? round2(left / Double(remaining)) : nil,
+            dailyBudgetRemaining: salary != nil && remaining > 0
+                ? round2(left / Double(remaining))
+                : nil,
             daysElapsed: elapsed,
             daysRemaining: remaining
+        )
+    }
+
+    /*
+     * Complete calendar months only.
+     *
+     * The month in progress skews the ratio hard in whichever direction payday
+     * falls: its spending is already booked while a salary paid on the 25th is
+     * not. On real data that read −3% over three months against +6% and +17%
+     * over six and twelve, where the same broken month is diluted.
+     */
+    static func savingsRates(_ db: SQLiteDatabase) throws -> SavingsRates {
+        func rate(months: Int) throws -> Double? {
+            let calendar = Calendar(identifier: .gregorian)
+            let now = Date()
+            guard let firstDay = calendar.date(byAdding: .month, value: -months, to: now),
+                  let start = calendar.date(
+                      from: calendar.dateComponents([.year, .month], from: firstDay)
+                  ),
+                  let lastMonth = calendar.date(byAdding: .month, value: -1, to: now),
+                  let end = endOfMonth(lastMonth, calendar: calendar)
+            else { return nil }
+
+            let rows = try db.query(
+                """
+                SELECT
+                  coalesce(sum(CASE WHEN g.kind = 'income' THEN t.amount ELSE 0 END), 0) AS income,
+                  coalesce(sum(CASE WHEN g.kind = 'expense' THEN t.amount ELSE 0 END), 0) AS net
+                FROM transactions t
+                JOIN accounts a ON a.id = t.account_id
+                LEFT JOIN categories c ON c.id = t.category_id
+                LEFT JOIN category_groups g ON g.id = c.group_id
+                WHERE t.deleted_at IS NULL AND t.status = 'cleared'
+                  AND t.occurred_at >= ? AND t.occurred_at <= ?
+                  AND t.transfer_pair_id IS NULL AND a.is_archived = 0
+                """,
+                [
+                    .text(Self.dayFormatter.string(from: start)),
+                    .text(Self.dayFormatter.string(from: end) + "T23:59:59Z"),
+                ]
+            )
+            let income = rows.first?.double("income") ?? 0
+            // Net the categorised expense groups rather than only the negatives:
+            // a positive booked into an expense category — a friend repaying
+            // their share — offsets that category's outflow. Counting only
+            // negatives inflated expenses and crushed the rate.
+            let net = rows.first?.double("net") ?? 0
+            guard income > 0 else { return nil }
+            return round2(((income + net) / income) * 100)
+        }
+
+        return SavingsRates(
+            threeMonth: try rate(months: 3),
+            sixMonth: try rate(months: 6),
+            twelveMonth: try rate(months: 12)
         )
     }
 
