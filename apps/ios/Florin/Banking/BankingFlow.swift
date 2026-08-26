@@ -181,7 +181,26 @@ final class BankingFlow: NSObject, ObservableObject {
              */
             session.prefersEphemeralWebBrowserSession = true
             self.session = session
-            session.start()
+
+            /*
+             * `start()` returns a Bool, and ignoring it is a silent hang.
+             *
+             * When it refuses — most often because the associated domain has
+             * not been verified on this device yet, so iOS will not accept an
+             * https callback — the completion handler is never called and the
+             * continuation is never resumed. The app simply stops, with no
+             * error to show and nothing in the log. That is exactly what
+             * tapping a bank did.
+             */
+            guard session.start() else {
+                Self.log.error("ASWebAuthenticationSession refused to start")
+                continuation.resume(throwing: EnableBanking.Failure.rejected(
+                    """
+                    iOS a refusé d'ouvrir la page de la banque. Le lien de                     redirection (\(Self.redirectHost)) n'est pas encore validé                     sur cet appareil — réessayez dans une minute, en gardant le                     téléphone connecté à Internet.
+                    """
+                ))
+                return
+            }
         }
     }
 
