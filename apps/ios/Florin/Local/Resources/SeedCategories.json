@@ -1,0 +1,290 @@
+{
+  "en": [
+    {
+      "name": "Income",
+      "kind": "income",
+      "color": "#22c55e",
+      "categories": [
+        {
+          "name": "Wages",
+          "emoji": "💸"
+        },
+        {
+          "name": "Side Income",
+          "emoji": "↩️"
+        },
+        {
+          "name": "Ready to Assign",
+          "emoji": "🪙"
+        }
+      ]
+    },
+    {
+      "name": "Bills",
+      "kind": "expense",
+      "color": "#3b82f6",
+      "categories": [
+        {
+          "name": "Rent",
+          "emoji": "🏠",
+          "isFixed": true
+        },
+        {
+          "name": "Insurance",
+          "emoji": "📄",
+          "isFixed": true
+        },
+        {
+          "name": "Subscriptions",
+          "emoji": "🔄",
+          "isFixed": true
+        }
+      ]
+    },
+    {
+      "name": "Needs",
+      "kind": "expense",
+      "color": "#06b6d4",
+      "categories": [
+        {
+          "name": "Groceries",
+          "emoji": "🛒"
+        },
+        {
+          "name": "Transport",
+          "emoji": "🚈"
+        }
+      ]
+    },
+    {
+      "name": "Wants",
+      "kind": "expense",
+      "color": "#f59e0b",
+      "categories": [
+        {
+          "name": "Dining Out",
+          "emoji": "🍿"
+        },
+        {
+          "name": "Travel",
+          "emoji": "🏝️"
+        },
+        {
+          "name": "Gifts",
+          "emoji": "🎁"
+        },
+        {
+          "name": "Clothes",
+          "emoji": "🧢"
+        },
+        {
+          "name": "Other",
+          "emoji": "⚠️"
+        }
+      ]
+    },
+    {
+      "name": "Savings",
+      "kind": "expense",
+      "color": "#a855f7",
+      "categories": [
+        {
+          "name": "Savings",
+          "emoji": "💶"
+        }
+      ]
+    }
+  ],
+  "fr": [
+    {
+      "name": "Revenus",
+      "kind": "income",
+      "color": "#22c55e",
+      "categories": [
+        {
+          "name": "Salaires",
+          "emoji": "💸"
+        },
+        {
+          "name": "Gains additionnels",
+          "emoji": "↩️"
+        },
+        {
+          "name": "Ready to Assign",
+          "emoji": "🪙"
+        }
+      ]
+    },
+    {
+      "name": "Factures",
+      "kind": "expense",
+      "color": "#3b82f6",
+      "categories": [
+        {
+          "name": "Loyer",
+          "emoji": "🏠",
+          "isFixed": true
+        },
+        {
+          "name": "Assurances",
+          "emoji": "📄",
+          "isFixed": true
+        },
+        {
+          "name": "Abonnements",
+          "emoji": "🔄",
+          "isFixed": true
+        }
+      ]
+    },
+    {
+      "name": "Besoins",
+      "kind": "expense",
+      "color": "#06b6d4",
+      "categories": [
+        {
+          "name": "Courses",
+          "emoji": "🛒"
+        },
+        {
+          "name": "Transports",
+          "emoji": "🚈"
+        }
+      ]
+    },
+    {
+      "name": "Envies",
+      "kind": "expense",
+      "color": "#f59e0b",
+      "categories": [
+        {
+          "name": "Sorties & Restos",
+          "emoji": "🍿"
+        },
+        {
+          "name": "Voyages",
+          "emoji": "🏝️"
+        },
+        {
+          "name": "Cadeaux",
+          "emoji": "🎁"
+        },
+        {
+          "name": "Vêtements",
+          "emoji": "🧢"
+        },
+        {
+          "name": "Autres",
+          "emoji": "⚠️"
+        }
+      ]
+    },
+    {
+      "name": "Épargne",
+      "kind": "expense",
+      "color": "#a855f7",
+      "categories": [
+        {
+          "name": "Épargne",
+          "emoji": "💶"
+        }
+      ]
+    }
+  ],
+  "nl": [
+    {
+      "name": "Inkomsten",
+      "kind": "income",
+      "color": "#22c55e",
+      "categories": [
+        {
+          "name": "Salaris",
+          "emoji": "💸"
+        },
+        {
+          "name": "Bijverdiensten",
+          "emoji": "↩️"
+        },
+        {
+          "name": "Klaar om te verdelen",
+          "emoji": "🪙"
+        }
+      ]
+    },
+    {
+      "name": "Vaste lasten",
+      "kind": "expense",
+      "color": "#3b82f6",
+      "categories": [
+        {
+          "name": "Huur",
+          "emoji": "🏠",
+          "isFixed": true
+        },
+        {
+          "name": "Verzekeringen",
+          "emoji": "📄",
+          "isFixed": true
+        },
+        {
+          "name": "Abonnementen",
+          "emoji": "🔄",
+          "isFixed": true
+        }
+      ]
+    },
+    {
+      "name": "Basisbehoeften",
+      "kind": "expense",
+      "color": "#06b6d4",
+      "categories": [
+        {
+          "name": "Boodschappen",
+          "emoji": "🛒"
+        },
+        {
+          "name": "Vervoer",
+          "emoji": "🚈"
+        }
+      ]
+    },
+    {
+      "name": "Extra's",
+      "kind": "expense",
+      "color": "#f59e0b",
+      "categories": [
+        {
+          "name": "Uit eten",
+          "emoji": "🍿"
+        },
+        {
+          "name": "Reizen",
+          "emoji": "🏝️"
+        },
+        {
+          "name": "Cadeaus",
+          "emoji": "🎁"
+        },
+        {
+          "name": "Kleding",
+          "emoji": "🧢"
+        },
+        {
+          "name": "Overig",
+          "emoji": "⚠️"
+        }
+      ]
+    },
+    {
+      "name": "Sparen",
+      "kind": "expense",
+      "color": "#a855f7",
+      "categories": [
+        {
+          "name": "Sparen",
+          "emoji": "💶"
+        }
+      ]
+    }
+  ]
+}
