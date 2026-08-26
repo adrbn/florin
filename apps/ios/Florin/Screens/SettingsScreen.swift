@@ -136,36 +136,34 @@ struct SettingsScreen: View {
     private var syncSection: some View {
         Section {
             /*
-             * Only on a serverless install.
+             * Reachable either way, and honest about which one you are in.
              *
-             * With a server the bank lives there — its key, its consent, its
-             * scheduler — and offering to set up a second connection from the
-             * phone would create two half-connections to the same bank and
-             * burn PSD2 consent quota for nothing.
+             * It was hidden entirely when a server was configured, on the
+             * reasoning that the server owns the bank connection and a second
+             * one would burn PSD2 consent quota for nothing. That reasoning
+             * holds, but hiding the row made the on-device flow impossible to
+             * reach — or even discover — from a phone that points at a server,
+             * which is every phone that has ever used one. A line saying what
+             * this connection is does the same job without the dead end.
              */
-            if model.base.scheme == "florin-local" {
-                Button {
-                    showingBanking = true
-                } label: {
-                    LabeledContent(t("v2.settings.banking", "Synchronisation bancaire")) {
-                        Text(
-                            BankingFlow.isConfigured
-                                ? t("v2.settings.bankingReady", "Configurée")
-                                : t("v2.settings.bankingMissing", "Non configurée")
-                        )
-                        .foregroundStyle(.secondary)
-                    }
-                }
-                .buttonStyle(.plain)
-            } else {
+            Button {
+                showingBanking = true
+            } label: {
                 LabeledContent(t("v2.settings.banking", "Synchronisation bancaire")) {
-                Text(
-                    model.overview?.bankSyncConfigured == true
-                        ? t("v2.settings.bankingReady", "Configurée")
-                        : t("v2.settings.bankingMissing", "Non configurée")
-                )
-                .foregroundStyle(.secondary)
+                    Text(
+                        BankingFlow.isConfigured
+                            ? t("v2.settings.bankingReady", "Configurée")
+                            : t("v2.settings.bankingMissing", "Non configurée")
+                    )
+                    .foregroundStyle(.secondary)
                 }
+            }
+            .buttonStyle(.plain)
+
+            if model.base.scheme != "florin-local" {
+                Text("Votre serveur gère déjà la synchro. Une connexion depuis ce téléphone serait indépendante, avec son propre accès bancaire.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
 
             if let last = model.overview?.lastSynced {
