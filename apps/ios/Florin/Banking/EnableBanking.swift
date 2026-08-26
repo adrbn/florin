@@ -34,6 +34,8 @@ enum EnableBanking {
         case notConfigured
         case http(Int, String)
         case malformed
+        /// Something this app refused to do, in its own words.
+        case rejected(String)
 
         var errorDescription: String? {
             switch self {
@@ -43,6 +45,8 @@ enum EnableBanking {
                 body.isEmpty ? "Enable Banking answered \(code)." : "Enable Banking: \(body)"
             case .malformed:
                 "Enable Banking sent something this app could not read."
+            case let .rejected(message):
+                message
             }
         }
     }

@@ -63,10 +63,19 @@ final class BankingFlow: NSObject, ObservableObject {
     }
 
     static func setAppId(_ store: LocalStore, _ value: String) throws {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         try store.database.run(
             "INSERT OR REPLACE INTO settings (key, value) VALUES ('eb_app_id', ?)",
-            [.text(value.trimmingCharacters(in: .whitespacesAndNewlines))]
+            [.text(trimmed)]
         )
+        // Read it back. A write that silently does not stick is what put the
+        // screen and the database out of step in the first place, and the cost
+        // of noticing is one query.
+        guard appId(store) == (trimmed.isEmpty ? nil : trimmed) else {
+            throw EnableBanking.Failure.rejected(
+                "L'identifiant n'a pas pu être enregistré sur cet appareil."
+            )
+        }
         // The cached JWT carries the old id in `kid`; keeping it would sign
         // requests as an application that no longer matches.
         EnableBanking.forgetToken()
