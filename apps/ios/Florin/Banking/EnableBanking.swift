@@ -124,10 +124,42 @@ enum EnableBanking {
             throw Failure.http(http.statusCode, String(data: data, encoding: .utf8) ?? "")
         }
         if T.self == Empty.self, let empty = Empty() as? T { return empty }
-        return try JSONDecoder().decode(T.self, from: data)
+        do {
+            return try JSONDecoder().decode(T.self, from: data)
+        } catch let error as DecodingError {
+            /*
+             * Say which field, not "the format is not correct".
+             *
+             * That is DecodingError's localizedDescription, and it is useless:
+             * it names neither the field nor what was expected, on a response
+             * with dozens of them that differ from bank to bank. The path and
+             * the mismatch are right there in the error — printing them turns
+             * an afternoon of guessing into one line.
+             */
+            throw Failure.rejected("\(path) — \(Self.describe(error))")
+        }
     }
 
     struct Empty: Decodable {}
+
+    static func describe(_ error: DecodingError) -> String {
+        func path(_ context: DecodingError.Context) -> String {
+            let parts = context.codingPath.map(\.stringValue)
+            return parts.isEmpty ? "racine" : parts.joined(separator: ".")
+        }
+        switch error {
+        case let .keyNotFound(key, context):
+            return "champ manquant « \(key.stringValue) » dans \(path(context))"
+        case let .typeMismatch(type, context):
+            return "type inattendu à \(path(context)) : \(type) attendu"
+        case let .valueNotFound(type, context):
+            return "valeur nulle à \(path(context)) alors que \(type) est requis"
+        case let .dataCorrupted(context):
+            return "données illisibles à \(path(context))"
+        @unknown default:
+            return error.localizedDescription
+        }
+    }
 
     // MARK: - The calls this app makes
 
