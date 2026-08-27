@@ -314,19 +314,38 @@ enum BankingSync {
          * category and its reviewed state, and gains the bank id so the next
          * sync recognises it directly.
          */
+        /*
+         * Within a few days, not on the same day.
+         *
+         * The two sides date the same purchase differently: a server that
+         * recorded the value date has "Casa E CO −26,68" on the 25th while the
+         * bank, returning the booking date, has it on the 26th. Requiring an
+         * exact day meant every such row was re-inserted as new and came back
+         * unreviewed — twenty of them, on a server that had none left to
+         * review.
+         *
+         * Same account and same amount inside a three-day window, nearest date
+         * first. Two genuinely distinct purchases of exactly the same amount,
+         * on the same account, within three days, would collapse into one —
+         * that is the cost, and it is smaller than a ledger that duplicates
+         * every row whose date the two sides disagree about.
+         */
+        let bookedDay = String(date.prefix(10))
         if let twin = try store.database.scalar(
             """
             SELECT id FROM transactions
             WHERE account_id = ? AND deleted_at IS NULL
-              AND substr(occurred_at, 1, 10) = ?
+              AND abs(julianday(substr(occurred_at, 1, 10)) - julianday(?)) <= 3
               AND abs(amount - ?) < 0.005
               AND (source <> 'enable_banking' OR external_id IS NULL)
+            ORDER BY abs(julianday(substr(occurred_at, 1, 10)) - julianday(?))
             LIMIT 1
             """,
             [
                 .text(accountId),
-                .text(String(date.prefix(10))),
+                .text(bookedDay),
                 .real(transaction.signedAmount),
+                .text(bookedDay),
             ]
         )?.string {
             /*
