@@ -397,6 +397,8 @@ enum BankingSync {
             return false
         }
 
+        let bookedToday = LocalQueries.dayFormatter.string(from: Date())
+        let upcoming = transaction.status == "PDNG" || String(date.prefix(10)) > bookedToday
         let payee = transaction.counterparty
         try store.database.run(
             """
@@ -414,9 +416,16 @@ enum BankingSync {
                     $0.isEmpty ? SQLiteValue.null : .text($0)
                 } ?? .null,
                 .text(externalId),
-                // Not for review while it can still change; it joins the queue
-                // when the bank books it.
-                .integer(transaction.status == "PDNG" ? 0 : 1),
+                /*
+                 * Not for review until it has happened.
+                 *
+                 * Keyed on the status alone this only covered what the bank
+                 * flags as pending — and La Banque Postale publishes a direct
+                 * debit for the 31st with no flag at all, so two rows dated in
+                 * the future still sat in the queue asking to be checked. The
+                 * date decides; they join when they are real.
+                 */
+                .integer(upcoming ? 0 : 1),
                 .integer(transaction.status == "PDNG" ? 1 : 0),
             ]
         )

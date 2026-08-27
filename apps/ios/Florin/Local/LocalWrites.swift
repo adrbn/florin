@@ -30,7 +30,14 @@ enum LocalLedger {
         case .income: clauses.append("t.amount > 0")
         case .all: break
         }
-        if filter.needsReview { clauses.append("t.needs_review = 1") }
+        if filter.needsReview {
+            clauses.append(
+                """
+                t.needs_review = 1 AND t.is_pending = 0
+                AND substr(t.occurred_at, 1, 10) <= date('now')
+                """
+            )
+        }
         if filter.excludeTransfers { clauses.append("t.transfer_pair_id IS NULL") }
         if let accountId = filter.accountId {
             clauses.append("t.account_id = ?")
@@ -75,7 +82,11 @@ enum LocalLedger {
         return TransactionPage(
             total: total,
             reviewCount: try db.scalar(
-                "SELECT count(*) FROM transactions WHERE needs_review = 1 AND deleted_at IS NULL"
+                """
+                SELECT count(*) FROM transactions
+                WHERE needs_review = 1 AND deleted_at IS NULL AND is_pending = 0
+                  AND substr(occurred_at, 1, 10) <= date('now')
+                """
             )?.int ?? 0,
             transactions: rows.map(transaction(from:)),
             accounts: try LocalQueries.readAccounts(db),

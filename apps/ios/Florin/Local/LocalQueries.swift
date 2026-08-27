@@ -67,7 +67,14 @@ enum LocalQueries {
             allocation: allocation(accounts),
             goal: nil,
             reviewCount: try db.scalar(
-                "SELECT count(*) FROM transactions WHERE needs_review = 1 AND deleted_at IS NULL"
+                // Upcoming rows are not in the queue, so they are not in
+                // its count either — a badge promising two decisions that
+                // cannot be made is worse than no badge.
+                """
+                SELECT count(*) FROM transactions
+                WHERE needs_review = 1 AND deleted_at IS NULL AND is_pending = 0
+                  AND substr(occurred_at, 1, 10) <= date('now')
+                """
             )?.int ?? 0,
             incomeIsEstimated: false,
             accounts: accounts,
