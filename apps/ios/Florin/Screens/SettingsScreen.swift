@@ -39,6 +39,7 @@ struct SettingsScreen: View {
     @State private var showingBanking = false
     @State private var importing = false
     @State private var confirmingImport = false
+    @StateObject private var banking = BankingFlow()
     @State private var importProgress = 0
     @AppStorage("florin.dataSource") private var sourceRaw = ""
 
@@ -65,6 +66,26 @@ struct SettingsScreen: View {
             .navigationTitle(t("v2.settings.title", "Réglages"))
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $showingBanking) { BankingSettings() }
+            .sheet(isPresented: Binding(
+                get: { banking.mapping != nil },
+                set: { if !$0 { banking.mapping = nil } }
+            )) {
+                if let found = banking.mapping {
+                    BankMappingSheet(
+                        accounts: found,
+                        candidates: banking.candidates,
+                        locale: model.overview?.localeTag ?? "fr-FR",
+                        currency: model.overview?.currency ?? "EUR",
+                        onConfirm: { answers in
+                            Task {
+                                await banking.confirmMapping(answers)
+                                await model.load(showSpinner: false)
+                            }
+                        },
+                        onCancel: { banking.mapping = nil }
+                    )
+                }
+            }
             /*
              * Destructive, so it says so before doing it.
              *
@@ -79,7 +100,7 @@ struct SettingsScreen: View {
                 }
                 Button(t("v2.common.cancel", "Annuler"), role: .cancel) {}
             } message: {
-                Text("Les comptes, opérations et catégories de cet appareil seront effacés et remplacés par ceux du serveur. La connexion bancaire de ce téléphone sera retirée — le serveur s'en charge déjà.")
+                Text("Les comptes, opérations et catégories de cet appareil seront effacés et remplacés par ceux du serveur. Votre connexion bancaire est conservée.")
             }
             .toolbar {
                 ToolbarItem(placement: .principal) { Wordmark(size: 17) }
@@ -260,6 +281,25 @@ struct SettingsScreen: View {
         if BankingFlow.isConfigured { syncRow }
 
         /*
+         * Re-attaching, without asking the bank again.
+         *
+         * A connection can outlive the pairing that told it which local account
+         * it feeds — an import that predates the pairing being stored, an
+         * account deleted by hand. Left alone the next sync finds no match and
+         * creates a second account for the same money. This re-reads the
+         * existing session and asks the question again; the bank is not
+         * involved and no consent is spent.
+         */
+        if flowHasConnection {
+            Hairline()
+            SettingsRow(
+                label: "Rattacher mes comptes",
+                symbol: "link",
+                action: { Task { await remapAccounts() } }
+            )
+        }
+
+        /*
          * Bringing a server's ledger onto the phone.
          *
          * Re-fetching from the bank was the wrong answer to "I want my history
@@ -281,6 +321,19 @@ struct SettingsScreen: View {
             }
             .disabled(importing)
         }
+    }
+
+    /// True when a bank session exists on this device.
+    private var flowHasConnection: Bool {
+        guard let store = LocalStore.shared else { return false }
+        guard let value = try? store.database.scalar(
+            "SELECT count(*) FROM bank_connections WHERE status = 'active'"
+        ) else { return false }
+        return (value.int ?? 0) > 0
+    }
+
+    private func remapAccounts() async {
+        await banking.remap()
     }
 
     private func importFromServer() async {
