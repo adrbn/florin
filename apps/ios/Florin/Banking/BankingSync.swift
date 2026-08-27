@@ -351,7 +351,7 @@ enum BankingSync {
             INSERT INTO transactions
                 (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
                  memo, source, external_id, status, needs_review, is_pending)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'enable_banking', ?, 'cleared', 1, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'enable_banking', ?, 'cleared', ?, ?)
             """,
             [
                 .text(UUID().uuidString), .text(accountId), .text(date),
@@ -362,6 +362,9 @@ enum BankingSync {
                     $0.isEmpty ? SQLiteValue.null : .text($0)
                 } ?? .null,
                 .text(externalId),
+                // Not for review while it can still change; it joins the queue
+                // when the bank books it.
+                .integer(transaction.status == "PDNG" ? 0 : 1),
                 .integer(transaction.status == "PDNG" ? 1 : 0),
             ]
         )

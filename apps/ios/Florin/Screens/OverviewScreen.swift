@@ -518,8 +518,8 @@ struct OverviewScreen: View {
         // Announced but not booked: dated ahead, so by date they crowd the top
         // of "dernières opérations", which is meant to answer what just
         // happened. Folded into one line above, and out of the six below.
-        let upcoming = data.recent.filter(\.isPending)
-        let settled = data.recent.filter { !$0.isPending }
+        let upcoming = data.recent.filter(\.isUpcoming)
+        let settled = data.recent.filter { !$0.isUpcoming }
 
         return section(data.t("v2.overview.recent", "Dernières opérations")) {
             VStack(spacing: 12) {

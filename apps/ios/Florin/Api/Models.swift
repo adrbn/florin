@@ -183,6 +183,20 @@ struct Transaction: Decodable, Sendable, Identifiable {
         )
     }
 
+    /*
+     * Announced, not settled — whatever the bank calls it.
+     *
+     * La Banque Postale publishes a direct debit days ahead without marking it
+     * pending, so trusting the status alone left tomorrow's 135.91 sitting in
+     * the list as though it had already gone. A date after today is the fact
+     * that settles it: it has not happened.
+     */
+    var isUpcoming: Bool {
+        isPending || day > Calendar(identifier: .gregorian).startOfDay(
+            for: Date().addingTimeInterval(86_400)
+        )
+    }
+
     var day: Date {
         ISO8601DateFormatter.florin.date(from: date)
             ?? ISO8601DateFormatter.florinNoFraction.date(from: date)

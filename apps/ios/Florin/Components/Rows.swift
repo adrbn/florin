@@ -186,7 +186,9 @@ struct TransactionRowView: View {
                         .background(Florin.accent.opacity(0.16), in: Capsule())
                 }
 
-                if tx.needsReview {
+                // Reviewing a row whose amount can still change is asking a
+                // question too early; it comes back to the queue once booked.
+                if tx.needsReview, !tx.isUpcoming {
                     Text(t("v2.activity.needsReview", "À vérifier"))
                         .font(.system(size: 10.5, weight: .semibold))
                         .foregroundStyle(Florin.warn)

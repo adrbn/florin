@@ -548,12 +548,12 @@ struct TransactionList<Banner: View>: View {
     /// not a queue. What the page has not fetched yet is what "Tout voir" is
     /// for.
     private var pending: [Transaction] {
-        model.rows.filter { $0.needsReview && !$0.isPending }
+        model.rows.filter { $0.needsReview && !$0.isUpcoming }
     }
 
     /// Announced, not yet booked. Kept out of the queue and the day groups.
     private var upcoming: [Transaction] {
-        model.rows.filter(\.isPending)
+        model.rows.filter(\.isUpcoming)
     }
 
     private var days: [Day] {
