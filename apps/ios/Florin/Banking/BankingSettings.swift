@@ -363,9 +363,18 @@ struct BankingSettings: View {
                     RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Florin.surface2)
                 )
 
-            let matches = query.isEmpty
+            /*
+             * Alphabetical, and by the rules of the reader's language.
+             *
+             * Enable Banking returns them in whatever order it pleases, which
+             * put N26 above La Banque Postale and made the list feel random.
+             * `localizedStandardCompare` also sorts "Crédit" and "Credit"
+             * together, which a plain `<` does not.
+             */
+            let matches = (query.isEmpty
                 ? banks
-                : banks.filter { $0.name.localizedCaseInsensitiveContains(query) }
+                : banks.filter { $0.name.localizedCaseInsensitiveContains(query) })
+                .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
 
             ForEach(matches.prefix(40)) { bank in
                 /*
@@ -377,16 +386,18 @@ struct BankingSettings: View {
                  * explicit content shape with a tap on it is unambiguous and
                  * does fire.
                  */
-                HStack {
+                HStack(spacing: 12) {
+                    BankLogo(bank: bank)
                     Text(bank.name)
-                        .font(.system(size: 15))
+                        .font(.system(size: 15.5))
                         .foregroundStyle(Florin.text)
-                    Spacer()
+                        .lineLimit(2)
+                    Spacer(minLength: 0)
                     Image(systemName: "chevron.right")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(Florin.text3)
                 }
-                .padding(.vertical, 12)
+                .padding(.vertical, 10)
                 .contentShape(Rectangle())
                 .onTapGesture {
                     guard !flow.busy else { return }
