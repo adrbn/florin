@@ -6,6 +6,9 @@ import SwiftUI
 /// sections for the places that still use one. The fields, the probe and every
 /// word of the failure messages are identical; only the surface differs.
 struct ServerFieldsCard: View {
+    /// Drops its own surface when it is already inside one — a card drawn on a
+    /// card reads as a mistake, and that is exactly what it was.
+    var bare = false
     @Binding var host: String
     @Binding var token: String
     @Binding var status: ServerStatus
@@ -109,8 +112,8 @@ struct ServerFieldsCard: View {
                 .padding(.horizontal, 4)
             }
         }
-        .padding(18)
-        .florinSurface()
+        .padding(bare ? 0 : 18)
+        .modifier(OptionalSurface(active: !bare))
     }
 
     private func field<Content: View>(
@@ -171,5 +174,15 @@ struct ServerFieldsCard: View {
         case .ready:
             "Connecté."
         }
+    }
+}
+
+
+/// Applies `florinSurface` only when asked, so a nested use can opt out.
+private struct OptionalSurface: ViewModifier {
+    let active: Bool
+
+    func body(content: Content) -> some View {
+        if active { content.florinSurface() } else { content }
     }
 }

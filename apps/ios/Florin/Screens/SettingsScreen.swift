@@ -165,7 +165,7 @@ struct SettingsScreen: View {
     private var serverRows: some View {
         if editingServer {
             VStack(spacing: 14) {
-                ServerFieldsCard(host: $draftServer, token: $draftToken, status: $serverStatus)
+                ServerFieldsCard(bare: true, host: $draftServer, token: $draftToken, status: $serverStatus)
                 HStack(spacing: 10) {
                     Button(t("v2.common.cancel", "Annuler")) {
                         editingServer = false
