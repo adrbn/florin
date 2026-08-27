@@ -4,8 +4,8 @@
 <dict>
 	<key>com.apple.developer.associated-domains</key>
 	<array>
-		<string>applinks:florin-cpe.pages.dev?mode=developer</string>
-		<string>webcredentials:florin-cpe.pages.dev?mode=developer</string>
+		<string>applinks:florin-cpe.pages.dev</string>
+		<string>webcredentials:florin-cpe.pages.dev</string>
 	</array>
 </dict>
 </plist>
