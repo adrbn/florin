@@ -190,7 +190,36 @@ enum BankingSync {
          * narrowed only when it is refused: the ceiling ends up being the
          * bank's, which is the only real one, instead of ours.
          */
+        /*
+         * An account that already has history only needs what came after it.
+         *
+         * A ledger seeded from a server and then attached to a bank held both
+         * copies of the same months: the server's rows and the bank's, keyed
+         * differently, so nothing recognised them as the same money. Net worth
+         * over thirty days read 4497 where it should read 1065 — roughly one
+         * salary counted twice — and the curve grew spikes where a duplicated
+         * credit landed.
+         *
+         * So the window starts at the newest row this account already holds,
+         * minus a few days: banks book late, and re-reading a handful of
+         * settled days is free because the external id makes it idempotent.
+         * An account with nothing still gets everything.
+         */
+        let existing = try store.database.scalar(
+            """
+            SELECT max(occurred_at) FROM transactions
+            WHERE account_id = ? AND deleted_at IS NULL
+            """,
+            [.text(accountId)]
+        )?.string
+
         var windows = [730, 365, 90]
+        if let existing, existing.count >= 10,
+           let newest = LocalQueries.dayFormatter.date(from: String(existing.prefix(10))) {
+            let days = calendar.dateComponents([.day], from: newest, to: Date()).day ?? 0
+            windows = [max(days + 3, 3)]
+            log.notice("account already holds history to \(existing.prefix(10), privacy: .public)")
+        }
         var from = ""
         var firstPage: TransactionsResponse?
         var lastFailure: Error?
