@@ -16,6 +16,7 @@ struct AccountsScreen: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var drill: ActivityRoute?
     @State private var showNet = true
+    @State private var addingAccount = false
 
     private var t: Strings { model.overview?.t ?? .empty }
 
@@ -42,6 +43,9 @@ struct AccountsScreen: View {
          */
         .fullScreenCover(item: $drill) { target in
             AccountDetailScreen(model: model, route: target)
+        }
+        .sheet(isPresented: $addingAccount) {
+            AddAccountSheet(onSaved: { Task { await model.load(showSpinner: false) } })
         }
     }
 
