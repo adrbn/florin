@@ -92,15 +92,35 @@ struct CircleButton: View {
     let symbol: String
     var size: CGFloat = 46
     var prominent = false
+    /*
+     * Turns the glyph, not the button.
+     *
+     * Rotating the whole thing spun the glass disc with it, which looks like a
+     * rendering fault rather than progress — the button appeared to come loose
+     * from the layout. Only the symbol should move.
+     */
+    var spinning = false
     let action: () -> Void
+
+    @State private var angle: Double = 0
 
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol)
                 .font(.system(size: size * 0.38, weight: .semibold))
                 .foregroundStyle(prominent ? Florin.accent : Florin.text)
+                .rotationEffect(.degrees(angle))
                 .frame(width: size, height: size)
                 .florinGlass(in: Circle())
+                .onChange(of: spinning) { _, active in
+                    if active {
+                        withAnimation(.linear(duration: 0.9).repeatForever(autoreverses: false)) {
+                            angle = 360
+                        }
+                    } else {
+                        withAnimation(.easeOut(duration: 0.2)) { angle = 0 }
+                    }
+                }
         }
         .buttonStyle(.plain)
     }

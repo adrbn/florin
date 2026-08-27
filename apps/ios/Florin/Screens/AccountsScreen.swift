@@ -136,18 +136,14 @@ struct AccountsScreen: View {
                      * sign of it — dimming reads as "disabled", not as "busy",
                      * so the only feedback was the numbers eventually changing.
                      */
-                    CircleButton(symbol: "arrow.trianglehead.2.clockwise", size: 44) {
+                    CircleButton(
+                        symbol: "arrow.trianglehead.2.clockwise",
+                        size: 44,
+                        spinning: model.syncing
+                    ) {
                         Task { await model.sync() }
                     }
-                    .rotationEffect(.degrees(model.syncing ? 360 : 0))
-                    .animation(
-                        model.syncing
-                            ? .linear(duration: 1).repeatForever(autoreverses: false)
-                            : .default,
-                        value: model.syncing
-                    )
                     .disabled(model.syncing || !data.bankSyncConfigured)
-                    .opacity(model.syncing ? 0.6 : 1)
                 }
             }
             .padding(.bottom, 24)
@@ -208,10 +204,16 @@ struct AccountsScreen: View {
                     RowGroup {
                         ForEach(Array(group.accounts.enumerated()), id: \.element.id) { index, account in
                             if index > 0 { Hairline() }
-                            Button {
-                                drill = ActivityRoute(accountId: account.id, title: account.name)
-                            } label: {
-                                VStack(spacing: 0) {
+                            /*
+                             * A tap gesture, so the long press can be heard.
+                             *
+                             * Wrapped in a Button, the press was consumed
+                             * before the context menu ever saw it, so rename
+                             * and delete simply never appeared. The same shape
+                             * that made Plan's rows unresponsive, for the same
+                             * reason: an explicit content shape is unambiguous.
+                             */
+                            VStack(spacing: 0) {
                                     HStack(spacing: 0) {
                                         AccountRowView(
                                             account: account,
@@ -232,9 +234,13 @@ struct AccountsScreen: View {
                                     )
                                     .padding(.horizontal, Florin.gutter)
                                     .padding(.bottom, 11)
-                                }
                             }
-                            .buttonStyle(.plain)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                drill = ActivityRoute(
+                                    accountId: account.id, title: account.name
+                                )
+                            }
                             /*
                              * Rename and delete, where the account is.
                              *
