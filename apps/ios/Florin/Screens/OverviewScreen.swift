@@ -230,21 +230,39 @@ struct OverviewScreen: View {
 
                 hero(data, points: points, shown: shown, delta: delta)
                 /*
-                 * Straight after the hero, before the tiles.
+                 * An account but no money in it yet is its own screen too.
                  *
-                 * Opening the app to "what just happened" is the whole reason
-                 * anyone opens it, and a list is the one section that survives
-                 * being cut off by the tab bar — you can see there is more and
-                 * scroll. A KPI tile clipped in half just looks broken, which
-                 * is exactly what "Reste à vivre" did sitting in this slot.
+                 * The zeros screen was already replaced for someone with
+                 * nothing at all — but finishing onboarding creates an
+                 * account, so nobody reached that state and everyone landed
+                 * back on it: an empty curve, "Aucun salaire détecté sur
+                 * 90 jours", −0 € spent, and an empty "Dernières opérations"
+                 * heading. Every figure true, the whole screen useless.
+                 *
+                 * Until there is a first transaction, the honest screen is the
+                 * account they just created and the two ways to fill it.
                  */
-                recent(data)
-                kpis(data)
-                monthEnd(data)
-                accounts(data)
-                allocation(data)
-                savings(data)
-                if let goal = data.goal, goal.target > 0 { goalCard(goal, data) }
+                if data.recent.isEmpty {
+                    firstSteps(data)
+                    accounts(data)
+                } else {
+                    /*
+                     * Straight after the hero, before the tiles.
+                     *
+                     * Opening the app to "what just happened" is the whole reason
+                     * anyone opens it, and a list is the one section that survives
+                     * being cut off by the tab bar — you can see there is more and
+                     * scroll. A KPI tile clipped in half just looks broken, which
+                     * is exactly what "Reste à vivre" did sitting in this slot.
+                     */
+                    recent(data)
+                    kpis(data)
+                    monthEnd(data)
+                    accounts(data)
+                    allocation(data)
+                    savings(data)
+                    if let goal = data.goal, goal.target > 0 { goalCard(goal, data) }
+                }
             }
             .padding(.top, 6)
             .padding(.bottom, 104)
@@ -299,7 +317,9 @@ struct OverviewScreen: View {
                             .font(.system(size: 14))
                             .foregroundStyle(Florin.text2)
                             .hiddenWhenPrivate()
-                    } else {
+                    } else if !data.recent.isEmpty {
+                        // "0,00 € sur un mois" on a ledger with no month behind
+                        // it states a movement that never happened.
                         Image(systemName: delta >= 0 ? "arrowtriangle.up.fill" : "arrowtriangle.down.fill")
                             .font(.system(size: 9))
                         AmountText(
@@ -326,26 +346,126 @@ struct OverviewScreen: View {
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isButton)
 
-            NetWorthChart(
-                points: points,
-                selection: $scrubbed,
-                animationKey: range.rawValue + (showGross ? "-gross" : "-net"),
-                tint: showGross ? Florin.series[3] : Florin.accent
-            )
+            // A ledger with no transactions draws a flat line at the opening
+            // balance, which is not a history — it is a horizontal rule with a
+            // date axis. Nothing is more honest than not drawing it.
+            if !data.recent.isEmpty {
+                NetWorthChart(
+                    points: points,
+                    selection: $scrubbed,
+                    animationKey: range.rawValue + (showGross ? "-gross" : "-net"),
+                    tint: showGross ? Florin.series[3] : Florin.accent
+                )
                 .padding(.top, 22)
-
-            Picker("", selection: animatedRange) {
-                ForEach(Range.allCases) { range in
-                    let (key, fallback) = range.key
-                    Text(data.t(key, fallback)).tag(range)
-                }
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .padding(.horizontal, Florin.gutter)
-            .padding(.top, 14)
 
+            // The range control picks a window over a history. With no
+            // history it is four buttons that all do the same nothing.
+            if !data.recent.isEmpty {
+                Picker("", selection: animatedRange) {
+                    ForEach(Range.allCases) { range in
+                        let (key, fallback) = range.key
+                        Text(data.t(key, fallback)).tag(range)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .padding(.horizontal, Florin.gutter)
+                .padding(.top, 14)
+            }
         }
+    }
+
+    /*
+     * The screen for an account with nothing in it yet.
+     *
+     * Not a placeholder and not a tour: two things a person can do right now,
+     * in the order most people will want them. The bank first, because it is
+     * the one that fills the app on its own; by hand second, because it always
+     * works and some accounts will never sync.
+     *
+     * Both open what they name. Sending someone to Réglages to hunt for the
+     * right row is how a call to action becomes a chore.
+     */
+    private func firstSteps(_ data: Overview) -> some View {
+        section(data.t("v2.overview.firstSteps", "Pour commencer")) {
+            VStack(spacing: 10) {
+                Text(
+                    data.t(
+                        "v2.overview.firstStepsBody",
+                        "Votre compte est prêt. Il ne lui manque que des opérations — Florin s'occupe du reste."
+                    )
+                )
+                .font(.system(size: 14))
+                .foregroundStyle(Florin.text2)
+                .lineSpacing(2)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.bottom, 2)
+
+                if model.base.scheme == "florin-local" {
+                    firstStep(
+                        symbol: "building.columns",
+                        title: data.t("v2.empty.bankTitle", "Connecter ma banque"),
+                        detail: data.t(
+                            "v2.empty.bankBody",
+                            "Comptes, soldes et opérations arrivent tout seuls. Environ deux minutes, une seule fois."
+                        ),
+                        prominent: true
+                    ) { connectingBank = true }
+                }
+
+                firstStep(
+                    symbol: "square.and.pencil",
+                    title: data.t("v2.overview.firstStepManualTitle", "Ajouter une opération"),
+                    detail: data.t(
+                        "v2.overview.firstStepManual",
+                        "Une dépense ou une entrée, saisie à la main."
+                    ),
+                    prominent: false
+                ) { adding = true }
+            }
+            .padding(.horizontal, Florin.gutter)
+        }
+    }
+
+    private func firstStep(
+        symbol: String, title: String, detail: String, prominent: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: {
+            UISelectionFeedbackGenerator().selectionChanged()
+            action()
+        }) {
+            HStack(spacing: 13) {
+                Image(systemName: symbol)
+                    .font(.system(size: 17, weight: .medium))
+                    .foregroundStyle(prominent ? Florin.accent : Florin.text2)
+                    .frame(width: 30)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Florin.text)
+                    Text(detail)
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(Florin.text2)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 6)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Florin.text3)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .florinSurface()
+            .overlay(
+                RoundedRectangle(cornerRadius: Florin.cardRadius, style: .continuous)
+                    .stroke(prominent ? Florin.accent.opacity(0.4) : .clear, lineWidth: 1)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     /// Avatar, search, sync — the row every neobank puts above the balance.
@@ -508,7 +628,7 @@ struct OverviewScreen: View {
     }
 
     private func accounts(_ data: Overview) -> some View {
-        section(data.t("v2.overview.yourAccounts", "Tes comptes")) {
+        section(data.t("v2.overview.yourAccounts", "Vos comptes")) {
             RowGroup {
                 ForEach(Array(data.accounts.enumerated()), id: \.element.id) { index, account in
                     if index > 0 { Hairline() }

@@ -13,10 +13,30 @@ struct PlanScreen: View {
     var onOpenSettings: () -> Void = {}
 
     @StateObject private var model: PlanModel
-    @State private var editing: PlanCategory?
     @State private var collapsed: Set<String> = []
-    @State private var shaping: CategoryDraft?
     @State private var confirmingDelete: PlanCategory?
+    /*
+     * One sheet modifier, two destinations.
+     *
+     * Stacking two `.sheet` modifiers on the same view happens to work here
+     * and is documented as undefined: which one owns the presentation is not
+     * specified, and the loser can present detached content. A single modifier
+     * over an enum has one owner, and the screen already needs somewhere to
+     * say which of the two it wants.
+     */
+    @State private var sheet: PlanSheet?
+
+    private enum PlanSheet: Identifiable {
+        case assign(PlanCategory)
+        case shape(CategoryDraft)
+
+        var id: String {
+            switch self {
+            case let .assign(category): "assign:\(category.id)"
+            case let .shape(draft): "shape:\(draft.id)"
+            }
+        }
+    }
 
     init(
         overview: OverviewModel,
@@ -74,29 +94,32 @@ struct PlanScreen: View {
             }
         }
         .task { if model.plan == nil { await model.load() } }
-        .sheet(item: $editing) { category in
-            AssignSheet(
-                category: category,
-                locale: locale,
-                currency: currency,
-                t: t,
-                readyToAssign: model.plan?.readyToAssign ?? 0,
-                month: model.month,
-                base: overview.base
-            ) { amount in
-                await model.assign(amount, to: category.id)
-            }
-        }
-        .sheet(item: $shaping) { draft in
-            CategoryEditorSheet(draft: draft, t: t) { name, emoji, isFixed in
-                if let existing = draft.category {
-                    await model.editCategory(
-                        existing.id, name: name, emoji: emoji, isFixed: isFixed
-                    )
-                } else {
-                    await model.addCategory(
-                        to: draft.groupId, name: name, emoji: emoji, isFixed: isFixed
-                    )
+
+        .sheet(item: $sheet) { destination in
+            switch destination {
+            case let .assign(category):
+                AssignSheet(
+                    category: category,
+                    locale: locale,
+                    currency: currency,
+                    t: t,
+                    readyToAssign: model.plan?.readyToAssign ?? 0,
+                    month: model.month,
+                    base: overview.base
+                ) { amount in
+                    await model.assign(amount, to: category.id)
+                }
+            case let .shape(draft):
+                CategoryEditorSheet(draft: draft, t: t) { name, emoji, isFixed in
+                    if let existing = draft.category {
+                        await model.editCategory(
+                            existing.id, name: name, emoji: emoji, isFixed: isFixed
+                        )
+                    } else {
+                        await model.addCategory(
+                            to: draft.groupId, name: name, emoji: emoji, isFixed: isFixed
+                        )
+                    }
                 }
             }
         }
@@ -256,38 +279,34 @@ struct PlanScreen: View {
                         decimals: false, tone: group.available < 0 ? .negative : .muted,
                         size: 11.5, weight: .semibold
                     )
+                    /*
+                     * Adding an envelope belongs next to the group it joins.
+                     *
+                     * A single "+" in the top bar would make the user name the
+                     * group afterwards, from a list — one more decision, taken
+                     * away from the place where the answer is already on
+                     * screen. Its own tap gesture sits inside the header's, and
+                     * wins inside its own frame, so the row still collapses
+                     * everywhere else along it.
+                     */
+                    if model.canEditCategories, open {
+                        Image(systemName: "plus")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(Florin.accent)
+                            .frame(width: 26, height: 26)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                sheet = .shape(
+                            CategoryDraft(groupId: group.id, groupName: group.name)
+                        )
+                            }
+                            .padding(.leading, 2)
+                    }
                 }
                 .padding(.horizontal, Florin.gutter)
             }
             .contentShape(Rectangle())
-            .overlay(alignment: .trailing) {
-                /*
-                 * Adding an envelope belongs next to the group it joins.
-                 *
-                 * A single global "+" in the top bar would make the user pick
-                 * the group from a list afterwards — one more decision, taken
-                 * away from the place where it is obvious. Here the answer is
-                 * already on screen.
-                 *
-                 * Overlaid rather than placed in the row, because the header
-                 * is one tap target for collapsing and a button inside it
-                 * would compete with that gesture.
-                 */
-                if model.canEditCategories, open {
-                    Button {
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        shaping = CategoryDraft(groupId: group.id, groupName: group.name)
-                    } label: {
-                        Image(systemName: "plus")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundStyle(Florin.accent)
-                            .frame(width: 34, height: 30)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .offset(x: Florin.gutter + 30)
-                }
-            }
             .onTapGesture {
                 UISelectionFeedbackGenerator().selectionChanged()
                 withAnimation(.snappy(duration: 0.22)) {
@@ -319,14 +338,16 @@ struct PlanScreen: View {
                         .contentShape(Rectangle())
                         .onTapGesture {
                             UISelectionFeedbackGenerator().selectionChanged()
-                            editing = category
+                            sheet = .assign(category)
                         }
                         .contextMenu {
                             if model.canEditCategories {
                                 Button {
-                                    shaping = CategoryDraft(
-                                        groupId: group.id, groupName: group.name,
-                                        category: category
+                                    sheet = .shape(
+                                        CategoryDraft(
+                                            groupId: group.id, groupName: group.name,
+                                            category: category
+                                        )
                                     )
                                 } label: {
                                     Label(t("v2.common.edit", "Modifier"), systemImage: "pencil")
