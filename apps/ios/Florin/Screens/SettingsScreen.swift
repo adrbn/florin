@@ -37,6 +37,8 @@ struct SettingsScreen: View {
 
     private var t: Strings { model.overview?.t ?? .empty }
     @State private var showingBanking = false
+    @State private var importing = false
+    @State private var importProgress = 0
     @AppStorage("florin.dataSource") private var sourceRaw = ""
 
     var body: some View {
@@ -239,6 +241,49 @@ struct SettingsScreen: View {
         }
         lastSyncRow
         if BankingFlow.isConfigured { syncRow }
+
+        /*
+         * Bringing a server's ledger onto the phone.
+         *
+         * Re-fetching from the bank was the wrong answer to "I want my history
+         * here": a bank exposes what its consent allows, while the server holds
+         * everything ever recorded — the manual rows, the categories and the
+         * accounts that never came from a bank at all. Only offered when there
+         * is a server to read.
+         */
+        if server.resolvedURL != nil {
+            Hairline()
+            SettingsRow(
+                label: importing
+                    ? "Import en cours… \(importProgress) opérations"
+                    : "Importer depuis mon serveur",
+                symbol: "square.and.arrow.down",
+                action: importing ? nil : { Task { await importFromServer() } }
+            ) {
+                if importing { ProgressView().controlSize(.small) }
+            }
+            .disabled(importing)
+        }
+    }
+
+    private func importFromServer() async {
+        guard let url = server.resolvedURL, let store = LocalStore.shared else { return }
+        importing = true
+        importProgress = 0
+        do {
+            let result = try await ServerImport.run(from: url, into: store) { progress in
+                Task { @MainActor in importProgress = progress.transactions }
+            }
+            importing = false
+            model.toast = ToastMessage(
+                text: "\(result.transactions) opérations importées",
+                kind: .success
+            )
+            await model.load(showSpinner: false)
+        } catch {
+            importing = false
+            model.toast = ToastMessage(text: error.localizedDescription, kind: .failure)
+        }
     }
 
     @ViewBuilder

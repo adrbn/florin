@@ -56,11 +56,28 @@ struct AccountsScreen: View {
                     .font(.system(size: 17, weight: .semibold))
                     .frame(maxWidth: .infinity)
             } trailing: {
-                CircleButton(symbol: "arrow.trianglehead.2.clockwise", size: 44) {
-                    Task { await model.sync() }
+                HStack(spacing: 8) {
+                    /*
+                     * Adding an account belongs on the accounts screen.
+                     *
+                     * The only route was the dashboard's empty state, which
+                     * disappears the moment a first account exists — so anyone
+                     * with one account and a second to add had nowhere to go.
+                     *
+                     * Device ledger only: with a server, accounts come from
+                     * there and one invented here would live somewhere the
+                     * server cannot see.
+                     */
+                    if model.base.scheme == "florin-local" {
+                        CircleButton(symbol: "plus", size: 44) { addingAccount = true }
+                            .accessibilityLabel(t("v2.accounts.add", "Ajouter un compte"))
+                    }
+                    CircleButton(symbol: "arrow.trianglehead.2.clockwise", size: 44) {
+                        Task { await model.sync() }
+                    }
+                    .disabled(model.syncing || !data.bankSyncConfigured)
+                    .opacity(model.syncing ? 0.5 : 1)
                 }
-                .disabled(model.syncing || !data.bankSyncConfigured)
-                .opacity(model.syncing ? 0.5 : 1)
             }
             .padding(.bottom, 24)
 
