@@ -240,11 +240,17 @@ enum LocalCategoriser {
 
     /// Names every row the app brought in and the user has not yet filed.
     ///
-    /// Deliberately scoped to bank rows still waiting in the queue — and to
-    /// upcoming ones, which is the point: seeing what a debit *is* before it
-    /// lands is most of why anyone looks at them. A row the user has already
-    /// approved is left exactly as they left it, uncategorised included; that
-    /// was their decision, not an omission to correct.
+    /// The test is whether the user has passed judgement on the row, not where
+    /// it came from. Anything still in the review queue, still pending, or
+    /// dated ahead is unfiled by definition; a row they approved is left
+    /// exactly as they left it, uncategorised included, because that was a
+    /// decision and not an omission to correct. Rows added by hand are
+    /// approved as they are written, so they are never touched.
+    ///
+    /// This used to also require `source = 'enable_banking'`, which quietly
+    /// excluded the rows most in need of it: a ledger imported from the
+    /// server is written with source `server`, so after an import every
+    /// upcoming debit stayed unnamed and had to be filed by hand.
     @discardableResult
     static func backfill(store: LocalStore) throws -> Int {
         let pending = try store.database.query(
@@ -252,7 +258,6 @@ enum LocalCategoriser {
             SELECT id, payee, amount, account_id
             FROM transactions
             WHERE category_id IS NULL AND deleted_at IS NULL
-              AND source = 'enable_banking'
               AND (needs_review = 1 OR is_pending = 1
                    OR substr(occurred_at, 1, 10) > date('now'))
             ORDER BY occurred_at DESC LIMIT 1000
