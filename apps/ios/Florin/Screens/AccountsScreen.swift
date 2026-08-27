@@ -17,6 +17,9 @@ struct AccountsScreen: View {
     @State private var drill: ActivityRoute?
     @State private var showNet = true
     @State private var addingAccount = false
+    @State private var renaming: Account?
+    @State private var renameDraft = ""
+    @State private var deleting: Account?
 
     private var t: Strings { model.overview?.t ?? .empty }
 
@@ -47,6 +50,60 @@ struct AccountsScreen: View {
         .sheet(isPresented: $addingAccount) {
             AddAccountSheet(onSaved: { Task { await model.load(showSpinner: false) } })
         }
+        .alert(
+            t("v2.accounts.rename", "Renommer"),
+            isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })
+        ) {
+            TextField("", text: $renameDraft)
+            Button(t("v2.common.save", "Enregistrer")) { commitRename() }
+            Button(t("v2.common.cancel", "Annuler"), role: .cancel) { renaming = nil }
+        }
+        .alert(
+            "Supprimer ce compte ?",
+            isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }),
+            presenting: deleting
+        ) { account in
+            Button(t("v2.common.delete", "Supprimer"), role: .destructive) {
+                commitDelete(account)
+            }
+            Button(t("v2.common.cancel", "Annuler"), role: .cancel) { deleting = nil }
+        } message: { account in
+            // Says what goes with it: an account is rarely alone, and finding
+            // out afterwards is not a discovery anyone enjoys.
+            Text("\(account.name) et toutes ses opérations seront supprimés de cet appareil. Votre serveur et votre banque ne sont pas touchés.")
+        }
+    }
+
+    private func commitRename() {
+        guard let account = renaming, let store = LocalStore.shared else { return }
+        let name = renameDraft.trimmingCharacters(in: .whitespaces)
+        renaming = nil
+        guard !name.isEmpty else { return }
+        try? store.database.run(
+            "UPDATE accounts SET name = ?, updated_at = datetime('now') WHERE id = ?",
+            [.text(name), .text(account.id)]
+        )
+        Task { await model.load(showSpinner: false) }
+    }
+
+    private func commitDelete(_ account: Account) {
+        guard let store = LocalStore.shared else { return }
+        deleting = nil
+        /*
+         * Gone, with its rows, in one transaction.
+         *
+         * Archiving would leave the transactions counting towards spending
+         * while the account they belong to is invisible — a balance nobody can
+         * point at. If someone asks for an account to be deleted, the honest
+         * answer is that it is.
+         */
+        try? store.database.transaction {
+            try store.database.run(
+                "DELETE FROM transactions WHERE account_id = ?", [.text(account.id)]
+            )
+            try store.database.run("DELETE FROM accounts WHERE id = ?", [.text(account.id)])
+        }
+        Task { await model.load(showSpinner: false) }
     }
 
     private func loaded(_ data: Overview) -> some View {
@@ -72,11 +129,25 @@ struct AccountsScreen: View {
                         CircleButton(symbol: "plus", size: 44) { addingAccount = true }
                             .accessibilityLabel(t("v2.accounts.add", "Ajouter un compte"))
                     }
+                    /*
+                     * It turns while it works.
+                     *
+                     * A bank round trip takes seconds and the button gave no
+                     * sign of it — dimming reads as "disabled", not as "busy",
+                     * so the only feedback was the numbers eventually changing.
+                     */
                     CircleButton(symbol: "arrow.trianglehead.2.clockwise", size: 44) {
                         Task { await model.sync() }
                     }
+                    .rotationEffect(.degrees(model.syncing ? 360 : 0))
+                    .animation(
+                        model.syncing
+                            ? .linear(duration: 1).repeatForever(autoreverses: false)
+                            : .default,
+                        value: model.syncing
+                    )
                     .disabled(model.syncing || !data.bankSyncConfigured)
-                    .opacity(model.syncing ? 0.5 : 1)
+                    .opacity(model.syncing ? 0.6 : 1)
                 }
             }
             .padding(.bottom, 24)
@@ -164,6 +235,40 @@ struct AccountsScreen: View {
                                 }
                             }
                             .buttonStyle(.plain)
+                            /*
+                             * Rename and delete, where the account is.
+                             *
+                             * A context menu rather than swipe actions: these
+                             * rows are not in a List, so `.swipeActions` is
+                             * inert on them — a gesture that silently does
+                             * nothing, which this app has been bitten by
+                             * before.
+                             *
+                             * Only on the device ledger. With a server the
+                             * accounts belong to it, and renaming one here
+                             * would be undone by the next refresh.
+                             */
+                            .contextMenu {
+                                if model.base.scheme == "florin-local" {
+                                    Button {
+                                        renaming = account
+                                        renameDraft = account.name
+                                    } label: {
+                                        Label(
+                                            t("v2.accounts.rename", "Renommer"),
+                                            systemImage: "pencil"
+                                        )
+                                    }
+                                    Button(role: .destructive) {
+                                        deleting = account
+                                    } label: {
+                                        Label(
+                                            t("v2.common.delete", "Supprimer"),
+                                            systemImage: "trash"
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                     .padding(.horizontal, Florin.gutter)
