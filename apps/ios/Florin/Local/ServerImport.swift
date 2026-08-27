@@ -235,8 +235,8 @@ enum ServerImport {
                     INSERT INTO transactions
                         (id, account_id, occurred_at, amount, currency, payee,
                          normalized_payee, memo, category_id, source, external_id,
-                         status, needs_review, is_pending)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'server', ?, ?, ?, ?)
+                         status, needs_review, is_pending, transfer_pair_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'server', ?, ?, ?, ?, ?)
                     """,
                     [
                         .text(UUID().uuidString),
@@ -254,6 +254,16 @@ enum ServerImport {
                         .text(transaction.isScheduled ? "scheduled" : "cleared"),
                         .integer(transaction.needsReview ? 1 : 0),
                         .integer(transaction.isPending ? 1 : 0),
+                        /*
+                         * Marked as a transfer leg, without its partner's id.
+                         *
+                         * The feed says whether a row is one but not which row
+                         * it pairs with, and everything here only asks "is this
+                         * a transfer?" — the patrimony curve excludes them, and
+                         * unmarked, a 2700 move between two of your own
+                         * accounts counted as wealth changing.
+                         */
+                        transaction.isTransfer ? .text("imported:" + transaction.id) : .null,
                     ]
                 )
             }

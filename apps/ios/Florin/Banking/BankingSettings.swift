@@ -61,15 +61,20 @@ struct BankingSettings: View {
             }
             .scrollDismissesKeyboard(.interactively)
 
-            VStack {
-                HStack {
-                    Spacer()
-                    CircleButton(symbol: "xmark", size: 40) { dismiss() }
-                        .padding(.trailing, Florin.gutter)
-                        .padding(.top, 6)
-                }
-                Spacer()
-            }
+        }
+        /*
+         * Above the content, and clear of the sheet's grabber.
+         *
+         * It sat six points from the top inside the stack, which on a sheet is
+         * where the drag indicator lives — the handle took the touch and the
+         * button never fired. An overlay with real clearance and an explicit
+         * z-order puts it back in reach.
+         */
+        .overlay(alignment: .topTrailing) {
+            CircleButton(symbol: "xmark", size: 40) { dismiss() }
+                .padding(.trailing, Florin.gutter)
+                .padding(.top, onConnected == nil ? 26 : 14)
+                .zIndex(2)
         }
         .preferredColorScheme(.dark)
         // Only a sheet when it is one. Presented full screen during onboarding,
@@ -80,7 +85,22 @@ struct BankingSettings: View {
             if let store = LocalStore.shared { appId = BankingFlow.appId(store) ?? "" }
         }
         .onChange(of: flow.connected) { _, connected in
-            if connected { onConnected?() }
+            guard connected else { return }
+            /*
+             * A finished connection leaves the picker.
+             *
+             * Confirming the account mapping dropped the user back on the list
+             * of banks — the list was still in state, so the view had nothing
+             * else to show. Connecting a bank ends by returning to the app,
+             * not by offering to connect another.
+             */
+            banks = []
+            query = ""
+            if let onConnected {
+                onConnected()
+            } else {
+                dismiss()
+            }
         }
         // Presented rather than inlined: it is a decision that blocks the
         // connection, not another step in a list.
