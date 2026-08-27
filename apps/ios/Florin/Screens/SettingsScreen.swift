@@ -38,6 +38,7 @@ struct SettingsScreen: View {
     private var t: Strings { model.overview?.t ?? .empty }
     @State private var showingBanking = false
     @State private var importing = false
+    @State private var confirmingImport = false
     @State private var importProgress = 0
     @AppStorage("florin.dataSource") private var sourceRaw = ""
 
@@ -64,6 +65,22 @@ struct SettingsScreen: View {
             .navigationTitle(t("v2.settings.title", "Réglages"))
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $showingBanking) { BankingSettings() }
+            /*
+             * Destructive, so it says so before doing it.
+             *
+             * The import replaces this device's ledger rather than merging
+             * into it, which is the only way it can be correct — but that is
+             * not something to discover afterwards from a net worth that
+             * doubled.
+             */
+            .alert("Remplacer les données locales ?", isPresented: $confirmingImport) {
+                Button("Remplacer", role: .destructive) {
+                    Task { await importFromServer() }
+                }
+                Button(t("v2.common.cancel", "Annuler"), role: .cancel) {}
+            } message: {
+                Text("Les comptes, opérations et catégories de cet appareil seront effacés et remplacés par ceux du serveur. La connexion bancaire de ce téléphone sera retirée — le serveur s'en charge déjà.")
+            }
             .toolbar {
                 ToolbarItem(placement: .principal) { Wordmark(size: 17) }
                 if let onClose {
@@ -258,7 +275,7 @@ struct SettingsScreen: View {
                     ? "Import en cours… \(importProgress) opérations"
                     : "Importer depuis mon serveur",
                 symbol: "square.and.arrow.down",
-                action: importing ? nil : { Task { await importFromServer() } }
+                action: importing ? nil : { confirmingImport = true }
             ) {
                 if importing { ProgressView().controlSize(.small) }
             }
