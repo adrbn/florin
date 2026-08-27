@@ -106,7 +106,7 @@ struct OnboardingFlow: View {
         .animation(.snappy(duration: 0.32), value: tint)
         .preferredColorScheme(.dark)
         .alert(
-            "Onboarding",
+            Strings.device("v2.onboard.title", "Onboarding"),
             isPresented: Binding(get: { failure != nil }, set: { if !$0 { failure = nil } })
         ) {
             Button("OK", role: .cancel) { failure = nil }
@@ -138,7 +138,7 @@ struct OnboardingFlow: View {
                 .font(.system(size: 40, weight: .semibold))
                 .foregroundStyle(Florin.text)
 
-            Text("Vos comptes, votre budget, votre patrimoine — sur votre téléphone, et nulle part ailleurs.")
+            Text(Strings.device("v2.onboard.tagline", "Vos comptes, votre budget, votre patrimoine — sur votre téléphone, et nulle part ailleurs."))
                 .font(.system(size: 16))
                 .foregroundStyle(Florin.text2)
                 .multilineTextAlignment(.center)
@@ -147,7 +147,7 @@ struct OnboardingFlow: View {
 
             HStack(spacing: 8) {
                 Image(systemName: "lock.fill").font(.system(size: 11, weight: .semibold))
-                Text("Aucun compte à créer. Aucune donnée envoyée.")
+                Text(Strings.device("v2.onboard.noAccount", "Aucun compte à créer. Aucune donnée envoyée."))
                     .font(.system(size: 12.5, weight: .medium))
             }
             .foregroundStyle(Florin.text3)
@@ -157,7 +157,7 @@ struct OnboardingFlow: View {
 
     private var fork: some View {
         VStack(spacing: 18) {
-            Text("Comment voulez-vous commencer ?")
+            Text(Strings.device("v2.onboard.howStart", "Comment voulez-vous commencer ?"))
                 .font(.system(size: 25, weight: .semibold))
                 .foregroundStyle(Florin.text)
                 .multilineTextAlignment(.center)
@@ -167,14 +167,14 @@ struct OnboardingFlow: View {
                 choice(
                     .bank,
                     emoji: "🏛️",
-                    title: "Connecter ma banque",
-                    detail: "Vos comptes, vos soldes et vos opérations arrivent tout seuls."
+                    title: Strings.device("v2.onboard.bankTitle", "Connecter ma banque"),
+                    detail: Strings.device("v2.onboard.bankDetail", "Vos comptes, vos soldes et vos opérations arrivent tout seuls.")
                 )
                 choice(
                     .manual,
                     emoji: "✍️",
-                    title: "Saisir mes comptes",
-                    detail: "Vous entrez ce que vous avez, et vous ajoutez vos opérations vous-même."
+                    title: Strings.device("v2.onboard.manualTitle", "Saisir mes comptes"),
+                    detail: Strings.device("v2.onboard.manualDetail", "Vous entrez ce que vous avez, et vous ajoutez vos opérations vous-même.")
                 )
             }
             .padding(.horizontal, Florin.gutter)
@@ -190,7 +190,7 @@ struct OnboardingFlow: View {
                  * Offering the choice and staying quiet about what it needs
                  * would be the kind of promise that turns into a dead end.
                  */
-                Text("Vos comptes se connectent depuis ce téléphone. Rien ne transite par un serveur.")
+                Text(Strings.device("v2.onboard.bankPrivacy", "Vos comptes se connectent depuis ce téléphone. Rien ne transite par un serveur."))
                     .font(.system(size: 12.5))
                     .foregroundStyle(Florin.text3)
                     .multilineTextAlignment(.center)
@@ -240,15 +240,15 @@ struct OnboardingFlow: View {
 
     private var account: some View {
         VStack(spacing: 20) {
-            Text("Votre premier compte")
+            Text(Strings.device("v2.onboard.firstAccount", "Votre premier compte"))
                 .font(.system(size: 26, weight: .semibold))
                 .foregroundStyle(Florin.text)
 
-            Text("Celui que vous regardez en premier le matin.")
+            Text(Strings.device("v2.onboard.firstAccountHint", "Celui que vous regardez en premier le matin."))
                 .font(.system(size: 14))
                 .foregroundStyle(Florin.text2)
 
-            TextField("Compte courant", text: $name)
+            TextField(Strings.device("v2.onboard.accountPlaceholder", "Compte courant"), text: $name)
                 .font(.system(size: 17, weight: .medium))
                 .multilineTextAlignment(.center)
                 .focused($focus, equals: .name)
@@ -324,7 +324,7 @@ struct OnboardingFlow: View {
                 .font(.system(size: 52))
                 .foregroundStyle(Florin.positive)
 
-            Text("C'est prêt")
+            Text(Strings.device("v2.onboard.ready", "C'est prêt"))
                 .font(.system(size: 28, weight: .semibold))
                 .foregroundStyle(Florin.text)
 
@@ -338,8 +338,14 @@ struct OnboardingFlow: View {
              */
             Text(
                 path == .bank
-                    ? "Florin a préparé quelques catégories courantes — à vous de les changer. Il reste à connecter votre banque, dans les réglages."
-                    : "Florin a préparé quelques catégories courantes — à vous de les changer. Vous pouvez ajouter vos opérations dès maintenant."
+                    ? Strings.device(
+                        "v2.onboard.readyBank",
+                        "Florin a préparé quelques catégories courantes — à vous de les changer. Il reste à connecter votre banque, dans les réglages."
+                    )
+                    : Strings.device(
+                        "v2.onboard.readyManual",
+                        "Florin a préparé quelques catégories courantes — à vous de les changer. Vous pouvez ajouter vos opérations dès maintenant."
+                    )
             )
                 .font(.system(size: 15))
                 .foregroundStyle(Florin.text2)
@@ -394,7 +400,7 @@ struct OnboardingFlow: View {
     private var secondaryAction: some View {
         if step == 0 {
             Button(action: onUseServer) {
-                Text("J'ai déjà un serveur Florin")
+                Text(Strings.device("v2.onboard.haveServer", "J'ai déjà un serveur Florin"))
                     .font(.system(size: 13.5, weight: .medium))
                     .foregroundStyle(Florin.text3)
             }

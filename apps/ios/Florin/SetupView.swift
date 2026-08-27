@@ -44,7 +44,7 @@ struct SetupView: View {
 
                     HStack(spacing: 7) {
                         Image(systemName: "lock.fill").font(.system(size: 11, weight: .semibold))
-                        Text("Rien ne quitte votre réseau : l'app affiche votre propre serveur.")
+                        Text(Strings.device("v2.setup.privacy", "Rien ne quitte votre réseau : l'app affiche votre propre serveur."))
                             .font(.system(size: 12.5))
                     }
                     .foregroundStyle(Florin.text3)
@@ -82,11 +82,11 @@ struct SetupView: View {
                 .foregroundStyle(Florin.accent)
                 .padding(.bottom, 2)
 
-            Text(isFirstRun ? "Votre serveur Florin" : "Serveur")
+            Text(isFirstRun ? Strings.device("v2.setup.title", "Votre serveur Florin") : "Serveur")
                 .font(.system(size: 26, weight: .semibold))
                 .foregroundStyle(Florin.text)
 
-            Text("L'adresse de votre instance, sur votre réseau.")
+            Text(Strings.device("v2.setup.hostHint", "L'adresse de votre instance, sur votre réseau."))
                 .font(.system(size: 14))
                 .foregroundStyle(Florin.text2)
                 .multilineTextAlignment(.center)

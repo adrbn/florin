@@ -531,11 +531,17 @@ struct OverviewScreen: View {
                         t: data.t,
                         expanded: $upcomingExpanded
                     ) { tx in
-                        TransactionRowView(
-                            hideUpcomingChip: true,
-                            tx: tx, locale: data.localeTag,
-                            currency: data.currency, t: data.t
-                        )
+                        // Same destination as every other row on this screen.
+                        // A line you can tap everywhere except inside one
+                        // collapsible group reads as broken, not as special.
+                        Button { route(.activity, "/m/transactions") } label: {
+                            TransactionRowView(
+                                hideUpcomingChip: true,
+                                tx: tx, locale: data.localeTag,
+                                currency: data.currency, t: data.t
+                            )
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
 

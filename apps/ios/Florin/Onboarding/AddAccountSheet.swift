@@ -26,7 +26,7 @@ struct AddAccountSheet: View {
 
                 ScrollView {
                     VStack(spacing: 20) {
-                        Text("Un compte que vous tenez vous-même.")
+                        Text(Strings.device("v2.account.manualHint", "Un compte que vous tenez vous-même."))
                             .font(.system(size: 14))
                             .foregroundStyle(Florin.text2)
                             .padding(.top, 8)
@@ -69,8 +69,8 @@ struct AddAccountSheet: View {
                         VStack(spacing: 4) {
                             Text(
                                 kind == .loan
-                                    ? "Combien reste-t-il à rembourser ?"
-                                    : "Combien y a-t-il dessus aujourd'hui ?"
+                                    ? Strings.device("v2.account.loanHint", "Combien reste-t-il à rembourser ?")
+                                    : Strings.device("v2.account.balanceQuestion", "Combien y a-t-il dessus aujourd'hui ?")
                             )
                             .font(.system(size: 12.5, weight: .medium))
                             .foregroundStyle(Florin.text3)
@@ -91,7 +91,7 @@ struct AddAccountSheet: View {
                         .padding(.top, 6)
 
                         Button(action: save) {
-                            Text("Ajouter le compte")
+                            Text(Strings.device("v2.account.addAction", "Ajouter le compte"))
                                 .font(.system(size: 17, weight: .semibold))
                                 .foregroundStyle(.black)
                                 .frame(maxWidth: .infinity)

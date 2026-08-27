@@ -15,6 +15,8 @@ struct PlanScreen: View {
     @StateObject private var model: PlanModel
     @State private var editing: PlanCategory?
     @State private var collapsed: Set<String> = []
+    @State private var shaping: CategoryDraft?
+    @State private var confirmingDelete: PlanCategory?
 
     init(
         overview: OverviewModel,
@@ -84,6 +86,41 @@ struct PlanScreen: View {
             ) { amount in
                 await model.assign(amount, to: category.id)
             }
+        }
+        .sheet(item: $shaping) { draft in
+            CategoryEditorSheet(draft: draft, t: t) { name, emoji, isFixed in
+                if let existing = draft.category {
+                    await model.editCategory(
+                        existing.id, name: name, emoji: emoji, isFixed: isFixed
+                    )
+                } else {
+                    await model.addCategory(
+                        to: draft.groupId, name: name, emoji: emoji, isFixed: isFixed
+                    )
+                }
+            }
+        }
+        .confirmationDialog(
+            confirmingDelete.map { $0.name } ?? "",
+            isPresented: Binding(
+                get: { confirmingDelete != nil },
+                set: { if !$0 { confirmingDelete = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button(t("v2.common.delete", "Supprimer"), role: .destructive) {
+                if let target = confirmingDelete {
+                    Task { await model.removeCategory(target.id, named: target.name, t: t) }
+                }
+            }
+            Button(t("v2.common.cancel", "Annuler"), role: .cancel) {}
+        } message: {
+            Text(
+                t(
+                    "v2.plan.deleteCategoryBody",
+                    "Les opérations déjà classées ici la gardent — elle disparaît simplement du plan."
+                )
+            )
         }
         .florinToast($model.toast)
     }
@@ -223,6 +260,34 @@ struct PlanScreen: View {
                 .padding(.horizontal, Florin.gutter)
             }
             .contentShape(Rectangle())
+            .overlay(alignment: .trailing) {
+                /*
+                 * Adding an envelope belongs next to the group it joins.
+                 *
+                 * A single global "+" in the top bar would make the user pick
+                 * the group from a list afterwards — one more decision, taken
+                 * away from the place where it is obvious. Here the answer is
+                 * already on screen.
+                 *
+                 * Overlaid rather than placed in the row, because the header
+                 * is one tap target for collapsing and a button inside it
+                 * would compete with that gesture.
+                 */
+                if model.canEditCategories, open {
+                    Button {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        shaping = CategoryDraft(groupId: group.id, groupName: group.name)
+                    } label: {
+                        Image(systemName: "plus")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(Florin.accent)
+                            .frame(width: 34, height: 30)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .offset(x: Florin.gutter + 30)
+                }
+            }
             .onTapGesture {
                 UISelectionFeedbackGenerator().selectionChanged()
                 withAnimation(.snappy(duration: 0.22)) {
@@ -255,6 +320,25 @@ struct PlanScreen: View {
                         .onTapGesture {
                             UISelectionFeedbackGenerator().selectionChanged()
                             editing = category
+                        }
+                        .contextMenu {
+                            if model.canEditCategories {
+                                Button {
+                                    shaping = CategoryDraft(
+                                        groupId: group.id, groupName: group.name,
+                                        category: category
+                                    )
+                                } label: {
+                                    Label(t("v2.common.edit", "Modifier"), systemImage: "pencil")
+                                }
+                                Button(role: .destructive) {
+                                    confirmingDelete = category
+                                } label: {
+                                    Label(
+                                        t("v2.common.delete", "Supprimer"), systemImage: "trash"
+                                    )
+                                }
+                            }
                         }
                     }
                 }
