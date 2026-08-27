@@ -79,11 +79,20 @@ struct SettingsScreen: View {
                         .foregroundStyle(.secondary)
                         .monospaced()
                 }
-                Button(t("v2.common.edit", "Modifier")) {
+                Button {
                     draftServer = server.rawURL
                     draftToken = server.apiToken
                     serverStatus = .unknown
                     editingServer = true
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "pencil")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text(t("v2.common.edit", "Modifier")).fontWeight(.medium)
+                        Spacer()
+                    }
+                    .foregroundStyle(Florin.accent)
+                    .contentShape(Rectangle())
                 }
             } footer: {
                 Text("Florin lit ton propre serveur. Rien ne quitte ton réseau.")
@@ -146,17 +155,33 @@ struct SettingsScreen: View {
              * which is every phone that has ever used one. A line saying what
              * this connection is does the same job without the dead end.
              */
+            /*
+             * A row that opens something looks like a row that opens something.
+             *
+             * These were bare `Button`s wrapping plain text inside a Form: the
+             * label rendered as ordinary body copy with no chevron, no tint and
+             * no press feedback, so "Synchroniser les banques" read as a
+             * sentence rather than the action it is. The chevron is the whole
+             * convention — it is what tells you a tap goes somewhere.
+             */
             Button {
                 showingBanking = true
             } label: {
-                LabeledContent(t("v2.settings.banking", "Synchronisation bancaire")) {
+                HStack {
+                    Text(t("v2.settings.banking", "Synchronisation bancaire"))
+                        .foregroundStyle(Florin.text)
+                    Spacer()
                     Text(
                         BankingFlow.isConfigured
                             ? t("v2.settings.bankingReady", "Configurée")
                             : t("v2.settings.bankingMissing", "Non configurée")
                     )
                     .foregroundStyle(.secondary)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Florin.text3)
                 }
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
 
@@ -176,13 +201,18 @@ struct SettingsScreen: View {
             Button {
                 Task { await model.sync() }
             } label: {
-                HStack {
+                HStack(spacing: 8) {
+                    Image(systemName: "arrow.trianglehead.2.clockwise")
+                        .font(.system(size: 14, weight: .semibold))
                     Text(t("v2.add.sync", "Synchroniser les banques"))
-                    if model.syncing {
-                        Spacer()
-                        ProgressView()
-                    }
+                        .fontWeight(.medium)
+                    Spacer()
+                    if model.syncing { ProgressView() }
                 }
+                .foregroundStyle(
+                    model.overview?.bankSyncConfigured == true ? Florin.accent : Florin.text3
+                )
+                .contentShape(Rectangle())
             }
             .disabled(model.syncing || model.overview?.bankSyncConfigured != true)
         } footer: {

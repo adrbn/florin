@@ -33,15 +33,24 @@ struct BankingSettings: View {
                 VStack(spacing: 18) {
                     header
 
-                    if configured && banks.isEmpty && !searching {
+                    /*
+                     * One thing at a time.
+                     *
+                     * The setup steps used to reappear above the bank picker:
+                     * their condition included `banks.isEmpty`, so the moment
+                     * the list arrived the whole three-step tutorial came back
+                     * and the picker was pushed below it. Nobody choosing their
+                     * bank needs to be told again how to make a key.
+                     */
+                    if !banks.isEmpty || searching {
+                        bankList
+                    } else if configured {
                         ready
                     } else {
                         step(1, "Créer une clé", done: hasKey) { keyStep }
                         step(2, "Enregistrer l'application", done: !appId.isEmpty) { registerStep }
                         step(3, "Coller l'identifiant", done: !appId.isEmpty) { appIdStep }
                     }
-
-                    if !banks.isEmpty || searching { bankList }
                 }
                 .padding(.horizontal, Florin.gutter)
                 .padding(.bottom, 40)
@@ -316,7 +325,18 @@ struct BankingSettings: View {
             HStack {
                 Eyebrow(text: "Votre banque")
                 Spacer()
-                if flow.busy || searching { ProgressView().controlSize(.small) }
+                if flow.busy || searching {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Button {
+                        withAnimation { banks = []; query = "" }
+                    } label: {
+                        Text("Retour")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(Florin.accent)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
 
             if let step = flow.step {
