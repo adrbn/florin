@@ -35,6 +35,7 @@ struct StartAuthResponse: Decodable {
 
 struct SessionResponse: Decodable {
     let sessionId: String?
+    /// Account UIDs, however the API chose to spell them this time.
     let accounts: [String]?
     let accessValidUntil: String?
     let aspsp: Aspsp?
@@ -45,6 +46,49 @@ struct SessionResponse: Decodable {
         case accessValidUntil = "access_valid_until"
         case aspsp
     }
+
+    /*
+     * `accounts` arrives as bare uid strings, or as objects carrying one.
+     *
+     * The shared TypeScript types declare `ReadonlyArray<string>` and say so in
+     * a comment — but La Banque Postale's real POST /sessions answered with
+     * objects, and decoding stopped dead on it. Rather than pick a side and be
+     * wrong for somebody's bank, take either: a string is the uid, an object is
+     * asked for its `uid`. Anything else is skipped instead of failing the
+     * whole session, because one unreadable entry should not cost the other
+     * accounts.
+     */
+    private struct AccountRef: Decodable {
+        let uid: String?
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        sessionId = try container.decodeIfPresent(String.self, forKey: .sessionId)
+        accessValidUntil = try container.decodeIfPresent(String.self, forKey: .accessValidUntil)
+        aspsp = try container.decodeIfPresent(Aspsp.self, forKey: .aspsp)
+
+        if var list = try? container.nestedUnkeyedContainer(forKey: .accounts) {
+            var uids: [String] = []
+            while !list.isAtEnd {
+                if let uid = try? list.decode(String.self) {
+                    uids.append(uid)
+                } else if let ref = try? list.decode(AccountRef.self) {
+                    if let uid = ref.uid { uids.append(uid) }
+                } else {
+                    _ = try? list.decode(AnyIgnored.self)
+                }
+            }
+            accounts = uids
+        } else {
+            accounts = nil
+        }
+    }
+}
+
+/// Consumes one element of unknown shape so an unkeyed container can move on.
+private struct AnyIgnored: Decodable {
+    init(from decoder: Decoder) throws {}
 }
 
 struct AccountDetails: Decodable {

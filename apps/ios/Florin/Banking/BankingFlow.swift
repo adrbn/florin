@@ -128,7 +128,7 @@ final class BankingFlow: NSObject, ObservableObject {
         // Loud on purpose: the failure that matters here is the one where
         // nothing at all happens, which leaves no error to read.
         Self.log.notice("connect tapped: \(aspsp.name, privacy: .public)")
-        step = "1/4 · touche reçue"
+        step = "Préparation…"
         guard let store = LocalStore.shared else {
             failure = "Florin n'a pas pu ouvrir sa base sur cet appareil."
             return
@@ -139,7 +139,7 @@ final class BankingFlow: NSObject, ObservableObject {
         do {
             let config = try Self.config(store)
             startedAt = Date()
-            step = "2/4 · demande d'autorisation"
+            step = "Connexion à votre banque…"
             let nonce = UUID().uuidString
             pendingNonce = nonce
 
@@ -152,7 +152,7 @@ final class BankingFlow: NSObject, ObservableObject {
                 config, aspsp: aspsp, state: nonce, validUntil: validUntil
             )
             Self.log.notice("auth url received, presenting")
-            step = "3/4 · ouverture de la banque"
+            step = "Connexion à votre banque…"
             guard let authURL = URL(string: start.url) else { throw EnableBanking.Failure.malformed }
 
             let callback = try await present(authURL)
@@ -167,7 +167,7 @@ final class BankingFlow: NSObject, ObservableObject {
             guard returned == nonce else { throw EnableBanking.Failure.malformed }
             pendingNonce = nil
 
-            step = "4/4 · récupération des comptes"
+            step = "Récupération de vos comptes…"
             let session = try await EnableBanking.createSession(config, code: code)
             try save(session, aspsp: aspsp, store: store)
             try await BankingSync.run(store: store, config: config)
@@ -245,7 +245,7 @@ final class BankingFlow: NSObject, ObservableObject {
              * error to show and nothing in the log. That is exactly what
              * tapping a bank did.
              */
-            step = "3/4 · ouverture de la banque…"
+            step = "Connexion à votre banque…"
             guard session.start() else {
                 Self.log.error("ASWebAuthenticationSession refused to start")
                 continuation.resume(throwing: EnableBanking.Failure.rejected(
