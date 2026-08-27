@@ -46,6 +46,9 @@ struct RootView: View {
     /// above — `LocalOnboarding.isComplete` reads the database, which SwiftUI
     /// has no way to observe on its own.
     @State private var onboarded = UUID()
+    /// Bank setup, presented as the last step of onboarding rather than as a
+    /// settings screen — nothing behind it is worth seeing yet.
+    @State private var connectingBank = false
 
     private var appearance: Appearance { Appearance(rawValue: appearanceRaw) ?? .dark }
 
@@ -78,7 +81,8 @@ struct RootView: View {
                 } else {
                     OnboardingFlow(
                         onFinish: { onboarded = UUID() },
-                        onUseServer: { wantsServerForm = true }
+                        onUseServer: { wantsServerForm = true },
+                        onNeedsBank: { connectingBank = true }
                     )
                 }
             }
@@ -104,6 +108,22 @@ struct RootView: View {
         }
         .sheet(isPresented: $showingSetup) {
             SetupView(isFirstRun: false).environmentObject(server)
+        }
+        /*
+         * Full screen, not a sheet.
+         *
+         * As a half-height sheet it left the settings — or worse, a dashboard
+         * of zeros — visible behind it, which made a required step look
+         * optional and the app look unfinished. Onboarding is not finished
+         * until a bank is actually connected, so this covers everything until
+         * it is.
+         */
+        .fullScreenCover(isPresented: $connectingBank) {
+            BankingSettings(onConnected: {
+                try? LocalOnboarding.markComplete()
+                connectingBank = false
+                onboarded = UUID()
+            })
         }
     }
 }

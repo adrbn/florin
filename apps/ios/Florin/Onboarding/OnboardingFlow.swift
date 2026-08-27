@@ -17,6 +17,8 @@ struct OnboardingFlow: View {
     let onFinish: () -> Void
     /// The escape hatch to the old server form.
     let onUseServer: () -> Void
+    /// Hands off to the bank setup, which is what finishes this path.
+    let onNeedsBank: () -> Void
 
     @State private var step = 0
     @State private var path: StartPath?
@@ -56,7 +58,15 @@ struct OnboardingFlow: View {
 
     /// Three pages on the bank path, four on the manual one — the account
     /// form only exists where it means something.
-    private var lastStep: Int { path == .manual ? 3 : 2 }
+    /*
+     * Four pages by hand, two with a bank.
+     *
+     * The bank path used to end on its own "c'est prêt" page, which declared
+     * the setup finished before a single account existed — and dropped the
+     * user on a dashboard of zeros. There is nothing to confirm before the
+     * bank has been connected, so the fork is where that path ends.
+     */
+    private var lastStep: Int { path == .manual ? 3 : 1 }
 
     var body: some View {
         ZStack {
@@ -358,7 +368,11 @@ struct OnboardingFlow: View {
         } label: {
             HStack(spacing: 8) {
                 if saving { ProgressView().tint(.black) }
-                Text(step == lastStep ? "Commencer" : "Continuer")
+                Text(
+                    step == lastStep
+                        ? (path == .bank ? "Connecter ma banque" : "Commencer")
+                        : "Continuer"
+                )
                     .font(.system(size: 17, weight: .semibold))
             }
             .foregroundStyle(.black)
@@ -409,15 +423,7 @@ struct OnboardingFlow: View {
          * Nothing is written: accounts and balances come from the bank.
          */
         if path == .bank {
-            saving = true
-            do {
-                try LocalOnboarding.markComplete()
-                saving = false
-                onFinish()
-            } catch {
-                saving = false
-                failure = error.localizedDescription
-            }
+            onNeedsBank()
             return
         }
         saving = true

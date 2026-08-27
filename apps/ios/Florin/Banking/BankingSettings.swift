@@ -7,6 +7,10 @@ import SwiftUI
 /// has never heard of a JWT and should not have to — the steps are "make a
 /// key", "register it", "paste the id back", and each one says what it is for.
 struct BankingSettings: View {
+    /// Called once a bank is genuinely connected. Onboarding uses it to finish;
+    /// opened from settings there is nothing to finish, so it is optional.
+    var onConnected: (() -> Void)?
+
     @StateObject private var flow = BankingFlow()
     @Environment(\.dismiss) private var dismiss
 
@@ -68,10 +72,15 @@ struct BankingSettings: View {
             }
         }
         .preferredColorScheme(.dark)
-        .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
+        // Only a sheet when it is one. Presented full screen during onboarding,
+        // these would fight the cover.
+        .presentationDetents(onConnected == nil ? [.medium, .large] : [.large])
+        .presentationDragIndicator(onConnected == nil ? .visible : .hidden)
         .task {
             if let store = LocalStore.shared { appId = BankingFlow.appId(store) ?? "" }
+        }
+        .onChange(of: flow.connected) { _, connected in
+            if connected { onConnected?() }
         }
         .alert(
             "Remplacer la clé ?",
