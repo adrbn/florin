@@ -63,7 +63,8 @@ enum LocalPlan {
             FROM transactions t
             JOIN categories c ON c.id = t.category_id
             JOIN category_groups g ON g.id = c.group_id
-            WHERE t.deleted_at IS NULL AND substr(t.occurred_at, 1, 7) = ?
+            WHERE t.deleted_at IS NULL AND t.is_pending = 0
+              AND substr(t.occurred_at, 1, 7) = ?
             """,
             [.text(key)]
         ) {
