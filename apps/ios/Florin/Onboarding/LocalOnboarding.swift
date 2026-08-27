@@ -57,6 +57,26 @@ enum LocalOnboarding {
         )
     }
 
+    /// Adds an account without touching the onboarding marker — for the ones
+    /// created later, from the app itself.
+    static func createAccount(name: String, kind: AccountKind, balance: Double) throws {
+        guard let store = LocalStore.shared else { throw Failure.noStore }
+        let label = name.isEmpty ? kind.label : name
+        let signed = kind.signed(balance)
+        try store.database.run(
+            """
+            INSERT INTO accounts
+                (id, name, kind, currency, current_balance, opening_balance, display_order)
+            VALUES (?, ?, ?, 'EUR', ?, ?,
+                    (SELECT coalesce(max(display_order) + 1, 0) FROM accounts))
+            """,
+            [
+                .text(UUID().uuidString), .text(label), .text(kind.rawValue),
+                .real(signed), .real(signed),
+            ]
+        )
+    }
+
     static func createFirstAccount(name: String, kind: AccountKind, balance: Double) throws {
         guard let store = LocalStore.shared else { throw Failure.noStore }
         let label = name.isEmpty ? kind.label : name

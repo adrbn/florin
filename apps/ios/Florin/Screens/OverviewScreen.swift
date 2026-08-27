@@ -17,6 +17,7 @@ struct OverviewScreen: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var pushed: [String] = []
     @State private var adding = false
+    @State private var addingAccount = false
     @State private var scrubbed: PatrimonyPoint?
     @State private var range: Range = .year
     @State private var showGross = false
@@ -74,6 +75,9 @@ struct OverviewScreen: View {
             // where the thumb is. Removing the bar hands ~56pt back to the
             // figure that matters.
             .toolbar(.hidden, for: .navigationBar)
+        }
+        .sheet(isPresented: $addingAccount) {
+            AddAccountSheet(onSaved: { Task { await model.load(showSpinner: false) } })
         }
         .sheet(isPresented: $adding) {
             if let data = model.overview {
@@ -180,7 +184,7 @@ struct OverviewScreen: View {
                     EmptyStart(
                         t: data.t,
                         onConnectBank: { route(.settings, TabRoute.settings.rootPath) },
-                        onAddManually: { adding = true }
+                        onAddManually: { addingAccount = true }
                     )
                 }
                 .scrollIndicators(.hidden)
