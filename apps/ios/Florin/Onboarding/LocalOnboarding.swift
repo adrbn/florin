@@ -101,8 +101,30 @@ enum LocalOnboarding {
         }
     }
 
-    /// True once someone has been through the flow on this device.
+    /*
+     * True when there is actually something to show.
+     *
+     * This used to read a marker written when someone pressed a button — which
+     * meant the app opened on its dashboard because an intention had been
+     * recorded, not because a single account existed. A device that reached
+     * that point once kept the marker forever, so the screen of zeros survived
+     * every fix aimed at it.
+     *
+     * An account is the honest test: the bank path creates them when a sync
+     * lands, the manual path creates one on purpose, and neither can be
+     * faked by a tap. The marker stays for what it is good at — remembering
+     * that the welcome has been seen — and no longer decides this.
+     */
     static var isComplete: Bool {
+        guard let store = LocalStore.shared else { return false }
+        guard let value = try? store.database.scalar(
+            "SELECT count(*) FROM accounts WHERE is_archived = 0"
+        ) else { return false }
+        return (value.int ?? 0) > 0
+    }
+
+    /// Whether the welcome has been through, regardless of what it produced.
+    static var hasSeenWelcome: Bool {
         guard let store = LocalStore.shared else { return false }
         guard let value = try? store.database.scalar(
             "SELECT value FROM settings WHERE key = ?", [.text(marker)]
