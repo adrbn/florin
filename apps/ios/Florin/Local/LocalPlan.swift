@@ -31,7 +31,8 @@ enum LocalPlan {
 
         let categoryRows = try db.query(
             """
-            SELECT c.id AS id, c.name AS name, c.emoji AS emoji, g.id AS group_id
+            SELECT c.id AS id, c.name AS name, c.emoji AS emoji, c.is_fixed AS is_fixed,
+                   g.id AS group_id
             FROM categories c
             JOIN category_groups g ON g.id = c.group_id
             WHERE c.is_archived = 0 AND g.kind = 'expense'
@@ -94,7 +95,8 @@ enum LocalPlan {
                         assigned: given,
                         spent: used,
                         available: round2(given - used),
-                        note: notes[id]
+                        note: notes[id],
+                        isFixed: (row.int("is_fixed") ?? 0) == 1
                     )
                 }
 

@@ -16,7 +16,7 @@ enum DataSource: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .server: "Mon serveur"
+        case .server: Strings.device("v2.source.server", "Mon serveur")
         case .device: "Cet appareil"
         }
     }
@@ -24,9 +24,9 @@ enum DataSource: String, CaseIterable, Identifiable {
     var detail: String {
         switch self {
         case .server:
-            "Florin lit votre instance. Vos comptes non suivis en direct y sont aussi."
+            Strings.device("v2.source.serverDetail", "Florin lit votre instance. Vos comptes non suivis en direct y sont aussi.")
         case .device:
-            "Tout est stocké sur ce téléphone. Rien ne sort."
+            Strings.device("v2.source.deviceDetail", "Tout est stocké sur ce téléphone. Rien ne sort.")
         }
     }
 

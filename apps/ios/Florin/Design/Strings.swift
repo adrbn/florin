@@ -20,6 +20,26 @@ struct Strings: Sendable {
     /// frame before the feed arrives should show.
     static let empty = Strings([:], localeTag: "fr-FR")
 
+    /*
+     * The language before there is any data to carry it.
+     *
+     * Onboarding, the server form and the bank setup all run before a feed
+     * exists — and they are the first screens anyone sees, so falling back to
+     * the author's French there means a new English or Dutch user meets the
+     * app in a language they did not choose. This reads the same bundled
+     * dictionary the offline ledger uses, keyed on the handset's language,
+     * because at that moment the handset is the only preference there is.
+     *
+     * Resolved once: it reads a file, and these screens ask for it per frame.
+     */
+    static let device: Strings = {
+        let preferred = Locale.preferredLanguages.first ?? "en"
+        let short = LocalQueries.shortLocale(preferred)
+        let table = (try? LocalQueries.strings(for: short)) ?? [:]
+        let tag = ["fr": "fr-FR", "nl": "nl-NL"][short] ?? "en-US"
+        return Strings(table, localeTag: tag)
+    }()
+
     func callAsFunction(_ key: String, _ fallback: String) -> String {
         table[key] ?? fallback
     }

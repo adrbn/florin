@@ -101,6 +101,8 @@ struct TransactionList<Banner: View>: View {
         _model = StateObject(wrappedValue: ActivityModel(base: base))
     }
 
+    @AppStorage("florin.hint.reviewLearns") private var hintDismissed = false
+
     private enum Scope: Hashable { case all, expense, income, review }
 
     private var scope: Binding<Scope> {
@@ -143,6 +145,7 @@ struct TransactionList<Banner: View>: View {
                     .padding(.horizontal, Florin.gutter)
             }
             ChipBar(options: chips, selection: scope)
+            if scope.wrappedValue == .review, !pending.isEmpty { learningHint }
             summary
             list
         }
@@ -250,6 +253,58 @@ struct TransactionList<Banner: View>: View {
     }
 
     // MARK: - Pieces
+
+    /*
+     * Why this queue is worth the minute it costs.
+     *
+     * Florin has no rule engine and no model: it copies what the user has
+     * already decided. That makes the first weeks feel like unpaid work — you
+     * file thirty rows and nothing files itself — unless somebody says what the
+     * filing is *for*. Said once, in the queue, next to the rows it is about,
+     * and dismissible for good: an explanation that cannot be turned off stops
+     * being an explanation and becomes furniture.
+     */
+    @ViewBuilder
+    private var learningHint: some View {
+        if !hintDismissed {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "wand.and.sparkles")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(Florin.accent)
+                    .padding(.top, 1)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(t("v2.review.learnsTitle", "Florin apprend de vous"))
+                        .font(.system(size: 13.5, weight: .semibold))
+                        .foregroundStyle(Florin.text)
+                    Text(
+                        t(
+                            "v2.review.learnsBody",
+                            "Chaque opération que vous classez ici devient un modèle. La prochaine fois qu'un libellé semblable arrive, il est classé tout seul."
+                        )
+                    )
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(Florin.text2)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 4)
+                Button {
+                    withAnimation(.snappy(duration: 0.2)) { hintDismissed = true }
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(Florin.text3)
+                        .frame(width: 26, height: 26)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(14)
+            .florinSurface()
+            .padding(.horizontal, Florin.gutter)
+            .padding(.bottom, 4)
+            .transition(.opacity.combined(with: .move(edge: .top)))
+        }
+    }
 
     private var chips: [(value: Scope, label: String, badge: Int)] {
         [

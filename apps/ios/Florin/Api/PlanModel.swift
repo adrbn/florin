@@ -8,6 +8,10 @@ struct PlanCategory: Decodable, Sendable, Identifiable {
     let spent: Double
     let available: Double
     let note: String?
+    /// A bill that arrives whether or not it was budgeted for. Absent from the
+    /// server's plan feed, so optional: an edit sheet must not silently clear
+    /// a flag it was never told about.
+    var isFixed: Bool?
 }
 
 struct PlanGroup: Decodable, Sendable, Identifiable {
@@ -79,6 +83,65 @@ final class PlanModel: ObservableObject {
             if (error as NSError).code != NSURLErrorCancelled { failure = error.localizedDescription }
         }
         loading = false
+    }
+
+    /// Whether the envelopes themselves can be edited from here.
+    ///
+    /// On the device the ledger is the authority, so categories are created,
+    /// renamed and retired in place. Pointed at a server they are that
+    /// server's, edited there — the phone is a view of that ledger, not a
+    /// second authority over it, and offering an edit that silently applies
+    /// to nothing would be worse than not offering it.
+    var canEditCategories: Bool { base.scheme == "florin-local" }
+
+    private var store: LocalStore? { canEditCategories ? LocalStore.shared : nil }
+
+    func addCategory(to groupId: String, name: String, emoji: String, isFixed: Bool) async {
+        await mutate {
+            guard let store = self.store else { return }
+            try LocalCategories.create(
+                store: store, groupId: groupId, name: name, emoji: emoji, isFixed: isFixed
+            )
+        }
+    }
+
+    func editCategory(_ id: String, name: String, emoji: String, isFixed: Bool) async {
+        await mutate {
+            guard let store = self.store else { return }
+            try LocalCategories.update(
+                store: store, id: id, name: name, emoji: emoji, isFixed: isFixed
+            )
+        }
+    }
+
+    func removeCategory(_ id: String, named name: String, t: Strings) async {
+        await mutate {
+            guard let store = self.store else { return }
+            let erased = try LocalCategories.remove(store: store, id: id)
+            // Archiving is not deleting, and saying "deleted" when a year of
+            // history still carries the label is how people lose trust in
+            // what a screen tells them.
+            self.toast = ToastMessage(
+                text: erased
+                    ? t("v2.plan.categoryDeleted", "« {name} » supprimée", ["name": name])
+                    : t(
+                        "v2.plan.categoryArchived",
+                        "« {name} » retirée du plan. Ses opérations la gardent.",
+                        ["name": name]
+                    ),
+                kind: .success
+            )
+        }
+    }
+
+    /// Every category edit ends the same way: apply, reload, or surface why not.
+    private func mutate(_ work: @escaping () throws -> Void) async {
+        do {
+            try work()
+            await load()
+        } catch {
+            toast = ToastMessage(text: error.localizedDescription, kind: .failure)
+        }
     }
 
     /// Move to the previous or next month. Steps through the calendar rather
