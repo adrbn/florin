@@ -137,6 +137,11 @@ struct AccountRowView: View {
 }
 
 struct TransactionRowView: View {
+    /// Set inside the "en prévision" group, where the header already says it —
+    /// and where only the rows the bank happens to flag would wear the chip,
+    /// making two of three look different for no reason a reader could act on.
+    var hideUpcomingChip = false
+
     let tx: Transaction
     let locale: String
     let currency: String
@@ -177,7 +182,7 @@ struct TransactionRowView: View {
                  * future, sitting at the top of the list — and showing only the
                  * review state made it read as spent.
                  */
-                if tx.isPending {
+                if tx.isPending, !hideUpcomingChip {
                     Text(t("v2.activity.pending", "En attente"))
                         .font(.system(size: 10.5, weight: .semibold))
                         .foregroundStyle(Florin.accent)
