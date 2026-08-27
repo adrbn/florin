@@ -435,6 +435,7 @@
   "v2.review.skip": "Passer",
   "v2.review.suggested": "Suggéré",
   "v2.review.title": "À vérifier",
+  "v2.review.toCheckCount": "{count} à vérifier",
   "v2.settings.about": "À propos",
   "v2.settings.aboutHint": "Florin est libre et auto-hébergé, sous licence AGPL-3.0.",
   "v2.settings.appVersion": "Version",

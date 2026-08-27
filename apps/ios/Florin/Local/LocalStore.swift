@@ -157,6 +157,13 @@ extension LocalStore {
              * nothing is waiting, so a ledger with no unfiled bank rows pays
              * almost nothing for it.
              */
+            // A duplicate left by an earlier build outlives the sync that
+            // created it, so the repair has to run where every launch sees it.
+            let dropped = try BankingSync.collapseSettledDuplicates(store: store)
+            if dropped > 0 {
+                log.notice("dropped \(dropped, privacy: .public) settled duplicates")
+            }
+
             let named = try LocalCategoriser.backfill(store: store)
             if named > 0 {
                 log.notice("categorised \(named, privacy: .public) waiting rows")
