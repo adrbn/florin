@@ -82,6 +82,25 @@ struct BankingSettings: View {
         .onChange(of: flow.connected) { _, connected in
             if connected { onConnected?() }
         }
+        // Presented rather than inlined: it is a decision that blocks the
+        // connection, not another step in a list.
+        .sheet(isPresented: Binding(
+            get: { flow.mapping != nil },
+            set: { if !$0 { flow.mapping = nil } }
+        )) {
+            if let found = flow.mapping {
+                BankMappingSheet(
+                    accounts: found,
+                    candidates: flow.candidates,
+                    locale: "fr-FR",
+                    currency: "EUR",
+                    onConfirm: { answers in
+                        Task { await flow.confirmMapping(answers) }
+                    },
+                    onCancel: { flow.mapping = nil }
+                )
+            }
+        }
         .alert(
             "Remplacer la clé ?",
             isPresented: $confirmingRegenerate

@@ -25,6 +25,17 @@ final class BankingFlow: NSObject, ObservableObject {
     @Published private(set) var step: String?
     /// Flipped once a session exists and its accounts have been pulled in.
     @Published private(set) var connected = false
+    /*
+     * Set when a bank's accounts have to be matched against existing ones.
+     *
+     * Left to itself the sync keys on the bank's uid, finds nothing matching
+     * on a device seeded from a server, and creates a second account for the
+     * same money — which looks entirely correct until the balances are added
+     * up. Nothing is written until this is answered.
+     */
+    @Published var mapping: [DiscoveredAccount]?
+    @Published private(set) var candidates: [MappingCandidate] = []
+    private var pendingConnectionId: String?
 
     /*
      * Where the bank sends the user back.
@@ -169,7 +180,24 @@ final class BankingFlow: NSObject, ObservableObject {
 
             step = "Récupération de vos comptes…"
             let session = try await EnableBanking.createSession(config, code: code)
-            try save(session, aspsp: aspsp, store: store)
+            let connectionId = try save(session, aspsp: aspsp, store: store)
+
+            let existing = try BankingSync.candidates(store: store)
+            if !existing.isEmpty, let sessionId = session.sessionId {
+                step = "Lecture de vos comptes…"
+                let found = try await BankingSync.discover(
+                    store: store, config: config, sessionId: sessionId
+                )
+                if !found.isEmpty {
+                    // Hand back to the user before writing anything.
+                    candidates = existing
+                    pendingConnectionId = connectionId
+                    mapping = found
+                    step = nil
+                    return
+                }
+            }
+
             try await BankingSync.run(store: store, config: config)
             connected = true
             step = nil
@@ -258,8 +286,14 @@ final class BankingFlow: NSObject, ObservableObject {
         }
     }
 
-    private func save(_ session: SessionResponse, aspsp: Aspsp, store: LocalStore) throws {
+    @discardableResult
+    private func save(
+        _ session: SessionResponse,
+        aspsp: Aspsp,
+        store: LocalStore
+    ) throws -> String {
         guard let sessionId = session.sessionId else { throw EnableBanking.Failure.malformed }
+        let connectionId = UUID().uuidString
         try store.database.run(
             """
             INSERT OR REPLACE INTO bank_connections
@@ -267,11 +301,33 @@ final class BankingFlow: NSObject, ObservableObject {
             VALUES (?, 'enable_banking', ?, ?, ?, 'active', ?)
             """,
             [
-                .text(UUID().uuidString), .text(sessionId),
+                .text(connectionId), .text(sessionId),
                 .text(aspsp.name), .text(aspsp.country),
                 .text(session.accessValidUntil ?? ""),
             ]
         )
+        return connectionId
+    }
+
+    /// Applies the answers and finishes the connection.
+    func confirmMapping(_ answers: [DiscoveredAccount]) async {
+        guard let store = LocalStore.shared else { return }
+        busy = true
+        defer { busy = false }
+        do {
+            let config = try Self.config(store)
+            try BankingSync.applyMapping(
+                store: store, accounts: answers, connectionId: pendingConnectionId
+            )
+            mapping = nil
+            step = "Récupération de vos comptes…"
+            try await BankingSync.run(store: store, config: config)
+            step = nil
+            connected = true
+        } catch {
+            step = nil
+            failure = error.localizedDescription
+        }
     }
 }
 
