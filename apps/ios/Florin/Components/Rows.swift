@@ -238,3 +238,65 @@ struct Hairline: View {
             .padding(.leading, Florin.gutter)
     }
 }
+
+
+/// The rows a bank has announced but not yet booked, folded away.
+///
+/// A direct debit published four days early, or an authorisation still
+/// settling, is not what anyone opens this screen to read — and interleaved by
+/// date it sits *above* everything that actually happened, because its date is
+/// in the future. Out of the totals already; out of the way here, behind one
+/// line that says how many and what they come to.
+struct UpcomingGroup<Row: View>: View {
+    let transactions: [Transaction]
+    let locale: String
+    let currency: String
+    let t: Strings
+    @Binding var expanded: Bool
+    @ViewBuilder var row: (Transaction) -> Row
+
+    private var total: Double { transactions.reduce(0) { $0 + $1.amount } }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Button {
+                UISelectionFeedbackGenerator().selectionChanged()
+                withAnimation(.snappy(duration: 0.24)) { expanded.toggle() }
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "clock")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Florin.accent)
+                    Text(
+                        t("v2.activity.upcomingCount", "{count} en prévision",
+                          ["count": transactions.count])
+                    )
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(Florin.text2)
+                    Spacer(minLength: 8)
+                    AmountText(
+                        value: total, locale: locale, currency: currency,
+                        decimals: false, signed: true, tone: .muted, size: 13,
+                        weight: .semibold
+                    )
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Florin.text3)
+                        .rotationEffect(.degrees(expanded ? 180 : 0))
+                }
+                .padding(.horizontal, Florin.gutter)
+                .padding(.vertical, 12)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if expanded {
+                ForEach(Array(transactions.enumerated()), id: \.element.id) { index, tx in
+                    Hairline()
+                    row(tx)
+                }
+            }
+        }
+        .florinSurface()
+    }
+}
