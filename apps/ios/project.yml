@@ -40,12 +40,20 @@ targets:
           # hours after a first deploy. It only takes effect on a device with
           # developer mode on, and is ignored in App Store builds — so it costs
           # nothing to leave in and saves a day of wondering why nothing opens.
-          - applinks:florin-cpe.pages.dev?mode=developer
+          - applinks:florin-cpe.pages.dev
           # `webcredentials`, not just `applinks`. ASWebAuthenticationSession's
           # https callback checks *this* service type, and says so only once it
           # has already refused: "Using HTTPS callbacks requires Associated
           # Domains using the webcredentials service type".
-          - webcredentials:florin-cpe.pages.dev?mode=developer
+          - webcredentials:florin-cpe.pages.dev
+          #
+          # No `?mode=developer`. It tells iOS to fetch the association file
+          # straight from the domain instead of Apple's CDN, which sounds like
+          # the faster path — but it only takes effect behind a toggle buried in
+          # Settings > Developer, and an app that needs someone to find that is
+          # not an app anyone will use. Without it Apple's CDN does the check on
+          # its own, which is exactly what happens for every App Store and
+          # TestFlight install. Same path as a real user, so the same failures.
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.adrbn.florin
