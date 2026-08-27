@@ -64,6 +64,18 @@ enum BankingSync {
                     result.skipped += counts.skipped
                 }
 
+                /*
+                 * Name what just arrived, from what is already here.
+                 *
+                 * Bank rows land uncategorised, which makes the review queue a
+                 * list of raw labels — and leaves an upcoming debit saying
+                 * nothing about what it is, when seeing that before it lands is
+                 * most of the reason to look at it. The ledger already knows:
+                 * this payee has been filed the same way for months.
+                 */
+                let named = try LocalCategoriser.backfill(store: store)
+                if named > 0 { log.notice("categorised \(named, privacy: .public) rows") }
+
                 try store.database.run(
                     """
                     UPDATE bank_connections
@@ -178,6 +190,9 @@ enum BankingSync {
 
         var inserted = 0
         var skipped = 0
+        /// Local rows already claimed in this run, so two bank rows cannot
+        /// collapse onto one and quietly lose a transaction.
+        var adopted: Set<String> = []
         var continuationKey: String?
 
         /*
@@ -245,7 +260,10 @@ enum BankingSync {
 
         while true {
             for transaction in page.transactions {
-                if try insert(transaction, store: store, accountId: accountId, uid: uid) {
+                if try insert(
+                    transaction, store: store, accountId: accountId,
+                    uid: uid, adopted: &adopted
+                ) {
                     inserted += 1
                 } else {
                     skipped += 1
@@ -266,7 +284,8 @@ enum BankingSync {
         _ transaction: BankTransaction,
         store: LocalStore,
         accountId: String,
-        uid: String
+        uid: String,
+        adopted: inout Set<String>
     ) throws -> Bool {
         guard let day = transaction.date else { return false }
         /*
@@ -346,23 +365,50 @@ enum BankingSync {
          * on consecutive days — those would have merged into one.
          */
         let bookedDay = String(date.prefix(10))
-        if let twin = try store.database.scalar(
+        /*
+         * Amount and date narrow it down; the name decides.
+         *
+         * Two transfers of the same amount a day apart would otherwise be
+         * indistinguishable — and a row whose label carries no date still
+         * needs that day of tolerance. So candidates are gathered and then
+         * judged: an exact date is trusted on its own, a neighbouring day only
+         * when the names agree. The bank sends a counterparty ("Adrien
+         * Robino") while the ledger holds the whole label ("VIREMENT INSTANTANE
+         * DE Adrien Robino"), so one containing the other is the test.
+         *
+         * `adopted` stops two bank rows landing on the same local one, which
+         * would silently drop a real transaction.
+         */
+        let needle = LocalLedger.normalize(transaction.counterparty)
+        let candidates = try store.database.query(
             """
-            SELECT id FROM transactions
+            SELECT id, normalized_payee,
+                   abs(julianday(substr(occurred_at, 1, 10)) - julianday(?)) AS drift
+            FROM transactions
             WHERE account_id = ? AND deleted_at IS NULL
               AND abs(julianday(substr(occurred_at, 1, 10)) - julianday(?)) <= 1
               AND abs(amount - ?) < 0.005
               AND (source <> 'enable_banking' OR external_id IS NULL)
-            ORDER BY abs(julianday(substr(occurred_at, 1, 10)) - julianday(?))
-            LIMIT 1
+            ORDER BY drift
             """,
             [
+                .text(bookedDay),
                 .text(accountId),
                 .text(bookedDay),
                 .real(transaction.signedAmount),
-                .text(bookedDay),
             ]
-        )?.string {
+        )
+
+        let match = candidates.first { row in
+            guard let id = row.string("id"), !adopted.contains(id) else { return false }
+            if (row.double("drift") ?? 1) < 0.5 { return true }
+            guard !needle.isEmpty, let payee = row.string("normalized_payee"), !payee.isEmpty
+            else { return false }
+            return payee.contains(needle) || needle.contains(payee)
+        }
+
+        if let twin = match?.string("id") {
+            adopted.insert(twin)
             /*
              * Settling is a change worth writing down.
              *
