@@ -19,6 +19,7 @@ struct OverviewScreen: View {
     @State private var adding = false
     @State private var addingAccount = false
     @State private var connectingBank = false
+    @State private var upcomingExpanded = false
     @State private var scrubbed: PatrimonyPoint?
     @State private var range: Range = .year
     @State private var showGross = false
@@ -514,14 +515,40 @@ struct OverviewScreen: View {
     }
 
     private func recent(_ data: Overview) -> some View {
-        section(data.t("v2.overview.recent", "Dernières opérations")) {
-            RowGroup {
-                ForEach(Array(data.recent.prefix(6).enumerated()), id: \.element.id) { index, tx in
-                    if index > 0 { Hairline() }
-                    Button { route(.activity, "/m/transactions") } label: {
-                        TransactionRowView(tx: tx, locale: data.localeTag, currency: data.currency, t: data.t)
+        // Announced but not booked: dated ahead, so by date they crowd the top
+        // of "dernières opérations", which is meant to answer what just
+        // happened. Folded into one line above, and out of the six below.
+        let upcoming = data.recent.filter(\.isPending)
+        let settled = data.recent.filter { !$0.isPending }
+
+        return section(data.t("v2.overview.recent", "Dernières opérations")) {
+            VStack(spacing: 12) {
+                if !upcoming.isEmpty {
+                    UpcomingGroup(
+                        transactions: upcoming,
+                        locale: data.localeTag,
+                        currency: data.currency,
+                        t: data.t,
+                        expanded: $upcomingExpanded
+                    ) { tx in
+                        TransactionRowView(
+                            tx: tx, locale: data.localeTag,
+                            currency: data.currency, t: data.t
+                        )
                     }
-                    .buttonStyle(.plain)
+                }
+
+                RowGroup {
+                    ForEach(Array(settled.prefix(6).enumerated()), id: \.element.id) { index, tx in
+                        if index > 0 { Hairline() }
+                        Button { route(.activity, "/m/transactions") } label: {
+                            TransactionRowView(
+                                tx: tx, locale: data.localeTag,
+                                currency: data.currency, t: data.t
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
             }
             .padding(.horizontal, Florin.gutter)

@@ -65,6 +65,7 @@ struct TransactionList<Banner: View>: View {
     @State private var filtering = false
     /// Non-nil while picking rows to approve in one go.
     @State private var selection: Set<String>?
+    @State private var upcomingExpanded = false
     @FocusState private var searchFocused: Bool
 
     init(
@@ -368,6 +369,28 @@ struct TransactionList<Banner: View>: View {
                  * place at the top — the rows are excluded from the day groups
                  * below so nothing is listed twice.
                  */
+                /*
+                 * What has not happened yet, folded away above what has.
+                 *
+                 * These are dated in the future — a bank publishes a direct
+                 * debit days before taking it — so by date they land at the
+                 * very top of the list, ahead of everything real. They are
+                 * already out of every total; this keeps them out of the way
+                 * without hiding them.
+                 */
+                if !upcoming.isEmpty {
+                    UpcomingGroup(
+                        transactions: upcoming,
+                        locale: locale,
+                        currency: currency,
+                        t: t,
+                        expanded: $upcomingExpanded
+                    ) { tx in
+                        row(tx)
+                    }
+                    .padding(.horizontal, Florin.gutter)
+                }
+
                 if !pending.isEmpty, !model.filter.needsReview {
                     VStack(alignment: .leading, spacing: 10) {
                         HStack {
@@ -525,7 +548,12 @@ struct TransactionList<Banner: View>: View {
     /// not a queue. What the page has not fetched yet is what "Tout voir" is
     /// for.
     private var pending: [Transaction] {
-        model.rows.filter(\.needsReview)
+        model.rows.filter { $0.needsReview && !$0.isPending }
+    }
+
+    /// Announced, not yet booked. Kept out of the queue and the day groups.
+    private var upcoming: [Transaction] {
+        model.rows.filter(\.isPending)
     }
 
     private var days: [Day] {
@@ -534,7 +562,12 @@ struct TransactionList<Banner: View>: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         let pinned = Set(pending.map(\.id))
-        for tx in model.rows where !(pinned.contains(tx.id) && !model.filter.needsReview) {
+        // Upcoming rows have their own group above; listing them again here
+        // would put tomorrow's direct debit twice on the same screen.
+        let announced = Set(upcoming.map(\.id))
+        for tx in model.rows
+        where !(pinned.contains(tx.id) && !model.filter.needsReview)
+            && !announced.contains(tx.id) {
             let key = formatter.string(from: tx.day)
             if buckets[key] == nil { order.append(key) }
             buckets[key, default: []].append(tx)
