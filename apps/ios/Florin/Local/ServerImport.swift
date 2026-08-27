@@ -184,27 +184,41 @@ enum ServerImport {
                     "SELECT id FROM accounts WHERE sync_external_id = ?", [.text(external)]
                 )?.string
                 let id = existing ?? UUID().uuidString
-                if existing == nil {
-                    try db.run(
-                        """
-                        INSERT INTO accounts
-                            (id, name, kind, currency, current_balance, opening_balance,
-                             sync_provider, sync_external_id, display_order)
-                        VALUES (?, ?, ?, ?, ?, ?, 'server', ?,
-                                (SELECT coalesce(max(display_order) + 1, 0) FROM accounts))
-                        """,
-                        [
-                            .text(id), .text(account.name), .text(account.kind),
-                            .text(overview.currency), .real(account.balance),
-                            .real(account.netContribution), .text(external),
-                        ]
-                    )
-                } else {
-                    try db.run(
-                        "UPDATE accounts SET name = ?, current_balance = ? WHERE id = ?",
-                        [.text(account.name), .real(account.balance), .text(id)]
-                    )
-                }
+                /*
+                 * A balance is not always what an account is worth.
+                 *
+                 * Copying `balance` alone lost two things and both showed up in
+                 * the headline figure: a broker's cash balance is near zero
+                 * while its holdings are the account (PEA read 0.40 instead of
+                 * 3491.22), and a loan's balance is what has been repaid while
+                 * the debt is what is still owed (3543.41 instead of 7185.62).
+                 * Together they put net worth out by 151.39 — close enough to
+                 * look plausible, which is the dangerous kind of wrong.
+                 *
+                 * A loan is stored negative because that is how this ledger
+                 * reads debt back out.
+                 */
+                let stored = account.isLoan
+                    ? -(account.debt ?? abs(account.balance))
+                    : account.balance
+                try db.run(
+                    """
+                    INSERT OR REPLACE INTO accounts
+                        (id, name, kind, currency, current_balance, opening_balance,
+                         market_value, is_included_in_net_worth,
+                         sync_provider, sync_external_id, display_order)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'server', ?,
+                            (SELECT coalesce(max(display_order) + 1, 0) FROM accounts))
+                    """,
+                    [
+                        .text(id), .text(account.name), .text(account.kind),
+                        .text(overview.currency), .real(stored),
+                        .real(account.netContribution),
+                        .real(account.marketValue),
+                        .integer(account.isIncludedInNetWorth ? 1 : 0),
+                        .text(external),
+                    ]
+                )
                 accountIds[account.name] = id
             }
 
