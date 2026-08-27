@@ -20,8 +20,20 @@ enum ServerImport {
         var transactions = 0
     }
 
-    /// Reads everything and writes it in one transaction, so a failure halfway
-    /// leaves the device exactly as it was rather than half-populated.
+    /*
+     * The server replaces the device's ledger; it does not merge into it.
+     *
+     * Merging was the first attempt and it was wrong in a way that showed up
+     * immediately: the bank had already put its transactions here through
+     * Enable Banking, the server brought the same ones again under its own
+     * ids, and net worth jumped by the size of the overlap. There is no key
+     * that reliably matches a row imported twice through two different paths.
+     *
+     * A server that holds everything is the authority, so importing takes its
+     * copy whole — including dropping this device's own bank connection, since
+     * the server already syncs that bank and leaving both would put the
+     * duplicates straight back on the next refresh.
+     */
     static func run(
         from base: URL,
         into store: LocalStore,
@@ -32,61 +44,103 @@ enum ServerImport {
 
         var rows: [Transaction] = []
         var offset = 0
-        let pageSize = 200
+        /*
+         * The server caps a page at 100 whatever is asked for.
+         *
+         * This requested 200 and stopped as soon as a page came back "short" —
+         * which the very first one was, at 100. The import would have taken
+         * exactly one page of a 2834-row ledger and reported success. The
+         * server sends the true `total`, so that is what decides when to stop;
+         * a page smaller than requested proves nothing.
+         */
+        let pageSize = 100
         var progress = Progress(
             accounts: overview.accounts.count,
             categories: overview.categories.count
         )
         onProgress(progress)
 
-        while true {
+        var total = Int.max
+        while rows.count < total {
             let page = try await client.transactions(
                 filter: TxFilter(), offset: offset, limit: pageSize
             )
+            total = page.total
+            // An empty page is the only honest end: it means the server has
+            // nothing more at this offset, whatever the count claimed.
+            if page.transactions.isEmpty { break }
+
             rows.append(contentsOf: page.transactions)
             progress.transactions = rows.count
             onProgress(progress)
-
-            if page.transactions.count < pageSize { break }
-            offset += pageSize
-            // A server with years of history should not be able to spin this
-            // forever if the feed ever stops honouring offset.
-            if offset > 100_000 { break }
+            offset += page.transactions.count
         }
 
-        try write(overview: overview, transactions: rows, into: store)
+        /*
+         * The plan, month by month, because that is how the feed serves it.
+         *
+         * `monthly_budgets` was being cleared and never refilled, so an import
+         * arrived with every envelope empty — the one part of the app whose
+         * whole content is hand-entered, silently dropped. There is no bulk
+         * endpoint, so the months are walked: two years back, and three
+         * forward for anything already planned ahead.
+         */
+        var budgets: [(year: Int, month: Int, categoryName: String, assigned: Double, note: String?)] = []
+        let calendar = Calendar(identifier: .gregorian)
+        for offset in -24...3 {
+            guard let date = calendar.date(byAdding: .month, value: offset, to: Date()) else { continue }
+            let parts = calendar.dateComponents([.year, .month], from: date)
+            guard let year = parts.year, let month = parts.month else { continue }
+            guard let plan = try? await self.plan(base: base, year: year, month: month) else { continue }
+            for group in plan.groups {
+                for category in group.categories where category.assigned != 0 || category.note != nil {
+                    budgets.append(
+                        (year, month, category.name, category.assigned, category.note)
+                    )
+                }
+            }
+        }
+
+        try write(overview: overview, transactions: rows, budgets: budgets, into: store)
         log.notice("imported \(rows.count) transactions from \(base.host ?? "?", privacy: .public)")
         return progress
+    }
+
+    private static func plan(base: URL, year: Int, month: Int) async throws -> MonthPlan {
+        var components = URLComponents(url: base, resolvingAgainstBaseURL: false)
+        components?.path = "/api/v2/plan"
+        components?.queryItems = [
+            URLQueryItem(name: "month", value: String(format: "%04d-%02d", year, month))
+        ]
+        guard let url = components?.url else { throw FlorinError.unreachable(base.host ?? "?") }
+        let (data, response) = try await FlorinAuth.session.data(for: FlorinAuth.request(url))
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw FlorinError.badStatus((response as? HTTPURLResponse)?.statusCode ?? 0)
+        }
+        return try JSONDecoder().decode(MonthPlan.self, from: data)
     }
 
     private static func write(
         overview: Overview,
         transactions: [Transaction],
+        budgets: [(year: Int, month: Int, categoryName: String, assigned: Double, note: String?)],
         into store: LocalStore
     ) throws {
         let db = store.database
         try db.transaction {
-            /*
-             * Categories first, by name.
-             *
-             * The device has its own seeded categories with their own ids, and
-             * the server's rows reference the server's. Matching on name lets
-             * an import land on the categories already here instead of
-             * doubling every one of them — and anything genuinely new is
-             * added to a group of its own.
-             */
+            // Everything the server is about to supply, cleared first. Inside
+            // the same transaction, so a failure leaves the device untouched
+            // rather than empty.
+            try db.run("DELETE FROM transactions")
+            try db.run("DELETE FROM monthly_budgets")
+            try db.run("DELETE FROM accounts")
+            try db.run("DELETE FROM bank_connections")
+            try db.run("DELETE FROM categories")
+            try db.run("DELETE FROM category_groups")
+            // Categories first: transactions reference them, and the server's
+            // ids mean nothing here, so they are rebuilt and matched by name.
             var groupIds: [String: String] = [:]
-            for row in try db.query("SELECT id, name FROM category_groups") {
-                if let name = row.string("name"), let id = row.string("id") {
-                    groupIds[name] = id
-                }
-            }
             var categoryIds: [String: String] = [:]
-            for row in try db.query("SELECT id, name FROM categories") {
-                if let name = row.string("name"), let id = row.string("id") {
-                    categoryIds[name.lowercased()] = id
-                }
-            }
 
             for category in overview.categories {
                 if categoryIds[category.name.lowercased()] != nil { continue }
@@ -186,6 +240,22 @@ enum ServerImport {
                         .text(transaction.isScheduled ? "scheduled" : "cleared"),
                         .integer(transaction.needsReview ? 1 : 0),
                         .integer(transaction.isPending ? 1 : 0),
+                    ]
+                )
+            }
+
+            for budget in budgets {
+                guard let categoryId = categoryIds[budget.categoryName.lowercased()] else { continue }
+                try db.run(
+                    """
+                    INSERT INTO monthly_budgets (id, year, month, category_id, assigned, note)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    [
+                        .text(UUID().uuidString), .integer(Int64(budget.year)),
+                        .integer(Int64(budget.month)), .text(categoryId),
+                        .real(budget.assigned),
+                        budget.note.map { SQLiteValue.text($0) } ?? .null,
                     ]
                 )
             }
