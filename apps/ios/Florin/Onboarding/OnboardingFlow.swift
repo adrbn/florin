@@ -318,10 +318,18 @@ struct OnboardingFlow: View {
                 .font(.system(size: 28, weight: .semibold))
                 .foregroundStyle(Florin.text)
 
+            /*
+             * Say who did it.
+             *
+             * This read "vos catégories sont en place" — announcing as settled
+             * something the app had chosen on its own, without asking. Naming
+             * Florin as the one that picked them, and saying they can be
+             * changed, is the difference between a summary and a claim.
+             */
             Text(
                 path == .bank
-                    ? "Vos catégories sont en place. Connectez votre banque depuis les réglages — trois étapes, une seule fois."
-                    : "Vos catégories sont en place. Ajoutez vos opérations quand vous voulez."
+                    ? "Florin a préparé quelques catégories courantes — à vous de les changer. Il reste à connecter votre banque, dans les réglages."
+                    : "Florin a préparé quelques catégories courantes — à vous de les changer. Vous pouvez ajouter vos opérations dès maintenant."
             )
                 .font(.system(size: 15))
                 .foregroundStyle(Florin.text2)

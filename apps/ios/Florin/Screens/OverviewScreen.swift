@@ -166,7 +166,29 @@ struct OverviewScreen: View {
         let delta = scrubbed.map { $0.balance - first }
             ?? (data.netWorth.net - (data.netWorth.netMonthAgo ?? data.netWorth.net))
 
-        return ScrollView {
+        /*
+         * Nothing to show is a different screen, not a screen of zeros.
+         *
+         * A fresh install landed on 0,00 EUR of net worth, 0 left to spend,
+         * -0 spent and a flat chart. Every figure was right and the screen was
+         * useless: it answered questions nobody had yet, offered nothing to do
+         * about it, and looked broken rather than new.
+         */
+        if data.accounts.isEmpty && data.recent.isEmpty {
+            return AnyView(
+                ScrollView {
+                    EmptyStart(
+                        t: data.t,
+                        onConnectBank: { route(.settings, TabRoute.settings.rootPath) },
+                        onAddManually: { adding = true }
+                    )
+                }
+                .scrollIndicators(.hidden)
+            )
+        }
+
+        return AnyView(
+            ScrollView {
             VStack(alignment: .leading, spacing: 30) {
                 // Say plainly that these figures are not live, rather than
                 // letting an hour-old balance pass for the current one.
@@ -208,13 +230,14 @@ struct OverviewScreen: View {
             .padding(.top, 6)
             .padding(.bottom, 104)
         }
-        .scrollIndicators(.hidden)
-        // Drives the tab bar's collapse, same signal the web tabs report.
-        .modifier(ScrollReporter { chrome.scrolled(to: $0) })
-        // iOS 26 fades content into the bars instead of hard-clipping it.
-        .modifier(SoftScrollEdge())
-        // Pull down to actually pull the banks, not just re-read the server.
-        .refreshable { await model.sync() }
+            .scrollIndicators(.hidden)
+            // Drives the tab bar's collapse, same signal the web tabs report.
+            .modifier(ScrollReporter { chrome.scrolled(to: $0) })
+            // iOS 26 fades content into the bars instead of hard-clipping it.
+            .modifier(SoftScrollEdge())
+            // Pull down to actually pull the banks, not just re-read the server.
+            .refreshable { await model.sync() }
+        )
     }
 
     // MARK: - Sections
