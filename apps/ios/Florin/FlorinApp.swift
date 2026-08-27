@@ -52,6 +52,9 @@ struct RootView: View {
      * what you were using — but from then on it is a setting.
      */
     @AppStorage("florin.dataSource") private var sourceRaw = ""
+    /// True once the source has been changed in this session, so the rebuild
+    /// lands back in settings rather than on the dashboard.
+    @State private var switchedSource = false
     /// Changed when onboarding finishes, purely to re-evaluate the branch
     /// above — `LocalOnboarding.isComplete` reads the database, which SwiftUI
     /// has no way to observe on its own.
@@ -61,6 +64,10 @@ struct RootView: View {
     @State private var connectingBank = false
 
     private var appearance: Appearance { Appearance(rawValue: appearanceRaw) ?? .dark }
+
+    /// Where to land after the tree is rebuilt: settings if that is where the
+    /// user was when they changed something that rebuilds it.
+    private var landingTab: TabRoute { switchedSource ? .settings : .overview }
 
     /// Falls back to whatever is actually configured, so an existing install
     /// keeps reading its server without being asked.
@@ -73,8 +80,12 @@ struct RootView: View {
         ZStack {
             Group {
                 if source == .server, let url = server.resolvedURL {
-                    MainTabs(base: url, onRequestSettings: { showingSetup = true })
-                        .id(server.reloadToken)
+                    MainTabs(
+                        base: url,
+                        initialTab: landingTab,
+                        onRequestSettings: { showingSetup = true }
+                    )
+                    .id(server.reloadToken)
                 } else if source == .server {
                     SetupView(isFirstRun: true)
                 } else if LocalOnboarding.isComplete {
@@ -82,6 +93,7 @@ struct RootView: View {
                     // server. See `FlorinClient.localBase`.
                     MainTabs(
                         base: FlorinClient.localBase,
+                        initialTab: landingTab,
                         onRequestSettings: { showingSetup = true }
                     )
                     .id(onboarded)
@@ -106,6 +118,7 @@ struct RootView: View {
                 }
             }
             .id(onboarded)
+            .onChange(of: sourceRaw) { _, _ in switchedSource = true }
 
             // Zero-sized, but it owns the responder chain so a shake reaches
             // us without swizzling UIWindow.
@@ -157,14 +170,24 @@ struct MainTabs: View {
     /// Which tab is selected, and what each web tab is currently showing.
     /// A cross-tab link writes both at once, so the bar and the content move
     /// together instead of the page sliding out from under the selection.
-    @State private var selection: TabRoute = .overview
+    @State private var selection: TabRoute
     @State private var paths: [TabRoute: String] = [:]
     @State private var adding = false
     @State private var showingSettings = false
 
-    init(base: URL, onRequestSettings: @escaping () -> Void) {
+    /*
+     * Which tab to land on, so a source switch does not throw you out.
+     *
+     * Changing between the server and the device replaces this whole view —
+     * different ledger, different model — and the selection went back to the
+     * dashboard. Since that switch is *made* in settings, it closed the screen
+     * the user was working in, mid-thought. Carrying the tab across keeps them
+     * where they were.
+     */
+    init(base: URL, initialTab: TabRoute = .overview, onRequestSettings: @escaping () -> Void) {
         self.base = base
         self.onRequestSettings = onRequestSettings
+        _selection = State(initialValue: initialTab)
         _model = StateObject(wrappedValue: OverviewModel(base: base))
     }
 
