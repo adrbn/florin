@@ -8,8 +8,23 @@ import SwiftUI
 /// footer that explains rather than a caption that decorates. Nothing here is
 /// styled; letting the platform draw it is the whole point.
 struct SettingsScreen: View {
-    @ObservedObject var model: OverviewModel
-    var onClose: (() -> Void)?
+    /*
+     * Owns its model rather than borrowing the tabs'.
+     *
+     * This screen used to be presented from inside MainTabs, which is exactly
+     * the view that gets replaced when the data source changes — so switching
+     * from the server to the device tore down the screen where that switch is
+     * made, every time. It is presented above that now, and reads its own
+     * overview: one extra fetch while settings is open, against a screen that
+     * closes itself the moment you use it.
+     */
+    @StateObject private var model: OverviewModel
+
+    init(base: URL, onClose: (() -> Void)? = nil) {
+        _model = StateObject(wrappedValue: OverviewModel(base: base))
+        self.onClose = onClose
+    }
+    let onClose: (() -> Void)?
     @EnvironmentObject private var server: ServerStore
     @ObservedObject private var privacy = Privacy.shared
 

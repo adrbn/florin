@@ -45,7 +45,10 @@ enum LocalQueries {
             locale: short,
             strings: try strings(for: short),
             lastSyncedAt: nil,
-            bankSyncConfigured: false,
+            // Hardcoded false, which disabled every sync control on the
+            // device ledger — including the refresh button on Comptes, which
+            // simply did nothing when tapped.
+            bankSyncConfigured: BankingFlow.isConfigured,
             currency: "EUR",
             netWorth: NetWorth(
                 gross: round2(gross),
@@ -79,7 +82,8 @@ enum LocalQueries {
         try db.query(
             """
             SELECT id, name, kind, institution, current_balance, market_value,
-                   opening_balance, is_included_in_net_worth, is_archived, display_icon
+                   opening_balance, is_included_in_net_worth, is_archived, display_icon,
+                   sync_provider
             FROM accounts
             WHERE is_archived = 0
             ORDER BY display_order, name
@@ -103,7 +107,8 @@ enum LocalQueries {
                 debt: kind == "loan" ? round2(abs(balance)) : nil,
                 isIncludedInNetWorth: row.bool("is_included_in_net_worth"),
                 isArchived: row.bool("is_archived"),
-                displayIcon: row.string("display_icon")
+                displayIcon: row.string("display_icon"),
+                isSynced: row.string("sync_provider") == "enable_banking"
             )
         }
     }
