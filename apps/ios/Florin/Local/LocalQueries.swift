@@ -208,9 +208,21 @@ enum LocalQueries {
          */
         let moves = try db.query(
             """
-            SELECT substr(occurred_at, 1, 10) AS day, coalesce(sum(amount), 0) AS total
-            FROM transactions
-            WHERE deleted_at IS NULL AND status = 'cleared'
+            SELECT substr(t.occurred_at, 1, 10) AS day, coalesce(sum(t.amount), 0) AS total
+            FROM transactions t
+            JOIN accounts a ON a.id = t.account_id
+            LEFT JOIN categories c ON c.id = t.category_id
+            LEFT JOIN category_groups g ON g.id = c.group_id
+            WHERE t.deleted_at IS NULL AND t.status = 'cleared'
+              -- The same exclusions the server applies, for the same reason.
+              -- Without them the line grew a vertical spike on 29 June: a 2700
+              -- transfer to LIVRET A whose other leg is not a transaction here,
+              -- so the day read as 2700 of wealth vanishing and returning. The
+              -- server's own comment calls it a phantom step.
+              AND t.transfer_pair_id IS NULL
+              AND a.is_archived = 0 AND a.is_included_in_net_worth = 1
+              AND a.kind <> 'loan'
+              AND (g.kind IS NULL OR g.kind <> 'adjustment')
             GROUP BY 1 ORDER BY 1
             """
         )
