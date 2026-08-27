@@ -112,6 +112,17 @@ struct CircleButton: View {
                 .rotationEffect(.degrees(angle))
                 .frame(width: size, height: size)
                 .florinGlass(in: Circle())
+                /*
+                 * Say where the button is.
+                 *
+                 * Without this the hit area is inferred from the glyph and
+                 * whatever the glass material decides to report, and on iOS 26
+                 * that is sometimes nothing: the close button on the bank
+                 * sheet drew correctly and swallowed every tap. A circle the
+                 * size of the button is the shape a person is aiming at
+                 * anyway.
+                 */
+                .contentShape(Circle())
                 .onChange(of: spinning) { _, active in
                     if active {
                         withAnimation(.linear(duration: 0.9).repeatForever(autoreverses: false)) {
