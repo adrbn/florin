@@ -91,14 +91,35 @@ extension BankingSync {
     /// the history the server seeded keeps its rows and the bank simply carries
     /// on from where it left off. Accounts left unmapped are created by the
     /// sync as new ones, which is the right outcome for a genuinely new one.
+    /// Where the answers are kept, so a re-import can restore them.
+    static let mapKey = "bank_account_map"
+
     static func applyMapping(
         store: LocalStore,
         accounts: [DiscoveredAccount],
         connectionId: String?
     ) throws {
         try store.database.transaction {
+            /*
+             * The answer is remembered outside the account row.
+             *
+             * Attaching a bank overwrites `sync_external_id` with the bank's
+             * uid, which is what the sync keys on — and in doing so it erases
+             * the "server:<id>" that said where the account came from. So a
+             * re-import could not find the account again and the mapping was
+             * lost with it, meaning the whole bank connection had to be redone
+             * after every refresh from the server. Keeping the pairing beside
+             * the ledger costs one settings row and survives the rewrite.
+             */
+            var map = savedMap(store: store)
             for account in accounts {
                 guard let target = account.target, !target.isEmpty else { continue }
+                let origin = try store.database.scalar(
+                    "SELECT sync_external_id FROM accounts WHERE id = ?", [.text(target)]
+                )?.string
+                if let origin, origin.hasPrefix("server:") {
+                    map[account.uid] = origin
+                }
                 try store.database.run(
                     """
                     UPDATE accounts
@@ -113,6 +134,50 @@ extension BankingSync {
                     ]
                 )
             }
+            try save(map: map, store: store)
+        }
+    }
+
+    static func savedMap(store: LocalStore) -> [String: String] {
+        guard let value = try? store.database.scalar(
+            "SELECT value FROM settings WHERE key = ?", [.text(mapKey)]
+        ), let text = value.string, let data = text.data(using: .utf8),
+              let decoded = try? JSONDecoder().decode([String: String].self, from: data)
+        else { return [:] }
+        return decoded
+    }
+
+    static func save(map: [String: String], store: LocalStore) throws {
+        guard let data = try? JSONEncoder().encode(map),
+              let text = String(data: data, encoding: .utf8)
+        else { return }
+        try store.database.run(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+            [.text(mapKey), .text(text)]
+        )
+    }
+
+    /// Puts the bank back on the accounts a server import has just rewritten.
+    static func restoreMapping(store: LocalStore) throws {
+        let map = savedMap(store: store)
+        guard !map.isEmpty else { return }
+        let connectionId = try store.database.scalar(
+            "SELECT id FROM bank_connections WHERE status = 'active' LIMIT 1"
+        )?.string
+        for (uid, origin) in map {
+            try store.database.run(
+                """
+                UPDATE accounts
+                SET sync_external_id = ?, sync_provider = 'enable_banking',
+                    bank_connection_id = ?, updated_at = datetime('now')
+                WHERE sync_external_id = ?
+                """,
+                [
+                    .text(uid),
+                    connectionId.map { SQLiteValue.text($0) } ?? .null,
+                    .text(origin),
+                ]
+            )
         }
     }
 }

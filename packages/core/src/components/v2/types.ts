@@ -78,6 +78,8 @@ export interface V2Category {
   name: string
   emoji: string | null
   groupName: string
+  /** 'income' | 'expense' | 'adjustment' — see `mapCategories`. */
+  groupKind: string
 }
 
 export interface V2Holding {

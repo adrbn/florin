@@ -137,6 +137,15 @@ struct Category: Decodable, Sendable, Identifiable {
     let name: String
     let emoji: String?
     let groupName: String
+    /*
+     * Optional because older servers do not send it.
+     *
+     * A device that keeps its own copy of the ledger cannot tell Revenus from
+     * Courses by name, and rebuilding every group as an expense makes salaries
+     * count as negative spending. Where it is missing the import falls back to
+     * asking the plan which groups are expenses — everything else is income.
+     */
+    let groupKind: String?
 }
 
 /// What the phone posts back to record a transaction.
