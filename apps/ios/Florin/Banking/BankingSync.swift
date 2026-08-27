@@ -278,7 +278,23 @@ enum BankingSync {
          * "1 janv. 1" under a real amount. Midnight UTC is the honest reading
          * of a booking date: the bank did not tell us the hour.
          */
-        let date = day.count == 10 ? "\(day)T00:00:00Z" : day
+        var date = day.count == 10 ? "\(day)T00:00:00Z" : day
+
+        /*
+         * Prefer the date the bank wrote in the label over the one it booked.
+         *
+         * The server already does this, which is exactly why the two sides
+         * disagreed: it had the purchase on the 25th and the bank returned the
+         * 26th. Reading the same date here makes the two agree at the source,
+         * instead of widening the matching window until two genuinely
+         * different purchases of the same amount start merging into one.
+         */
+        let label = ([transaction.counterparty]
+            + (transaction.remittanceInformation ?? [])).joined(separator: " ")
+        if let booked = LocalQueries.dayFormatter.date(from: String(date.prefix(10))),
+           let real = TrueDate.extract(from: label, bookedAt: booked) {
+            date = LocalQueries.dayFormatter.string(from: real) + "T00:00:00Z"
+        }
 
         /*
          * The external id has to include the account.
@@ -324,18 +340,17 @@ enum BankingSync {
          * unreviewed — twenty of them, on a server that had none left to
          * review.
          *
-         * Same account and same amount inside a three-day window, nearest date
-         * first. Two genuinely distinct purchases of exactly the same amount,
-         * on the same account, within three days, would collapse into one —
-         * that is the cost, and it is smaller than a ledger that duplicates
-         * every row whose date the two sides disagree about.
+         * One day of tolerance, now that both sides read the date out of the
+         * label the same way. Three was needed while they disagreed, and it
+         * was too wide for someone who buys the same coffee at the same price
+         * on consecutive days — those would have merged into one.
          */
         let bookedDay = String(date.prefix(10))
         if let twin = try store.database.scalar(
             """
             SELECT id FROM transactions
             WHERE account_id = ? AND deleted_at IS NULL
-              AND abs(julianday(substr(occurred_at, 1, 10)) - julianday(?)) <= 3
+              AND abs(julianday(substr(occurred_at, 1, 10)) - julianday(?)) <= 1
               AND abs(amount - ?) < 0.005
               AND (source <> 'enable_banking' OR external_id IS NULL)
             ORDER BY abs(julianday(substr(occurred_at, 1, 10)) - julianday(?))
