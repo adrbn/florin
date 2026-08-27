@@ -92,9 +92,14 @@ enum LocalQueries {
             let balance = row.double("current_balance") ?? 0
             let market = row.double("market_value") ?? 0
             let kind = row.string("kind") ?? "checking"
-            // A broker's worth is its market value when it has one; a plain
-            // account's is its balance. Adding them would double-count.
-            let total = kind == "broker_portfolio" && market != 0 ? market : balance
+            /*
+             * A broker is its holdings *plus* the cash sitting beside them.
+             *
+             * Taking the market value alone dropped the un-invested balance —
+             * forty cents on the PEA, which is small until you are reconciling
+             * against a server to the cent and cannot find it.
+             */
+            let total = kind == "broker_portfolio" ? balance + market : balance
             return Account(
                 id: row.string("id") ?? UUID().uuidString,
                 name: row.string("name") ?? "",
@@ -188,28 +193,59 @@ enum LocalQueries {
             .filter(\.isIncludedInNetWorth)
             .reduce(0) { $0 + ($1.isLoan ? -abs($1.debt ?? $1.total) : $1.total) }
 
+        /*
+         * A point a day, not a point a month.
+         *
+         * Twelve monthly points drew a smooth curve that hid every salary and
+         * every rent — the shape of the year rather than the shape of the
+         * money. The server returns four hundred daily points and the sawtooth
+         * *is* the information: you can see the month being lived.
+         *
+         * Walked backwards from today's balances: what an account holds now is
+         * the one figure that is certainly true, and the transactions say how
+         * it got there. Summing forwards from zero would draw a ledger that
+         * starts at nothing, which is not what happened.
+         */
+        let moves = try db.query(
+            """
+            SELECT substr(occurred_at, 1, 10) AS day, coalesce(sum(amount), 0) AS total
+            FROM transactions
+            WHERE deleted_at IS NULL AND status = 'cleared'
+            GROUP BY 1 ORDER BY 1
+            """
+        )
+        var byDay: [String: Double] = [:]
+        for row in moves {
+            guard let day = row.string("day") else { continue }
+            byDay[day] = row.double("total") ?? 0
+        }
+
         let calendar = Calendar(identifier: .gregorian)
         let now = Date()
+        guard let earliestText = moves.first?.string("day"),
+              let earliest = dayFormatter.date(from: earliestText)
+        else {
+            return [PatrimonyPoint(date: dayFormatter.string(from: now),
+                                   balance: round2(today), projected: false)]
+        }
+
+        // Two years at most: beyond that the line is a wall of pixels and the
+        // chart has range buttons for the rest.
+        let floor = calendar.date(byAdding: .day, value: -730, to: now) ?? earliest
+        let start = max(earliest, floor)
+
         var points: [PatrimonyPoint] = []
         var running = today
+        var cursor = calendar.startOfDay(for: now)
+        let first = calendar.startOfDay(for: start)
 
-        for monthsBack in 0..<12 {
-            guard let end = calendar.date(byAdding: .month, value: -monthsBack, to: now),
-                  let monthEnd = endOfMonth(end, calendar: calendar)
-            else { continue }
-            let label = Self.dayFormatter.string(from: min(monthEnd, now))
+        while cursor >= first {
+            let label = dayFormatter.string(from: cursor)
             points.append(PatrimonyPoint(date: label, balance: round2(running), projected: false))
-
-            // Undo that month to reach the month before it.
-            let moved = try db.scalar(
-                """
-                SELECT coalesce(sum(amount), 0) FROM transactions
-                WHERE deleted_at IS NULL AND status = 'cleared'
-                  AND substr(occurred_at, 1, 7) = ?
-                """,
-                [.text(String(label.prefix(7)))]
-            )?.double ?? 0
-            running -= moved
+            // Undo this day to reach the one before it.
+            running -= byDay[label] ?? 0
+            guard let previous = calendar.date(byAdding: .day, value: -1, to: cursor) else { break }
+            cursor = previous
         }
         return points.reversed()
     }
