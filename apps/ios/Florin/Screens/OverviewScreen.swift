@@ -20,6 +20,7 @@ struct OverviewScreen: View {
     @State private var addingAccount = false
     @State private var connectingBank = false
     @State private var upcomingExpanded = false
+    @State private var reviewExpanded = false
     @State private var scrubbed: PatrimonyPoint?
     @State private var range: Range = .year
     @State private var showGross = false
@@ -647,7 +648,11 @@ struct OverviewScreen: View {
         // of "dernières opérations", which is meant to answer what just
         // happened. Folded into one line above, and out of the six below.
         let upcoming = data.recent.filter(\.isUpcoming)
-        let settled = data.recent.filter { !$0.isUpcoming }
+        // Waiting on the bank and waiting on you are two different queues, and
+        // a row cannot be in both: an unsettled charge is not yours to file
+        // yet. Split before either group is drawn.
+        let toReview = data.recent.filter { !$0.isUpcoming && $0.needsReview }
+        let settled = data.recent.filter { !$0.isUpcoming && !$0.needsReview }
 
         return section(data.t("v2.overview.recent", "Dernières opérations")) {
             VStack(spacing: 12) {
@@ -665,6 +670,39 @@ struct OverviewScreen: View {
                         Button { route(.activity, "/m/transactions") } label: {
                             TransactionRowView(
                                 hideUpcomingChip: true,
+                                tx: tx, locale: data.localeTag,
+                                currency: data.currency, t: data.t
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                /*
+                 * What is waiting on you, at the top and counted.
+                 *
+                 * Rows needing a look were scattered down the list among rows
+                 * already dealt with, so the one thing the screen asks of you
+                 * was the one thing you had to hunt for. Collapsed by default
+                 * like the upcoming group — the count is the message, the list
+                 * is there when you want it.
+                 */
+                if !toReview.isEmpty {
+                    UpcomingGroup(
+                        transactions: toReview,
+                        locale: data.localeTag,
+                        currency: data.currency,
+                        t: data.t,
+                        symbol: "questionmark.circle",
+                        tint: Florin.warn,
+                        caption: data.t(
+                            "v2.review.toCheckCount", "{count} à vérifier",
+                            ["count": max(data.reviewCount, toReview.count)]
+                        ),
+                        expanded: $reviewExpanded
+                    ) { tx in
+                        Button { route(.activity, "/m/transactions?needsReview=1") } label: {
+                            TransactionRowView(
                                 tx: tx, locale: data.localeTag,
                                 currency: data.currency, t: data.t
                             )

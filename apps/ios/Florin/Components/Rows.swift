@@ -259,6 +259,13 @@ struct UpcomingGroup<Row: View>: View {
     let locale: String
     let currency: String
     let t: Strings
+    /// The glyph and its colour. Defaults to the upcoming clock; the review
+    /// queue passes its own so the two groups read as different kinds of
+    /// waiting rather than as one list split in half.
+    var symbol: String = "clock"
+    var tint: Color = Florin.accent
+    /// Overrides the "{count} en prévision" line.
+    var caption: String?
     @Binding var expanded: Bool
     @ViewBuilder var row: (Transaction) -> Row
 
@@ -271,12 +278,13 @@ struct UpcomingGroup<Row: View>: View {
                 withAnimation(.snappy(duration: 0.24)) { expanded.toggle() }
             } label: {
                 HStack(spacing: 10) {
-                    Image(systemName: "clock")
+                    Image(systemName: symbol)
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(Florin.accent)
+                        .foregroundStyle(tint)
                     Text(
-                        t("v2.activity.upcomingCount", "{count} en prévision",
-                          ["count": transactions.count])
+                        caption
+                            ?? t("v2.activity.upcomingCount", "{count} en prévision",
+                                 ["count": transactions.count])
                     )
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(Florin.text2)

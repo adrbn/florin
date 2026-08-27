@@ -435,6 +435,7 @@
   "v2.review.skip": "Skip",
   "v2.review.suggested": "Suggested",
   "v2.review.title": "To review",
+  "v2.review.toCheckCount": "{count} to check",
   "v2.settings.about": "About",
   "v2.settings.aboutHint": "Florin is free, self-hosted software, under the AGPL-3.0 license.",
   "v2.settings.appVersion": "Version",

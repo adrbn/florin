@@ -77,6 +77,11 @@ enum BankingSync {
                  * most of the reason to look at it. The ledger already knows:
                  * this payee has been filed the same way for months.
                  */
+                let dropped = try Self.collapseSettledDuplicates(store: store)
+                if dropped > 0 {
+                    log.notice("dropped \(dropped, privacy: .public) settled duplicates")
+                }
+
                 let named = try LocalCategoriser.backfill(store: store)
                 if named > 0 { log.notice("categorised \(named, privacy: .public) rows") }
 
@@ -383,6 +388,19 @@ enum BankingSync {
          * `adopted` stops two bank rows landing on the same local one, which
          * would silently drop a real transaction.
          */
+        /*
+         * A provisional row can be replaced, whoever wrote it.
+         *
+         * The search used to skip anything the bank had already written, on
+         * the reasoning that a bank row is authoritative and should not be
+         * overwritten. True of a settled one — and wrong about the case this
+         * exists for: a bank announces a transfer under one reference while it
+         * is pending and books it under another, so the settled version came
+         * back as a second row and the salary appeared twice, once in "en
+         * prévision" under its IBAN and once as itself. Anything still pending
+         * or still dated ahead is provisional by definition and is exactly
+         * what the arriving row supersedes.
+         */
         let needle = LocalLedger.normalize(transaction.counterparty)
         let candidates = try store.database.query(
             """
@@ -392,7 +410,9 @@ enum BankingSync {
             WHERE account_id = ? AND deleted_at IS NULL
               AND abs(julianday(substr(occurred_at, 1, 10)) - julianday(?)) <= 1
               AND abs(amount - ?) < 0.005
-              AND (source <> 'enable_banking' OR external_id IS NULL)
+              AND (source <> 'enable_banking' OR external_id IS NULL
+                   OR is_pending = 1
+                   OR substr(occurred_at, 1, 10) > date('now'))
             ORDER BY drift
             """,
             [
@@ -502,5 +522,51 @@ enum BankingSync {
             "UPDATE accounts SET opening_balance = ? WHERE id = ?",
             [.real(((balance - moved) * 100).rounded() / 100), .text(accountId)]
         )
+    }
+}
+
+extension BankingSync {
+    /*
+     * Drop provisional rows the settled version left behind.
+     *
+     * Adoption only fires while both versions are in front of it. A transfer
+     * announced under one reference and booked under another escaped that
+     * window, and nothing would ever clear it: a bank stops returning a
+     * pending entry once it settles, so the ghost sat in "en prévision" until
+     * its date passed and then counted a second time in the balance.
+     *
+     * Same rule as adoption — same account, same amount to the cent, a day
+     * apart at most — applied the other way round, and only ever removing the
+     * provisional side. Run after a sync and at launch, because the ledger a
+     * launch opens may already carry one from before the fix.
+     */
+    @discardableResult
+    static func collapseSettledDuplicates(store: LocalStore) throws -> Int {
+        let ghosts = try store.database.query(
+            """
+            SELECT p.id AS id
+            FROM transactions p
+            JOIN transactions s
+              ON s.account_id = p.account_id
+             AND s.id <> p.id
+             AND s.deleted_at IS NULL
+             AND s.is_pending = 0
+             AND substr(s.occurred_at, 1, 10) <= date('now')
+             AND abs(s.amount - p.amount) < 0.005
+             AND abs(julianday(substr(s.occurred_at, 1, 10))
+                     - julianday(substr(p.occurred_at, 1, 10))) <= 1
+            WHERE p.deleted_at IS NULL
+              AND p.source = 'enable_banking'
+              AND (p.is_pending = 1 OR substr(p.occurred_at, 1, 10) > date('now'))
+            """
+        )
+        for ghost in ghosts {
+            guard let id = ghost.string("id") else { continue }
+            try store.database.run(
+                "UPDATE transactions SET deleted_at = datetime('now') WHERE id = ?",
+                [.text(id)]
+            )
+        }
+        return ghosts.count
     }
 }
