@@ -123,6 +123,9 @@ struct Account: Decodable, Sendable, Identifiable {
     let isIncludedInNetWorth: Bool
     let isArchived: Bool
     let displayIcon: String?
+    /// Whether a bank keeps this one up to date. Optional because the server
+    /// feed does not send it, and absent is not the same as false.
+    let isSynced: Bool?
 
     var isLoan: Bool { kind == "loan" }
     /// What the row should print: a loan shows its amortized debt, negative.

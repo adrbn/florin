@@ -55,6 +55,12 @@ struct RootView: View {
     /// True once the source has been changed in this session, so the rebuild
     /// lands back in settings rather than on the dashboard.
     @State private var switchedSource = false
+    @State private var showingSettings = false
+
+    /// Whichever ledger is on screen, for the screens presented above it.
+    private var currentBase: URL {
+        source == .server ? (server.resolvedURL ?? FlorinClient.localBase) : FlorinClient.localBase
+    }
     /// Changed when onboarding finishes, purely to re-evaluate the branch
     /// above — `LocalOnboarding.isComplete` reads the database, which SwiftUI
     /// has no way to observe on its own.
@@ -83,7 +89,7 @@ struct RootView: View {
                     MainTabs(
                         base: url,
                         initialTab: landingTab,
-                        onRequestSettings: { showingSetup = true }
+                        onRequestSettings: { showingSettings = true }
                     )
                     .id(server.reloadToken)
                 } else if source == .server {
@@ -94,7 +100,7 @@ struct RootView: View {
                     MainTabs(
                         base: FlorinClient.localBase,
                         initialTab: landingTab,
-                        onRequestSettings: { showingSetup = true }
+                        onRequestSettings: { showingSettings = true }
                     )
                     .id(onboarded)
                 } else if wantsServerForm {
@@ -138,8 +144,16 @@ struct RootView: View {
         .onReceive(NotificationCenter.default.publisher(for: .florinShake)) { _ in
             Privacy.shared.toggle()
         }
-        .sheet(isPresented: $showingSetup) {
-            SetupView(isFirstRun: false).environmentObject(server)
+        /*
+         * Presented here, above the view that the source switch replaces.
+         *
+         * It used to be a cover inside MainTabs — the very thing rebuilt when
+         * the data source changes — so switching from the server to the device
+         * closed the screen where that switch is made. Every time.
+         */
+        .fullScreenCover(isPresented: $showingSettings) {
+            SettingsScreen(base: currentBase, onClose: { showingSettings = false })
+                .environmentObject(server)
         }
         /*
          * Full screen, not a sheet.
@@ -173,7 +187,6 @@ struct MainTabs: View {
     @State private var selection: TabRoute
     @State private var paths: [TabRoute: String] = [:]
     @State private var adding = false
-    @State private var showingSettings = false
 
     /*
      * Which tab to land on, so a source switch does not throw you out.
@@ -209,7 +222,7 @@ struct MainTabs: View {
      */
     private func openSettings() {
         UISelectionFeedbackGenerator().selectionChanged()
-        showingSettings = true
+        onRequestSettings()
     }
 
     private func route(to tab: TabRoute, path: String) {
@@ -271,17 +284,9 @@ struct MainTabs: View {
             )
         }
         .onChange(of: selection) { _, _ in chrome.reset() }
-        .fullScreenCover(isPresented: $showingSettings) {
-            SettingsScreen(model: model, onClose: { showingSettings = false })
-        }
-        .sheet(isPresented: $adding) {
-            if let data = model.overview {
-                AddTransactionSheet(data: data) { try await model.add($0) }
-            }
-        }
+        // Settings is presented by RootView — see there.
         .florinToast($model.toast)
     }
-
 }
 
 /// One web-backed tab, inside the native shell and inside its own navigation

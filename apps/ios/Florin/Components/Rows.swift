@@ -96,9 +96,26 @@ struct AccountRowView: View {
         HStack(spacing: 12) {
             Bubble(label: account.name, emoji: account.displayIcon, systemImage: icon)
             VStack(alignment: .leading, spacing: 2) {
-                Text(account.name)
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(Florin.text)
+                HStack(spacing: 6) {
+                    Text(account.name)
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(Florin.text)
+                    /*
+                     * Which accounts keep themselves up to date.
+                     *
+                     * Once a ledger mixes bank-synced accounts with hand-kept
+                     * ones, "why has this balance not moved" has two completely
+                     * different answers, and nothing on screen said which kind
+                     * you were looking at.
+                     */
+                    if account.isSynced == true {
+                        Image(systemName: "arrow.trianglehead.2.clockwise")
+                            .font(.system(size: 9.5, weight: .bold))
+                            .foregroundStyle(Florin.accent)
+                            .padding(4)
+                            .background(Florin.accent.opacity(0.16), in: Circle())
+                    }
+                }
                 if let institution = account.institution, !institution.isEmpty {
                     Text(institution)
                         .font(.system(size: 12.5))
