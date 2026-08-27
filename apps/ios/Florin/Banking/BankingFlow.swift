@@ -23,6 +23,8 @@ final class BankingFlow: NSObject, ObservableObject {
      * closed. This puts that distinction where it can actually be read.
      */
     @Published private(set) var step: String?
+    /// Flipped once a session exists and its accounts have been pulled in.
+    @Published private(set) var connected = false
 
     /*
      * Where the bank sends the user back.
@@ -169,6 +171,7 @@ final class BankingFlow: NSObject, ObservableObject {
             let session = try await EnableBanking.createSession(config, code: code)
             try save(session, aspsp: aspsp, store: store)
             try await BankingSync.run(store: store, config: config)
+            connected = true
             step = nil
         } catch {
             step = nil
