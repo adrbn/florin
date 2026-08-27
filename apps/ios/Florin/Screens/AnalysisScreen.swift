@@ -31,7 +31,7 @@ struct AnalysisScreen: View {
 
     private enum Tab: Hashable { case where_, trends, flows, subs }
 
-    private var t: Strings { overview.overview?.t ?? .empty }
+    private var t: Strings { overview.overview?.t ?? .device }
     private var locale: String { overview.overview?.localeTag ?? "fr-FR" }
     private var currency: String { overview.overview?.currency ?? "EUR" }
 

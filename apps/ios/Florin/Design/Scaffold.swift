@@ -63,7 +63,11 @@ struct TopBar<Middle: View, Trailing: View>: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(back ? "Fermer" : "Réglages")
+            .accessibilityLabel(
+                back
+                    ? Strings.device("v2.common.close", "Fermer")
+                    : Strings.device("v2.settings.title", "Réglages")
+            )
 
             middle
             trailing

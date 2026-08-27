@@ -98,7 +98,10 @@ final class BankingFlow: NSObject, ObservableObject {
         // of noticing is one query.
         guard appId(store) == (trimmed.isEmpty ? nil : trimmed) else {
             throw EnableBanking.Failure.rejected(
-                "L'identifiant n'a pas pu être enregistré sur cet appareil."
+                Strings.device(
+                    "v2.connect.appIdNotSaved",
+                    "L'identifiant n'a pas pu être enregistré sur cet appareil."
+                )
             )
         }
         // The cached JWT carries the old id in `kid`; keeping it would sign
@@ -139,9 +142,12 @@ final class BankingFlow: NSObject, ObservableObject {
         // Loud on purpose: the failure that matters here is the one where
         // nothing at all happens, which leaves no error to read.
         Self.log.notice("connect tapped: \(aspsp.name, privacy: .public)")
-        step = "Préparation…"
+        step = Strings.device("v2.connect.stepPreparing", "Préparation…")
         guard let store = LocalStore.shared else {
-            failure = "Florin n'a pas pu ouvrir sa base sur cet appareil."
+            failure = Strings.device(
+                "v2.connect.noDatabase",
+                "Florin n'a pas pu ouvrir sa base sur cet appareil."
+            )
             return
         }
         busy = true
@@ -150,7 +156,7 @@ final class BankingFlow: NSObject, ObservableObject {
         do {
             let config = try Self.config(store)
             startedAt = Date()
-            step = "Connexion à votre banque…"
+            step = Strings.device("v2.connect.stepConnecting", "Connexion à votre banque…")
             let nonce = UUID().uuidString
             pendingNonce = nonce
 
@@ -163,7 +169,7 @@ final class BankingFlow: NSObject, ObservableObject {
                 config, aspsp: aspsp, state: nonce, validUntil: validUntil
             )
             Self.log.notice("auth url received, presenting")
-            step = "Connexion à votre banque…"
+            step = Strings.device("v2.connect.stepConnecting", "Connexion à votre banque…")
             guard let authURL = URL(string: start.url) else { throw EnableBanking.Failure.malformed }
 
             let callback = try await present(authURL)
@@ -178,13 +184,13 @@ final class BankingFlow: NSObject, ObservableObject {
             guard returned == nonce else { throw EnableBanking.Failure.malformed }
             pendingNonce = nil
 
-            step = "Récupération de vos comptes…"
+            step = Strings.device("v2.connect.stepFetching", "Récupération de vos comptes…")
             let session = try await EnableBanking.createSession(config, code: code)
             let connectionId = try save(session, aspsp: aspsp, store: store)
 
             let existing = try BankingSync.candidates(store: store)
             if !existing.isEmpty, let sessionId = session.sessionId {
-                step = "Lecture de vos comptes…"
+                step = Strings.device("v2.connect.stepReading", "Lecture de vos comptes…")
                 let found = try await BankingSync.discover(
                     store: store, config: config, sessionId: sessionId
                 )
@@ -238,7 +244,10 @@ final class BankingFlow: NSObject, ObservableObject {
     private func present(_ url: URL) async throws -> URL {
         guard Self.currentAnchor() != nil else {
             throw EnableBanking.Failure.rejected(
-                "Florin n'a pas trouvé de fenêtre pour afficher la page de la banque."
+                Strings.device(
+                    "v2.connect.noWindow",
+                    "Florin n'a pas trouvé de fenêtre pour afficher la page de la banque."
+                )
             )
         }
         return try await withCheckedThrowingContinuation { continuation in
@@ -273,13 +282,20 @@ final class BankingFlow: NSObject, ObservableObject {
              * error to show and nothing in the log. That is exactly what
              * tapping a bank did.
              */
-            step = "Connexion à votre banque…"
+            step = Strings.device("v2.connect.stepConnecting", "Connexion à votre banque…")
             guard session.start() else {
                 Self.log.error("ASWebAuthenticationSession refused to start")
                 continuation.resume(throwing: EnableBanking.Failure.rejected(
-                    """
-                    iOS a refusé d'ouvrir la page de la banque. Le lien de                     redirection (\(Self.redirectHost)) n'est pas encore validé                     sur cet appareil — réessayez dans une minute, en gardant le                     téléphone connecté à Internet.
-                    """
+                    Strings.device(
+                        "v2.connect.presentRefused",
+                        """
+                        iOS a refusé d'ouvrir la page de la banque. Le lien de \
+                        redirection ({host}) n'est pas encore validé sur cet \
+                        appareil — réessayez dans une minute, en gardant le \
+                        téléphone connecté à Internet.
+                        """,
+                        ["host": Self.redirectHost]
+                    )
                 ))
                 return
             }
@@ -322,16 +338,22 @@ final class BankingFlow: NSObject, ObservableObject {
             guard let row = try store.database.query(
                 "SELECT id, session_id FROM bank_connections WHERE status = 'active' LIMIT 1"
             ).first, let sessionId = row.string("session_id") else {
-                failure = "Aucune connexion bancaire sur cet appareil."
+                failure = Strings.device(
+                    "v2.connect.noConnection",
+                    "Aucune connexion bancaire sur cet appareil."
+                )
                 return
             }
-            step = "Lecture de vos comptes…"
+            step = Strings.device("v2.connect.stepReading", "Lecture de vos comptes…")
             let found = try await BankingSync.discover(
                 store: store, config: config, sessionId: sessionId
             )
             step = nil
             guard !found.isEmpty else {
-                failure = "Votre banque n'expose aucun compte."
+                failure = Strings.device(
+                    "v2.connect.noAccountsExposed",
+                    "Votre banque n'expose aucun compte."
+                )
                 return
             }
             candidates = try BankingSync.candidates(store: store)
@@ -354,7 +376,7 @@ final class BankingFlow: NSObject, ObservableObject {
                 store: store, accounts: answers, connectionId: pendingConnectionId
             )
             mapping = nil
-            step = "Récupération de vos comptes…"
+            step = Strings.device("v2.connect.stepFetching", "Récupération de vos comptes…")
             try await BankingSync.run(store: store, config: config)
             step = nil
             connected = true

@@ -51,9 +51,9 @@ struct BankingSettings: View {
                     } else if configured {
                         ready
                     } else {
-                        step(1, "Créer une clé", done: hasKey) { keyStep }
-                        step(2, "Enregistrer l'application", done: !appId.isEmpty) { registerStep }
-                        step(3, "Coller l'identifiant", done: !appId.isEmpty) { appIdStep }
+                        step(1, Strings.device("v2.connect.stepKey", "Créer une clé"), done: hasKey) { keyStep }
+                        step(2, Strings.device("v2.connect.stepRegister", "Enregistrer l'application"), done: !appId.isEmpty) { registerStep }
+                        step(3, Strings.device("v2.connect.stepAppId", "Coller l'identifiant"), done: !appId.isEmpty) { appIdStep }
                     }
                 }
                 .padding(.horizontal, Florin.gutter)
@@ -122,16 +122,19 @@ struct BankingSettings: View {
             }
         }
         .alert(
-            "Remplacer la clé ?",
+            Strings.device("v2.connect.replaceKeyTitle", "Remplacer la clé ?"),
             isPresented: $confirmingRegenerate
         ) {
-            Button("Remplacer", role: .destructive) { makeKey() }
-            Button("Annuler", role: .cancel) {}
+            Button(Strings.device("v2.common.replace", "Remplacer"), role: .destructive) { makeKey() }
+            Button(Strings.device("v2.common.cancel", "Annuler"), role: .cancel) {}
         } message: {
-            Text("Enable Banking ne permet pas de changer le certificat d'une application existante : il faudra en créer une nouvelle et recoller son identifiant ici. La synchro actuelle s'arrêtera.")
+            Text(Strings.device(
+                "v2.connect.replaceKeyBody",
+                "Enable Banking ne permet pas de changer le certificat d'une application existante : il faudra en créer une nouvelle et recoller son identifiant ici. La synchro actuelle s'arrêtera."
+            ))
         }
         .alert(
-            "Synchro bancaire",
+            Strings.device("v2.settings.banking", "Synchronisation bancaire"),
             isPresented: Binding(
                 get: { flow.failure != nil },
                 set: { if !$0 { flow.failure = nil } }
@@ -150,10 +153,13 @@ struct BankingSettings: View {
             Image(systemName: "building.columns")
                 .font(.system(size: 28, weight: .light))
                 .foregroundStyle(Florin.accent)
-            Text("Connecter votre banque")
+            Text(Strings.device("v2.connect.setupTitle", "Connecter votre banque"))
                 .font(.system(size: 24, weight: .semibold))
                 .foregroundStyle(Florin.text)
-            Text("Une seule fois, environ 2 minutes. Vos identifiants bancaires ne passent jamais par Florin — vous vous connectez chez votre banque.")
+            Text(Strings.device(
+                "v2.connect.setupLead",
+                "Une seule fois, environ 2 minutes. Vos identifiants bancaires ne passent jamais par Florin — vous vous connectez chez votre banque."
+            ))
                 .font(.system(size: 13.5))
                 .foregroundStyle(Florin.text2)
                 .multilineTextAlignment(.center)
@@ -171,7 +177,7 @@ struct BankingSettings: View {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 18))
                     .foregroundStyle(Florin.positive)
-                Text("Prêt à connecter une banque")
+                Text(Strings.device("v2.connect.ready", "Prêt à connecter une banque"))
                     .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(Florin.text)
                 Spacer()
@@ -180,7 +186,7 @@ struct BankingSettings: View {
             Button {
                 Task { await loadBanks() }
             } label: {
-                Text("Choisir ma banque")
+                Text(Strings.device("v2.connect.chooseBank", "Choisir ma banque"))
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(.black)
                     .frame(maxWidth: .infinity)
@@ -197,7 +203,7 @@ struct BankingSettings: View {
                 .foregroundStyle(Florin.warn)
             }
 
-            Button("Refaire la configuration") {
+            Button(Strings.device("v2.connect.redoSetup", "Refaire la configuration")) {
                 withAnimation { banks = []; appId = "" }
             }
             .font(.system(size: 12.5))
@@ -242,7 +248,10 @@ struct BankingSettings: View {
 
     @ViewBuilder
     private var keyStep: some View {
-        Text("Florin crée une clé qui reste sur ce téléphone. Seul le certificat public en sort — c'est lui qu'Enable Banking demande, et il ne pourra plus être changé ensuite.")
+        Text(Strings.device(
+            "v2.connect.keyHint",
+            "Florin crée une clé qui reste sur ce téléphone. Seul le certificat public en sort — c'est lui qu'Enable Banking demande, et il ne pourra plus être changé ensuite."
+        ))
             .font(.system(size: 13))
             .foregroundStyle(Florin.text2)
 
@@ -263,7 +272,9 @@ struct BankingSettings: View {
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
             } label: {
                 Label(
-                    copied ? "Certificat copié" : "Copier le certificat",
+                    copied
+                        ? Strings.device("v2.connect.certCopied", "Certificat copié")
+                        : Strings.device("v2.connect.copyCert", "Copier le certificat"),
                     systemImage: copied ? "checkmark" : "doc.on.doc"
                 )
                     .font(.system(size: 14, weight: .medium))
@@ -278,7 +289,9 @@ struct BankingSettings: View {
         Button {
             if hasKey { confirmingRegenerate = true } else { makeKey() }
         } label: {
-            Text(hasKey ? "Régénérer la clé" : "Créer la clé")
+            Text(hasKey
+                ? Strings.device("v2.connect.regenerateKey", "Régénérer la clé")
+                : Strings.device("v2.connect.createKey", "Créer la clé"))
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(hasKey ? Florin.text3 : .black)
                 .frame(maxWidth: .infinity)
@@ -290,7 +303,10 @@ struct BankingSettings: View {
 
     @ViewBuilder
     private var registerStep: some View {
-        Text("Créez une application chez Enable Banking en choisissant « Generate outside the browser », collez-y le certificat, et indiquez cette adresse de redirection — recopiée exactement. Pensez ensuite à activer l'application depuis la console :")
+        Text(Strings.device(
+            "v2.connect.registerHint",
+            "Créez une application chez Enable Banking en choisissant « Generate outside the browser », collez-y le certificat, et indiquez cette adresse de redirection — recopiée exactement. Pensez ensuite à activer l'application depuis la console :"
+        ))
             .font(.system(size: 13))
             .foregroundStyle(Florin.text2)
 
@@ -312,7 +328,7 @@ struct BankingSettings: View {
         .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Florin.surface2))
 
         Link(destination: URL(string: "https://enablebanking.com/cp")!) {
-            Label("Ouvrir Enable Banking", systemImage: "arrow.up.right.square")
+            Label(Strings.device("v2.connect.openEnableBanking", "Ouvrir Enable Banking"), systemImage: "arrow.up.right.square")
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(Florin.text)
                 .frame(maxWidth: .infinity)
@@ -323,7 +339,10 @@ struct BankingSettings: View {
 
     @ViewBuilder
     private var appIdStep: some View {
-        Text("L'identifiant de l'application que vous venez de créer.")
+        Text(Strings.device(
+            "v2.connect.appIdHint",
+            "L'identifiant de l'application que vous venez de créer."
+        ))
             .font(.system(size: 13))
             .foregroundStyle(Florin.text2)
 
@@ -355,7 +374,10 @@ struct BankingSettings: View {
             set: { value in
                 appId = value
                 guard let store = LocalStore.shared else {
-                    flow.failure = "Florin n'a pas pu ouvrir sa base sur cet appareil."
+                    flow.failure = Strings.device(
+                        "v2.connect.noLocalStore",
+                        "Florin n'a pas pu ouvrir sa base sur cet appareil."
+                    )
                     return
                 }
                 do {
@@ -371,7 +393,7 @@ struct BankingSettings: View {
     private var bankList: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Eyebrow(text: "Votre banque")
+                Eyebrow(text: Strings.device("v2.connect.yourBank", "Votre banque"))
                 Spacer()
                 if flow.busy || searching {
                     ProgressView().controlSize(.small)
@@ -379,7 +401,7 @@ struct BankingSettings: View {
                     Button {
                         withAnimation { banks = []; query = "" }
                     } label: {
-                        Text("Retour")
+                        Text(Strings.device("v2.a11y.back", "Retour"))
                             .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(Florin.accent)
                     }
@@ -394,7 +416,7 @@ struct BankingSettings: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
 
-            TextField("Rechercher", text: $query)
+            TextField(Strings.device("v2.common.search", "Rechercher"), text: $query)
                 .font(.system(size: 15))
                 .padding(.vertical, 11)
                 .padding(.horizontal, 14)

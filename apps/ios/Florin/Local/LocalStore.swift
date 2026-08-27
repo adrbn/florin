@@ -148,6 +148,20 @@ extension LocalStore {
                 on: store,
                 locale: Locale.current.identifier
             )
+            /*
+             * Name whatever arrived while the app was closed.
+             *
+             * The sync that brings rows in runs its own pass, but rows can
+             * predate the categoriser — or land in a background sync whose
+             * history was thinner than it is now. One indexed query when
+             * nothing is waiting, so a ledger with no unfiled bank rows pays
+             * almost nothing for it.
+             */
+            let named = try LocalCategoriser.backfill(store: store)
+            if named > 0 {
+                log.notice("categorised \(named, privacy: .public) waiting rows")
+            }
+
             let count = try store.transactionCount()
             let categories = try store.categoryCount()
             let range = try store.dateRange()

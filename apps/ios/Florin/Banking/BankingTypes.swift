@@ -120,7 +120,7 @@ struct AccountDetails: Decodable {
         if let name, !name.isEmpty { return name }
         if let product, !product.isEmpty { return product }
         if let iban = accountId?.iban, iban.count > 4 { return "•••• " + String(iban.suffix(4)) }
-        return "Compte"
+        return Strings.device("v2.account.unnamed", "Compte")
     }
 }
 
@@ -216,6 +216,8 @@ struct BankTransaction: Decodable {
         let name = creditDebitIndicator == "CRDT" ? debtorName : creditorName
         if let name, !name.isEmpty { return name }
         let remittance = (remittanceInformation ?? []).joined(separator: " ")
-        return remittance.isEmpty ? "Opération" : remittance
+        return remittance.isEmpty
+            ? Strings.device("v2.activity.unnamedPayee", "Opération")
+            : remittance
     }
 }

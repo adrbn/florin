@@ -28,7 +28,7 @@ struct ServerFields: View {
                 .onSubmit { focus = .token }
                 .onChange(of: host) { _, _ in status = .unknown }
         } header: {
-            Text("Adresse")
+            Text(Strings.device("v2.settings.serverHost", "Adresse"))
         } footer: {
             VStack(alignment: .leading, spacing: 6) {
                 if let resolved {
@@ -41,34 +41,51 @@ struct ServerFields: View {
                     }
                     .font(.system(size: 12))
                 } else {
-                    Text("Par exemple 192.168.1.10:3000, florin.local, ou mon-serveur.ts.net:8443.")
+                    Text(
+                        Strings.device(
+                            "v2.setup.hostExample",
+                            "Par exemple 192.168.1.10:3000, florin.local, ou mon-serveur.ts.net:8443."
+                        )
+                    )
                 }
                 Text(
-                    "Le port est facultatif, et http:// ou https:// aussi — Florin les déduit et te montre ci-dessus l'adresse exacte qu'il appellera."
+                    Strings.device(
+                        "v2.setup.hostNote",
+                        "Le port est facultatif, et http:// ou https:// aussi — Florin les déduit et vous montre ci-dessus l'adresse exacte qu'il appellera."
+                    )
                 )
             }
         }
 
         Section {
-            SecureField("Jeton d'API", text: $token)
+            SecureField(Strings.device("v2.setup.token", "Jeton d'API"), text: $token)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .focused($focus, equals: .token)
                 .submitLabel(.go)
                 .onChange(of: token) { _, _ in status = .unknown }
         } header: {
-            Text("Jeton")
+            Text(Strings.device("v2.settings.serverToken", "Jeton"))
         } footer: {
             // Confirms *which* token is stored without revealing it — the
             // difference between "I pasted nothing" and "I pasted the wrong
             // one" is otherwise invisible.
             if let stored = FlorinAuth.token, !stored.isEmpty {
-                Text("Enregistré : " + FlorinAuth.masked(stored))
-                    .monospaced()
-                    .padding(.bottom, 4)
+                Text(
+                    Strings.device(
+                        "v2.setup.tokenStored",
+                        "Enregistré : {token}",
+                        ["token": FlorinAuth.masked(stored)]
+                    )
+                )
+                .monospaced()
+                .padding(.bottom, 4)
             }
             Text(
-                "Seulement pour un Florin web : la valeur de FLORIN_API_TOKEN sur ton serveur. L'app de bureau n'en demande pas — laisse vide."
+                Strings.device(
+                    "v2.setup.tokenHint",
+                    "Seulement pour un Florin web : la valeur de FLORIN_API_TOKEN sur votre serveur. L'app de bureau n'en demande pas — laissez vide."
+                )
             )
         }
 
@@ -77,7 +94,7 @@ struct ServerFields: View {
                 Task { await test() }
             } label: {
                 HStack {
-                    Text("Tester la connexion")
+                    Text(Strings.device("v2.setup.test", "Tester la connexion"))
                     if status == .checking {
                         Spacer()
                         ProgressView()
@@ -126,15 +143,28 @@ struct ServerFields: View {
         case .unknown, .checking:
             return ""
         case .unreachable(let host):
-            return "\(host) ne répond pas. Vérifie l'adresse et le port, et que tu es bien sur le même réseau — ou sur le VPN si le serveur est derrière."
+            return Strings.device(
+                "v2.setup.unreachable",
+                "{host} ne répond pas. Vérifiez l'adresse et le port, et que vous êtes bien sur le même réseau — ou sur le VPN si le serveur est derrière.",
+                ["host": host]
+            )
         case .notFlorin:
-            return "Quelque chose répond à cette adresse, mais ce n'est pas un Florin."
+            return Strings.device(
+                "v2.setup.notFlorin",
+                "Quelque chose répond à cette adresse, mais ce n'est pas un Florin."
+            )
         case .tooOld:
-            return "Florin répond, mais cette version ne connaît pas encore l'API de l'app. Il faut déployer une version à jour sur le serveur."
+            return Strings.device(
+                "v2.setup.tooOld",
+                "Florin répond, mais cette version ne connaît pas encore l'API de l'app. Il faut déployer une version à jour sur le serveur."
+            )
         case .unauthorized:
-            return "Florin est à jour mais refuse ce jeton. Vérifie FLORIN_API_TOKEN côté serveur."
+            return Strings.device(
+                "v2.setup.unauthorized",
+                "Florin est à jour mais refuse ce jeton. Vérifiez FLORIN_API_TOKEN côté serveur."
+            )
         case .ready:
-            return "Connecté."
+            return Strings.device("v2.setup.connected", "Connecté.")
         }
     }
 }

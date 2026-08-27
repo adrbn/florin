@@ -21,7 +21,9 @@ struct AccountsScreen: View {
     @State private var renameDraft = ""
     @State private var deleting: Account?
 
-    private var t: Strings { model.overview?.t ?? .empty }
+    /// `.device` and not `.empty`: the alerts and the header can be on screen
+    /// before the first feed lands, and an empty table renders the inline French.
+    private var t: Strings { model.overview?.t ?? .device }
 
     var body: some View {
         Group {
@@ -59,7 +61,7 @@ struct AccountsScreen: View {
             Button(t("v2.common.cancel", "Annuler"), role: .cancel) { renaming = nil }
         }
         .alert(
-            "Supprimer ce compte ?",
+            t("v2.accounts.deleteConfirm", "Supprimer ce compte ?"),
             isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }),
             presenting: deleting
         ) { account in
@@ -70,7 +72,11 @@ struct AccountsScreen: View {
         } message: { account in
             // Says what goes with it: an account is rarely alone, and finding
             // out afterwards is not a discovery anyone enjoys.
-            Text("\(account.name) et toutes ses opérations seront supprimés de cet appareil. Votre serveur et votre banque ne sont pas touchés.")
+            Text(t(
+                "v2.accounts.deleteBody",
+                "{name} et toutes ses opérations seront supprimés de cet appareil. Votre serveur et votre banque ne sont pas touchés.",
+                ["name": account.name]
+            ))
         }
     }
 
@@ -329,10 +335,10 @@ struct AccountsScreen: View {
     private func buckets(_ data: Overview) -> [Bucket] {
         let all = visible(data)
         let definitions: [(String, String, [String])] = [
-            ("v2.accounts.group.cash", "Comptes courants", ["checking", "cash"]),
+            ("v2.accounts.group.checking", "Comptes courants", ["checking", "cash"]),
             ("v2.accounts.group.savings", "Épargne", ["savings"]),
-            ("v2.accounts.group.invest", "Investissements", ["broker_cash", "broker_portfolio"]),
-            ("v2.accounts.group.debt", "Crédits", ["loan"]),
+            ("v2.accounts.group.broker", "Investissement", ["broker_cash", "broker_portfolio"]),
+            ("v2.accounts.group.loan", "Emprunts", ["loan"]),
         ]
         var used = Set<String>()
         var out = definitions.compactMap { key, fallback, kinds -> Bucket? in
@@ -377,6 +383,8 @@ struct AccountDetailScreen: View {
         _portfolio = StateObject(wrappedValue: PortfolioModel(base: model.base))
     }
 
+    private var t: Strings { model.overview?.t ?? .device }
+
     private var account: Account? {
         guard let id = route.accountId else { return nil }
         return model.overview?.accounts.first { $0.id == id }
@@ -389,7 +397,7 @@ struct AccountDetailScreen: View {
             title: route.title,
             locale: model.overview?.localeTag ?? "fr-FR",
             currency: model.overview?.currency ?? "EUR",
-            t: model.overview?.t ?? .empty,
+            t: t,
             preset: route,
             heroValue: account?.displayValue,
             heroCaption: account.flatMap { a in
@@ -433,13 +441,11 @@ struct AccountDetailScreen: View {
                 .foregroundStyle(up ? Florin.positive : Florin.negative)
 
                 HStack(spacing: 0) {
-                    stat(model.overview?.t("v2.tools.contributed", "Versé") ?? "Versé",
-                         v.verse, locale, currency)
-                    stat(model.overview?.t("v2.account.marketValue", "Valeur") ?? "Valeur",
+                    stat(t("v2.tools.contributed", "Versé"), v.verse, locale, currency)
+                    stat(t("v2.account.marketValue", "Valeur de marché"),
                          v.marketValue + v.cash, locale, currency)
                     if v.cash > 0.5 {
-                        stat(model.overview?.t("v2.overview.cash", "Liquidités") ?? "Liquidités",
-                             v.cash, locale, currency)
+                        stat(t("v2.overview.cash", "Liquidités"), v.cash, locale, currency)
                     }
                 }
 

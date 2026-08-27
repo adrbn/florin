@@ -22,7 +22,11 @@ struct BankMappingSheet: View {
 
                 ScrollView {
                     VStack(spacing: 18) {
-                        Text("Votre banque expose \(accounts.count == 1 ? "un compte" : "\(accounts.count) comptes"). Dites à Florin s'ils existent déjà ici, pour qu'il continue leur historique au lieu d'en créer un double.")
+                        Text(Strings.device(
+                            "v2.connect.mappingLead",
+                            "Votre banque expose {count} comptes. Dites à Florin s'ils existent déjà ici, pour qu'il continue leur historique au lieu d'en créer un double.",
+                            ["count": accounts.count]
+                        ))
                             .font(.system(size: 14))
                             .foregroundStyle(Florin.text2)
                             .multilineTextAlignment(.center)
@@ -37,7 +41,7 @@ struct BankMappingSheet: View {
                         Button {
                             onConfirm(accounts)
                         } label: {
-                            Text("Continuer")
+                            Text(Strings.device("v2.common.continue", "Continuer"))
                                 .font(.system(size: 17, weight: .semibold))
                                 .foregroundStyle(.black)
                                 .frame(maxWidth: .infinity)
@@ -52,11 +56,11 @@ struct BankMappingSheet: View {
                 }
                 .scrollIndicators(.hidden)
             }
-            .navigationTitle("Vos comptes")
+            .navigationTitle(Strings.device("v2.connect.mappingTitle", "Vos comptes"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Annuler", action: onCancel)
+                    Button(Strings.device("v2.common.cancel", "Annuler"), action: onCancel)
                 }
             }
         }
@@ -87,8 +91,11 @@ struct BankMappingSheet: View {
             choice(
                 account: account,
                 target: nil,
-                title: "Nouveau compte",
-                detail: "Florin le crée à part."
+                title: Strings.device("v2.connect.mappingNew", "Nouveau compte"),
+                detail: Strings.device(
+                    "v2.connect.mappingNewDetail",
+                    "Florin le crée à part."
+                )
             )
 
             ForEach(candidates) { candidate in
@@ -96,7 +103,10 @@ struct BankMappingSheet: View {
                     account: account,
                     target: candidate.id,
                     title: candidate.name,
-                    detail: "Rattacher — l'historique déjà là est conservé."
+                    detail: Strings.device(
+                        "v2.connect.mappingLink",
+                        "Rattacher — l'historique déjà là est conservé."
+                    )
                 )
             }
         }

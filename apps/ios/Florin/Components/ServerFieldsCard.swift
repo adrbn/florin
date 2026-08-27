@@ -21,7 +21,7 @@ struct ServerFieldsCard: View {
 
     var body: some View {
         VStack(spacing: 14) {
-            field(title: "Adresse") {
+            field(title: Strings.device("v2.settings.serverHost", "Adresse")) {
                 TextField(ServerStore.suggestedHost, text: $host)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
@@ -45,33 +45,52 @@ struct ServerFieldsCard: View {
                     .font(.system(size: 12))
                     .foregroundStyle(Florin.accent)
                 } else {
-                    Text("Par exemple 192.168.1.10:3000, florin.local, ou mon-serveur.ts.net:8443. Le port et le http:// sont facultatifs.")
-                        .font(.system(size: 12))
-                        .foregroundStyle(Florin.text3)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Text(
+                        Strings.device(
+                            "v2.setup.hostExample",
+                            "Par exemple 192.168.1.10:3000, florin.local, ou mon-serveur.ts.net:8443."
+                        )
+                        + " "
+                        + Strings.device(
+                            "v2.setup.hostOptional",
+                            "Le port et le http:// sont facultatifs."
+                        )
+                    )
+                    .font(.system(size: 12))
+                    .foregroundStyle(Florin.text3)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
             .padding(.horizontal, 4)
 
-            field(title: "Jeton d'API") {
-                SecureField("Laisser vide pour l'app de bureau", text: $token)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .focused($focus, equals: .token)
-                    .submitLabel(.go)
-                    .onChange(of: token) { _, _ in status = .unknown }
+            field(title: Strings.device("v2.setup.token", "Jeton d'API")) {
+                SecureField(
+                    Strings.device("v2.setup.tokenPlaceholder", "Laisser vide pour l'app de bureau"),
+                    text: $token
+                )
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .focused($focus, equals: .token)
+                .submitLabel(.go)
+                .onChange(of: token) { _, _ in status = .unknown }
             }
 
             // Confirms *which* token is stored without revealing it — the
             // difference between "I pasted nothing" and "I pasted the wrong
             // one" is otherwise invisible.
             if let stored = FlorinAuth.token, !stored.isEmpty {
-                Text("Enregistré : " + FlorinAuth.masked(stored))
-                    .font(.system(size: 11.5))
-                    .monospaced()
-                    .foregroundStyle(Florin.text3)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 4)
+                Text(
+                    Strings.device(
+                        "v2.setup.tokenStored",
+                        "Enregistré : {token}",
+                        ["token": FlorinAuth.masked(stored)]
+                    )
+                )
+                .font(.system(size: 11.5))
+                .monospaced()
+                .foregroundStyle(Florin.text3)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 4)
             }
 
             Divider().overlay(Florin.text3.opacity(0.2))
@@ -86,7 +105,7 @@ struct ServerFieldsCard: View {
                         Image(systemName: "bolt.horizontal")
                             .font(.system(size: 13, weight: .semibold))
                     }
-                    Text("Tester la connexion")
+                    Text(Strings.device("v2.setup.test", "Tester la connexion"))
                         .font(.system(size: 14.5, weight: .medium))
                 }
                 .foregroundStyle(Florin.text)
@@ -164,15 +183,28 @@ struct ServerFieldsCard: View {
         case .unknown, .checking:
             ""
         case .unreachable(let host):
-            "\(host) ne répond pas. Vérifiez l'adresse et le port, et que vous êtes bien sur le même réseau — ou sur le VPN si le serveur est derrière."
+            Strings.device(
+                "v2.setup.unreachable",
+                "{host} ne répond pas. Vérifiez l'adresse et le port, et que vous êtes bien sur le même réseau — ou sur le VPN si le serveur est derrière.",
+                ["host": host]
+            )
         case .notFlorin:
-            "Quelque chose répond à cette adresse, mais ce n'est pas un Florin."
+            Strings.device(
+                "v2.setup.notFlorin",
+                "Quelque chose répond à cette adresse, mais ce n'est pas un Florin."
+            )
         case .tooOld:
-            "Florin répond, mais cette version ne connaît pas encore l'API de l'app. Il faut déployer une version à jour sur le serveur."
+            Strings.device(
+                "v2.setup.tooOld",
+                "Florin répond, mais cette version ne connaît pas encore l'API de l'app. Il faut déployer une version à jour sur le serveur."
+            )
         case .unauthorized:
-            "Florin est à jour mais refuse ce jeton. Vérifiez FLORIN_API_TOKEN côté serveur."
+            Strings.device(
+                "v2.setup.unauthorized",
+                "Florin est à jour mais refuse ce jeton. Vérifiez FLORIN_API_TOKEN côté serveur."
+            )
         case .ready:
-            "Connecté."
+            Strings.device("v2.setup.connected", "Connecté.")
         }
     }
 }

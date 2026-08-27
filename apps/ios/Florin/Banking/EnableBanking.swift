@@ -40,11 +40,26 @@ enum EnableBanking {
         var errorDescription: String? {
             switch self {
             case .notConfigured:
-                "Bank sync is not set up yet — add your Enable Banking app id in Settings."
+                Strings.device(
+                    "v2.connect.notConfigured",
+                    "La synchronisation bancaire n'est pas encore configurée."
+                ) + " " + Strings.device(
+                    "v2.connect.notConfiguredHint",
+                    "Ouvre les Réglages pour renseigner ton App ID Enable Banking."
+                )
             case let .http(code, body):
-                body.isEmpty ? "Enable Banking answered \(code)." : "Enable Banking: \(body)"
+                body.isEmpty
+                    ? Strings.device(
+                        "v2.connect.providerStatus",
+                        "Enable Banking a répondu {code}.",
+                        ["code": code]
+                    )
+                    : "Enable Banking: \(body)"
             case .malformed:
-                "Enable Banking sent something this app could not read."
+                Strings.device(
+                    "v2.connect.providerUnreadable",
+                    "Enable Banking a envoyé quelque chose que l'app n'a pas su lire."
+                )
             case let .rejected(message):
                 message
             }
@@ -145,17 +160,35 @@ enum EnableBanking {
     static func describe(_ error: DecodingError) -> String {
         func path(_ context: DecodingError.Context) -> String {
             let parts = context.codingPath.map(\.stringValue)
-            return parts.isEmpty ? "racine" : parts.joined(separator: ".")
+            return parts.isEmpty
+                ? Strings.device("v2.connect.decodeRoot", "racine")
+                : parts.joined(separator: ".")
         }
         switch error {
         case let .keyNotFound(key, context):
-            return "champ manquant « \(key.stringValue) » dans \(path(context))"
+            return Strings.device(
+                "v2.connect.decodeMissingField",
+                "champ manquant « {field} » dans {path}",
+                ["field": key.stringValue, "path": path(context)]
+            )
         case let .typeMismatch(type, context):
-            return "type inattendu à \(path(context)) : \(type) attendu"
+            return Strings.device(
+                "v2.connect.decodeWrongType",
+                "type inattendu à {path} : {type} attendu",
+                ["path": path(context), "type": String(describing: type)]
+            )
         case let .valueNotFound(type, context):
-            return "valeur nulle à \(path(context)) alors que \(type) est requis"
+            return Strings.device(
+                "v2.connect.decodeNullValue",
+                "valeur nulle à {path} alors que {type} est requis",
+                ["path": path(context), "type": String(describing: type)]
+            )
         case let .dataCorrupted(context):
-            return "données illisibles à \(path(context))"
+            return Strings.device(
+                "v2.connect.decodeUnreadable",
+                "données illisibles à {path}",
+                ["path": path(context)]
+            )
         @unknown default:
             return error.localizedDescription
         }

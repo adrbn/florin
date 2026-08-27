@@ -24,6 +24,10 @@ struct OverviewScreen: View {
     @State private var range: Range = .year
     @State private var showGross = false
 
+    /// The served table once it exists, the bundled one before it does — the
+    /// failed state renders with no feed behind it, by definition.
+    private var t: Strings { model.overview?.t ?? .device }
+
     enum Range: String, CaseIterable, Identifiable {
         case month, quarter, half, year, all
         var id: String { rawValue }
@@ -112,7 +116,7 @@ struct OverviewScreen: View {
                 Text(message)
             } actions: {
                 VStack(spacing: 10) {
-                    Button(model.overview?.t("v2.common.retry", "Réessayer") ?? "Réessayer") {
+                    Button(t("v2.common.retry", "Réessayer")) {
                         Task { await model.load() }
                     }
                     .buttonStyle(.borderedProminent)
@@ -121,7 +125,7 @@ struct OverviewScreen: View {
                     // Half the reasons this screen appears are fixed in
                     // Settings — a wrong address, a missing token — so put the
                     // door right here instead of making the user find it.
-                    Button(model.overview?.t("v2.settings.title", "Réglages") ?? "Réglages") {
+                    Button(t("v2.settings.title", "Réglages")) {
                         route(.settings, TabRoute.settings.rootPath)
                     }
                 }
@@ -402,8 +406,12 @@ struct OverviewScreen: View {
                         size: 26, weight: .light
                     )
                     Text(
-                        lts.dailyBudgetRemaining.map {
-                            "\(Money.string($0, locale: data.localeTag, currency: data.currency, decimals: false))/jour · \(lts.daysRemaining) j restants"
+                        lts.dailyBudgetRemaining.map { daily -> String in
+                            let amount = Money.string(daily, locale: data.localeTag,
+                                                      currency: data.currency, decimals: false)
+                            let days = data.t("v2.overview.daysLeft", "{count} j restants",
+                                              ["count": lts.daysRemaining])
+                            return amount + data.t("v2.common.perDay", "/jour") + " · " + days
                         } ?? data.t("v2.overview.leftToSpendNone", "Aucun salaire détecté sur 90 jours")
                     )
                     .font(.system(size: 11.5))
@@ -605,7 +613,7 @@ struct OverviewScreen: View {
     }
 
     private var offlineTitle: String {
-        model.overview?.t("v2.overview.syncFailed", "Florin est injoignable") ?? "Florin est injoignable"
+        t("v2.overview.syncFailed", "Florin est injoignable")
     }
 
     private func rate(_ label: String, _ value: Double?, _ data: Overview) -> some View {

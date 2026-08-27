@@ -79,7 +79,10 @@ struct SettingsScreen: View {
                 set: { if !$0 { task = nil } }
             )) {
                 if let state = task {
-                    TaskSheet(title: "Import depuis votre serveur", state: state) {
+                    TaskSheet(
+                        title: t("v2.settings.importTitle", "Import depuis votre serveur"),
+                        state: state
+                    ) {
                         var succeeded = false
                         if case .success = state { succeeded = true }
                         task = nil
@@ -117,13 +120,19 @@ struct SettingsScreen: View {
              * not something to discover afterwards from a net worth that
              * doubled.
              */
-            .alert("Remplacer les données locales ?", isPresented: $confirmingImport) {
-                Button("Remplacer", role: .destructive) {
+            .alert(
+                t("v2.settings.importConfirm", "Remplacer les données locales ?"),
+                isPresented: $confirmingImport
+            ) {
+                Button(t("v2.settings.importReplace", "Remplacer"), role: .destructive) {
                     Task { await importFromServer() }
                 }
                 Button(t("v2.common.cancel", "Annuler"), role: .cancel) {}
             } message: {
-                Text("Les comptes, opérations et catégories de cet appareil seront effacés et remplacés par ceux du serveur. Votre connexion bancaire est conservée.")
+                Text(t(
+                    "v2.settings.importConfirmBody",
+                    "Les comptes, opérations et catégories de cet appareil seront effacés et remplacés par ceux du serveur. Votre connexion bancaire est conservée."
+                ))
             }
             .toolbar {
                 ToolbarItem(placement: .principal) { Wordmark(size: 17) }
@@ -142,7 +151,7 @@ struct SettingsScreen: View {
     private var languageSection: some View {
         SettingsGroup(
             title: t("v2.settings.language", "Langue"),
-            footer: "S'applique au téléphone comme aux écrans web de l'app."
+            footer: t("v2.settings.languageHint", "S'applique au téléphone comme aux écrans web de l'app.")
         ) {
             Picker("", selection: localeBinding) {
                 Text("Français").tag("fr")
@@ -160,7 +169,10 @@ struct SettingsScreen: View {
     private var privacySection: some View {
         SettingsGroup(
             title: t("v2.settings.discretion", "Discrétion"),
-            footer: "Secouez le téléphone pour masquer ou réafficher tous les montants, ou maintenez le chiffre principal. Ça cache, ça ne verrouille pas : quiconque tient le téléphone peut le rouvrir."
+            footer: t(
+                "v2.settings.discretionHint",
+                "Secouez le téléphone pour masquer ou réafficher tous les montants, ou maintenez le chiffre principal. Ça cache, ça ne verrouille pas : quiconque tient le téléphone peut le rouvrir."
+            )
         ) {
             Toggle(
                 isOn: Binding(get: { privacy.hidden }, set: { privacy.set($0) })
@@ -183,8 +195,11 @@ struct SettingsScreen: View {
 
     private var appearanceSection: some View {
         SettingsGroup(
-            title: "Apparence",
-            footer: "Le thème s'applique aussi aux écrans web de l'app, pas seulement aux natifs."
+            title: t("v2.settings.appearance", "Apparence"),
+            footer: t(
+                "v2.settings.appearanceHint",
+                "Le thème s'applique aussi aux écrans web de l'app, pas seulement aux natifs."
+            )
         ) {
             Picker("", selection: $appearanceRaw) {
                 ForEach(Appearance.allCases) { Text($0.label).tag($0.rawValue) }
@@ -316,7 +331,7 @@ struct SettingsScreen: View {
         if flowHasConnection {
             Hairline()
             SettingsRow(
-                label: "Rattacher mes comptes",
+                label: t("v2.settings.remapAccounts", "Rattacher mes comptes"),
                 symbol: "link",
                 action: { Task { await remapAccounts() } }
             )
@@ -334,7 +349,7 @@ struct SettingsScreen: View {
         if server.resolvedURL != nil {
             Hairline()
             SettingsRow(
-                label: "Importer depuis mon serveur",
+                label: t("v2.settings.importFromServer", "Importer depuis mon serveur"),
                 symbol: "square.and.arrow.down",
                 action: { confirmingImport = true }
             )
@@ -356,15 +371,30 @@ struct SettingsScreen: View {
 
     private func importFromServer() async {
         guard let url = server.resolvedURL, let store = LocalStore.shared else { return }
-        task = .running("Lecture de votre serveur…")
+        // Resolved once, up front: the progress closure runs off the main actor,
+        // and `Strings` is a value it can carry where the view cannot follow.
+        let strings = t
+        task = .running(strings("v2.settings.importReading", "Lecture de votre serveur…"))
         do {
             let result = try await ServerImport.run(from: url, into: store) { progress in
-                Task { @MainActor in task = .running("\(progress.transactions) opérations") }
+                Task { @MainActor in
+                    task = .running(
+                        strings("v2.activity.count", "{count} opérations", ["count": progress.transactions])
+                    )
+                }
             }
             await model.load(showSpinner: false)
             task = .success(
-                title: "Import terminé",
-                detail: "\(result.transactions) opérations, \(result.accounts) comptes et \(result.categories) catégories sont maintenant sur ce téléphone."
+                title: t("v2.settings.importDone", "Import terminé"),
+                detail: t(
+                    "v2.settings.importSummary",
+                    "{transactions} opérations, {accounts} comptes et {categories} catégories sont maintenant sur ce téléphone.",
+                    [
+                        "transactions": result.transactions,
+                        "accounts": result.accounts,
+                        "categories": result.categories,
+                    ]
+                )
             )
         } catch {
             task = .failure(error.localizedDescription)
@@ -422,7 +452,7 @@ struct SettingsScreen: View {
         VStack(spacing: 24) {
             SettingsGroup(
                 title: t("v2.settings.about", "À propos"),
-                footer: "Florin est libre et auto-hébergé, sous licence AGPL-3.0."
+                footer: t("v2.settings.aboutHint", "Florin est libre et auto-hébergé, sous licence AGPL-3.0.")
             ) {
                 SettingsRow(label: t("v2.settings.appVersion", "Version"), symbol: "app.badge") {
                     SettingsValue(text: Self.version, monospaced: true)
@@ -436,7 +466,10 @@ struct SettingsScreen: View {
             }
 
             SettingsGroup(
-                footer: "Le code, les tickets et les versions sont publics. Un café aide à les écrire."
+                footer: t(
+                    "v2.settings.linksHint",
+                    "Le code, les tickets et les versions sont publics. Un café aide à les écrire."
+                )
             ) {
                 BrandLink(
                     path: Brand.github,
