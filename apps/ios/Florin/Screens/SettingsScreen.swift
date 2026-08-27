@@ -22,12 +22,14 @@ struct SettingsScreen: View {
 
     private var t: Strings { model.overview?.t ?? .empty }
     @State private var showingBanking = false
+    @AppStorage("florin.dataSource") private var sourceRaw = ""
 
     var body: some View {
         NavigationStack {
             ZStack {
                 Backdrop(tint: TabRoute.settings.tint)
                 Form {
+                    sourceSection
                     appearanceSection
                     privacySection
                     serverSection
@@ -140,6 +142,46 @@ struct SettingsScreen: View {
         } footer: {
             Text("Le thème s'applique aussi aux écrans web de l'app, pas seulement aux natifs.")
         }
+    }
+
+    /*
+     * Which books are open, at the top, before anything else.
+     *
+     * Nothing below this matters until it is answered: a server address is
+     * meaningless on the device ledger, and bank setup is meaningless on a
+     * server that does its own. It used to be inferred from whether an address
+     * happened to be filled in, so switching meant erasing a text field and
+     * there was no way to keep a server configured while working locally.
+     */
+    private var sourceSection: some View {
+        Section {
+            Picker(t("v2.settings.source", "Données"), selection: sourceBinding) {
+                ForEach(DataSource.allCases) { option in
+                    Label(option.label, systemImage: option.symbol).tag(option)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+
+            Text(sourceBinding.wrappedValue.detail)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        } header: {
+            Text(t("v2.settings.source", "Données"))
+        }
+    }
+
+    private var sourceBinding: Binding<DataSource> {
+        Binding(
+            get: {
+                DataSource(rawValue: sourceRaw)
+                    ?? (server.resolvedURL != nil ? .server : .device)
+            },
+            set: { value in
+                UISelectionFeedbackGenerator().selectionChanged()
+                sourceRaw = value.rawValue
+            }
+        )
     }
 
     private var syncSection: some View {

@@ -163,10 +163,19 @@ enum BankingSync {
         since: String?
     ) async throws -> (inserted: Int, skipped: Int) {
         let calendar = Calendar(identifier: .gregorian)
-        let from = since.map { String($0.prefix(10)) }
-            ?? LocalQueries.dayFormatter.string(
-                from: calendar.date(byAdding: .day, value: -90, to: Date()) ?? Date()
-            )
+        /*
+         * Ninety days back, not "since we connected".
+         *
+         * `sync_start_date` defaults to the moment the connection was made, so
+         * using it as the window meant the very first sync asked the bank for
+         * today only — three transactions on an account with years of history.
+         * The first pull takes everything the consent allows; later ones can
+         * narrow, but never past the earliest row already held, or a gap opens
+         * that nothing will ever fill.
+         */
+        let earliest = calendar.date(byAdding: .day, value: -90, to: Date()) ?? Date()
+        let from = LocalQueries.dayFormatter.string(from: earliest)
+        _ = since
         let to = LocalQueries.dayFormatter.string(from: Date())
 
         var inserted = 0
@@ -197,7 +206,17 @@ enum BankingSync {
         accountId: String,
         uid: String
     ) throws -> Bool {
-        guard let date = transaction.date else { return false }
+        guard let day = transaction.date else { return false }
+        /*
+         * A day is not a timestamp, and every screen here reads timestamps.
+         *
+         * Enable Banking books transactions on a date — "2026-08-26" — while
+         * the rest of this app parses `occurred_at` as ISO-8601 with a time.
+         * Stored raw, every imported row fell back to distantPast and printed
+         * "1 janv. 1" under a real amount. Midnight UTC is the honest reading
+         * of a booking date: the bank did not tell us the hour.
+         */
+        let date = day.count == 10 ? "\(day)T00:00:00Z" : day
 
         /*
          * The external id has to include the account.

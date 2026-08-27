@@ -42,6 +42,16 @@ struct RootView: View {
     @State private var showingSetup = false
     @State private var splashing = true
     @State private var wantsServerForm = false
+    /*
+     * Which books are open, chosen rather than inferred.
+     *
+     * It defaulted to whichever happened to be configured, so the first launch
+     * after a server was set could not be talked out of it, and someone using
+     * the device ledger had to erase their server address to get there. The
+     * default still follows what exists — a configured server means that is
+     * what you were using — but from then on it is a setting.
+     */
+    @AppStorage("florin.dataSource") private var sourceRaw = ""
     /// Changed when onboarding finishes, purely to re-evaluate the branch
     /// above — `LocalOnboarding.isComplete` reads the database, which SwiftUI
     /// has no way to observe on its own.
@@ -52,12 +62,21 @@ struct RootView: View {
 
     private var appearance: Appearance { Appearance(rawValue: appearanceRaw) ?? .dark }
 
+    /// Falls back to whatever is actually configured, so an existing install
+    /// keeps reading its server without being asked.
+    private var source: DataSource {
+        if let stored = DataSource(rawValue: sourceRaw) { return stored }
+        return server.resolvedURL != nil ? .server : .device
+    }
+
     var body: some View {
         ZStack {
             Group {
-                if let url = server.resolvedURL {
+                if source == .server, let url = server.resolvedURL {
                     MainTabs(base: url, onRequestSettings: { showingSetup = true })
                         .id(server.reloadToken)
+                } else if source == .server {
+                    SetupView(isFirstRun: true)
                 } else if LocalOnboarding.isComplete {
                     // Same tabs, same screens — reading the phone instead of a
                     // server. See `FlorinClient.localBase`.
