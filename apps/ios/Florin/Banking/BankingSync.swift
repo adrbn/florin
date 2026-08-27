@@ -299,6 +299,52 @@ enum BankingSync {
         )?.string
         guard already == nil else { return false }
 
+        /*
+         * The same row may already be here under someone else's name.
+         *
+         * The window deliberately re-reads a few settled days, on the grounds
+         * that the external id makes re-insertion harmless. It does — for rows
+         * this bank put here. A ledger seeded from a server holds those same
+         * days keyed as "server:<id>", which no bank id will ever match, so
+         * every sync re-inserted the overlap as new: yesterday's purchases
+         * came back marked "à vérifier" days after they had been reviewed.
+         *
+         * Same account, same day, same amount is a match worth trusting inside
+         * a window this small. The existing row is adopted — it keeps its
+         * category and its reviewed state, and gains the bank id so the next
+         * sync recognises it directly.
+         */
+        if let twin = try store.database.scalar(
+            """
+            SELECT id FROM transactions
+            WHERE account_id = ? AND deleted_at IS NULL
+              AND substr(occurred_at, 1, 10) = ?
+              AND abs(amount - ?) < 0.005
+              AND (source <> 'enable_banking' OR external_id IS NULL)
+            LIMIT 1
+            """,
+            [
+                .text(accountId),
+                .text(String(date.prefix(10))),
+                .real(transaction.signedAmount),
+            ]
+        )?.string {
+            try store.database.run(
+                """
+                UPDATE transactions
+                SET source = 'enable_banking', external_id = ?, is_pending = ?,
+                    updated_at = datetime('now')
+                WHERE id = ?
+                """,
+                [
+                    .text(externalId),
+                    .integer(transaction.status == "PDNG" ? 1 : 0),
+                    .text(twin),
+                ]
+            )
+            return false
+        }
+
         let payee = transaction.counterparty
         try store.database.run(
             """

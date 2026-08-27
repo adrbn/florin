@@ -167,6 +167,25 @@ struct TransactionRowView: View {
             Spacer(minLength: 8)
             VStack(alignment: .trailing, spacing: 2) {
                 AmountText(value: tx.amount, locale: locale, currency: currency, signed: true, tone: .auto)
+                /*
+                 * Both states, when both are true.
+                 *
+                 * "À vérifier" used to hide "En attente", and they answer
+                 * different questions: one asks whether you have looked at the
+                 * row, the other whether the money has actually moved. A bank
+                 * announces a direct debit days before taking it — dated in the
+                 * future, sitting at the top of the list — and showing only the
+                 * review state made it read as spent.
+                 */
+                if tx.isPending {
+                    Text(t("v2.activity.pending", "En attente"))
+                        .font(.system(size: 10.5, weight: .semibold))
+                        .foregroundStyle(Florin.accent)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Florin.accent.opacity(0.16), in: Capsule())
+                }
+
                 if tx.needsReview {
                     Text(t("v2.activity.needsReview", "À vérifier"))
                         .font(.system(size: 10.5, weight: .semibold))
@@ -174,21 +193,6 @@ struct TransactionRowView: View {
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
                         .background(Florin.warn.opacity(0.16), in: Capsule())
-                } else if tx.isPending {
-                    /*
-                     * Pending is not the same as unreviewed.
-                     *
-                     * A bank returns authorisations before it books them: the
-                     * amount can still change and the date is often absent
-                     * entirely. Shown with no marker they read as settled
-                     * history, which is the one thing they are not.
-                     */
-                    Text(t("v2.activity.pending", "En attente"))
-                        .font(.system(size: 10.5, weight: .semibold))
-                        .foregroundStyle(Florin.accent)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Florin.accent.opacity(0.16), in: Capsule())
                 } else if tx.isScheduled {
                     Text(t("v2.activity.scheduled", "Prévu"))
                         .font(.system(size: 11)).foregroundStyle(Florin.text3)

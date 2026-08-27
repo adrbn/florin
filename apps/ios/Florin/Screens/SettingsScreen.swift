@@ -37,10 +37,9 @@ struct SettingsScreen: View {
 
     private var t: Strings { model.overview?.t ?? .empty }
     @State private var showingBanking = false
-    @State private var importing = false
     @State private var confirmingImport = false
     @StateObject private var banking = BankingFlow()
-    @State private var importProgress = 0
+    @State private var task: TaskSheet.State?
     @AppStorage("florin.dataSource") private var sourceRaw = ""
 
     var body: some View {
@@ -66,6 +65,30 @@ struct SettingsScreen: View {
             .navigationTitle(t("v2.settings.title", "Réglages"))
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $showingBanking) { BankingSettings() }
+            /*
+             * A cover, so nothing behind it can be touched mid-write.
+             *
+             * The import used to report itself by rewriting a settings row —
+             * turning a list of settings into a progress bar, and saying
+             * nothing at all at the end. A job that rewrites every account and
+             * every transaction should hold the screen while it does, and say
+             * what it did when it stops.
+             */
+            .fullScreenCover(isPresented: Binding(
+                get: { task != nil },
+                set: { if !$0 { task = nil } }
+            )) {
+                if let state = task {
+                    TaskSheet(title: "Import depuis votre serveur", state: state) {
+                        var succeeded = false
+                        if case .success = state { succeeded = true }
+                        task = nil
+                        // Land where the result is — the dashboard, not the
+                        // settings screen the job was started from.
+                        if succeeded { onClose?() }
+                    }
+                }
+            }
             .sheet(isPresented: Binding(
                 get: { banking.mapping != nil },
                 set: { if !$0 { banking.mapping = nil } }
@@ -311,15 +334,10 @@ struct SettingsScreen: View {
         if server.resolvedURL != nil {
             Hairline()
             SettingsRow(
-                label: importing
-                    ? "Import en cours… \(importProgress) opérations"
-                    : "Importer depuis mon serveur",
+                label: "Importer depuis mon serveur",
                 symbol: "square.and.arrow.down",
-                action: importing ? nil : { confirmingImport = true }
-            ) {
-                if importing { ProgressView().controlSize(.small) }
-            }
-            .disabled(importing)
+                action: { confirmingImport = true }
+            )
         }
     }
 
@@ -338,21 +356,18 @@ struct SettingsScreen: View {
 
     private func importFromServer() async {
         guard let url = server.resolvedURL, let store = LocalStore.shared else { return }
-        importing = true
-        importProgress = 0
+        task = .running("Lecture de votre serveur…")
         do {
             let result = try await ServerImport.run(from: url, into: store) { progress in
-                Task { @MainActor in importProgress = progress.transactions }
+                Task { @MainActor in task = .running("\(progress.transactions) opérations") }
             }
-            importing = false
-            model.toast = ToastMessage(
-                text: "\(result.transactions) opérations importées",
-                kind: .success
-            )
             await model.load(showSpinner: false)
+            task = .success(
+                title: "Import terminé",
+                detail: "\(result.transactions) opérations, \(result.accounts) comptes et \(result.categories) catégories sont maintenant sur ce téléphone."
+            )
         } catch {
-            importing = false
-            model.toast = ToastMessage(text: error.localizedDescription, kind: .failure)
+            task = .failure(error.localizedDescription)
         }
     }
 
