@@ -309,6 +309,40 @@ final class BankingFlow: NSObject, ObservableObject {
         return connectionId
     }
 
+    /// Asks the pairing question again for the session already on this device.
+    ///
+    /// No consent is spent: the session exists, this only re-reads what it can
+    /// see and offers the same choice. Cancelling changes nothing.
+    func remap() async {
+        guard let store = LocalStore.shared else { return }
+        busy = true
+        defer { busy = false }
+        do {
+            let config = try Self.config(store)
+            guard let row = try store.database.query(
+                "SELECT id, session_id FROM bank_connections WHERE status = 'active' LIMIT 1"
+            ).first, let sessionId = row.string("session_id") else {
+                failure = "Aucune connexion bancaire sur cet appareil."
+                return
+            }
+            step = "Lecture de vos comptes…"
+            let found = try await BankingSync.discover(
+                store: store, config: config, sessionId: sessionId
+            )
+            step = nil
+            guard !found.isEmpty else {
+                failure = "Votre banque n'expose aucun compte."
+                return
+            }
+            candidates = try BankingSync.candidates(store: store)
+            pendingConnectionId = row.string("id")
+            mapping = found
+        } catch {
+            step = nil
+            failure = error.localizedDescription
+        }
+    }
+
     /// Applies the answers and finishes the connection.
     func confirmMapping(_ answers: [DiscoveredAccount]) async {
         guard let store = LocalStore.shared else { return }
