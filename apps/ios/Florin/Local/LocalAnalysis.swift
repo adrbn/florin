@@ -34,7 +34,7 @@ enum LocalAnalysis {
             JOIN accounts a ON a.id = t.account_id
             LEFT JOIN categories c ON c.id = t.category_id
             LEFT JOIN category_groups g ON g.id = c.group_id
-            WHERE t.deleted_at IS NULL AND t.status = 'cleared' AND t.is_pending = 0
+            WHERE t.deleted_at IS NULL AND t.status = 'cleared' AND t.is_pending = 0 AND substr(t.occurred_at, 1, 10) <= date('now')
               AND t.transfer_pair_id IS NULL AND a.is_archived = 0
               AND substr(t.occurred_at, 1, 7) >= ?
             GROUP BY 1
@@ -74,7 +74,7 @@ enum LocalAnalysis {
             JOIN accounts a ON a.id = t.account_id
             JOIN categories c ON c.id = t.category_id
             JOIN category_groups g ON g.id = c.group_id
-            WHERE t.deleted_at IS NULL AND t.status = 'cleared' AND t.is_pending = 0
+            WHERE t.deleted_at IS NULL AND t.status = 'cleared' AND t.is_pending = 0 AND substr(t.occurred_at, 1, 10) <= date('now')
               AND t.transfer_pair_id IS NULL AND a.is_archived = 0
               AND g.kind = 'expense' AND substr(t.occurred_at, 1, 7) >= ?
             GROUP BY c.id, c.name, c.emoji, g.name
@@ -109,7 +109,7 @@ enum LocalAnalysis {
             JOIN accounts a ON a.id = t.account_id
             JOIN categories c ON c.id = t.category_id
             JOIN category_groups g ON g.id = c.group_id
-            WHERE t.deleted_at IS NULL AND t.status = 'cleared' AND t.is_pending = 0
+            WHERE t.deleted_at IS NULL AND t.status = 'cleared' AND t.is_pending = 0 AND substr(t.occurred_at, 1, 10) <= date('now')
               AND t.transfer_pair_id IS NULL AND a.is_archived = 0
               AND g.kind = 'expense' AND substr(t.occurred_at, 1, 7) >= ?
             GROUP BY c.id, month
@@ -152,7 +152,7 @@ enum LocalAnalysis {
             JOIN accounts a ON a.id = t.account_id
             JOIN categories c ON c.id = t.category_id
             JOIN category_groups g ON g.id = c.group_id
-            WHERE t.deleted_at IS NULL AND t.status = 'cleared' AND t.is_pending = 0
+            WHERE t.deleted_at IS NULL AND t.status = 'cleared' AND t.is_pending = 0 AND substr(t.occurred_at, 1, 10) <= date('now')
               AND t.transfer_pair_id IS NULL AND a.is_archived = 0
               AND g.kind = 'expense' AND t.occurred_at >= ?
             GROUP BY 1 ORDER BY 1
@@ -186,7 +186,7 @@ enum LocalAnalysis {
             FROM transactions t
             JOIN accounts a ON a.id = t.account_id
             LEFT JOIN categories c ON c.id = t.category_id
-            WHERE t.deleted_at IS NULL AND t.status = 'cleared' AND t.is_pending = 0
+            WHERE t.deleted_at IS NULL AND t.status = 'cleared' AND t.is_pending = 0 AND substr(t.occurred_at, 1, 10) <= date('now')
               AND t.amount < 0 AND t.transfer_pair_id IS NULL
               AND a.is_archived = 0 AND t.occurred_at >= ?
             ORDER BY t.occurred_at
