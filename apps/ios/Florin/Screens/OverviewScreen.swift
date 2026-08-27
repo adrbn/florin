@@ -18,6 +18,7 @@ struct OverviewScreen: View {
     @State private var pushed: [String] = []
     @State private var adding = false
     @State private var addingAccount = false
+    @State private var connectingBank = false
     @State private var scrubbed: PatrimonyPoint?
     @State private var range: Range = .year
     @State private var showGross = false
@@ -75,6 +76,12 @@ struct OverviewScreen: View {
             // where the thumb is. Removing the bar hands ~56pt back to the
             // figure that matters.
             .toolbar(.hidden, for: .navigationBar)
+        }
+        .fullScreenCover(isPresented: $connectingBank) {
+            BankingSettings(onConnected: {
+                connectingBank = false
+                Task { await model.load(showSpinner: false) }
+            })
         }
         .sheet(isPresented: $addingAccount) {
             AddAccountSheet(onSaved: { Task { await model.load(showSpinner: false) } })
@@ -183,7 +190,10 @@ struct OverviewScreen: View {
                 ScrollView {
                     EmptyStart(
                         t: data.t,
-                        onConnectBank: { route(.settings, TabRoute.settings.rootPath) },
+                        // Opens the thing it names. Routing to the settings
+                        // tab and leaving someone to find the right row there
+                        // is not what "Connecter ma banque" says it does.
+                        onConnectBank: { connectingBank = true },
                         onAddManually: { addingAccount = true }
                     )
                 }
