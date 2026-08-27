@@ -132,7 +132,8 @@ enum LocalQueries {
                 id: row.string("id") ?? "",
                 name: row.string("name") ?? "",
                 emoji: row.string("emoji"),
-                groupName: row.string("group_name") ?? ""
+                groupName: row.string("group_name") ?? "",
+                groupKind: row.string("group_kind")
             )
         }
     }

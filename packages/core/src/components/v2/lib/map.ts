@@ -89,6 +89,17 @@ export function mapCategories(groups: CategoryGroupWithCategories[]): V2Category
       name: c.name,
       emoji: c.emoji,
       groupName: g.name,
+      /*
+       * The group's kind, not just its name.
+       *
+       * A client that stores these — the iOS app keeps its own copy of the
+       * ledger — has no way to tell Revenus from Courses without it, and
+       * rebuilding every group as an expense makes salaries count as negative
+       * spending: plan income reads zero, no salary category is ever found,
+       * and adjustments stop being excluded from the patrimony walk. The name
+       * is a label; this is the meaning.
+       */
+      groupKind: g.kind,
     })),
   )
 }

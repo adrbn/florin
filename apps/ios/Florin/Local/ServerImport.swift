@@ -86,6 +86,7 @@ enum ServerImport {
          * forward for anything already planned ahead.
          */
         var budgets: [(year: Int, month: Int, categoryName: String, assigned: Double, note: String?)] = []
+        var expenseGroups: Set<String> = []
         let calendar = Calendar(identifier: .gregorian)
         for offset in -24...3 {
             guard let date = calendar.date(byAdding: .month, value: offset, to: Date()) else { continue }
@@ -93,6 +94,9 @@ enum ServerImport {
             guard let year = parts.year, let month = parts.month else { continue }
             guard let plan = try? await self.plan(base: base, year: year, month: month) else { continue }
             for group in plan.groups {
+                // The plan returns expense groups and only those, which is the
+                // fallback when a server predates `groupKind`.
+                expenseGroups.insert(group.name)
                 for category in group.categories where category.assigned != 0 || category.note != nil {
                     budgets.append(
                         (year, month, category.name, category.assigned, category.note)
@@ -101,7 +105,10 @@ enum ServerImport {
             }
         }
 
-        try write(overview: overview, transactions: rows, budgets: budgets, into: store)
+        try write(
+            overview: overview, transactions: rows, budgets: budgets,
+            expenseGroupNames: expenseGroups, into: store
+        )
         log.notice("imported \(rows.count) transactions from \(base.host ?? "?", privacy: .public)")
         return progress
     }
@@ -124,6 +131,7 @@ enum ServerImport {
         overview: Overview,
         transactions: [Transaction],
         budgets: [(year: Int, month: Int, categoryName: String, assigned: Double, note: String?)],
+        expenseGroupNames: Set<String>,
         into store: LocalStore
     ) throws {
         let db = store.database
@@ -134,7 +142,9 @@ enum ServerImport {
             try db.run("DELETE FROM transactions")
             try db.run("DELETE FROM monthly_budgets")
             try db.run("DELETE FROM accounts")
-            try db.run("DELETE FROM bank_connections")
+            // The bank connection stays. Dropping it meant reconnecting the
+            // bank — key, consent, mapping and all — after every refresh from
+            // the server, which is not a thing anyone would do twice.
             try db.run("DELETE FROM categories")
             try db.run("DELETE FROM category_groups")
             // Categories first: transactions reference them, and the server's
@@ -145,6 +155,18 @@ enum ServerImport {
             for category in overview.categories {
                 if categoryIds[category.name.lowercased()] != nil { continue }
                 let groupName = category.groupName.isEmpty ? "Autres" : category.groupName
+                /*
+                 * The group's kind decides what the number means.
+                 *
+                 * Everything was created as 'expense', so an imported salary
+                 * counted as negative spending: plan income read zero, no
+                 * salary category could be found for the left-to-spend ceiling,
+                 * and adjustments stopped being excluded from the patrimony
+                 * walk. Older servers do not send the kind, so the plan — which
+                 * returns expense groups and only those — settles it instead.
+                 */
+                let kind = category.groupKind
+                    ?? (expenseGroupNames.contains(groupName) ? "expense" : "income")
                 let groupId: String
                 if let existing = groupIds[groupName] {
                     groupId = existing
@@ -153,10 +175,10 @@ enum ServerImport {
                     try db.run(
                         """
                         INSERT INTO category_groups (id, name, kind, display_order)
-                        VALUES (?, ?, 'expense',
+                        VALUES (?, ?, ?,
                                 (SELECT coalesce(max(display_order) + 1, 0) FROM category_groups))
                         """,
-                        [.text(groupId), .text(groupName)]
+                        [.text(groupId), .text(groupName), .text(kind)]
                     )
                     groupIds[groupName] = groupId
                 }
@@ -267,6 +289,10 @@ enum ServerImport {
                     ]
                 )
             }
+
+            // Put the bank back on the accounts it was attached to, now that
+            // they have been rewritten with fresh server ids.
+            try BankingSync.restoreMapping(store: store)
 
             for budget in budgets {
                 guard let categoryId = categoryIds[budget.categoryName.lowercased()] else { continue }
