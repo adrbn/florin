@@ -80,7 +80,7 @@ struct BankingSettings: View {
             Button("Remplacer", role: .destructive) { makeKey() }
             Button("Annuler", role: .cancel) {}
         } message: {
-            Text("L'ancienne clé cessera de fonctionner. Il faudra recoller la nouvelle dans Enable Banking, sinon la synchro s'arrêtera.")
+            Text("Enable Banking ne permet pas de changer le certificat d'une application existante : il faudra en créer une nouvelle et recoller son identifiant ici. La synchro actuelle s'arrêtera.")
         }
         .alert(
             "Synchro bancaire",
@@ -194,7 +194,7 @@ struct BankingSettings: View {
 
     @ViewBuilder
     private var keyStep: some View {
-        Text("Florin crée une clé qui reste sur ce téléphone. Seul le certificat public en sort — c'est lui qu'Enable Banking demande.")
+        Text("Florin crée une clé qui reste sur ce téléphone. Seul le certificat public en sort — c'est lui qu'Enable Banking demande, et il ne pourra plus être changé ensuite.")
             .font(.system(size: 13))
             .foregroundStyle(Florin.text2)
 
@@ -242,7 +242,7 @@ struct BankingSettings: View {
 
     @ViewBuilder
     private var registerStep: some View {
-        Text("Créez une application gratuite chez Enable Banking, collez-y la clé, et indiquez cette adresse de redirection — elle doit être recopiée exactement :")
+        Text("Créez une application chez Enable Banking en choisissant « Generate outside the browser », collez-y le certificat, et indiquez cette adresse de redirection — recopiée exactement. Pensez ensuite à activer l'application depuis la console :")
             .font(.system(size: 13))
             .foregroundStyle(Florin.text2)
 
