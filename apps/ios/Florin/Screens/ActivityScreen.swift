@@ -13,14 +13,19 @@ struct ActivityScreen: View {
     /// Set by a link from elsewhere in the app ("À vérifier" on the dashboard).
     var startNeedsReview = false
 
+    /// The served table when there is one, the bundled one until then: this tab
+    /// can be opened before the first feed arrives, and `.empty` would draw the
+    /// title and the whole list in French.
+    private var t: Strings { overview.overview?.t ?? .device }
+
     var body: some View {
         TransactionList(
             base: overview.base,
             tint: TabRoute.activity.tint,
-            title: (overview.overview?.t ?? .empty)("v2.nav.activity", "Activité"),
+            title: t("v2.nav.activity", "Activité"),
             locale: overview.overview?.localeTag ?? "fr-FR",
             currency: overview.overview?.currency ?? "EUR",
-            t: overview.overview?.t ?? .empty,
+            t: t,
             /*
              * Approving here has to reach Aperçu too.
              *

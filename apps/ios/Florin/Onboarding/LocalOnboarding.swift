@@ -11,12 +11,22 @@ enum AccountKind: String, CaseIterable {
     case broker = "broker_portfolio"
     case loan
 
+    /*
+     * The kind's name, in the handset's language.
+     *
+     * This is not only a picker label: an account added without a name is
+     * *stored* under it, so a French word here would sit in the database and
+     * still be French on an English screen a year later. It resolves through
+     * the bundled dictionary at the moment the row is written, because
+     * everything that creates an account runs before a feed exists to carry
+     * translations.
+     */
     var label: String {
         switch self {
-        case .checking: "Courant"
-        case .savings: "Épargne"
-        case .broker: "Titres"
-        case .loan: "Prêt"
+        case .checking: Strings.device("v2.account.kindChecking", "Courant")
+        case .savings: Strings.device("v2.account.kindSavings", "Épargne")
+        case .broker: Strings.device("v2.account.kindBroker", "Titres")
+        case .loan: Strings.device("v2.account.kindLoan", "Prêt")
         }
     }
 
@@ -135,7 +145,10 @@ enum LocalOnboarding {
     enum Failure: LocalizedError {
         case noStore
         var errorDescription: String? {
-            "Florin could not open its database on this device."
+            Strings.device(
+                "v2.onboard.noStore",
+                "Florin n'a pas pu ouvrir sa base sur cet appareil."
+            )
         }
     }
 }

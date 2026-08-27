@@ -284,24 +284,32 @@ struct WebContainer: UIViewRepresentable {
             container.translatesAutoresizingMaskIntoConstraints = false
             container.backgroundColor = .clear
 
+            // This screen is what the app shows when the server is out of
+            // reach — which is exactly when the feed that carries the
+            // translations cannot arrive either, so it speaks the handset's
+            // language rather than waiting for one that will never come.
+            let t = Strings.device
+
             let title = UILabel()
-            title.text = "Florin est injoignable"
+            title.text = t("v2.common.unreachableTitle", "Florin est injoignable")
             title.font = .systemFont(ofSize: 19, weight: .semibold)
             title.textAlignment = .center
 
             let detail = UILabel()
-            detail.text = "\(url.host ?? "") ne répond pas.\nVérifie que le serveur tourne et que tu es sur le bon réseau."
+            detail.text = t("v2.common.unreachable", "{host} ne répond pas.", ["host": url.host ?? ""])
+                + "\n"
+                + t("v2.common.unreachableHint", "Vérifie que le serveur tourne et que tu es sur le bon réseau.")
             detail.font = .systemFont(ofSize: 14)
             detail.textColor = .secondaryLabel
             detail.numberOfLines = 0
             detail.textAlignment = .center
 
             let retry = UIButton(configuration: .filled())
-            retry.setTitle("Réessayer", for: .normal)
+            retry.setTitle(t("v2.common.retry", "Réessayer"), for: .normal)
             retry.addTarget(self, action: #selector(reload), for: .touchUpInside)
 
             let settings = UIButton(configuration: .plain())
-            settings.setTitle("Changer l'adresse", for: .normal)
+            settings.setTitle(t("v2.setup.changeHost", "Changer l'adresse"), for: .normal)
             settings.addTarget(self, action: #selector(openSettings), for: .touchUpInside)
 
             let stack = UIStackView(arrangedSubviews: [title, detail, retry, settings])

@@ -263,7 +263,7 @@ struct OnboardingFlow: View {
             kindPicker
 
             VStack(spacing: 4) {
-                Text("Combien y a-t-il dessus aujourd'hui ?")
+                Text(Strings.device("v2.account.balanceQuestion", "Combien y a-t-il dessus aujourd'hui ?"))
                     .font(.system(size: 12.5, weight: .medium))
                     .foregroundStyle(Florin.text3)
 
@@ -376,8 +376,10 @@ struct OnboardingFlow: View {
                 if saving { ProgressView().tint(.black) }
                 Text(
                     step == lastStep
-                        ? (path == .bank ? "Connecter ma banque" : "Commencer")
-                        : "Continuer"
+                        ? (path == .bank
+                            ? Strings.device("v2.onboard.bankTitle", "Connecter ma banque")
+                            : Strings.device("v2.onboarding.start", "Commencer"))
+                        : Strings.device("v2.onboard.continue", "Continuer")
                 )
                     .font(.system(size: 17, weight: .semibold))
             }

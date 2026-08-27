@@ -57,7 +57,7 @@ struct TaskSheet: View {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .font(.system(size: 40))
                         .foregroundStyle(Florin.negative)
-                    Text("Ça n'a pas marché")
+                    Text(Strings.device("v2.common.taskFailed", "Ça n'a pas marché"))
                         .font(.system(size: 20, weight: .semibold))
                         .foregroundStyle(Florin.text)
                     // The real message, not a friendly replacement for it: the
@@ -73,13 +73,13 @@ struct TaskSheet: View {
                 Spacer()
 
                 if case .running = state {
-                    Text("Ne fermez pas Florin.")
+                    Text(Strings.device("v2.common.taskKeepOpen", "Ne fermez pas Florin."))
                         .font(.system(size: 12.5))
                         .foregroundStyle(Florin.text3)
                         .padding(.bottom, 30)
                 } else {
                     Button(action: onDone) {
-                        Text("Terminé")
+                        Text(Strings.device("v2.common.done", "Terminé"))
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundStyle(.black)
                             .frame(maxWidth: .infinity)

@@ -15,11 +15,19 @@ enum FlorinError: LocalizedError {
          * a server predating the app's API, or a token it will not accept.
          */
         case .badStatus(404):
-            return "Ce serveur ne connaît pas l'API de l'app. Il faut y déployer une version à jour de Florin."
+            return Strings.device(
+                "v2.common.errorApiTooOld",
+                "Ce serveur ne connaît pas l'API de l'app. Il faut y déployer une version à jour de Florin."
+            )
         case .badStatus(401), .badStatus(403):
-            return "Le serveur refuse le jeton d'API. Vérifie-le dans Réglages."
-        case .badStatus(let code): return "Le serveur a répondu \(code)."
-        case .unreachable(let host): return "\(host) ne répond pas."
+            return Strings.device(
+                "v2.common.errorToken",
+                "Le serveur refuse le jeton d'API. Vérifie-le dans Réglages."
+            )
+        case .badStatus(let code):
+            return Strings.device("v2.common.errorStatus", "Le serveur a répondu {code}.", ["code": code])
+        case .unreachable(let host):
+            return Strings.device("v2.common.unreachable", "{host} ne répond pas.", ["host": host])
         case .rejected(let message): return message
         }
     }
@@ -58,7 +66,9 @@ struct FlorinClient: Sendable {
     /// The device's ledger, or a readable reason there is not one.
     func localStore() throws -> LocalStore {
         guard let store = LocalStore.shared else {
-            throw FlorinError.rejected("Florin could not open its database on this device.")
+            throw FlorinError.rejected(
+                Strings.device("v2.common.errorNoDatabase", "Florin n'a pas pu ouvrir sa base de données sur cet appareil.")
+            )
         }
         return store
     }
@@ -132,7 +142,9 @@ struct FlorinClient: Sendable {
     func overview() async throws -> Overview {
         if isLocal {
             guard let store = LocalStore.shared else {
-                throw FlorinError.rejected("Florin could not open its database on this device.")
+                throw FlorinError.rejected(
+                Strings.device("v2.common.errorNoDatabase", "Florin n'a pas pu ouvrir sa base de données sur cet appareil.")
+            )
             }
             return try LocalQueries.overview(store: store, locale: Locale.current.identifier)
         }
@@ -240,7 +252,8 @@ final class OverviewModel: ObservableObject {
                             "v2.overview.syncInserted", "{count} nouvelles opérations",
                             ["count": inserted]
                         ) ?? "+\(inserted)"
-                        : overview?.t("v2.overview.synced", "À jour") ?? "À jour",
+                        : overview?.t("v2.overview.synced", "À jour")
+                            ?? Strings.device("v2.overview.synced", "À jour"),
                     kind: inserted > 0 ? .success : .neutral
                 )
             }

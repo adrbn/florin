@@ -47,7 +47,11 @@ enum BankingSync {
                      * count lets the UI say what actually happened.
                      */
                     result.failures.append(
-                        "\(connection.string("aspsp_name") ?? "?") : 0 compte exposé"
+                        Strings.device(
+                            "v2.connect.noAccountsForBank",
+                            "{bank} : 0 compte exposé",
+                            ["bank": connection.string("aspsp_name") ?? "?"]
+                        )
                     )
                 }
 

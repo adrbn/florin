@@ -220,14 +220,31 @@ struct MainTabs: View {
      * Five tabs is the hard ceiling. Réglages was the one to lose its slot: it
      * is opened from the avatar on every screen and touched twice a year.
      */
+    /// Distinguishes one arrival from the next; see `route(to:path:)`.
+    @State private var routeNonce = 0
+
     private func openSettings() {
         UISelectionFeedbackGenerator().selectionChanged()
         onRequestSettings()
     }
 
+    /*
+     * Arriving somewhere is not the same as going back to it.
+     *
+     * The destination screen is rebuilt when its path changes, which is how a
+     * deep link lands on the right filter. But tapping a transaction on Aperçu
+     * asks for the plain list, and if the tab was already showing that path —
+     * left on "À vérifier" from an earlier visit — nothing changed, so nothing
+     * reset and the tap appeared to go to the wrong place.
+     *
+     * A nonce makes every routed arrival a distinct destination, so the screen
+     * starts from what the link asked for. Switching tabs with the tab bar does
+     * not come through here, and keeps its state as it should.
+     */
     private func route(to tab: TabRoute, path: String) {
         guard tab != .settings else { return openSettings() }
-        paths[tab] = path
+        routeNonce &+= 1
+        paths[tab] = path.contains("#") ? path : "\(path)#\(routeNonce)"
         chrome.reset()
         withAnimation(.snappy(duration: 0.22)) { selection = tab }
         UISelectionFeedbackGenerator().selectionChanged()

@@ -77,7 +77,7 @@ struct Redactable: ViewModifier {
                     .transition(.opacity)
                 }
             }
-            .accessibilityValue(privacy.hidden ? "Masqué" : "")
+            .accessibilityValue(privacy.hidden ? Strings.device("v2.a11y.hidden", "Masqué") : "")
     }
 }
 
