@@ -89,6 +89,27 @@ struct FlorinClient: Sendable {
     }
 
     func sync() async throws -> SyncResult {
+        /*
+         * On the device, syncing is talking to the bank — not to a URL.
+         *
+         * Pull-to-refresh went straight to POST /api/v2/sync on a base of
+         * `florin-local://device`, which URLSession cannot open at all: the
+         * gesture answered "URL non gérée". Everything else had been routed
+         * through this seam and this one call was missed.
+         */
+        if isLocal {
+            let store = try localStore()
+            let config = try BankingFlow.config(store)
+            let result = try await BankingSync.run(store: store, config: config)
+            return SyncResult(
+                ok: result.failures.isEmpty,
+                connectionsSynced: result.accounts > 0 ? 1 : 0,
+                accountsSynced: result.accounts,
+                transactionsInserted: result.inserted,
+                error: result.failures.first
+            )
+        }
+
         var request = FlorinAuth.request(try endpoint("/api/v2/sync"))
         request.httpMethod = "POST"
         // A PSD2 round trip walks every account at the bank; it is not a

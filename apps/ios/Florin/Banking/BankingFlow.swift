@@ -47,9 +47,9 @@ final class BankingFlow: NSObject, ObservableObject {
     /// `florin.pages.dev` was already taken globally; Cloudflare assigned this
     /// one. It is now part of the app's identity — changing it breaks universal
     /// links for every install that already exists, not just new ones.
-    static let redirectHost = "florin-cpe.pages.dev"
-    private static let redirectPath = "/banking/callback"
-    static var redirectURL: String { "https://\(redirectHost)\(redirectPath)" }
+    nonisolated static let redirectHost = "florin-cpe.pages.dev"
+    nonisolated private static let redirectPath = "/banking/callback"
+    nonisolated static var redirectURL: String { "https://\(redirectHost)\(redirectPath)" }
 
     /*
      * The nonce stays in memory, and is never transmitted.
@@ -69,14 +69,14 @@ final class BankingFlow: NSObject, ObservableObject {
     // MARK: - Configuration
 
     /// The Enable Banking application id, kept beside the ledger.
-    static func appId(_ store: LocalStore) -> String? {
+    nonisolated static func appId(_ store: LocalStore) -> String? {
         guard let value = try? store.database.scalar(
             "SELECT value FROM settings WHERE key = 'eb_app_id'"
         ), let text = value.string, !text.isEmpty else { return nil }
         return text
     }
 
-    static func setAppId(_ store: LocalStore, _ value: String) throws {
+    nonisolated static func setAppId(_ store: LocalStore, _ value: String) throws {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         try store.database.run(
             "INSERT OR REPLACE INTO settings (key, value) VALUES ('eb_app_id', ?)",
@@ -95,12 +95,12 @@ final class BankingFlow: NSObject, ObservableObject {
         EnableBanking.forgetToken()
     }
 
-    static func config(_ store: LocalStore) throws -> EnableBanking.Config {
+    nonisolated static func config(_ store: LocalStore) throws -> EnableBanking.Config {
         guard let appId = appId(store) else { throw EnableBanking.Failure.notConfigured }
         return EnableBanking.Config(appId: appId, redirectURL: redirectURL)
     }
 
-    static var isConfigured: Bool {
+    nonisolated static var isConfigured: Bool {
         guard let store = LocalStore.shared else { return false }
         return appId(store) != nil && BankingKey.exists
     }
