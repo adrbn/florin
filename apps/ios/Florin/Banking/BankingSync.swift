@@ -173,8 +173,6 @@ enum BankingSync {
          * narrow, but never past the earliest row already held, or a gap opens
          * that nothing will ever fill.
          */
-        let earliest = calendar.date(byAdding: .day, value: -90, to: Date()) ?? Date()
-        let from = LocalQueries.dayFormatter.string(from: earliest)
         _ = since
         let to = LocalQueries.dayFormatter.string(from: Date())
 
@@ -182,10 +180,41 @@ enum BankingSync {
         var skipped = 0
         var continuationKey: String?
 
-        repeat {
-            let page = try await EnableBanking.transactions(
-                config, uid: uid, from: from, to: to, continuationKey: continuationKey
-            )
+        /*
+         * Ask for everything, settle for what the bank gives.
+         *
+         * Ninety days was a guess dressed up as a limit. What a bank actually
+         * exposes under one consent varies — some go back two years, some
+         * refuse a window wider than a year outright, with an error rather
+         * than a truncated answer. So the widest window is tried first and
+         * narrowed only when it is refused: the ceiling ends up being the
+         * bank's, which is the only real one, instead of ours.
+         */
+        var windows = [730, 365, 90]
+        var from = ""
+        var firstPage: TransactionsResponse?
+        var lastFailure: Error?
+
+        while !windows.isEmpty {
+            let days = windows.removeFirst()
+            let start = calendar.date(byAdding: .day, value: -days, to: Date()) ?? Date()
+            from = LocalQueries.dayFormatter.string(from: start)
+            do {
+                firstPage = try await EnableBanking.transactions(
+                    config, uid: uid, from: from, to: to
+                )
+                log.notice("history window accepted: \(days) days")
+                break
+            } catch {
+                lastFailure = error
+                log.notice("history window refused at \(days) days, narrowing")
+            }
+        }
+        guard var page = firstPage else {
+            throw lastFailure ?? EnableBanking.Failure.malformed
+        }
+
+        while true {
             for transaction in page.transactions {
                 if try insert(transaction, store: store, accountId: accountId, uid: uid) {
                     inserted += 1
@@ -194,7 +223,11 @@ enum BankingSync {
                 }
             }
             continuationKey = page.continuationKey
-        } while continuationKey != nil
+            guard let key = continuationKey else { break }
+            page = try await EnableBanking.transactions(
+                config, uid: uid, from: from, to: to, continuationKey: key
+            )
+        }
 
         try recomputeBalanceFromOpening(store: store, accountId: accountId)
         return (inserted, skipped)
