@@ -180,7 +180,7 @@ struct OnboardingFlow: View {
                  * Offering the choice and staying quiet about what it needs
                  * would be the kind of promise that turns into a dead end.
                  */
-                Text("La connexion bancaire passe encore par un serveur Florin. La version sur l'appareil arrive.")
+                Text("Vos comptes se connectent depuis ce téléphone. Rien ne transite par un serveur.")
                     .font(.system(size: 12.5))
                     .foregroundStyle(Florin.text3)
                     .multilineTextAlignment(.center)
@@ -318,7 +318,11 @@ struct OnboardingFlow: View {
                 .font(.system(size: 28, weight: .semibold))
                 .foregroundStyle(Florin.text)
 
-            Text("Vos catégories sont en place. Ajoutez vos opérations, ou connectez votre banque depuis les réglages quand vous voudrez.")
+            Text(
+                path == .bank
+                    ? "Vos catégories sont en place. Connectez votre banque depuis les réglages — trois étapes, une seule fois."
+                    : "Vos catégories sont en place. Ajoutez vos opérations quand vous voulez."
+            )
                 .font(.system(size: 15))
                 .foregroundStyle(Florin.text2)
                 .multilineTextAlignment(.center)
@@ -384,11 +388,28 @@ struct OnboardingFlow: View {
             withAnimation { step += 1 }
             return
         }
-        // The bank path has nothing to write: the accounts and their balances
-        // arrive from the bank, and inventing a placeholder one here would put
-        // a fictional account in a real ledger.
+        /*
+         * The bank path finishes here, on the device.
+         *
+         * It used to hand off to the server form, because when this screen was
+         * written connecting a bank from the phone did not exist yet. It does
+         * now — key, certificate, consent and sync all run here — so sending
+         * someone to set up a server to reach it was leftover wiring, and it
+         * contradicted the sentence two screens earlier promising the phone
+         * and nowhere else.
+         *
+         * Nothing is written: accounts and balances come from the bank.
+         */
         if path == .bank {
-            onUseServer()
+            saving = true
+            do {
+                try LocalOnboarding.markComplete()
+                saving = false
+                onFinish()
+            } catch {
+                saving = false
+                failure = error.localizedDescription
+            }
             return
         }
         saving = true

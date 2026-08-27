@@ -38,7 +38,16 @@ final class ServerStore: ObservableObject {
     /// the user confirms. It points at the machine this build came from, which
     /// is the one address that is certainly reachable right now; anyone else
     /// just types their own.
-    static let suggestedHost = "192.168.1.135:3999"
+    /*
+     * Empty on purpose.
+     *
+     * This used to be a hardcoded 192.168.1.135:3999 — one developer's machine,
+     * years ago. It looked like an answer, so the field arrived pre-filled with
+     * something that was wrong for everyone, and "does not respond" was the
+     * first thing a new install ever said. A placeholder that shows the *shape*
+     * of an address teaches more than a fake one.
+     */
+    static let suggestedHost = ""
 
     /// The two apps expose the locale cookie at different paths — desktop keeps
     /// its user settings under /api/settings, the web build does not. The client

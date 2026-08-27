@@ -44,6 +44,19 @@ enum LocalOnboarding {
     /// beside it in preferences that outlive a deleted database.
     static let marker = "onboarded_at"
 
+    /// Finish onboarding without creating an account.
+    ///
+    /// The bank path has nothing to write: the accounts and their balances
+    /// arrive from the bank itself, and a placeholder would be a fictional
+    /// account in a real ledger.
+    static func markComplete() throws {
+        guard let store = LocalStore.shared else { throw Failure.noStore }
+        try store.database.run(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+            [.text(marker), .text(ISO8601DateFormatter().string(from: Date()))]
+        )
+    }
+
     static func createFirstAccount(name: String, kind: AccountKind, balance: Double) throws {
         guard let store = LocalStore.shared else { throw Failure.noStore }
         let label = name.isEmpty ? kind.label : name
