@@ -532,6 +532,7 @@ struct OverviewScreen: View {
                         expanded: $upcomingExpanded
                     ) { tx in
                         TransactionRowView(
+                            hideUpcomingChip: true,
                             tx: tx, locale: data.localeTag,
                             currency: data.currency, t: data.t
                         )

@@ -329,16 +329,34 @@ enum BankingSync {
                 .real(transaction.signedAmount),
             ]
         )?.string {
+            /*
+             * Settling is a change worth writing down.
+             *
+             * An authorisation becomes a booking with a real date and,
+             * sometimes, a different amount — a restaurant adds the tip, a
+             * fuel pump releases the hold. And a row parked outside the review
+             * queue while it was unsettled has to enter it once it is real,
+             * or it is filed away having never been looked at.
+             */
+            let nowPending = transaction.status == "PDNG"
             try store.database.run(
                 """
                 UPDATE transactions
                 SET source = 'enable_banking', external_id = ?, is_pending = ?,
+                    occurred_at = ?, amount = ?,
+                    needs_review = CASE
+                        WHEN is_pending = 1 AND ? = 0 THEN 1
+                        ELSE needs_review
+                    END,
                     updated_at = datetime('now')
                 WHERE id = ?
                 """,
                 [
                     .text(externalId),
-                    .integer(transaction.status == "PDNG" ? 1 : 0),
+                    .integer(nowPending ? 1 : 0),
+                    .text(date),
+                    .real(transaction.signedAmount),
+                    .integer(nowPending ? 1 : 0),
                     .text(twin),
                 ]
             )
