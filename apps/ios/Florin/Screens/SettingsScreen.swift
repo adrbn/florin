@@ -27,21 +27,22 @@ struct SettingsScreen: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Backdrop(tint: TabRoute.settings.tint)
-                Form {
-                    sourceSection
-                    appearanceSection
-                    privacySection
-                    serverSection
-                    languageSection
-                    syncSection
-                    aboutSection
+                Backdrop(tint: TabRoute.settings.tint).ignoresSafeArea()
+
+                ScrollView {
+                    VStack(spacing: 24) {
+                        sourceSection
+                        appearanceSection
+                        privacySection
+                        languageSection
+                        aboutSection
+                    }
+                    .padding(.horizontal, Florin.gutter)
+                    .padding(.top, 10)
+                    .padding(.bottom, 110)
                 }
-                // Let the section's own ground show the app's colour instead of
-                // the grey slab a Form paints by default: it is the one thing
-                // that stops this screen looking like it belongs to a different
-                // app than the dashboard.
-                .scrollContentBackground(.hidden)
+                .scrollIndicators(.hidden)
+                .scrollDismissesKeyboard(.interactively)
             }
             .navigationTitle(t("v2.settings.title", "Réglages"))
             .navigationBarTitleDisplayMode(.inline)
@@ -54,93 +55,66 @@ struct SettingsScreen: View {
                     }
                 }
             }
-            .safeAreaPadding(.bottom, 96)
         }
     }
 
     // MARK: - Sections
 
     @ViewBuilder
-    private var serverSection: some View {
-        if editingServer {
-            // The same fields and the same diagnosis as first-run setup, rather
-            // than a bare text box that can only say "saved".
-            ServerFields(host: $draftServer, token: $draftToken, status: $serverStatus)
-            Section {
-                Button(t("v2.common.save", "Enregistrer"), action: commitServer)
-                    .disabled(ServerStore.normalise(draftServer) == nil)
-                Button(t("v2.common.cancel", "Annuler"), role: .cancel) {
-                    editingServer = false
-                    serverStatus = .unknown
-                }
-            }
-        } else {
-            Section {
-                LabeledContent(t("v2.settings.serverHost", "Serveur")) {
-                    Text(server.resolvedURL?.host ?? "—")
-                        .foregroundStyle(.secondary)
-                        .monospaced()
-                }
-                Button {
-                    draftServer = server.rawURL
-                    draftToken = server.apiToken
-                    serverStatus = .unknown
-                    editingServer = true
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "pencil")
-                            .font(.system(size: 13, weight: .semibold))
-                        Text(t("v2.common.edit", "Modifier")).fontWeight(.medium)
-                        Spacer()
-                    }
-                    .foregroundStyle(Florin.accent)
-                    .contentShape(Rectangle())
-                }
-            } footer: {
-                Text("Florin lit ton propre serveur. Rien ne quitte ton réseau.")
-            }
-        }
-    }
-
     private var languageSection: some View {
-        Section {
-            Picker(t("v2.settings.language", "Langue"), selection: localeBinding) {
+        SettingsGroup(
+            title: t("v2.settings.language", "Langue"),
+            footer: "S'applique au téléphone comme aux écrans web de l'app."
+        ) {
+            Picker("", selection: localeBinding) {
                 Text("Français").tag("fr")
                 Text("English").tag("en")
                 Text("Nederlands").tag("nl")
             }
+            .pickerStyle(.segmented)
+            .labelsHidden()
             .disabled(changingLocale || model.overview == nil)
-        } footer: {
-            Text("Change la langue de Florin, sur le téléphone comme dans le navigateur.")
+            .padding(.horizontal, Florin.gutter)
+            .padding(.vertical, 12)
         }
     }
 
     private var privacySection: some View {
-        Section {
+        SettingsGroup(
+            title: t("v2.settings.discretion", "Discrétion"),
+            footer: "Secouez le téléphone pour masquer ou réafficher tous les montants, ou maintenez le chiffre principal. Ça cache, ça ne verrouille pas : quiconque tient le téléphone peut le rouvrir."
+        ) {
             Toggle(
-                t("v2.settings.hideAmounts", "Masquer les montants"),
                 isOn: Binding(get: { privacy.hidden }, set: { privacy.set($0) })
-            )
-        } header: {
-            Text(t("v2.settings.discretion", "Discrétion"))
-        } footer: {
-            Text(
-                "Secoue le téléphone pour masquer ou réafficher tous les montants, ou maintiens le chiffre principal. Ça cache, ça ne verrouille pas : n'importe qui tenant le téléphone peut le rouvrir."
-            )
+            ) {
+                HStack(spacing: 11) {
+                    Image(systemName: "eye.slash")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(Florin.accent)
+                        .frame(width: 20)
+                    Text(t("v2.settings.hideAmounts", "Masquer les montants"))
+                        .font(.system(size: 15.5))
+                        .foregroundStyle(Florin.text)
+                }
+            }
+            .tint(Florin.accent)
+            .padding(.horizontal, Florin.gutter)
+            .padding(.vertical, 11)
         }
     }
 
     private var appearanceSection: some View {
-        Section {
-            Picker("Apparence", selection: $appearanceRaw) {
+        SettingsGroup(
+            title: "Apparence",
+            footer: "Le thème s'applique aussi aux écrans web de l'app, pas seulement aux natifs."
+        ) {
+            Picker("", selection: $appearanceRaw) {
                 ForEach(Appearance.allCases) { Text($0.label).tag($0.rawValue) }
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-        } header: {
-            Text("Apparence")
-        } footer: {
-            Text("Le thème s'applique aussi aux écrans web de l'app, pas seulement aux natifs.")
+            .padding(.horizontal, Florin.gutter)
+            .padding(.vertical, 12)
         }
     }
 
@@ -154,21 +128,128 @@ struct SettingsScreen: View {
      * there was no way to keep a server configured while working locally.
      */
     private var sourceSection: some View {
-        Section {
-            Picker(t("v2.settings.source", "Données"), selection: sourceBinding) {
+        SettingsGroup(
+            title: t("v2.settings.source", "Données"),
+            footer: sourceBinding.wrappedValue.detail
+        ) {
+            /*
+             * The choice owns what depends on it.
+             *
+             * A server address means nothing on the device ledger, and bank
+             * setup means nothing on a server that runs its own. These were
+             * three sibling sections — source, server, bank sync — so the
+             * screen showed settings for a mode you were not in and left the
+             * hierarchy to be guessed.
+             */
+            Picker("", selection: sourceBinding) {
                 ForEach(DataSource.allCases) { option in
-                    Label(option.label, systemImage: option.symbol).tag(option)
+                    Text(option.label).tag(option)
                 }
             }
             .pickerStyle(.segmented)
             .labelsHidden()
+            .padding(.horizontal, Florin.gutter)
+            .padding(.vertical, 12)
 
-            Text(sourceBinding.wrappedValue.detail)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-        } header: {
-            Text(t("v2.settings.source", "Données"))
+            Hairline()
+
+            if sourceBinding.wrappedValue == .server {
+                serverRows
+            } else {
+                deviceRows
+            }
         }
+    }
+
+    @ViewBuilder
+    private var serverRows: some View {
+        if editingServer {
+            VStack(spacing: 14) {
+                ServerFieldsCard(host: $draftServer, token: $draftToken, status: $serverStatus)
+                HStack(spacing: 10) {
+                    Button(t("v2.common.cancel", "Annuler")) {
+                        editingServer = false
+                        serverStatus = .unknown
+                    }
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(Florin.text2)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 13)
+                    .florinGlass(in: Capsule())
+
+                    Button(t("v2.common.save", "Enregistrer"), action: commitServer)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.black)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 13)
+                        .background(Florin.accent, in: Capsule())
+                        .opacity(ServerStore.normalise(draftServer) == nil ? 0.4 : 1)
+                        .disabled(ServerStore.normalise(draftServer) == nil)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(Florin.gutter)
+        } else {
+            SettingsRow(label: t("v2.settings.serverHost", "Adresse"), symbol: "network") {
+                SettingsValue(text: server.resolvedURL?.host ?? "—", monospaced: true)
+            }
+            Hairline()
+            SettingsRow(
+                label: t("v2.common.edit", "Modifier"),
+                symbol: "pencil",
+                action: {
+                    draftServer = server.rawURL
+                    draftToken = server.apiToken
+                    serverStatus = .unknown
+                    editingServer = true
+                }
+            )
+            lastSyncRow
+            syncRow
+        }
+    }
+
+    @ViewBuilder
+    private var deviceRows: some View {
+        SettingsRow(
+            label: t("v2.settings.banking", "Synchronisation bancaire"),
+            symbol: "building.columns",
+            action: { showingBanking = true }
+        ) {
+            SettingsValue(
+                text: BankingFlow.isConfigured
+                    ? t("v2.settings.bankingReady", "Configurée")
+                    : t("v2.settings.bankingMissing", "Non configurée")
+            )
+        }
+        lastSyncRow
+        if BankingFlow.isConfigured { syncRow }
+    }
+
+    @ViewBuilder
+    private var lastSyncRow: some View {
+        if let last = model.overview?.lastSynced {
+            Hairline()
+            SettingsRow(label: t("v2.account.lastSync", "Dernière synchro"), symbol: "clock") {
+                Text(last, format: .relative(presentation: .named))
+                    .font(.system(size: 15))
+                    .foregroundStyle(Florin.text2)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var syncRow: some View {
+        Hairline()
+        SettingsRow(
+            label: t("v2.add.sync", "Synchroniser les banques"),
+            symbol: "arrow.trianglehead.2.clockwise",
+            action: { Task { await model.sync() } }
+        ) {
+            if model.syncing { ProgressView().controlSize(.small) }
+        }
+        .disabled(model.syncing)
+        .opacity(model.syncing ? 0.5 : 1)
     }
 
     private var sourceBinding: Binding<DataSource> {
@@ -184,86 +265,6 @@ struct SettingsScreen: View {
         )
     }
 
-    private var syncSection: some View {
-        Section {
-            /*
-             * Reachable either way, and honest about which one you are in.
-             *
-             * It was hidden entirely when a server was configured, on the
-             * reasoning that the server owns the bank connection and a second
-             * one would burn PSD2 consent quota for nothing. That reasoning
-             * holds, but hiding the row made the on-device flow impossible to
-             * reach — or even discover — from a phone that points at a server,
-             * which is every phone that has ever used one. A line saying what
-             * this connection is does the same job without the dead end.
-             */
-            /*
-             * A row that opens something looks like a row that opens something.
-             *
-             * These were bare `Button`s wrapping plain text inside a Form: the
-             * label rendered as ordinary body copy with no chevron, no tint and
-             * no press feedback, so "Synchroniser les banques" read as a
-             * sentence rather than the action it is. The chevron is the whole
-             * convention — it is what tells you a tap goes somewhere.
-             */
-            Button {
-                showingBanking = true
-            } label: {
-                HStack {
-                    Text(t("v2.settings.banking", "Synchronisation bancaire"))
-                        .foregroundStyle(Florin.text)
-                    Spacer()
-                    Text(
-                        BankingFlow.isConfigured
-                            ? t("v2.settings.bankingReady", "Configurée")
-                            : t("v2.settings.bankingMissing", "Non configurée")
-                    )
-                    .foregroundStyle(.secondary)
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(Florin.text3)
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-
-            if model.base.scheme != "florin-local" {
-                Text("Votre serveur gère déjà la synchro. Une connexion depuis ce téléphone serait indépendante, avec son propre accès bancaire.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-
-            if let last = model.overview?.lastSynced {
-                LabeledContent(t("v2.account.lastSync", "Dernière synchro")) {
-                    Text(last, format: .relative(presentation: .named))
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            Button {
-                Task { await model.sync() }
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "arrow.trianglehead.2.clockwise")
-                        .font(.system(size: 14, weight: .semibold))
-                    Text(t("v2.add.sync", "Synchroniser les banques"))
-                        .fontWeight(.medium)
-                    Spacer()
-                    if model.syncing { ProgressView() }
-                }
-                .foregroundStyle(
-                    model.overview?.bankSyncConfigured == true ? Florin.accent : Florin.text3
-                )
-                .contentShape(Rectangle())
-            }
-            .disabled(model.syncing || model.overview?.bankSyncConfigured != true)
-        } footer: {
-            Text(
-                "Florin se synchronise tout seul à l'ouverture, au maximum toutes les 6 heures — la limite que ta banque tolère pour un accès non supervisé."
-            )
-        }
-    }
-
     /// Who made this, which build you are running, and where to go next.
     ///
     /// The old version of this was one line reading "Version 1.0.0" and a raw
@@ -273,45 +274,50 @@ struct SettingsScreen: View {
     /// than blue text.
     @ViewBuilder
     private var aboutSection: some View {
-        Section {
-            LabeledContent(t("v2.settings.appVersion", "Version")) {
-                Text(Self.version)
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
-            }
-            if let generated = model.overview?.generatedAt {
-                LabeledContent(t("v2.settings.dataDate", "Données au")) {
-                    Text(generated.prefix(10)).foregroundStyle(.secondary).monospaced()
+        VStack(spacing: 24) {
+            SettingsGroup(
+                title: t("v2.settings.about", "À propos"),
+                footer: "Florin est libre et auto-hébergé, sous licence AGPL-3.0."
+            ) {
+                SettingsRow(label: t("v2.settings.appVersion", "Version"), symbol: "app.badge") {
+                    SettingsValue(text: Self.version, monospaced: true)
+                }
+                if let generated = model.overview?.generatedAt {
+                    Hairline()
+                    SettingsRow(label: t("v2.settings.dataDate", "Données au"), symbol: "calendar") {
+                        SettingsValue(text: String(generated.prefix(10)), monospaced: true)
+                    }
                 }
             }
-        } header: {
-            Text(t("v2.settings.about", "À propos"))
-        } footer: {
-            Text(
-                "Florin est libre et auto-hébergé, sous licence AGPL-3.0. Tes données restent sur ton serveur."
-            )
-        }
 
-        Section {
-            BrandLink(
-                path: Brand.github,
-                title: "GitHub",
-                subtitle: "adrbn/florin",
-                tint: Color(red: 0.09, green: 0.11, blue: 0.13),
-                markColor: .white,
-                url: URL(string: "https://github.com/adrbn/florin")!
-            )
-            BrandLink(
-                path: Brand.kofi,
-                title: "Ko-fi",
-                subtitle: "adrbn",
-                // Ko-fi's own brand red.
-                tint: Color(red: 1.0, green: 0.35, blue: 0.35),
-                markColor: .white,
-                url: URL(string: "https://ko-fi.com/adrbn")!
-            )
-        } footer: {
-            Text("Le code, les tickets et les versions sont publics. Un café aide à les écrire.")
+            SettingsGroup(
+                footer: "Le code, les tickets et les versions sont publics. Un café aide à les écrire."
+            ) {
+                BrandLink(
+                    path: Brand.github,
+                    title: "GitHub",
+                    subtitle: "adrbn/florin",
+                    tint: Color(red: 0.09, green: 0.11, blue: 0.13),
+                    markColor: .white,
+                    url: URL(string: "https://github.com/adrbn/florin")!
+                )
+                .padding(.horizontal, Florin.gutter)
+                .padding(.vertical, 6)
+
+                Hairline()
+
+                BrandLink(
+                    path: Brand.kofi,
+                    title: "Ko-fi",
+                    subtitle: "adrbn",
+                    // Ko-fi's own brand red.
+                    tint: Color(red: 1.0, green: 0.35, blue: 0.35),
+                    markColor: .white,
+                    url: URL(string: "https://ko-fi.com/adrbn")!
+                )
+                .padding(.horizontal, Florin.gutter)
+                .padding(.vertical, 6)
+            }
         }
     }
 
