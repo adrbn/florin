@@ -223,6 +223,10 @@ enum LocalQueries {
               AND t.transfer_pair_id IS NULL
               AND a.is_archived = 0 AND a.is_included_in_net_worth = 1
               AND a.kind <> 'loan'
+              -- Pending rows are authorisations, not money that has moved:
+              -- the amount can still change and the bank has not booked them.
+              -- They stay visible in the lists, marked, and out of every total.
+              AND t.is_pending = 0
               AND (g.kind IS NULL OR g.kind <> 'adjustment')
             GROUP BY 1 ORDER BY 1
             """
@@ -396,7 +400,7 @@ enum LocalQueries {
                 JOIN accounts a ON a.id = t.account_id
                 LEFT JOIN categories c ON c.id = t.category_id
                 LEFT JOIN category_groups g ON g.id = c.group_id
-                WHERE t.deleted_at IS NULL AND t.status = 'cleared'
+                WHERE t.deleted_at IS NULL AND t.status = 'cleared' AND t.is_pending = 0
                   AND t.occurred_at >= ? AND t.occurred_at <= ?
                   AND t.transfer_pair_id IS NULL AND a.is_archived = 0
                 """,
@@ -451,7 +455,7 @@ enum LocalQueries {
             FROM transactions t
             JOIN categories c ON c.id = t.category_id
             JOIN category_groups g ON g.id = c.group_id
-            WHERE t.deleted_at IS NULL AND t.status = 'cleared'
+            WHERE t.deleted_at IS NULL AND t.status = 'cleared' AND t.is_pending = 0
               AND substr(t.occurred_at, 1, 7) = ?
               AND g.kind = ? \(fixedClause)
             """,
