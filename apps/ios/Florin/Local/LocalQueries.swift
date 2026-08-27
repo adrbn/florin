@@ -30,15 +30,15 @@ enum LocalQueries {
 
         let series = try netWorthSeries(db, accounts: accounts)
         /*
-         * The point *before* the last one, not the first one.
+         * A month ago by the calendar, not by counting backwards in the array.
          *
-         * `netWorthSeries` returns oldest-first, so `series.first` is twelve
-         * months back — which made the hero print a year of change under the
-         * words "sur un mois". Caught by arithmetic, not by reading: with one
-         * salary in each of two months the screen said +4429 where the month
-         * actually moved +2339, and 4429 is exactly the twelve-month total.
+         * This took the second-to-last point, which was right when the series
+         * held one point per month and became "yesterday" the moment it held
+         * one per day — so the hero printed 0,00 EUR of monthly change under a
+         * ledger that had plainly moved. The index means nothing; the date is
+         * the only thing that does.
          */
-        let monthAgo = series.count > 1 ? series[series.count - 2].balance : nil
+        let monthAgo = Self.point(in: series, daysBack: 30)?.balance
 
         return Overview(
             generatedAt: ISO8601DateFormatter().string(from: Date()),
@@ -477,6 +477,16 @@ enum LocalQueries {
         let lower = locale.lowercased()
         for candidate in ["fr", "nl"] where lower.hasPrefix(candidate) { return candidate }
         return "en"
+    }
+
+    /// The last point on or before `daysBack` days ago — the series can have
+    /// gaps, and the nearest earlier day is the honest comparison.
+    static func point(in series: [PatrimonyPoint], daysBack: Int) -> PatrimonyPoint? {
+        let calendar = Calendar(identifier: .gregorian)
+        guard let target = calendar.date(byAdding: .day, value: -daysBack, to: Date())
+        else { return series.first }
+        let label = dayFormatter.string(from: target)
+        return series.last { $0.date <= label } ?? series.first
     }
 
     private static func endOfMonth(_ date: Date, calendar: Calendar) -> Date? {
