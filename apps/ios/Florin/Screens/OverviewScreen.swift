@@ -348,11 +348,14 @@ struct OverviewScreen: View {
                          * the date does the same work in less room, and unlike
                          * a bare month name it cannot be misread as the whole
                          * of July — which would be a different, larger number.
+                         *
+                         * No verb either: the arrow already says the figure is
+                         * a gain, and "gardés" only repeated it in a word.
                          */
                         Text(
                             data.leftToSpend.savedPrevMonthToDate.map {
                                 data.t(
-                                    "v2.overview.keptVsLastMonth", "gardés · {prev} au {date}",
+                                    "v2.overview.keptVsLastMonth", "· {prev} au {date}",
                                     [
                                         "prev": Money.string(
                                             $0, locale: data.localeTag,
@@ -361,7 +364,7 @@ struct OverviewScreen: View {
                                         "date": Self.sameDayLastMonth(locale: data.localeTag),
                                     ]
                                 )
-                            } ?? data.t("v2.overview.keptThisMonth", "gardés ce mois-ci")
+                            } ?? data.t("v2.overview.keptThisMonth", "ce mois-ci")
                         )
                         .font(.system(size: 14))
                         .foregroundStyle(Florin.text2)
