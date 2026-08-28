@@ -86,8 +86,10 @@ describe('getLeftToSpendThisMonth — salary category detection', () => {
     expect(lts.salaryCategoryName).toBe('Salaires')
     // No salary yet this month → fall back to the last month that saw one,
     // NOT to the 587.21 of miscellaneous inflows.
-    expect(lts.monthIncome).toBeCloseTo(2998.98, 2)
-    expect(lts.leftToSpend).toBeCloseTo(2998.98 - 400, 2)
+    // The ceiling is every euro that came in, not the paycheck alone: the
+    // salary plus the 587.21 one-off, which is real money either way.
+    expect(lts.monthIncome).toBeCloseTo(2998.98 + 587.21, 2)
+    expect(lts.leftToSpend).toBeCloseTo(2998.98 + 587.21 - 400, 2)
   })
 
   it('with a single month of history, the larger recurring inflow wins the tie', async () => {
@@ -111,7 +113,8 @@ describe('getLeftToSpendThisMonth — salary category detection', () => {
 
     const lts = await getLeftToSpendThisMonth(ctx.db)
     expect(lts.salaryCategoryName).toBe('Salaires')
-    expect(lts.monthIncome).toBeCloseTo(2200, 2)
+    // Salary 2 200 plus the inflow that lost the tie but is still income.
+    expect(lts.monthIncome).toBeCloseTo(2900, 2)
   })
 
   it('uses the current month once the salary has actually landed', async () => {
