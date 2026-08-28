@@ -87,6 +87,17 @@ struct LeftToSpend: Decodable, Sendable {
     /// carries the whole expected amount rather than a prorated share.
     /// Optional: a server that predates the field falls back to zero.
     var expectedMonthlyFixed: Double?
+    /// What was left over at this same day of the previous month, measured the
+    /// same way — the month's salary counted whether or not it had landed by
+    /// then, because a payslip arriving on the 29th would otherwise make the
+    /// 28th of that month look like a catastrophe.
+    /// What has actually been kept this month: income minus spending NET of
+    /// reimbursements. `leftToSpend` counts gross on purpose — a refund should
+    /// not erase a purchase from a ceiling meant to restrain you — and that
+    /// same choice makes it the wrong number for saving: a month with 986 € of
+    /// reimbursements read +298 € kept where the accounts had gained 1 284 €.
+    var savedThisMonthToDate: Double?
+    var savedPrevMonthToDate: Double?
     let leftToSpend: Double
     let dailyAvgSpent: Double
     let dailyBudgetRemaining: Double?

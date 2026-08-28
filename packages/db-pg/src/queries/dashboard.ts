@@ -269,6 +269,68 @@ async function getMonthIncome(db: PgDB, excludeCategoryId: string | null): Promi
   return Number(row?.total ?? '0')
 }
 
+/**
+ * What was left over at this same day of the previous month.
+ *
+ * Same arithmetic as `leftToSpend`, one month back and cut at the same day —
+ * with the month's salary counted whether or not it had landed by then, which
+ * is the whole point: a payslip that arrives on the 29th would otherwise make
+ * the 28th of that month look like a catastrophe.
+ */
+async function getPrevMonthSavedToDate(db: PgDB, salaryCategoryId: string | null): Promise<number> {
+  const today = new Date()
+  const start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 1, 1))
+  const monthEnd = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 0))
+  // The 31st has no counterpart in a 30-day month; stop at its last day.
+  const day = Math.min(today.getUTCDate(), monthEnd.getUTCDate())
+  const cut = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), day, 23, 59, 59))
+
+  const [spentRow] = await db
+    .select({ total: burnAmountSql })
+    .from(transactions)
+    .innerJoin(accounts, eq(transactions.accountId, accounts.id))
+    .leftJoin(categories, eq(transactions.categoryId, categories.id))
+    .leftJoin(categoryGroups, eq(categories.groupId, categoryGroups.id))
+    .where(
+      and(
+        isNull(transactions.deletedAt),
+        eq(transactions.status, 'cleared'),
+        gte(transactions.occurredAt, start),
+        lte(transactions.occurredAt, cut),
+        sql`${transactions.transferPairId} IS NULL`,
+        eq(accounts.isArchived, false),
+      ),
+    )
+  const spentRaw = Number(spentRow?.total ?? '0')
+  const spent = spentRaw >= 0 ? 0 : Math.abs(spentRaw)
+
+  // The salary counts for its whole month; everything else only once received.
+  const [incomeRow] = await db
+    .select({
+      salary: sql<string>`COALESCE(SUM(CASE WHEN ${transactions.categoryId} = ${salaryCategoryId}
+        THEN ${transactions.amount} ELSE 0 END), 0)`,
+      other: sql<string>`COALESCE(SUM(CASE WHEN ${transactions.categoryId} <> ${salaryCategoryId}
+        AND ${transactions.occurredAt} <= ${cut} THEN ${transactions.amount} ELSE 0 END), 0)`,
+    })
+    .from(transactions)
+    .innerJoin(accounts, eq(transactions.accountId, accounts.id))
+    .innerJoin(categories, eq(transactions.categoryId, categories.id))
+    .innerJoin(categoryGroups, eq(categories.groupId, categoryGroups.id))
+    .where(
+      and(
+        isNull(transactions.deletedAt),
+        eq(transactions.status, 'cleared'),
+        gte(transactions.occurredAt, start),
+        lt(transactions.occurredAt, new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1))),
+        sql`${transactions.amount} > 0`,
+        sql`${transactions.transferPairId} IS NULL`,
+        eq(accounts.isArchived, false),
+        eq(categoryGroups.kind, 'income'),
+      ),
+    )
+  return Number(incomeRow?.salary ?? '0') + Number(incomeRow?.other ?? '0') - spent
+}
+
 export async function getMonthBurn(db: PgDB, opts: BurnOptions = {}): Promise<number> {
   const start = startOfMonth(new Date())
   const end = endOfMonth(new Date())
@@ -818,6 +880,11 @@ export async function getLeftToSpendThisMonth(db: PgDB): Promise<LeftToSpend> {
   const expectedMonthlySpend = await getAvgMonthlyBurn(db, 6)
   const expectedMonthlyFixed = await getAvgMonthlyBurn(db, 6, { fixedOnly: true })
   const leftToSpend = monthIncome - monthSpent
+  // Saving is income minus spending NET of reimbursements — a refund really
+  // does put money back, even though the ceiling above counts gross.
+  const netSpent = await getMonthBurn(db)
+  const savedThisMonthToDate = monthIncome - netSpent
+  const savedPrevMonthToDate = await getPrevMonthSavedToDate(db, salaryCategoryId)
 
   const today = new Date()
   const daysElapsed = today.getUTCDate()
@@ -835,6 +902,8 @@ export async function getLeftToSpendThisMonth(db: PgDB): Promise<LeftToSpend> {
     monthSpentFixed,
     expectedMonthlySpend,
     expectedMonthlyFixed,
+    savedThisMonthToDate,
+    savedPrevMonthToDate,
     leftToSpend,
     dailyAvgSpent,
     dailyBudgetRemaining,

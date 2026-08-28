@@ -182,6 +182,32 @@ export interface LeftToSpend {
    */
   expectedMonthlyFixed?: number
   /**
+   * What has actually been kept this month so far: income minus spending NET
+   * of reimbursements.
+   *
+   * `leftToSpend` deliberately uses gross spending — a refund should not erase
+   * a purchase from a ceiling meant to restrain you. Saving is the opposite
+   * question, and the same choice makes it wrong: measured gross, a month with
+   * 986 € of reimbursements read +298 € saved when the accounts had actually
+   * gained 1 284 €.
+   */
+  savedThisMonthToDate?: number
+  /**
+   * The same figure at this same day of the PREVIOUS month.
+   *
+   * Comparing two months at the same date is the obvious way to answer "am I
+   * saving more than last month", and the obvious way is wrong: a salary lands
+   * on a drifting date, so on the 28th one month has been paid and the other
+   * has not. Measured naively this account read +298 € for August against
+   * −2 656 € for July, because July's payslip arrived on the 29th.
+   *
+   * Counting the month's salary whether or not it has landed yet — the same
+   * fallback `monthIncome` already applies to the month in progress — removes
+   * the artefact entirely: +499, +451, +226, +106, +415, +343, +298 across
+   * seven months, every one of them a figure you can act on.
+   */
+  savedPrevMonthToDate?: number
+  /**
    * Trailing average monthly burn over COMPLETE months (typical full-month
    * spend). Feeds the month projection's prior: early on, when few days have
    * been observed, the forecast leans on what a month usually costs rather

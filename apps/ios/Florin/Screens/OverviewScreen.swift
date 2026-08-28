@@ -24,6 +24,8 @@ struct OverviewScreen: View {
     @State private var scrubbed: PatrimonyPoint?
     @State private var range: Range = .year
     @State private var showGross = false
+    /// The delta line answers two different questions; a tap swaps them.
+    @State private var showSaving = false
 
     /// The served table once it exists, the bundled one before it does — the
     /// failed state renders with no feed behind it, by definition.
@@ -318,6 +320,39 @@ struct OverviewScreen: View {
                             .font(.system(size: 14))
                             .foregroundStyle(Florin.text2)
                             .hiddenWhenPrivate()
+                    } else if !data.recent.isEmpty, showSaving, let kept = data.leftToSpend.savedThisMonthToDate {
+                        /*
+                         * What you are keeping this month, against the same day
+                         * of the last one.
+                         *
+                         * The line above it answers "how did last month go",
+                         * which is stable and not what someone opening the app
+                         * on the 28th wants to know. This answers "am I doing
+                         * better than last month, right now" — and it has to
+                         * count spending net of reimbursements, or a month with
+                         * 986 € refunded reads as 298 € kept when the accounts
+                         * gained 1 284 €.
+                         */
+                        Image(systemName: kept >= 0 ? "arrowtriangle.up.fill" : "arrowtriangle.down.fill")
+                            .font(.system(size: 9))
+                        AmountText(
+                            value: abs(kept), locale: data.localeTag, currency: data.currency,
+                            decimals: abs(kept) < 1000,
+                            tone: kept >= 0 ? .positive : .negative, size: 14
+                        )
+                        Text(
+                            data.leftToSpend.savedPrevMonthToDate.map {
+                                data.t(
+                                    "v2.overview.keptVsLastMonth", "gardés · {prev} au même jour",
+                                    ["prev": Money.string(
+                                        $0, locale: data.localeTag, currency: data.currency,
+                                        decimals: false, signed: true
+                                    )]
+                                )
+                            } ?? data.t("v2.overview.keptThisMonth", "gardés ce mois-ci")
+                        )
+                        .font(.system(size: 14))
+                        .foregroundStyle(Florin.text2)
                     } else if !data.recent.isEmpty {
                         // "0,00 € sur un mois" on a ledger with no month behind
                         // it states a movement that never happened.
@@ -346,6 +381,22 @@ struct OverviewScreen: View {
                     }
                 }
                 .frame(height: 20)
+                /*
+                 * The delta line is its own question, so it takes its own tap.
+                 *
+                 * Last month's change is stable and says nothing about today;
+                 * what you are keeping right now says nothing about whether the
+                 * month closed well. Both are worth having and neither should
+                 * displace the other, so one is a tap away from the other. The
+                 * gesture sits inside the headline's and wins in its own frame,
+                 * which keeps the big number's own tap intact.
+                 */
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    guard scrubbed == nil, data.leftToSpend.savedThisMonthToDate != nil else { return }
+                    UISelectionFeedbackGenerator().selectionChanged()
+                    withAnimation(.smooth(duration: 0.35)) { showSaving.toggle() }
+                }
             }
             .frame(maxWidth: .infinity)
             .contentShape(Rectangle())

@@ -190,6 +190,75 @@ enum LocalQueries {
     }
 
 
+    /// Spending with reimbursements deducted, optionally cut at a day.
+    static func netBurn(_ db: SQLiteDatabase, month: String, upto: String?) throws -> Double {
+        let cut = upto.map { "AND substr(t.occurred_at, 1, 10) <= '\($0)'" } ?? ""
+        let raw = try db.scalar(
+            """
+            SELECT coalesce(sum(\(netBurnCase)), 0)
+            FROM transactions t
+            JOIN accounts a ON a.id = t.account_id
+            LEFT JOIN categories c ON c.id = t.category_id
+            LEFT JOIN category_groups g ON g.id = c.group_id
+            WHERE t.deleted_at IS NULL AND t.status = 'cleared' AND t.is_pending = 0
+              AND substr(t.occurred_at, 1, 10) <= date('now')
+              AND substr(t.occurred_at, 1, 7) = ? \(cut)
+              AND t.transfer_pair_id IS NULL AND a.is_archived = 0
+            """,
+            [.text(month)]
+        )?.double ?? 0
+        return raw >= 0 ? 0 : abs(raw)
+    }
+
+    static func savedPrevMonthToDate(_ db: SQLiteDatabase, salaryId: String?) throws -> Double? {
+        let calendar = Calendar(identifier: .gregorian)
+        let now = Date()
+        guard let prev = calendar.date(byAdding: .month, value: -1, to: now) else { return nil }
+        let month = monthFormatter.string(from: prev)
+        let lastDay = calendar.range(of: .day, in: .month, for: prev)?.count ?? 28
+        // The 31st has no counterpart in a 30-day month; stop at its last day.
+        let day = min(calendar.component(.day, from: now), lastDay)
+        let cut = String(format: "%@-%02d", month, day)
+
+        let spentRaw = try db.scalar(
+            """
+            SELECT coalesce(sum(\(netBurnCase)), 0)
+            FROM transactions t
+            JOIN accounts a ON a.id = t.account_id
+            LEFT JOIN categories c ON c.id = t.category_id
+            LEFT JOIN category_groups g ON g.id = c.group_id
+            WHERE t.deleted_at IS NULL AND t.status = 'cleared' AND t.is_pending = 0
+              AND substr(t.occurred_at, 1, 7) = ?
+              AND substr(t.occurred_at, 1, 10) <= ?
+              AND t.transfer_pair_id IS NULL AND a.is_archived = 0
+            """,
+            [.text(month), .text(cut)]
+        )?.double ?? 0
+        let spent = spentRaw >= 0 ? 0 : abs(spentRaw)
+
+        // The salary counts for its whole month; the rest only once received.
+        let income = try db.scalar(
+            """
+            SELECT coalesce(sum(
+              CASE WHEN t.category_id = ?1 THEN t.amount
+                   WHEN substr(t.occurred_at, 1, 10) <= ?3 THEN t.amount
+                   ELSE 0 END), 0)
+            FROM transactions t
+            JOIN accounts a ON a.id = t.account_id
+            JOIN categories c ON c.id = t.category_id
+            JOIN category_groups g ON g.id = c.group_id
+            WHERE t.deleted_at IS NULL AND t.status = 'cleared' AND t.is_pending = 0
+              AND substr(t.occurred_at, 1, 7) = ?2
+              AND g.kind = 'income' AND t.amount > 0
+              AND t.transfer_pair_id IS NULL AND a.is_archived = 0
+            """,
+            [salaryId.map { SQLiteValue.text($0) } ?? .null, .text(month), .text(cut)]
+        )?.double ?? 0
+
+        guard income > 0 || spent > 0 else { return nil }
+        return round2(income - spent)
+    }
+
     static func readCategories(_ db: SQLiteDatabase) throws -> [Category] {
         try db.query(
             """
@@ -462,6 +531,26 @@ enum LocalQueries {
         let remaining = max(0, days - elapsed)
         let left = income - spent
 
+        /*
+         * The same figure, one month back, cut at the same day.
+         *
+         * Comparing two months at the same date is the obvious way to ask "am
+         * I saving more than last month", and doing it naively is wrong: the
+         * salary lands on a drifting date, so on the 28th one month has been
+         * paid and the other has not. Measured that way this ledger read
+         * +298 € for August against −2 656 € for July, whose payslip came on
+         * the 29th.
+         *
+         * Counting the month's salary whether or not it had landed by that day
+         * removes the artefact: +499, +451, +226, +106, +415, +343, +298 over
+         * seven months, every one of them a figure worth reading.
+         */
+        let previous = try Self.savedPrevMonthToDate(db, salaryId: salary?.id)
+        // Saving is income minus spending NET of reimbursements — a refund
+        // really does put money back, even though the ceiling counts gross.
+        let netSpent = try netBurn(db, month: month, upto: nil)
+        let kept = round2(income - netSpent)
+
         return LeftToSpend(
             salaryCategoryName: salary?.name,
             monthIncome: round2(income),
@@ -469,6 +558,8 @@ enum LocalQueries {
             monthSpentFixed: round2(fixed),
             expectedMonthlySpend: try burnAverage(db, months: 6),
             expectedMonthlyFixed: try burnAverage(db, months: 6, fixedOnly: true),
+            savedThisMonthToDate: kept,
+            savedPrevMonthToDate: previous,
             leftToSpend: round2(left),
             dailyAvgSpent: elapsed > 0 ? round2(spent / Double(elapsed)) : 0,
             dailyBudgetRemaining: salary != nil && remaining > 0

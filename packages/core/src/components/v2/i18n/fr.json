@@ -337,6 +337,8 @@
   "v2.overview.inMonth": "en {month}",
   "v2.overview.incomeEstimated": "Salaire du mois pas encore reçu — basé sur le précédent",
   "v2.overview.invested": "Investi",
+  "v2.overview.keptThisMonth": "gardés ce mois-ci",
+  "v2.overview.keptVsLastMonth": "gardés · {prev} au même jour",
   "v2.overview.leftToSpend": "Reste à vivre",
   "v2.overview.leftToSpendBasis": "D'après « {category} »",
   "v2.overview.leftToSpendNone": "Aucun salaire détecté sur 90 jours",
