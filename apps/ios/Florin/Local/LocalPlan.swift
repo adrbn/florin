@@ -78,12 +78,21 @@ enum LocalPlan {
                *
                * But excluding both legs is what reported "Réparti 136 €,
                * dépensé 0 €" for a bill paid every month without fail — the
-               * real leg is paired too. Money the user filed under a category
-               * is money they planned and watched leave, so it counts; only
-               * outflows qualify, which keeps the mirror out for good.
+               * real leg is paired too.
+               *
+               * What decides is the account on the other side, not whether
+               * someone filed the row: settling a debt is a bill you budget
+               * for, feeding your own savings is not, and a savings transfer
+               * with a category on it is still a savings transfer. Only
+               * outflows qualify, so the leg landing against the debt can
+               * never count as well.
                */
               AND (t.transfer_pair_id IS NULL
-                   OR (t.category_id IS NOT NULL AND t.amount < 0))
+                   OR (t.amount < 0 AND EXISTS (
+                     SELECT 1 FROM transactions p
+                     JOIN accounts pa ON pa.id = p.account_id
+                     WHERE p.transfer_pair_id = t.transfer_pair_id
+                       AND p.id <> t.id AND pa.kind = 'loan')))
             """,
             [.text(key)]
         ) {

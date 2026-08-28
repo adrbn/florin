@@ -1,7 +1,7 @@
 import { and, asc, eq, gte, isNull, lt, sql } from 'drizzle-orm'
 import type { PgDB } from '../client'
 import type { MonthPlan, PlanCategory, PlanGroup } from '@florin/core/types'
-import { categories, categoryGroups, transactions, monthlyBudgets } from '../schema'
+import { accounts, categories, categoryGroups, transactions, monthlyBudgets } from '../schema'
 
 /**
  * Async query that builds the full MonthPlan for a given (year, month).
@@ -76,14 +76,18 @@ export async function getMonthPlanQuery(
         gte(transactions.occurredAt, start),
         lt(transactions.occurredAt, end),
         isNull(transactions.deletedAt),
-        // A leg of a transfer is not spending — except when it is. Money
-        // moved between the user's own accounts stays out, but a repayment
-        // they filed under a category is money they planned and watched
-        // leave: excluding it reported "Réparti 136 €, dépensé 0 €" for a
-        // bill paid every month without fail. Only outflows qualify, so the
-        // mirror landing against the debt can never count as well.
+        // A leg of a transfer is not spending — unless the money is settling
+        // a debt. Feeding your own savings is not a bill; a loan repayment is
+        // one you budget for and watch leave every month, and excluding both
+        // legs reported "Réparti 136 €, dépensé 0 €" for it. The counterpart's
+        // account decides, not whether someone filed the row: a transfer to
+        // savings with a category on it is still a transfer.
         sql`(${transactions.transferPairId} IS NULL
-             OR (${transactions.categoryId} IS NOT NULL AND ${transactions.amount} < 0))`,
+             OR (${transactions.amount} < 0 AND EXISTS (
+               SELECT 1 FROM ${transactions} AS p
+               JOIN ${accounts} AS pa ON pa.id = p.account_id
+               WHERE p.transfer_pair_id = ${transactions.transferPairId}
+                 AND p.id <> ${transactions.id} AND pa.kind = 'loan')))`,
       ),
     )
 

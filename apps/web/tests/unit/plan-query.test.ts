@@ -88,7 +88,26 @@ describe('getMonthPlanQuery', () => {
     const plan = getMonthPlanQuery(ctx.db, 2026, 4)
     expect(plan.income).toBe(3000) // unchanged, transfer excluded
     const rent = plan.groups[0].categories.find((c) => c.id === ids.catRentId)!
-    expect(rent.spent).toBe(915) // unchanged, transfer excluded
+    // Still excluded even though both legs carry a category: the counterpart
+    // is an ordinary account, so this is money moved, not money spent.
+    expect(rent.spent).toBe(915)
+  })
+
+  it('counts a loan repayment, which is a bill and not money moved', () => {
+    const ctx = makeTestDb()
+    const ids = seedPlanFixture(ctx)
+    ctx.raw.exec(`
+      INSERT INTO accounts (id, name, kind, current_balance) VALUES
+        ('acct-loan', 'Student loan', 'loan', 5000);
+      INSERT INTO transactions (id, account_id, occurred_at, amount, category_id, source, payee, transfer_pair_id) VALUES
+        ('tx-loan-out', '${ids.accountId}', '2026-04-12', -135.91, '${ids.catRentId}', 'manual', 'Repayment', 'pair-loan'),
+        ('tx-loan-in', 'acct-loan', '2026-04-12', 135.91, NULL, 'manual', 'Repayment', 'pair-loan');
+    `)
+
+    const plan = getMonthPlanQuery(ctx.db, 2026, 4)
+    const rent = plan.groups[0].categories.find((c) => c.id === ids.catRentId)!
+    // The outbound leg counts; the leg landing against the debt never does.
+    expect(rent.spent).toBeCloseTo(915 + 135.91, 2)
   })
 
   it('excludes soft-deleted transactions', () => {
