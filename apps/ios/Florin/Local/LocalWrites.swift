@@ -188,6 +188,41 @@ enum LocalLedger {
             "SELECT name FROM accounts WHERE id = ?", [.text(source)]
         )?.string ?? "?"
 
+        /*
+         * Adopt the landing if it is already there.
+         *
+         * The chosen account may already hold this movement — entered by hand
+         * while the bank was still catching up, or synced in its own right.
+         * Writing the mirror regardless would credit the money twice and
+         * inflate the account by the whole amount. So look for an unpaired row
+         * of the opposite sign within a few days first, and if one exists,
+         * pair the two rows that already describe the truth.
+         */
+        let existing = try store.database.query(
+            """
+            SELECT id FROM transactions
+            WHERE account_id = ? AND deleted_at IS NULL AND transfer_pair_id IS NULL
+              AND abs(amount + ?) < 0.005
+              AND abs(julianday(occurred_at) - julianday(?)) <= 5
+            ORDER BY abs(julianday(occurred_at) - julianday(?)) LIMIT 1
+            """,
+            [.text(toAccountId), .real(amount), .text(day), .text(day)]
+        ).first?.string("id")
+
+        if let existing {
+            try store.database.transaction {
+                try store.database.run(
+                    """
+                    UPDATE transactions SET transfer_pair_id = ?, category_id = NULL,
+                           needs_review = 0, updated_at = datetime('now')
+                    WHERE id IN (?, ?)
+                    """,
+                    [.text(pair), .text(txId), .text(existing)]
+                )
+            }
+            return
+        }
+
         try store.database.transaction {
             try store.database.run(
                 "UPDATE transactions SET transfer_pair_id = ?, updated_at = datetime('now') WHERE id = ?",

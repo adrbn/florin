@@ -242,10 +242,14 @@ enum EnableBanking {
         uid: String,
         from: String,
         to: String,
-        continuationKey: String? = nil
+        continuationKey: String? = nil,
+        status: String? = nil
     ) async throws -> TransactionsResponse {
         var query = ["date_from": from, "date_to": to]
         if let continuationKey { query["continuation_key"] = continuationKey }
+        // Left off, the API answers with booked transactions only — which is
+        // why money that has arrived can show in the balance and nowhere else.
+        if let status { query["transaction_status"] = status }
         return try await request(config, "/accounts/\(uid)/transactions", query: query)
     }
 
