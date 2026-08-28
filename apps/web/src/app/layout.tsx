@@ -12,7 +12,7 @@ const geist = Geist({ subsets: ['latin'], variable: '--font-sans' })
 
 export const metadata: Metadata = {
   title: 'Florin',
-  description: 'Personal finance dashboard',
+  description: 'Your finances, your server.',
   manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,
