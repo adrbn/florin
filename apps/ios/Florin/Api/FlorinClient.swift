@@ -189,7 +189,7 @@ struct FlorinClient: Sendable {
                 Strings.device("v2.common.errorNoDatabase", "Florin n'a pas pu ouvrir sa base de données sur cet appareil.")
             )
             }
-            return try LocalQueries.overview(store: store, locale: Locale.current.identifier)
+            return try LocalQueries.overview(store: store, locale: Strings.preferredShortLocale)
         }
 
         // `base` points at the v2 page (…/m); the feed sits beside it.

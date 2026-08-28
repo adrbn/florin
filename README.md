@@ -5,7 +5,7 @@
 <h1 align="center">Florin</h1>
 
 <p align="center">
-  Privacy-first personal finance — a native macOS app and a self-hostable web app.
+  Privacy-first personal finance — a native macOS app, a native iPhone app, and a self-hostable web app.
 </p>
 
 <p align="center">
@@ -20,7 +20,7 @@
 - **Your data stays on your machine.** No SaaS middleman, no analytics, no telemetry.
 - **Real bank sync via PSD2.** Connects to 2 000+ EU banks through [Enable Banking](https://enablebanking.com/) — you register your own free app and keep the credentials.
 - **YNAB-style workflow.** Category groups (Needs / Wants / Bills / Savings / Income), a review queue for new imports, auto-categorization rules, monthly plan.
-- **Two shapes, one codebase.** Native macOS desktop (Electron + SQLite) or self-hosted web (Docker + Postgres).
+- **Three shapes, one codebase.** Native macOS desktop (Electron + SQLite), native iPhone app (SwiftUI + SQLite), or self-hosted web (Docker + Postgres).
 
 ## Features
 
@@ -42,6 +42,31 @@ Native macOS app. Zero config, one-click install.
 - PIN lock, onboarding wizard
 - Signed, notarized, and auto-updating via GitHub Releases
 - All data in `~/Library/Application Support/@florin/desktop/florin.db`
+
+### iPhone (`apps/ios`)
+
+Native SwiftUI app. Runs entirely on the phone — its own SQLite ledger, its own
+bank sync, no server required — or as a client of your Florin server, switched
+in Settings.
+
+- The full app on device: dashboard, plan, activity, analysis, transfers between
+  your own accounts, manual entry
+- Bank sync straight from the phone: the RSA key is generated in the iOS
+  keychain as `WhenUnlockedThisDeviceOnly`, so it never syncs and never travels
+  to another device, and the bank's consent screen opens in
+  `ASWebAuthenticationSession`
+- Categorises new transactions from how you have filed your own history — no
+  rules to write, no data sent anywhere
+- Background refresh with one summary notification, not one per transaction
+- Ledger in `Library/Application Support/Florin/florin.db`, included in the
+  iPhone's iCloud backup, plus an export/restore pair for moving to a new phone
+- No App Store build: AGPL-3.0 and the App Store terms do not mix, and Enable
+  Banking requires one registered application per person. Build it yourself with
+  a free Apple ID, or install the signed build from Releases.
+
+```bash
+cd apps/ios && xcodegen generate && open Florin.xcodeproj
+```
 
 ### Web (`apps/web`)
 
@@ -170,6 +195,19 @@ docker exec florin-db pg_dump -U florin -d florin --no-owner --no-privileges \
 
 **Desktop (SQLite):** copy `~/Library/Application Support/@florin/desktop/florin.db` — single file, best taken with the app closed. JSON export also available in Settings → Data.
 
+**iPhone:** the ledger is part of the iPhone's iCloud backup, which covers losing
+the phone and is invisible from inside the app — iOS tells apps neither whether
+backups are on nor when the last one ran. For a copy you can see, Settings →
+Sauvegarde → **Exporter une copie** writes a plain SQLite file (readable by any
+SQLite tool) into the app's Documents folder, visible in Files under "Florin" and
+offered to the share sheet. **Restaurer une copie** replaces the ledger with a
+file's contents — that is what moves everything to a new phone, and it is offered
+during onboarding so a fresh install does not have to invent an account first.
+The bank connection is deliberately not in the file — a PSD2 session restored
+onto another phone is a dead session — and the signing key could not be there
+anyway: it lives in the keychain marked `ThisDeviceOnly`, which is precisely a
+promise never to appear on a second device. Reconnect the bank on the new phone.
+
 ## Repo layout
 
 ```
@@ -178,6 +216,9 @@ apps/
   desktop/          Electron 35 + Next.js 15 + SQLite
     main/           Main process (TS → esbuild → CJS)
     tray-ui/        Menu bar widget (static HTML)
+  ios/              SwiftUI + raw SQLite, XcodeGen project
+    Florin/Local/   On-device ledger: schema, queries, categoriser, backup
+    Florin/Banking/ Enable Banking client, key generation, consent flow
 packages/
   core/             Shared UI, types, i18n, formatters
   db-pg/            Postgres client, queries, mutations

@@ -134,7 +134,16 @@ struct CategoryEditorSheet: View {
                     .disabled(trimmed.isEmpty || saving)
                 }
             }
-            .onAppear { if draft.category == nil { focused = true } }
+            /*
+             * No keyboard on open.
+             *
+             * A new category needs a name, which argued for raising the
+             * keyboard — but the sheet is 430 points tall and two thirds of it
+             * are the emoji grid and the fixed-charge toggle. A full keyboard
+             * puts both out of reach the moment it opens, hiding two of the
+             * three decisions this sheet exists to take. The account editor is
+             * the same shape and declines the same shortcut.
+             */
         }
         .presentationDetents([.height(430), .large])
         .presentationDragIndicator(.visible)
