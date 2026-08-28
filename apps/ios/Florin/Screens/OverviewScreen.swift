@@ -576,14 +576,38 @@ struct OverviewScreen: View {
 
     private func monthEnd(_ data: Overview) -> some View {
         let lts = data.leftToSpend
-        // Same projection the web card runs: extrapolate only the variable
-        // daily pace, floored at the typical full month, and never extrapolate
-        // lumpy fixed bills that already landed.
+        /*
+         * The same projection the web card runs — see computeMonthForecast.
+         *
+         * A month is two things: bills that land whichever day the bank
+         * chooses but always land, and a daily habit that can genuinely be
+         * lighter than usual. The fixed part is carried whole; the variable
+         * part is a daily rate scaled to the month, blended with this
+         * account's own history by how much of the month has been observed.
+         *
+         * It replaces a floor that clamped the projection to the six-month
+         * average right up to the last day, so a month spent 500 € under
+         * budget still reported an average month and the saving never showed.
+         */
+        // The prior's weight decays as the month fills in — three days say
+        // nothing, the 28th says almost everything. 60 is where measurement
+        // puts the minimum; see computeMonthForecast.
+        let priorDays = 60.0
+        let daysInMonth = Double(lts.daysElapsed + lts.daysRemaining)
+        let elapsed = Double(lts.daysElapsed)
+        let priorWeight = daysInMonth > 0 ? priorDays * (1 - elapsed / daysInMonth) : 0
+        let expectedFixed = lts.expectedMonthlyFixed ?? 0
         let variable = max(0, lts.monthSpent - lts.monthSpentFixed)
-        let dailyVariable = lts.daysElapsed > 0 ? variable / Double(lts.daysElapsed) : 0
-        let pace = lts.monthSpent + dailyVariable * Double(lts.daysRemaining)
-        let floorValue = lts.daysRemaining > 0 ? lts.expectedMonthlySpend : lts.monthSpent
-        let projected = max(pace, floorValue)
+        let observedDaily = elapsed > 0 ? variable / elapsed : 0
+        let priorDaily = daysInMonth > 0
+            ? max(0, lts.expectedMonthlySpend - expectedFixed) / daysInMonth
+            : 0
+        let weight = elapsed + priorWeight
+        let blendedDaily = weight > 0
+            ? (elapsed * observedDaily + priorWeight * priorDaily) / weight
+            : observedDaily
+        let fixedComponent = max(lts.monthSpentFixed, expectedFixed)
+        let projected = max(lts.monthSpent, blendedDaily * daysInMonth + fixedComponent)
         let margin = lts.monthIncome > 0 ? lts.monthIncome - projected : nil
         let ratio = lts.monthIncome > 0 ? min(1, projected / lts.monthIncome) : 1
 

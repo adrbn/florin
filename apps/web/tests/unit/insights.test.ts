@@ -53,9 +53,8 @@ describe('computeMonthForecast', () => {
     monthIncome: 3000,
     monthSpent: 1000,
     monthSpentFixed: 0,
-    // Low typical burn so the pace projection wins in these pace-focused tests;
-    // a dedicated test below exercises the floor.
     expectedMonthlySpend: 1200,
+    expectedMonthlyFixed: 0,
     leftToSpend: 2000,
     dailyAvgSpent: 100,
     dailyBudgetRemaining: 100,
@@ -63,38 +62,85 @@ describe('computeMonthForecast', () => {
     daysRemaining: 20,
   }
 
-  it('projects spend at the current pace and the resulting margin', () => {
-    const f = computeMonthForecast(base)
-    expect(f.projectedSpend).toBe(1000 + 100 * 20) // 3000
-    expect(f.projectedMargin).toBe(0) // 3000 income − 3000 spend
-    expect(f.onTrack).toBe(true)
-  })
-
-  it('floors the projection at the typical monthly burn early in the month', () => {
-    // Day 2 of the month, only €30 spent, a reimbursement means almost no
-    // net spend yet. Pace alone would project ~€450 and a fantasy €2550 margin.
-    // The floor (typical €2400/mo) keeps the projection honest.
+  it('leans on the prior early, when a few days say nothing', () => {
+    // Day 2 of a 30-day month, 30 EUR out. The observed rate alone would
+    // project ~450 EUR of spend and a fantasy 2 550 EUR margin.
     const f = computeMonthForecast({
       ...base,
       monthSpent: 30,
-      monthSpentFixed: 0,
       expectedMonthlySpend: 2400,
       daysElapsed: 2,
       daysRemaining: 28,
     })
-    expect(f.projectedSpend).toBe(2400) // floored, not the ~450 pace figure
-    expect(f.projectedMargin).toBe(3000 - 2400) // 600, realistic
+    // The prior carries almost all the weight this early, so the projection
+    // stays close to what a month usually costs.
+    expect(f.projectedSpend).toBeGreaterThan(2000)
+    expect(f.projectedSpend).toBeLessThan(2400)
     expect(f.onTrack).toBe(true)
   })
 
-  it('flags an overspend pace as off-track', () => {
-    // The forecast extrapolates VARIABLE spend (monthSpent − monthSpentFixed)
-    // over the elapsed days, not raw dailyAvgSpent — so drive the overspend via
-    // a higher monthSpent. 1500 over 10 days → 150/day → +150×20 remaining.
-    const f = computeMonthForecast({ ...base, monthSpent: 1500 })
-    expect(f.projectedSpend).toBe(1500 + 150 * 20) // 4500
-    expect(f.projectedMargin).toBe(3000 - 4500) // −1500
+  it('lets a genuinely cheap month show as one, late in the month', () => {
+    // Day 28 of 31, well under the usual 2 400 EUR. The old floor clamped the
+    // projection to the six-month average right up to the last day, so a month
+    // spent 900 EUR under budget still reported an average month.
+    const f = computeMonthForecast({
+      ...base,
+      monthSpent: 1500,
+      monthSpentFixed: 1000,
+      expectedMonthlySpend: 2400,
+      expectedMonthlyFixed: 1000,
+      daysElapsed: 28,
+      daysRemaining: 3,
+    })
+    expect(f.projectedSpend).toBeLessThan(2000)
+    expect(f.projectedMargin as number).toBeGreaterThan(1000)
+    expect(f.onTrack).toBe(true)
+  })
+
+  it('never projects less than what has already gone out', () => {
+    const f = computeMonthForecast({
+      ...base,
+      monthSpent: 2800,
+      monthSpentFixed: 2800,
+      expectedMonthlySpend: 1200,
+      expectedMonthlyFixed: 100,
+      daysElapsed: 29,
+      daysRemaining: 1,
+    })
+    expect(f.projectedSpend).toBeGreaterThanOrEqual(2800)
+  })
+
+  it('carries bills that have not landed yet', () => {
+    // Nothing fixed has posted, but 1 000 EUR of it always does.
+    const f = computeMonthForecast({
+      ...base,
+      monthSpent: 200,
+      monthSpentFixed: 0,
+      expectedMonthlySpend: 1600,
+      expectedMonthlyFixed: 1000,
+      daysElapsed: 10,
+      daysRemaining: 20,
+    })
+    expect(f.projectedSpend).toBeGreaterThan(1000)
+  })
+
+  it('flags an overspend as off-track', () => {
+    const f = computeMonthForecast({
+      ...base,
+      monthSpent: 3500,
+      monthSpentFixed: 500,
+      daysElapsed: 20,
+      daysRemaining: 10,
+    })
+    expect(f.projectedMargin as number).toBeLessThan(0)
     expect(f.onTrack).toBe(false)
+  })
+
+  it('degrades rather than producing NaN without a fixed prior', () => {
+    const { expectedMonthlyFixed: _omitted, ...withoutPrior } = base
+    const f = computeMonthForecast(withoutPrior as LeftToSpend)
+    expect(Number.isFinite(f.projectedSpend)).toBe(true)
+    expect(Number.isFinite(f.projectedMargin as number)).toBe(true)
   })
 
   it('returns null margin when no income is detected', () => {

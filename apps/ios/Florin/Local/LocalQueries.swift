@@ -433,6 +433,7 @@ enum LocalQueries {
             monthSpent: round2(spent),
             monthSpentFixed: round2(fixed),
             expectedMonthlySpend: try burnAverage(db, months: 6),
+            expectedMonthlyFixed: try burnAverage(db, months: 6, fixedOnly: true),
             leftToSpend: round2(left),
             dailyAvgSpent: elapsed > 0 ? round2(spent / Double(elapsed)) : 0,
             dailyBudgetRemaining: salary != nil && remaining > 0
@@ -498,19 +499,30 @@ enum LocalQueries {
         )
     }
 
-    static func burn(_ db: SQLiteDatabase, monthsBack: Int) throws -> Double {
+    static func burn(
+        _ db: SQLiteDatabase, monthsBack: Int, fixedOnly: Bool = false
+    ) throws -> Double {
         let calendar = Calendar(identifier: .gregorian)
         guard let date = calendar.date(byAdding: .month, value: -monthsBack, to: Date())
         else { return 0 }
-        return round2(try sum(db, month: Self.monthFormatter.string(from: date), kind: "expense"))
+        return round2(try sum(
+            db, month: Self.monthFormatter.string(from: date),
+            kind: "expense", fixedOnly: fixedOnly
+        ))
     }
 
     /// Complete months only — the month in progress has its spending booked but
     /// not its income, and averaging it in drags the figure down for no reason
     /// other than the date.
-    static func burnAverage(_ db: SQLiteDatabase, months: Int) throws -> Double {
+    /// Complete months only — the current one is the thing this average
+    /// exists to stand in for.
+    static func burnAverage(
+        _ db: SQLiteDatabase, months: Int, fixedOnly: Bool = false
+    ) throws -> Double {
         var total = 0.0
-        for offset in 1...months { total += try burn(db, monthsBack: offset) }
+        for offset in 1...months {
+            total += try burn(db, monthsBack: offset, fixedOnly: fixedOnly)
+        }
         return round2(total / Double(months))
     }
 
