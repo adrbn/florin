@@ -304,13 +304,20 @@ async function getPrevMonthSavedToDate(db: PgDB, salaryCategoryId: string | null
   const spentRaw = Number(spentRow?.total ?? '0')
   const spent = spentRaw >= 0 ? 0 : Math.abs(spentRaw)
 
-  // The salary counts for its whole month; everything else only once received.
+  /*
+   * The salary counts for its whole month; everything else only once received.
+   *
+   * Both bounds go in as ISO strings. A `Date` interpolated into a raw sql
+   * fragment reaches the driver's literal escaper rather than its parameter
+   * binder, which throws — the overview answered 500 until this was a string.
+   */
+  const cutIso = cut.toISOString()
   const [incomeRow] = await db
     .select({
-      salary: sql<string>`COALESCE(SUM(CASE WHEN ${transactions.categoryId} = ${salaryCategoryId}
+      salary: sql<string>`COALESCE(SUM(CASE WHEN ${transactions.categoryId}::text = ${salaryCategoryId ?? ''}
         THEN ${transactions.amount} ELSE 0 END), 0)`,
-      other: sql<string>`COALESCE(SUM(CASE WHEN ${transactions.categoryId} <> ${salaryCategoryId}
-        AND ${transactions.occurredAt} <= ${cut} THEN ${transactions.amount} ELSE 0 END), 0)`,
+      other: sql<string>`COALESCE(SUM(CASE WHEN ${transactions.categoryId}::text <> ${salaryCategoryId ?? ''}
+        AND ${transactions.occurredAt} <= ${cutIso}::timestamptz THEN ${transactions.amount} ELSE 0 END), 0)`,
     })
     .from(transactions)
     .innerJoin(accounts, eq(transactions.accountId, accounts.id))
