@@ -162,10 +162,10 @@ struct SettingsScreen: View {
             /*
              * What is in the file, before it goes in.
              *
-             * A restore merges rather than replaces, so it cannot lose what is
-             * on the phone — but "23 opérations" when you expected two
-             * thousand is how you find out you picked last year's copy, and
-             * that is worth knowing one tap early.
+             * A restore replaces the ledger, so what the file holds is what
+             * the phone will hold. "23 opérations" where two thousand were
+             * expected is how someone finds out they picked last year's copy,
+             * and that has to be seen before the tap, not after.
              */
             .alert(
                 t("v2.settings.restoreConfirm", "Restaurer cette sauvegarde ?"),
@@ -174,7 +174,7 @@ struct SettingsScreen: View {
                     set: { if !$0 { pendingRestore = nil } }
                 )
             ) {
-                Button(t("v2.settings.restoreAction", "Restaurer")) {
+                Button(t("v2.settings.restoreAction", "Restaurer"), role: .destructive) {
                     if let url = pendingRestore?.url { Task { await restore(url) } }
                     pendingRestore = nil
                 }
@@ -182,7 +182,7 @@ struct SettingsScreen: View {
             } message: {
                 Text(t(
                     "v2.settings.restoreConfirmBody",
-                    "Ce fichier contient {transactions} opérations et {accounts} comptes. Ils seront ajoutés à ce téléphone ; rien de ce qui s'y trouve ne sera effacé.",
+                    "Ce fichier contient {transactions} opérations et {accounts} comptes. Il remplace ce qui est sur ce téléphone — le grand livre actuel est d'abord mis de côté dans un fichier.",
                     [
                         "transactions": pendingRestore?.summary.transactions ?? 0,
                         "accounts": pendingRestore?.summary.accounts ?? 0,
@@ -330,7 +330,7 @@ struct SettingsScreen: View {
                 title: t("v2.settings.restoreDone", "Sauvegarde restaurée"),
                 detail: t(
                     "v2.settings.restoreSummary",
-                    "Votre grand livre compte maintenant {transactions} opérations et {accounts} comptes.",
+                    "Votre grand livre compte maintenant {transactions} opérations et {accounts} comptes — exactement ce que contenait le fichier.",
                     ["transactions": after.transactions, "accounts": after.accounts]
                 )
             )

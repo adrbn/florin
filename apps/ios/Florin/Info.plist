@@ -54,6 +54,19 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<!-- Backups the user can actually find.
+
+	     An export that only exists behind a share sheet is a file someone has
+	     to route somewhere in the moment or lose. With these two keys the app's
+	     Documents folder appears in Files under "Florin", so a copy sits
+	     somewhere the person can open, mail, or hand to the restore picker on
+	     the next phone without having thought ahead. Nothing sensitive lives
+	     there: the ledger itself and the banking key stay in Application
+	     Support, which this does not expose. -->
+	<key>UIFileSharingEnabled</key>
+	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>

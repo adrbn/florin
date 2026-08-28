@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// The first thing a new install sees.
 ///
@@ -26,6 +27,7 @@ struct OnboardingFlow: View {
     @State private var kind = AccountKind.checking
     @State private var balanceText = ""
     @State private var saving = false
+    @State private var picking = false
     @State private var failure: String?
     @FocusState private var focus: Field?
 
@@ -43,6 +45,17 @@ struct OnboardingFlow: View {
     enum StartPath {
         case bank
         case manual
+        /*
+         * Coming back, rather than starting.
+         *
+         * Restore lived only in Settings, which a fresh install cannot reach
+         * without first inventing an account or connecting a bank — so the one
+         * person who needs it most, someone holding a new phone and a file with
+         * their whole ledger in it, was the one person made to build a decoy
+         * first. It belongs on the screen that asks how you want to begin,
+         * because for them that is the answer.
+         */
+        case restore
     }
 
     /// The ground shifts colour as you advance — the same per-section tinting
@@ -66,7 +79,13 @@ struct OnboardingFlow: View {
      * user on a dashboard of zeros. There is nothing to confirm before the
      * bank has been connected, so the fork is where that path ends.
      */
-    private var lastStep: Int { path == .manual ? 3 : 2 }
+    private var lastStep: Int {
+        switch path {
+        case .manual: 3
+        case .restore: 1
+        default: 2
+        }
+    }
 
     /// The page that asks to be allowed to speak, on the path where it would
     /// have something to say.
@@ -105,6 +124,20 @@ struct OnboardingFlow: View {
                 secondaryAction
                     .frame(height: 30)
                     .padding(.bottom, 18)
+            }
+        }
+        .fileImporter(isPresented: $picking, allowedContentTypes: [.data]) { result in
+            guard case let .success(url) = result, let store = LocalStore.shared else { return }
+            saving = true
+            Task {
+                do {
+                    _ = try LocalBackup.restore(from: url, into: store)
+                    saving = false
+                    onFinish()
+                } catch {
+                    saving = false
+                    failure = error.localizedDescription
+                }
             }
         }
         .animation(.snappy(duration: 0.32), value: step)
@@ -180,6 +213,12 @@ struct OnboardingFlow: View {
                     emoji: "✍️",
                     title: Strings.device("v2.onboard.manualTitle", "Saisir mes comptes"),
                     detail: Strings.device("v2.onboard.manualDetail", "Vous entrez ce que vous avez, et vous ajoutez vos opérations vous-même.")
+                )
+                choice(
+                    .restore,
+                    emoji: "📦",
+                    title: Strings.device("v2.onboard.restoreTitle", "J'ai une sauvegarde"),
+                    detail: Strings.device("v2.onboard.restoreDetail", "Reprenez tout depuis un fichier exporté d'un autre téléphone.")
                 )
             }
             .padding(.horizontal, Florin.gutter)
@@ -416,7 +455,9 @@ struct OnboardingFlow: View {
             HStack(spacing: 8) {
                 if saving { ProgressView().tint(.black) }
                 Text(
-                    isNotifyStep
+                    path == .restore && step == 1
+                        ? Strings.device("v2.onboard.restorePick", "Choisir le fichier")
+                        : isNotifyStep
                         ? Strings.device("v2.onboard.notifyEnable", "Me tenir au courant")
                         : step == lastStep
                             ? (path == .bank
@@ -485,6 +526,10 @@ struct OnboardingFlow: View {
          *
          * Nothing is written: accounts and balances come from the bank.
          */
+        if path == .restore {
+            picking = true
+            return
+        }
         if path == .bank {
             saving = true
             Task {
