@@ -236,6 +236,39 @@ const grossBurnAmountSql = sql<string>`COALESCE(SUM(CASE
   ELSE 0
 END), 0)`
 
+/**
+ * Income this month from every income category except the salary, which is
+ * counted separately so it can fall back to the last month that saw one.
+ *
+ * Transfers between the user's own accounts are not income: a paired transfer
+ * carries `transferPairId`, and an unpaired inbound leg would have to be filed
+ * under an income category by hand to count here.
+ */
+async function getMonthIncome(db: PgDB, excludeCategoryId: string | null): Promise<number> {
+  const start = startOfMonth(new Date())
+  const end = endOfMonth(new Date())
+  const [row] = await db
+    .select({ total: sql<string>`COALESCE(SUM(${transactions.amount}), 0)` })
+    .from(transactions)
+    .innerJoin(accounts, eq(transactions.accountId, accounts.id))
+    .innerJoin(categories, eq(transactions.categoryId, categories.id))
+    .innerJoin(categoryGroups, eq(categories.groupId, categoryGroups.id))
+    .where(
+      and(
+        isNull(transactions.deletedAt),
+        eq(transactions.status, 'cleared'),
+        gte(transactions.occurredAt, start),
+        lte(transactions.occurredAt, end),
+        sql`${transactions.amount} > 0`,
+        sql`${transactions.transferPairId} IS NULL`,
+        eq(accounts.isArchived, false),
+        eq(categoryGroups.kind, 'income'),
+        ...(excludeCategoryId ? [sql`${transactions.categoryId} <> ${excludeCategoryId}`] : []),
+      ),
+    )
+  return Number(row?.total ?? '0')
+}
+
 export async function getMonthBurn(db: PgDB, opts: BurnOptions = {}): Promise<number> {
   const start = startOfMonth(new Date())
   const end = endOfMonth(new Date())
@@ -760,6 +793,23 @@ export async function getLeftToSpendThisMonth(db: PgDB): Promise<LeftToSpend> {
     const fallbackRow = rows[0]
     monthIncome = Number((currentRow ?? fallbackRow)?.total ?? '0')
   }
+
+  /*
+   * Everything that came in, not only the paycheck.
+   *
+   * The ceiling used to be the salary category alone, so a month's other
+   * income — a refund, a gift, side work, anything filed under a second
+   * income category — simply did not exist for "left to spend" or for the
+   * projected margin. On this account that quietly discarded 1 176 EUR across
+   * six months, and the margin read poorer than the month actually was.
+   *
+   * The salary keeps its own treatment because of when it lands: on the 3rd,
+   * with the paycheck still a fortnight away, a ceiling of zero would say
+   * there is nothing to spend. That one figure falls back to the last month
+   * that saw a payslip. The rest is simply this month's, as it arrives.
+   */
+  const otherIncome = await getMonthIncome(db, salaryCategoryId)
+  monthIncome += otherIncome
 
   // Gross so "spent so far" reads what actually went out and matches the
   // dashboard burn card + tray; a reimbursement shouldn't zero it early-month.
