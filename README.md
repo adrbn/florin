@@ -10,7 +10,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/license-AGPL--3.0-green" alt="License">
-  <img src="https://img.shields.io/badge/stack-Next.js%2015%20%C2%B7%20Electron%2035%20%C2%B7%20Drizzle-111" alt="Stack">
+  <img src="https://img.shields.io/badge/stack-Next.js%2015%20%C2%B7%20Electron%2035%20%C2%B7%20SwiftUI%20%C2%B7%20Drizzle-111" alt="Stack">
 </p>
 
 ---
