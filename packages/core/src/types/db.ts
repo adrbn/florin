@@ -182,6 +182,16 @@ export interface LeftToSpend {
    */
   expectedMonthlyFixed?: number
   /**
+   * Reimbursements already received this month — the gap between what went out
+   * and what it finally cost.
+   *
+   * Kept apart rather than netted into `monthSpent`, because the two figures
+   * answer different questions and want opposite treatments: a ceiling should
+   * not forgive a purchase because it was refunded, while a margin must, since
+   * the money really did come back.
+   */
+  monthRefunds?: number
+  /**
    * What has actually been kept this month so far: income minus spending NET
    * of reimbursements.
    *

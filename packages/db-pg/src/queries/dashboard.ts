@@ -890,6 +890,9 @@ export async function getLeftToSpendThisMonth(db: PgDB): Promise<LeftToSpend> {
   // Saving is income minus spending NET of reimbursements — a refund really
   // does put money back, even though the ceiling above counts gross.
   const netSpent = await getMonthBurn(db)
+  // What came back. Gross minus net is exactly the reimbursements, and
+  // the two figures want opposite treatments — see monthRefunds.
+  const monthRefunds = Math.max(0, monthSpent - netSpent)
   const savedThisMonthToDate = monthIncome - netSpent
   const savedPrevMonthToDate = await getPrevMonthSavedToDate(db, salaryCategoryId)
 
@@ -909,6 +912,7 @@ export async function getLeftToSpendThisMonth(db: PgDB): Promise<LeftToSpend> {
     monthSpentFixed,
     expectedMonthlySpend,
     expectedMonthlyFixed,
+    monthRefunds,
     savedThisMonthToDate,
     savedPrevMonthToDate,
     leftToSpend,

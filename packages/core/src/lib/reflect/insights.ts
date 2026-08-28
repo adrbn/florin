@@ -155,8 +155,23 @@ export function computeMonthForecast(lts: LeftToSpend): MonthForecast {
   const fixedComponent = Math.max(lts.monthSpentFixed, expectedFixed)
   const projectedSpend = Math.max(lts.monthSpent, blendedDaily * daysInMonth + fixedComponent)
 
+  /*
+   * Spending is projected gross and the margin is net.
+   *
+   * Refunds arrive in lumps and late, so a model fed net spending stops
+   * believing the month it is describing: measured across five real months it
+   * projected 856 € into the last three days of one, because the observed
+   * month sat under an average the prior then dragged it back to. Gross is the
+   * predictable series — mean error 141 € against 180 € — and the refunds
+   * already banked are simply known.
+   *
+   * Future refunds are not predicted. Being wrong on the pessimistic side of a
+   * margin is the harmless direction.
+   */
+  const refunds = lts.monthRefunds ?? 0
+  const projectedNetSpend = Math.max(lts.monthSpent - refunds, projectedSpend - refunds)
   const hasIncome = lts.monthIncome > 0
-  const projectedMargin = hasIncome ? lts.monthIncome - projectedSpend : null
+  const projectedMargin = hasIncome ? lts.monthIncome - projectedNetSpend : null
   return {
     daysElapsed: lts.daysElapsed,
     daysRemaining: lts.daysRemaining,

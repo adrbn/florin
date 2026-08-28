@@ -12,13 +12,21 @@ struct AccountsScreen: View {
     @ObservedObject var model: OverviewModel
     var route: (TabRoute, String) -> Void = { _, _ in }
     var onOpenSettings: () -> Void = {}
+    /*
+     * The account a link asked for.
+     *
+     * Tapping a row under "Vos comptes" on the dashboard switched to this tab
+     * and stopped there, leaving the person to find in a list the very thing
+     * they had just pointed at. The path already carried the id; nothing read
+     * it.
+     */
+    var openAccountId: String?
 
     @Environment(\.colorScheme) private var colorScheme
     @State private var drill: ActivityRoute?
     @State private var showNet = true
     @State private var addingAccount = false
     @State private var renaming: Account?
-    @State private var renameDraft = ""
     @State private var deleting: Account?
 
     /// `.device` and not `.empty`: the alerts and the header can be on screen
@@ -49,16 +57,19 @@ struct AccountsScreen: View {
         .fullScreenCover(item: $drill) { target in
             AccountDetailScreen(model: model, route: target)
         }
+        .task(id: openAccountId) {
+            guard let openAccountId,
+                  let account = model.overview?.accounts.first(where: { $0.id == openAccountId })
+            else { return }
+            drill = ActivityRoute(accountId: account.id, title: account.name)
+        }
         .sheet(isPresented: $addingAccount) {
             AddAccountSheet(onSaved: { Task { await model.load(showSpinner: false) } })
         }
-        .alert(
-            t("v2.accounts.rename", "Renommer"),
-            isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })
-        ) {
-            TextField("", text: $renameDraft)
-            Button(t("v2.common.save", "Enregistrer")) { commitRename() }
-            Button(t("v2.common.cancel", "Annuler"), role: .cancel) { renaming = nil }
+        .sheet(item: $renaming) { account in
+            AccountEditSheet(account: account, t: t) { name, icon in
+                await commitEdit(account, name: name, icon: icon)
+            }
         }
         .alert(
             t("v2.accounts.deleteConfirm", "Supprimer ce compte ?"),
@@ -80,16 +91,13 @@ struct AccountsScreen: View {
         }
     }
 
-    private func commitRename() {
-        guard let account = renaming, let store = LocalStore.shared else { return }
-        let name = renameDraft.trimmingCharacters(in: .whitespaces)
-        renaming = nil
-        guard !name.isEmpty else { return }
+    private func commitEdit(_ account: Account, name: String, icon: String) async {
+        guard let store = LocalStore.shared, !name.isEmpty else { return }
         try? store.database.run(
-            "UPDATE accounts SET name = ?, updated_at = datetime('now') WHERE id = ?",
-            [.text(name), .text(account.id)]
+            "UPDATE accounts SET name = ?, display_icon = ?, updated_at = datetime('now') WHERE id = ?",
+            [.text(name), .text(icon), .text(account.id)]
         )
-        Task { await model.load(showSpinner: false) }
+        await model.load(showSpinner: false)
     }
 
     private func commitDelete(_ account: Account) {
@@ -264,8 +272,7 @@ struct AccountsScreen: View {
                                 if model.base.scheme == "florin-local" {
                                     Button {
                                         renaming = account
-                                        renameDraft = account.name
-                                    } label: {
+                                                    } label: {
                                         Label(
                                             t("v2.accounts.rename", "Renommer"),
                                             systemImage: "pencil"

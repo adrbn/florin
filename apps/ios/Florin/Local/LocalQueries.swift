@@ -259,6 +259,45 @@ enum LocalQueries {
         return round2(income - spent)
     }
 
+    /*
+     * Money that left and never arrived anywhere.
+     *
+     * Only the current account is bank-synced, so a transfer to savings is
+     * seen leaving and never seen landing: the balance falls, nothing rises,
+     * and the net worth reports a loss that did not happen. The curve keeps
+     * that step for good.
+     *
+     * The test is the app's own transfer heuristic, unchanged — a bank's own
+     * wording for moving money, with no category on it. Reusing it rather than
+     * inventing a second rule means the rows offered here are exactly the rows
+     * already kept out of spending, so answering the question can only make
+     * the ledger more true, never less.
+     *
+     * Outgoing only. An incoming "VIREMENT INSTANTANE DE PAYPAL" is a refund,
+     * not a movement between accounts, and asking would be handing the user an
+     * ambiguity the app invented.
+     */
+    static func danglingTransfers(_ db: SQLiteDatabase) throws -> [Transaction] {
+        try db.query(
+            """
+            SELECT t.id, t.occurred_at, t.amount, t.payee, t.memo,
+                   NULL AS category_name, NULL AS category_emoji,
+                   a.name AS account_name, t.transfer_pair_id,
+                   t.needs_review, t.is_pending, t.status
+            FROM transactions t
+            JOIN accounts a ON a.id = t.account_id
+            WHERE t.deleted_at IS NULL AND t.amount < 0
+              AND t.transfer_pair_id IS NULL AND t.category_id IS NULL
+              AND a.sync_provider = 'enable_banking' AND a.is_archived = 0
+              AND (upper(t.payee) LIKE 'VIREMENT %' OR upper(t.payee) LIKE 'VIR %'
+                   OR upper(t.payee) LIKE 'SEPA %' OR upper(t.payee) LIKE 'TRANSFER %'
+                   OR upper(t.payee) LIKE 'UEBERWEISUNG %' OR upper(t.payee) LIKE 'BONIFICO %'
+                   OR upper(t.payee) LIKE 'TRANSFERENCIA %')
+            ORDER BY t.occurred_at DESC LIMIT 20
+            """
+        ).map { LocalLedger.transaction(from: $0) }
+    }
+
     static func readCategories(_ db: SQLiteDatabase) throws -> [Category] {
         try db.query(
             """
@@ -558,6 +597,7 @@ enum LocalQueries {
             monthSpentFixed: round2(fixed),
             expectedMonthlySpend: try burnAverage(db, months: 6),
             expectedMonthlyFixed: try burnAverage(db, months: 6, fixedOnly: true),
+            monthRefunds: round2(max(0, spent - netSpent)),
             savedThisMonthToDate: kept,
             savedPrevMonthToDate: previous,
             leftToSpend: round2(left),
