@@ -35,6 +35,7 @@ struct SettingsScreen: View {
     @State private var draftToken = ""
     @State private var serverStatus: ServerStatus = .unknown
     @State private var changingLocale = false
+    @AppStorage("florin.locale") private var chosenLocale = ""
 
     private var t: Strings { model.overview?.t ?? .empty }
     @AppStorage("florin.notifications") private var notificationsOn = false
@@ -56,11 +57,10 @@ struct SettingsScreen: View {
                 ScrollView {
                     VStack(spacing: 24) {
                         sourceSection
-                        appearanceSection
                         notificationsSection
                         backupSection
+                        displaySection
                         privacySection
-                        languageSection
                         aboutSection
                     }
                     .padding(.horizontal, Florin.gutter)
@@ -197,29 +197,22 @@ struct SettingsScreen: View {
                     }
                 }
             }
+            /*
+             * Actually read the feed this screen owns.
+             *
+             * The model was built and never asked to load, so `overview` stayed
+             * nil for the life of the screen. Two things followed, and both
+             * looked like separate bugs: the language picker is disabled while
+             * the payload is missing, so it sat permanently greyed out and no
+             * tap on it did anything — and every `t(...)` here fell through to
+             * its hard-coded French, so the screen stayed French whatever
+             * language had been chosen.
+             */
+            .task { await model.load(showSpinner: false) }
         }
     }
 
     // MARK: - Sections
-
-    @ViewBuilder
-    private var languageSection: some View {
-        SettingsGroup(
-            title: t("v2.settings.language", "Langue"),
-            footer: t("v2.settings.languageHint", "S'applique au téléphone comme aux écrans web de l'app.")
-        ) {
-            Picker("", selection: localeBinding) {
-                Text("Français").tag("fr")
-                Text("English").tag("en")
-                Text("Nederlands").tag("nl")
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .disabled(changingLocale || model.overview == nil)
-            .padding(.horizontal, Florin.gutter)
-            .padding(.vertical, 12)
-        }
-    }
 
     /*
      * Asked for where it means something.
@@ -282,7 +275,7 @@ struct SettingsScreen: View {
                 title: t("v2.settings.backup", "Sauvegarde"),
                 footer: t(
                     "v2.settings.backupHint",
-                    "Vos comptes et vos opérations sont inclus dans la sauvegarde iCloud de votre iPhone, et reviennent quand vous restaurez un téléphone. iOS ne dit pas aux applications quand cette sauvegarde a eu lieu — pour une copie datée que vous gardez vous-même, exportez un fichier."
+                    "Vos données sont incluses dans la sauvegarde iCloud de votre iPhone. iOS n'indique pas aux apps quand elle a lieu."
                 )
             ) {
                 SettingsRow(
@@ -366,33 +359,79 @@ struct SettingsScreen: View {
         }
     }
 
-    private var appearanceSection: some View {
-        SettingsGroup(
-            title: t("v2.settings.appearance", "Apparence"),
-            footer: t(
-                "v2.settings.appearanceHint",
-                "Le thème s'applique aussi aux écrans web de l'app, pas seulement aux natifs."
+    /*
+     * How it looks, in one card.
+     *
+     * Theme and language were two segmented controls in two titled, footered
+     * cards, 24 points apart — the same widget twice, 215 points of screen for
+     * two choices, and both footers explaining that the setting also applies to
+     * "les écrans web de l'app", which is a fact about how this is built rather
+     * than anything the person needs. Two rows with their value on the right,
+     * the way the system does it.
+     */
+    private var displaySection: some View {
+        SettingsGroup(title: t("v2.settings.display", "Affichage")) {
+            choiceRow(
+                t("v2.settings.appearance", "Apparence"),
+                symbol: "circle.lefthalf.filled",
+                selection: $appearanceRaw,
+                options: [
+                    (Appearance.dark.rawValue, t("v2.settings.dark", "Sombre")),
+                    (Appearance.light.rawValue, t("v2.settings.light", "Clair")),
+                    (Appearance.system.rawValue, t("v2.settings.system", "Système")),
+                ]
             )
-        ) {
-            Picker("", selection: $appearanceRaw) {
-                ForEach(Appearance.allCases) { Text($0.label).tag($0.rawValue) }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .padding(.horizontal, Florin.gutter)
-            .padding(.vertical, 12)
+            Hairline()
+            choiceRow(
+                t("v2.settings.language", "Langue"),
+                symbol: "globe",
+                selection: localeBinding,
+                options: [("fr", "Français"), ("en", "English"), ("nl", "Nederlands")],
+                busy: changingLocale
+            )
         }
     }
 
-    /*
-     * Which books are open, at the top, before anything else.
-     *
-     * Nothing below this matters until it is answered: a server address is
-     * meaningless on the device ledger, and bank setup is meaningless on a
-     * server that does its own. It used to be inferred from whether an address
-     * happened to be filled in, so switching meant erasing a text field and
-     * there was no way to keep a server configured while working locally.
-     */
+    /// A row that states a choice and opens a menu to change it.
+    private func choiceRow(
+        _ label: String,
+        symbol: String,
+        selection: Binding<String>,
+        options: [(String, String)],
+        busy: Bool = false
+    ) -> some View {
+        SettingsRow(label: label, symbol: symbol) {
+            if busy {
+                ProgressView().controlSize(.small)
+            } else {
+                Menu {
+                    ForEach(options, id: \.0) { value, title in
+                        Button {
+                            UISelectionFeedbackGenerator().selectionChanged()
+                            selection.wrappedValue = value
+                        } label: {
+                            if value == selection.wrappedValue {
+                                Label(title, systemImage: "checkmark")
+                            } else {
+                                Text(title)
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(options.first { $0.0 == selection.wrappedValue }?.1 ?? "")
+                            .font(.system(size: 15))
+                            .foregroundStyle(Florin.text2)
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Florin.text3)
+                    }
+                    .contentShape(Rectangle())
+                }
+            }
+        }
+    }
+
     private var sourceSection: some View {
         SettingsGroup(
             title: t("v2.settings.source", "Données"),
@@ -621,54 +660,58 @@ struct SettingsScreen: View {
     /// the app — so they are real buttons with the projects' own marks rather
     /// than blue text.
     @ViewBuilder
+    /*
+     * One list, not two cards.
+     *
+     * Version, the data date and the two links were split across two surfaces
+     * 24 points apart, the second with no title of its own — so it read as an
+     * orphan rather than as the rest of the section above it. They are one
+     * list: what this is, and where it comes from.
+     *
+     * Its footer used to explain that the code is public, under two rows that
+     * already say GitHub and Ko-fi. The licence is the part nobody can guess.
+     */
     private var aboutSection: some View {
-        VStack(spacing: 24) {
-            SettingsGroup(
-                title: t("v2.settings.about", "À propos"),
-                footer: t("v2.settings.aboutHint", "Florin est libre et auto-hébergé, sous licence AGPL-3.0.")
-            ) {
-                SettingsRow(label: t("v2.settings.appVersion", "Version"), symbol: "app.badge") {
-                    SettingsValue(text: Self.version, monospaced: true)
-                }
-                if let generated = model.overview?.generatedAt {
-                    Hairline()
-                    SettingsRow(label: t("v2.settings.dataDate", "Données au"), symbol: "calendar") {
-                        SettingsValue(text: String(generated.prefix(10)), monospaced: true)
-                    }
-                }
+        SettingsGroup(
+            title: t("v2.settings.about", "À propos"),
+            footer: t("v2.settings.aboutHint", "Florin est un logiciel libre, sous licence AGPL-3.0.")
+        ) {
+            SettingsRow(label: t("v2.settings.appVersion", "Version"), symbol: "app.badge") {
+                SettingsValue(text: Self.version, monospaced: true)
             }
-
-            SettingsGroup(
-                footer: t(
-                    "v2.settings.linksHint",
-                    "Le code, les tickets et les versions sont publics. Un café aide à les écrire."
-                )
-            ) {
-                BrandLink(
-                    path: Brand.github,
-                    title: "GitHub",
-                    subtitle: "adrbn/florin",
-                    tint: Color(red: 0.09, green: 0.11, blue: 0.13),
-                    markColor: .white,
-                    url: URL(string: "https://github.com/adrbn/florin")!
-                )
-                .padding(.horizontal, Florin.gutter)
-                .padding(.vertical, 6)
-
+            if let generated = model.overview?.generatedAt {
                 Hairline()
-
-                BrandLink(
-                    path: Brand.kofi,
-                    title: "Ko-fi",
-                    subtitle: "adrbn",
-                    // Ko-fi's own brand red.
-                    tint: Color(red: 1.0, green: 0.35, blue: 0.35),
-                    markColor: .white,
-                    url: URL(string: "https://ko-fi.com/adrbn")!
-                )
-                .padding(.horizontal, Florin.gutter)
-                .padding(.vertical, 6)
+                SettingsRow(label: t("v2.settings.dataDate", "Données au"), symbol: "calendar") {
+                    SettingsValue(text: String(generated.prefix(10)), monospaced: true)
+                }
             }
+
+            Hairline()
+
+            BrandLink(
+                path: Brand.github,
+                title: "GitHub",
+                subtitle: "adrbn/florin",
+                tint: Color(red: 0.09, green: 0.11, blue: 0.13),
+                markColor: .white,
+                url: URL(string: "https://github.com/adrbn/florin")!
+            )
+            .padding(.horizontal, Florin.gutter)
+            .padding(.vertical, 6)
+
+            Hairline()
+
+            BrandLink(
+                path: Brand.kofi,
+                title: "Ko-fi",
+                subtitle: "adrbn",
+                // Ko-fi's own brand red.
+                tint: Color(red: 1.0, green: 0.35, blue: 0.35),
+                markColor: .white,
+                url: URL(string: "https://ko-fi.com/adrbn")!
+            )
+            .padding(.horizontal, Florin.gutter)
+            .padding(.vertical, 6)
         }
     }
 
@@ -685,7 +728,7 @@ struct SettingsScreen: View {
 
     private var localeBinding: Binding<String> {
         Binding(
-            get: { model.overview?.locale ?? "fr" },
+            get: { model.overview?.locale ?? Strings.preferredShortLocale },
             set: { next in
                 /*
                  * Only write once the payload has actually arrived. Before it
@@ -712,7 +755,22 @@ struct SettingsScreen: View {
     /// The locale is a server-side cookie shared with the browser, so switching
     /// it here also switches the web tabs — one setting, not two.
     private func changeLocale(to locale: String) async {
-        guard let base = server.resolvedURL else { return }
+        /*
+         * On the device, the language is a local preference.
+         *
+         * This began and ended with a POST to the server, which on a phone
+         * holding its own ledger is a request to nowhere: the guard returned
+         * immediately and the picker sat there doing nothing, looking disabled
+         * because its own value never moved. The device writes its choice and
+         * reloads; a server, if there is one, is still told so the web screens
+         * follow.
+         */
+        chosenLocale = locale
+        Strings.forget()
+        guard let base = server.resolvedURL else {
+            await model.load(showSpinner: false)
+            return
+        }
         changingLocale = true
         let body = try? JSONSerialization.data(withJSONObject: ["locale": locale])
         for path in ServerStore.localeEndpoints {

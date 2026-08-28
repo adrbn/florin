@@ -32,13 +32,45 @@ struct Strings: Sendable {
      *
      * Resolved once: it reads a file, and these screens ask for it per frame.
      */
-    static let device: Strings = {
-        let preferred = Locale.preferredLanguages.first ?? "en"
-        let short = LocalQueries.shortLocale(preferred)
+    /// The language the app is in: the one chosen in settings, or the
+    /// handset's until someone chooses.
+    ///
+    /// `florin.locale` is empty by default, which means "follow the phone" —
+    /// the right behaviour for a fresh install, and one a person can override
+    /// without having to change the language of their whole phone.
+    static var preferredShortLocale: String {
+        let chosen = UserDefaults.standard.string(forKey: "florin.locale") ?? ""
+        if !chosen.isEmpty { return chosen }
+        return LocalQueries.shortLocale(Locale.preferredLanguages.first ?? "en")
+    }
+
+    static func tag(for short: String) -> String {
+        ["fr": "fr-FR", "nl": "nl-NL"][short] ?? "en-US"
+    }
+
+    /*
+     * Cached per language rather than resolved once.
+     *
+     * This used to be a `static let`, read from the handset at first use and
+     * fixed for the life of the process — so choosing a language in settings
+     * left every pre-login screen, all of onboarding and the whole bank setup
+     * speaking the old one until the app was killed. It is keyed on the choice
+     * now, and still reads the file only once per language, because these
+     * screens ask for it on every frame.
+     */
+    private static var cache = [String: Strings]()
+
+    static var device: Strings {
+        let short = preferredShortLocale
+        if let hit = cache[short] { return hit }
         let table = (try? LocalQueries.strings(for: short)) ?? [:]
-        let tag = ["fr": "fr-FR", "nl": "nl-NL"][short] ?? "en-US"
-        return Strings(table, localeTag: tag)
-    }()
+        let value = Strings(table, localeTag: tag(for: short))
+        cache[short] = value
+        return value
+    }
+
+    /// Drop the cached tables, so the next read picks up a new choice.
+    static func forget() { cache.removeAll() }
 
     func callAsFunction(_ key: String, _ fallback: String) -> String {
         table[key] ?? fallback

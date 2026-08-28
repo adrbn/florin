@@ -44,7 +44,17 @@ enum LocalQueries {
             generatedAt: ISO8601DateFormatter().string(from: Date()),
             locale: short,
             strings: try strings(for: short),
-            lastSyncedAt: nil,
+            /*
+             * The real date, not a hole.
+             *
+             * This was hardcoded nil, so the row that reports when the bank was
+             * last reached never appeared on the device — the one build where
+             * the sync is the phone's own job and the question is most likely
+             * to be asked. The connection has recorded it all along.
+             */
+            lastSyncedAt: (try? db.scalar(
+                "SELECT max(last_synced_at) FROM bank_connections WHERE status = 'active'"
+            )?.string) ?? nil,
             // Hardcoded false, which disabled every sync control on the
             // device ledger — including the refresh button on Comptes, which
             // simply did nothing when tapped.

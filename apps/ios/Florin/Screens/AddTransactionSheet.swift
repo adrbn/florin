@@ -88,7 +88,10 @@ struct AddTransactionSheet: View {
         .presentationBackground(.clear)
         .onAppear {
             if accountId.isEmpty { accountId = usableAccounts.first?.id ?? "" }
-            amountFocused = true
+            // Not on a transfer: there the two accounts are the decision and
+            // the amount follows, so a keypad sitting over both pickers is in
+            // the way rather than ahead of you.
+            amountFocused = kind != .transfer
         }
     }
 

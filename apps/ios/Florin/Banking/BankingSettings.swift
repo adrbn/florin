@@ -19,6 +19,7 @@ struct BankingSettings: View {
     @State private var hasKey = BankingKey.exists
     @State private var confirmingRegenerate = false
     @State private var copied = false
+    @State private var redirectCopied = false
     @State private var banks: [Aspsp] = []
     @State private var searching = false
     @State private var query = ""
@@ -72,7 +73,7 @@ struct BankingSettings: View {
                                 : nil) { keyStep }
                         step(2, Strings.device("v2.connect.stepRegister", "Enregistrer l'application"),
                              hasKey ? .now : .later) { registerStep }
-                        step(3, Strings.device("v2.connect.stepAppId", "Coller l'identifiant"),
+                        step(3, Strings.device("v2.connect.stepAppId", "Coller l'App ID"),
                              hasKey ? .now : .later) { appIdStep }
                     }
                 }
@@ -194,7 +195,7 @@ struct BankingSettings: View {
              */
             Text(Strings.device(
                 "v2.connect.setupLead",
-                "Une seule fois, ~2 min. Vos identifiants restent chez votre banque."
+                "Configuration unique. Vos identifiants restent chez votre banque."
             ))
                 .font(.system(size: 13.5))
                 .foregroundStyle(Florin.text2)
@@ -311,7 +312,7 @@ struct BankingSettings: View {
     private var keyStep: some View {
         Text(Strings.device(
             "v2.connect.keyHint",
-            "Elle reste sur ce téléphone. Seul le certificat public en sort."
+            "La clé reste sur cet iPhone. Seul le certificat public est partagé."
         ))
             .font(.system(size: 13))
             .foregroundStyle(Florin.text2)
@@ -328,69 +329,115 @@ struct BankingSettings: View {
     }
 
     /*
-     * A form to fill, written as the list it is.
+     * The order in which it is actually lived.
      *
-     * This was one paragraph carrying four separate instructions — pick an
-     * option by its English name, paste a certificate, paste a URL exactly,
-     * then remember to activate. Prose hides how many things that is, and
-     * someone doing it for the first time loses their place halfway through.
-     * As four lines it is the same information, shorter on the screen, and
-     * each line is next to the button that satisfies it.
+     * The instructions said "paste the certificate" before anything had said
+     * where, and the door to that somewhere — Ouvrir Enable Banking — sat at
+     * the very bottom, after four things you were told to do there. So you read
+     * a list of pastes with no idea what you were pasting into, and found the
+     * destination last.
+     *
+     * It runs the way the two minutes run instead: this happens on a website,
+     * here are the two things to take with you, here is what to do once you
+     * arrive, and now the door. The last thing read before leaving is the
+     * recipe for the other side, which is the thing most likely to be needed
+     * from memory.
      */
     @ViewBuilder
     private var registerStep: some View {
-        instruction(Strings.device(
-            "v2.connect.registerPick",
-            "Choisissez « Generate outside the browser »."
+        Text(Strings.device(
+            "v2.connect.registerLead",
+            "Créez une application sur le site d'Enable Banking. Ces deux valeurs vous seront demandées."
         ))
+            .font(.system(size: 13))
+            .foregroundStyle(Florin.text2)
 
-        instruction(Strings.device("v2.connect.registerCert", "Collez-y le certificat."))
         Button {
             UIPasteboard.general.string = publicKey ?? (try? BankingKey.certificatePEM()) ?? ""
             copied = true
             UINotificationFeedbackGenerator().notificationOccurred(.success)
         } label: {
-            Label(
-                copied
+            HStack(spacing: 8) {
+                Image(systemName: copied ? "checkmark" : "doc.on.doc")
+                    .font(.system(size: 13))
+                    .foregroundStyle(copied ? Florin.positive : Florin.text2)
+                Text(copied
                     ? Strings.device("v2.connect.certCopied", "Certificat copié")
-                    : Strings.device("v2.connect.copyCert", "Copier le certificat"),
-                systemImage: copied ? "checkmark" : "doc.on.doc"
-            )
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(Florin.text)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
-                .florinGlass(in: Capsule())
+                    : Strings.device("v2.connect.copyCert", "Copier le certificat"))
+                    .font(.system(size: 13.5, weight: .medium))
+                    .foregroundStyle(Florin.text)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 11)
+            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Florin.surface2))
         }
         .buttonStyle(.plain)
 
-        instruction(Strings.device(
-            "v2.connect.registerRedirect",
-            "Recopiez cette adresse de redirection, à l'identique."
-        ))
-        HStack(spacing: 8) {
-            Text(BankingFlow.redirectURL)
-                .font(.system(size: 11.5, design: .monospaced))
-                .foregroundStyle(Florin.accent)
-                .lineLimit(1)
-                .minimumScaleFactor(0.75)
-            Spacer(minLength: 6)
-            Button {
-                UIPasteboard.general.string = BankingFlow.redirectURL
-                UINotificationFeedbackGenerator().notificationOccurred(.success)
-            } label: {
-                Image(systemName: "doc.on.doc").font(.system(size: 13))
+        Button {
+            UIPasteboard.general.string = BankingFlow.redirectURL
+            redirectCopied = true
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: redirectCopied ? "checkmark" : "doc.on.doc")
+                    .font(.system(size: 13))
+                    .foregroundStyle(redirectCopied ? Florin.positive : Florin.text2)
+                // Shown, not just copied: Enable Banking rejects a redirect that
+                // differs by a character, so being able to compare it against
+                // what is in the form is worth the width it takes.
+                Text(BankingFlow.redirectURL)
+                    .font(.system(size: 11.5, design: .monospaced))
+                    .foregroundStyle(Florin.accent)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                Spacer(minLength: 0)
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(Florin.text2)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 11)
+            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Florin.surface2))
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Florin.surface2))
+        .buttonStyle(.plain)
 
+        Text(Strings.device("v2.connect.registerThere", "Sur le site :"))
+            .font(.system(size: 12.5, weight: .semibold))
+            .foregroundStyle(Florin.text3)
+            .padding(.top, 2)
+
+        /*
+         * Production, said first and said plainly.
+         *
+         * Enable Banking's form opens on Sandbox, and a Sandbox application
+         * reaches only banks' simulators — invented accounts, invented
+         * transactions, all of it plausible. No French retail bank is even in
+         * that list, and the environment cannot be changed afterwards: getting
+         * it wrong means starting the registration over.
+         */
+        instruction(Strings.device(
+            "v2.connect.registerEnv",
+            "Choisissez « Production », pas « Sandbox »."
+        ))
+        instruction(Strings.device(
+            "v2.connect.registerPick",
+            "Choisissez « Generate outside the browser »."
+        ))
+        instruction(Strings.device(
+            "v2.connect.registerPaste",
+            "Collez le certificat et l'adresse de redirection."
+        ))
+        /*
+         * Linking one account is not linking your accounts.
+         *
+         * An individual activates a production application by linking accounts
+         * rather than signing a contract, and the API then returns only what
+         * was linked — everything else is stripped, silently, with the
+         * authorisation still reported as successful. Someone who links their
+         * current account and stops gets exactly one account in Florin and no
+         * indication that the others were dropped rather than absent.
+         */
         instruction(Strings.device(
             "v2.connect.registerActivate",
-            "Activez l'application depuis la console."
+            "Activez l'application en liant vos comptes. Liez tous ceux que vous voulez voir dans Florin."
         ))
 
         Link(destination: URL(string: "https://enablebanking.com/cp")!) {
@@ -401,6 +448,7 @@ struct BankingSettings: View {
                 .padding(.vertical, 12)
                 .background(Florin.accent, in: Capsule())
         }
+        .padding(.top, 2)
     }
 
     /// One instruction, marked as one thing to do.
