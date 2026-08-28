@@ -355,7 +355,7 @@ struct OverviewScreen: View {
                         Text(
                             data.leftToSpend.savedPrevMonthToDate.map {
                                 data.t(
-                                    "v2.overview.keptVsLastMonth", "· {prev} au {date}",
+                                    "v2.overview.keptVsLastMonth", "vs {prev} au {date}",
                                     [
                                         "prev": Money.string(
                                             $0, locale: data.localeTag,
