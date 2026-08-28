@@ -415,6 +415,41 @@ enum LocalQueries {
             income = (current ?? rows.first)?.double("total") ?? 0
         }
 
+        /*
+         * Everything that came in, not only the paycheck.
+         *
+         * The ceiling was the salary category alone, so a month's other income
+         * — a refund, a gift, side work, anything filed under a second income
+         * category — did not exist for "left to spend" or the projected
+         * margin. On this ledger that discarded 1 176 € across six months and
+         * made every month read poorer than it was.
+         *
+         * The salary keeps its own treatment because of when it lands: early
+         * in the month, with the payslip still a fortnight away, a ceiling of
+         * zero would say there is nothing to spend, so it falls back to the
+         * last month that saw one. The rest is simply this month's.
+         */
+        income += try db.scalar(
+            """
+            SELECT coalesce(sum(t.amount), 0)
+            FROM transactions t
+            JOIN accounts a ON a.id = t.account_id
+            JOIN categories c ON c.id = t.category_id
+            JOIN category_groups g ON g.id = c.group_id
+            WHERE t.deleted_at IS NULL AND t.status = 'cleared' AND t.is_pending = 0
+              AND substr(t.occurred_at, 1, 10) <= date('now')
+              AND substr(t.occurred_at, 1, 7) = ?
+              AND g.kind = 'income' AND t.amount > 0
+              AND t.transfer_pair_id IS NULL AND a.is_archived = 0
+              AND (? IS NULL OR t.category_id <> ?)
+            """,
+            [
+                .text(month),
+                salary.map { SQLiteValue.text($0.id) } ?? .null,
+                salary.map { SQLiteValue.text($0.id) } ?? .null,
+            ]
+        )?.double ?? 0
+
         // Gross, so "spent so far" reads what actually went out and a single
         // reimbursement cannot zero it early in the month.
         let spent = try sum(db, month: month, kind: "expense")
