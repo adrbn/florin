@@ -36,6 +36,7 @@ struct SettingsScreen: View {
     @State private var changingLocale = false
 
     private var t: Strings { model.overview?.t ?? .empty }
+    @AppStorage("florin.notifications") private var notificationsOn = false
     @State private var showingBanking = false
     @State private var confirmingImport = false
     @StateObject private var banking = BankingFlow()
@@ -51,7 +52,8 @@ struct SettingsScreen: View {
                     VStack(spacing: 24) {
                         sourceSection
                         appearanceSection
-                        privacySection
+                        notificationsSection
+            privacySection
                         languageSection
                         aboutSection
                     }
@@ -163,6 +165,50 @@ struct SettingsScreen: View {
             .disabled(changingLocale || model.overview == nil)
             .padding(.horizontal, Florin.gutter)
             .padding(.vertical, 12)
+        }
+    }
+
+    /*
+     * Asked for where it means something.
+     *
+     * A permission prompt on first launch is a question about a thing the app
+     * has not done yet, and the answer is usually no. Here it sits beside the
+     * bank connection it depends on, off until someone turns it on.
+     */
+    @ViewBuilder
+    private var notificationsSection: some View {
+        if model.base.scheme == "florin-local" {
+            SettingsGroup(
+                title: t("v2.settings.notifications", "Notifications"),
+                footer: t(
+                    "v2.settings.notificationsHint",
+                    "Florin interroge votre banque quelques fois par jour et vous dit ce qui est arrivé."
+                )
+            ) {
+                Toggle(isOn: Binding(
+                    get: { notificationsOn },
+                    set: { wanted in
+                        guard wanted else { notificationsOn = false; return }
+                        Task {
+                            notificationsOn = await BackgroundRefresh.requestPermission()
+                            if notificationsOn { BackgroundRefresh.schedule() }
+                        }
+                    }
+                )) {
+                    HStack(spacing: 11) {
+                        Image(systemName: "bell")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(Florin.accent)
+                            .frame(width: 20)
+                        Text(t("v2.settings.notifications", "Notifications"))
+                            .font(.system(size: 15.5))
+                            .foregroundStyle(Florin.text)
+                    }
+                }
+                .tint(Florin.accent)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+            }
         }
     }
 

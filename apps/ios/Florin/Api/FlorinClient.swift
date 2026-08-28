@@ -148,6 +148,10 @@ struct FlorinClient: Sendable {
          */
         if isLocal {
             let store = try localStore()
+            // A portfolio's price is the half a local ledger cannot know, so a
+            // refresh has to go and get it — otherwise a PEA sits at whatever
+            // it was worth the day it was imported, looking live.
+            await LocalPricing.refresh(store: store)
             let config = try BankingFlow.config(store)
             let result = try await BankingSync.run(store: store, config: config)
             return SyncResult(
