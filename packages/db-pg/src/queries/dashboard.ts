@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, gte, isNull, lte, sql } from 'drizzle-orm'
+import { and, desc, eq, gte, isNull, lt, lte, sql } from 'drizzle-orm'
 import type { PgDB } from '../client'
 import { accounts, categories, categoryGroups, recurringRules, transactions } from '../schema'
 import { getLoanLiabilities } from './loan-liabilities'
@@ -141,11 +141,34 @@ export async function getInvestmentSnapshot(db: PgDB): Promise<InvestmentSnapsho
  * day of the previous month. Returns null when the oldest transaction in scope
  * is newer than the target date (history too short to compare).
  */
+/**
+ * The wealth change over the last COMPLETE calendar month.
+ *
+ * This used to compare today against this date last month. Arithmetically
+ * sound and, on a real ledger, close to meaningless: a salary lands on a
+ * drifting date — the 24th, the 26th, the 29th — so a fixed one-month window
+ * catches one payday, two, or none. Measured day by day on a real account the
+ * same figure read +519 on 25 July, -2 457 on the 26th, +647 on the 29th.
+ * Three thousand euros of swing in four days, with nothing having happened.
+ *
+ * A complete calendar month contains exactly one salary, whichever day it
+ * falls on. The same ledger then reads +541, +672, +442, -20, +703, +482 —
+ * which is what the month actually was.
+ *
+ * This is the rule the savings rates already follow, and for the same reason:
+ * the month in progress has its spending but not yet its income.
+ *
+ * Adjustment rows stay excluded — a balance reconciliation moves an account
+ * without being wealth earned or spent.
+ *
+ * Returns null when the ledger does not reach back to that month, so the
+ * dashboard says nothing rather than comparing against a month it never saw.
+ */
 async function computeNetMonthAgo(db: PgDB, currentNet: number): Promise<number | null> {
   const today = new Date()
-  const target = new Date(
-    Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 1, today.getUTCDate()),
-  )
+  // The last complete month: [first day of previous month, first day of this).
+  const start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 1, 1))
+  const end = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1))
 
   const [oldestRow] = await db
     .select({ oldest: sql<Date | null>`MIN(${transactions.occurredAt})` })
@@ -163,7 +186,7 @@ async function computeNetMonthAgo(db: PgDB, currentNet: number): Promise<number 
     )
 
   const oldest = oldestRow?.oldest ? new Date(oldestRow.oldest) : null
-  if (!oldest || oldest.getTime() > target.getTime()) {
+  if (!oldest || oldest.getTime() >= end.getTime()) {
     return null
   }
 
@@ -181,8 +204,8 @@ async function computeNetMonthAgo(db: PgDB, currentNet: number): Promise<number 
         eq(accounts.isIncludedInNetWorth, true),
         sql`${accounts.kind} <> 'loan'`,
         eq(transactions.status, 'cleared'),
-        gt(transactions.occurredAt, target),
-        lte(transactions.occurredAt, today),
+        gte(transactions.occurredAt, start),
+        lt(transactions.occurredAt, end),
         // Exclude 'adjustment' plugs (balance reconciliations, transfers from
         // untracked accounts). They move an account balance but aren't real
         // wealth change for the period — counting them made "vs last month"

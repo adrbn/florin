@@ -113,7 +113,18 @@ export function OverviewScreen({
                 ? scrub.label
                   ? shortDate(new Date(scrub.label), tag)
                   : undefined
-                : t('v2.overview.sinceLastMonth', 'over a month')
+                : // The month it is, not "over a month": the figure is the last
+                  // complete calendar month's change, and a caption that hides
+                  // which month invites the reading the old measure made wrong.
+                  t(
+                    'v2.overview.inMonth',
+                    {
+                      month: new Date(
+                        Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() - 1, 1),
+                      ).toLocaleDateString(tag, { month: 'short' }),
+                    },
+                    'in {month}',
+                  )
             }
           />
         </div>

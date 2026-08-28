@@ -328,8 +328,19 @@ struct OverviewScreen: View {
                             decimals: abs(delta) < 1000,
                             tone: delta >= 0 ? .positive : .negative, size: 14
                         )
-                        Text(scrubbed.map { DayLabel.string($0.day, locale: data.localeTag, t: data.t) }
-                             ?? data.t("v2.overview.sinceLastMonth", "sur un mois"))
+                        // The month it is, not "over a month". The figure is
+                        // the last complete calendar month's change, and a
+                        // caption that hides which month invites exactly the
+                        // reading the old measure made wrong.
+                        Text(
+                            scrubbed.map { DayLabel.string($0.day, locale: data.localeTag, t: data.t) }
+                                ?? data.t(
+                                    "v2.overview.inMonth", "en {month}",
+                                    ["month": MonthLabel.short(
+                                        LocalQueries.lastCompleteMonth(), locale: data.localeTag
+                                    )]
+                                )
+                        )
                             .font(.system(size: 14))
                             .foregroundStyle(Florin.text2)
                     }

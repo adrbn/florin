@@ -14,7 +14,6 @@ struct PlanScreen: View {
 
     @StateObject private var model: PlanModel
     @State private var collapsed: Set<String> = []
-    @State private var confirmingDelete: PlanCategory?
     /*
      * One sheet modifier, two destinations.
      *
@@ -29,11 +28,15 @@ struct PlanScreen: View {
     private enum PlanSheet: Identifiable {
         case assign(PlanCategory)
         case shape(CategoryDraft)
+        /// Carries the count so the sheet can say how much is at stake before
+        /// the user picks — the question only exists because it is not zero.
+        case remove(PlanCategory, Int)
 
         var id: String {
             switch self {
             case let .assign(category): "assign:\(category.id)"
             case let .shape(draft): "shape:\(draft.id)"
+            case let .remove(category, _): "remove:\(category.id)"
             }
         }
     }
@@ -109,6 +112,32 @@ struct PlanScreen: View {
                 ) { amount in
                     await model.assign(amount, to: category.id)
                 }
+            case let .remove(category, count):
+                CategoryRemovalSheet(
+                    category: category,
+                    count: count,
+                    candidates: (model.plan?.groups.flatMap(\.categories) ?? [])
+                        .filter { $0.id != category.id },
+                    t: t
+                ) { how in
+                    await model.removeCategory(
+                        category.id, named: category.name, how: how, t: t
+                    )
+                }
+
+            case let .remove(category, count):
+                CategoryRemovalSheet(
+                    category: category,
+                    count: count,
+                    candidates: (model.plan?.groups.flatMap(\.categories) ?? [])
+                        .filter { $0.id != category.id },
+                    t: t
+                ) { how in
+                    await model.removeCategory(
+                        category.id, named: category.name, how: how, t: t
+                    )
+                }
+
             case let .shape(draft):
                 CategoryEditorSheet(draft: draft, t: t) { name, emoji, isFixed in
                     if let existing = draft.category {
@@ -122,28 +151,6 @@ struct PlanScreen: View {
                     }
                 }
             }
-        }
-        .confirmationDialog(
-            confirmingDelete.map { $0.name } ?? "",
-            isPresented: Binding(
-                get: { confirmingDelete != nil },
-                set: { if !$0 { confirmingDelete = nil } }
-            ),
-            titleVisibility: .visible
-        ) {
-            Button(t("v2.common.delete", "Supprimer"), role: .destructive) {
-                if let target = confirmingDelete {
-                    Task { await model.removeCategory(target.id, named: target.name, t: t) }
-                }
-            }
-            Button(t("v2.common.cancel", "Annuler"), role: .cancel) {}
-        } message: {
-            Text(
-                t(
-                    "v2.plan.deleteCategoryBody",
-                    "Les opérations déjà classées ici la gardent — elle disparaît simplement du plan."
-                )
-            )
         }
         .florinToast($model.toast)
     }
@@ -353,7 +360,24 @@ struct PlanScreen: View {
                                     Label(t("v2.common.edit", "Modifier"), systemImage: "pencil")
                                 }
                                 Button(role: .destructive) {
-                                    confirmingDelete = category
+                                    /*
+                                     * An unused envelope is just deleted. One
+                                     * with history asks what becomes of it —
+                                     * only the person who filed those rows can
+                                     * answer, and the screen used to decide
+                                     * for them without saying so.
+                                     */
+                                    let used = model.categoryUsage(category.id)
+                                    if used == 0 {
+                                        Task {
+                                            await model.removeCategory(
+                                                category.id, named: category.name,
+                                                how: .detach, t: t
+                                            )
+                                        }
+                                    } else {
+                                        sheet = .remove(category, used)
+                                    }
                                 } label: {
                                     Label(
                                         t("v2.common.delete", "Supprimer"), systemImage: "trash"

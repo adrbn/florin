@@ -72,28 +72,73 @@ enum LocalCategories {
         )
     }
 
-    /// What "delete" means depends on whether the envelope has a past.
-    ///
-    /// An unused category is removed outright. One that has already classified
-    /// transactions is archived instead: deleting it would either orphan those
-    /// rows or rewrite history, and a year of spending should not disappear
-    /// from the charts because its label stopped being useful. Archived
-    /// categories leave the picker and the plan; their transactions keep them.
-    @discardableResult
-    static func remove(store: LocalStore, id: String) throws -> Bool {
-        let used = try store.database.scalar(
+    /// How many transactions carry this category. What "delete" can mean
+    /// depends entirely on this number.
+    static func usage(store: LocalStore, id: String) throws -> Int {
+        try store.database.scalar(
             "SELECT count(*) FROM transactions WHERE category_id = ? AND deleted_at IS NULL",
             [.text(id)]
         )?.int ?? 0
+    }
 
-        if used > 0 {
-            try store.database.run(
-                "UPDATE categories SET is_archived = 1 WHERE id = ?", [.text(id)]
-            )
-            return false
+    /*
+     * Deleting a category is three different decisions.
+     *
+     * The screen used to make one of them silently: a category with history was
+     * archived, and the confirmation said so while its button said "Supprimer".
+     * The user was told the outcome after choosing, in language describing an
+     * action they had not asked for.
+     *
+     * Nothing here is guessed on the user's behalf. An unused category is just
+     * deleted; one with transactions asks what should become of them, because
+     * only the person who filed them knows.
+     */
+    enum Removal {
+        /// Move the transactions somewhere else, then delete the category.
+        case reassign(to: String)
+        /// Delete it and leave the transactions unclassified — they re-enter
+        /// the review queue, because they now need a decision that was made
+        /// for them once and has just been withdrawn.
+        case detach
+        /// Keep the transactions labelled and take the category out of the
+        /// plan and the pickers. Nothing is lost; the charts still read.
+        case archive
+    }
+
+    static func remove(store: LocalStore, id: String, how: Removal) throws {
+        try store.database.transaction {
+            switch how {
+            case let .reassign(target):
+                try store.database.run(
+                    """
+                    UPDATE transactions SET category_id = ?, updated_at = datetime('now')
+                    WHERE category_id = ? AND deleted_at IS NULL
+                    """,
+                    [.text(target), .text(id)]
+                )
+                try purge(store: store, id: id)
+
+            case .detach:
+                try store.database.run(
+                    """
+                    UPDATE transactions
+                    SET category_id = NULL, needs_review = 1, updated_at = datetime('now')
+                    WHERE category_id = ? AND deleted_at IS NULL
+                    """,
+                    [.text(id)]
+                )
+                try purge(store: store, id: id)
+
+            case .archive:
+                try store.database.run(
+                    "UPDATE categories SET is_archived = 1 WHERE id = ?", [.text(id)]
+                )
+            }
         }
+    }
+
+    private static func purge(store: LocalStore, id: String) throws {
         try store.database.run("DELETE FROM monthly_budgets WHERE category_id = ?", [.text(id)])
         try store.database.run("DELETE FROM categories WHERE id = ?", [.text(id)])
-        return true
     }
 }

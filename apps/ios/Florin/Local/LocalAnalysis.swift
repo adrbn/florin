@@ -99,18 +99,46 @@ enum LocalAnalysis {
             """,
             [.text("-\(days) days")]
         )
-        var ids: [String: String] = [:]
         let shares = rows.map { row -> CategoryShare in
-            let name = row.string("name") ?? ""
-            ids[name] = row.string("id") ?? ""
-            return CategoryShare(
+            CategoryShare(
                 groupName: row.string("group_name") ?? "",
-                categoryName: name,
+                categoryName: row.string("name") ?? "",
                 emoji: row.string("emoji"),
                 total: round2(-(row.double("total") ?? 0))
             )
         }
-        return (shares, ids)
+        return (shares, try categoryIds(db))
+    }
+
+    /*
+     * Every category, keyed the way the screen asks for it.
+     *
+     * A share identifies itself as "Groupe/Nom" — the pair, because two groups
+     * may hold a category of the same name. This map was built from the
+     * breakdown rows and keyed on the bare name, so every lookup missed, the
+     * guard returned, and tapping a category on Analyse did nothing at all.
+     *
+     * Built from the category list rather than from the rows, as the server
+     * does: a category with nothing spent in the last thirty days still
+     * appears in the trends below, and tapping it has to work there too.
+     */
+    static func categoryIds(_ db: SQLiteDatabase) throws -> [String: String] {
+        var ids: [String: String] = [:]
+        for row in try db.query(
+            """
+            SELECT c.id AS id, c.name AS name, g.name AS group_name
+            FROM categories c
+            JOIN category_groups g ON g.id = c.group_id
+            WHERE c.is_archived = 0
+            """
+        ) {
+            guard let id = row.string("id"),
+                  let name = row.string("name"),
+                  let group = row.string("group_name")
+            else { continue }
+            ids["\(group)/\(name)"] = id
+        }
+        return ids
     }
 
     // MARK: - Month to month
