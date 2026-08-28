@@ -340,14 +340,26 @@ struct OverviewScreen: View {
                             decimals: abs(kept) < 1000,
                             tone: kept >= 0 ? .positive : .negative, size: 14
                         )
+                        /*
+                         * Both figures, in as few words as they fit.
+                         *
+                         * "au même jour" was the honest phrasing and too long
+                         * for a line sitting under a five-digit number. Naming
+                         * the date does the same work in less room, and unlike
+                         * a bare month name it cannot be misread as the whole
+                         * of July — which would be a different, larger number.
+                         */
                         Text(
                             data.leftToSpend.savedPrevMonthToDate.map {
                                 data.t(
-                                    "v2.overview.keptVsLastMonth", "gardés · {prev} au même jour",
-                                    ["prev": Money.string(
-                                        $0, locale: data.localeTag, currency: data.currency,
-                                        decimals: false, signed: true
-                                    )]
+                                    "v2.overview.keptVsLastMonth", "gardés · {prev} au {date}",
+                                    [
+                                        "prev": Money.string(
+                                            $0, locale: data.localeTag,
+                                            currency: data.currency, decimals: false
+                                        ),
+                                        "date": Self.sameDayLastMonth(locale: data.localeTag),
+                                    ]
                                 )
                             } ?? data.t("v2.overview.keptThisMonth", "gardés ce mois-ci")
                         )
@@ -529,6 +541,22 @@ struct OverviewScreen: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+
+    /// "28 juil." — the same day one month back, clipped to that month's last
+    /// day so the 31st does not name a date that never existed.
+    private static func sameDayLastMonth(locale: String) -> String {
+        let calendar = Calendar(identifier: .gregorian)
+        let now = Date()
+        guard let prev = calendar.date(byAdding: .month, value: -1, to: now) else { return "" }
+        let last = calendar.range(of: .day, in: .month, for: prev)?.count ?? 28
+        var parts = calendar.dateComponents([.year, .month], from: prev)
+        parts.day = min(calendar.component(.day, from: now), last)
+        guard let date = calendar.date(from: parts) else { return "" }
+        let f = DateFormatter()
+        f.locale = Locale(identifier: locale)
+        f.setLocalizedDateFormatFromTemplate("dMMM")
+        return f.string(from: date)
     }
 
     /// Avatar, search, sync — the row every neobank puts above the balance.

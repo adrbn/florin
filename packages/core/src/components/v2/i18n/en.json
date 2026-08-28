@@ -338,7 +338,7 @@
   "v2.overview.incomeEstimated": "This month's salary hasn't landed — based on the previous one",
   "v2.overview.invested": "Invested",
   "v2.overview.keptThisMonth": "kept this month",
-  "v2.overview.keptVsLastMonth": "kept · {prev} at the same point",
+  "v2.overview.keptVsLastMonth": "kept · {prev} on {date}",
   "v2.overview.leftToSpend": "Left to spend",
   "v2.overview.leftToSpendBasis": "Based on “{category}”",
   "v2.overview.leftToSpendNone": "No salary detected in the last 90 days",
