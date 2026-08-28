@@ -34,9 +34,14 @@ final class SQLiteDatabase {
         }
     }
 
-    init(path: String) throws {
+    /// - Parameter readOnly: for inspecting a file the app does not own — a
+    ///   backup the user picked. Opening it for writing would create it if the
+    ///   path were wrong, and leave a journal beside a stranger's file.
+    init(path: String, readOnly: Bool = false) throws {
         var db: OpaquePointer?
-        let flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX
+        let flags = readOnly
+            ? SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX
+            : SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX
         guard sqlite3_open_v2(path, &db, flags, nil) == SQLITE_OK, let opened = db else {
             let message = db.map { String(cString: sqlite3_errmsg($0)) } ?? "unknown error"
             sqlite3_close_v2(db)
@@ -52,7 +57,8 @@ final class SQLiteDatabase {
          * than immediately returning SQLITE_BUSY to a view that has no sensible
          * way to recover from it.
          */
-        try exec("PRAGMA journal_mode = WAL")
+        // A read-only handle cannot set a journal mode, and does not need to.
+        if !readOnly { try exec("PRAGMA journal_mode = WAL") }
         try exec("PRAGMA busy_timeout = 5000")
         try exec("PRAGMA foreign_keys = ON")
     }

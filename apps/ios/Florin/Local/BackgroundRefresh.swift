@@ -70,7 +70,10 @@ enum BackgroundRefresh {
             "SELECT count(*) FROM transactions WHERE deleted_at IS NULL"
         )?.int) ?? 0
         guard let config = try? BankingFlow.config(store) else { return -1 }
-        _ = try? await BankingSync.run(store: store, config: config)
+        // Booked only. Nobody is waiting on this one, and the extra call per
+        // account would spend the day's unattended budget faster than it
+        // earns it.
+        _ = try? await BankingSync.run(store: store, config: config, pending: false)
         let after = (try? store.database.scalar(
             "SELECT count(*) FROM transactions WHERE deleted_at IS NULL"
         )?.int) ?? before

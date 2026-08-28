@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Settings, as iOS does them.
 ///
@@ -39,6 +40,10 @@ struct SettingsScreen: View {
     @AppStorage("florin.notifications") private var notificationsOn = false
     @State private var showingBanking = false
     @State private var confirmingImport = false
+    @AppStorage("florin.lastExport") private var lastExport = 0.0
+    @State private var exported: URL?
+    @State private var picking = false
+    @State private var pendingRestore: (url: URL, summary: LocalBackup.Summary)?
     @StateObject private var banking = BankingFlow()
     @State private var task: TaskSheet.State?
     @AppStorage("florin.dataSource") private var sourceRaw = ""
@@ -53,7 +58,8 @@ struct SettingsScreen: View {
                         sourceSection
                         appearanceSection
                         notificationsSection
-            privacySection
+                        backupSection
+                        privacySection
                         languageSection
                         aboutSection
                     }
@@ -136,6 +142,53 @@ struct SettingsScreen: View {
                     "Les comptes, opérations et catégories de cet appareil seront effacés et remplacés par ceux du serveur. Votre connexion bancaire est conservée."
                 ))
             }
+            // The system share sheet, so the copy lands wherever the person
+            // already keeps things — Fichiers, iCloud Drive, a mail to
+            // themselves — rather than in a folder only this app knows about.
+            .sheet(isPresented: Binding(
+                get: { exported != nil },
+                set: { if !$0 { exported = nil } }
+            )) {
+                if let exported { ShareSheet(items: [exported]) }
+            }
+            .fileImporter(isPresented: $picking, allowedContentTypes: [.data]) { result in
+                guard case let .success(url) = result else { return }
+                guard let summary = LocalBackup.inspect(url) else {
+                    task = .failure(LocalBackup.Failure.notALedger.localizedDescription)
+                    return
+                }
+                pendingRestore = (url, summary)
+            }
+            /*
+             * What is in the file, before it goes in.
+             *
+             * A restore merges rather than replaces, so it cannot lose what is
+             * on the phone — but "23 opérations" when you expected two
+             * thousand is how you find out you picked last year's copy, and
+             * that is worth knowing one tap early.
+             */
+            .alert(
+                t("v2.settings.restoreConfirm", "Restaurer cette sauvegarde ?"),
+                isPresented: Binding(
+                    get: { pendingRestore != nil },
+                    set: { if !$0 { pendingRestore = nil } }
+                )
+            ) {
+                Button(t("v2.settings.restoreAction", "Restaurer")) {
+                    if let url = pendingRestore?.url { Task { await restore(url) } }
+                    pendingRestore = nil
+                }
+                Button(t("v2.common.cancel", "Annuler"), role: .cancel) { pendingRestore = nil }
+            } message: {
+                Text(t(
+                    "v2.settings.restoreConfirmBody",
+                    "Ce fichier contient {transactions} opérations et {accounts} comptes. Ils seront ajoutés à ce téléphone ; rien de ce qui s'y trouve ne sera effacé.",
+                    [
+                        "transactions": pendingRestore?.summary.transactions ?? 0,
+                        "accounts": pendingRestore?.summary.accounts ?? 0,
+                    ]
+                ))
+            }
             .toolbar {
                 ToolbarItem(placement: .principal) { Wordmark(size: 17) }
                 if let onClose {
@@ -209,6 +262,80 @@ struct SettingsScreen: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
             }
+        }
+    }
+
+    /*
+     * Sauvegarde.
+     *
+     * iCloud's own backup carries the ledger now, and that is the one that
+     * matters — but it is invisible from in here: iOS will not tell an app
+     * whether backups are on, when the last one ran, or let it ask for one. So
+     * this says what is true and offers the copy the app can actually stand
+     * behind, with a date it earned rather than a status light wired to
+     * nothing.
+     */
+    @ViewBuilder
+    private var backupSection: some View {
+        if model.base.scheme == "florin-local" {
+            SettingsGroup(
+                title: t("v2.settings.backup", "Sauvegarde"),
+                footer: t(
+                    "v2.settings.backupHint",
+                    "Vos comptes et vos opérations sont inclus dans la sauvegarde iCloud de votre iPhone, et reviennent quand vous restaurez un téléphone. iOS ne dit pas aux applications quand cette sauvegarde a eu lieu — pour une copie datée que vous gardez vous-même, exportez un fichier."
+                )
+            ) {
+                SettingsRow(
+                    label: t("v2.settings.exportCopy", "Exporter une copie"),
+                    symbol: "square.and.arrow.up",
+                    action: exportCopy
+                ) {
+                    if lastExport > 0 {
+                        Text(
+                            Date(timeIntervalSince1970: lastExport),
+                            format: .relative(presentation: .named)
+                        )
+                        .font(.system(size: 14))
+                        .foregroundStyle(Florin.text2)
+                    }
+                }
+                Hairline()
+                SettingsRow(
+                    label: t("v2.settings.restoreCopy", "Restaurer une copie"),
+                    symbol: "square.and.arrow.down",
+                    action: { picking = true }
+                )
+            }
+        }
+    }
+
+    private func exportCopy() {
+        guard let store = LocalStore.shared else { return }
+        do {
+            exported = try LocalBackup.export(from: store)
+            lastExport = Date().timeIntervalSince1970
+        } catch {
+            task = .failure(error.localizedDescription)
+        }
+    }
+
+    /// Restore, once the user has seen what is in the file they picked.
+    private func restore(_ url: URL) async {
+        guard let store = LocalStore.shared else { return }
+        task = .running(t("v2.settings.restoring", "Restauration…"))
+        do {
+            let after = try LocalBackup.restore(from: url, into: store)
+            await model.load(showSpinner: false)
+            task = .success(
+                title: t("v2.settings.restoreDone", "Sauvegarde restaurée"),
+                detail: t(
+                    "v2.settings.restoreSummary",
+                    "Votre grand livre compte maintenant {transactions} opérations et {accounts} comptes.",
+                    ["transactions": after.transactions, "accounts": after.accounts]
+                )
+            )
+        } catch {
+            task = .failure(error.localizedDescription)
         }
     }
 

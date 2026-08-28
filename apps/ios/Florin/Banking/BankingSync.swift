@@ -19,7 +19,15 @@ enum BankingSync {
     }
 
     @discardableResult
-    static func run(store: LocalStore, config: EnableBanking.Config) async throws -> Result {
+    /// - Parameter pending: also ask for transactions the bank has received
+    ///   but not yet booked. One extra call per account, so it is left to the
+    ///   caller: worth it when someone is watching and waiting for a payment,
+    ///   not worth it for a scheduled pull in the middle of the night.
+    static func run(
+        store: LocalStore,
+        config: EnableBanking.Config,
+        pending: Bool = true
+    ) async throws -> Result {
         var result = Result()
 
         let connections = try store.database.query(
@@ -62,7 +70,7 @@ enum BankingSync {
                     result.accounts += 1
                     let counts = try await importTransactions(
                         store: store, config: config, uid: uid, accountId: accountId,
-                        since: connection.string("sync_start_date")
+                        since: connection.string("sync_start_date"), pending: pending
                     )
                     result.inserted += counts.inserted
                     result.skipped += counts.skipped
@@ -181,7 +189,8 @@ enum BankingSync {
         config: EnableBanking.Config,
         uid: String,
         accountId: String,
-        since: String?
+        since: String?,
+        pending: Bool
     ) async throws -> (inserted: Int, skipped: Int) {
         let calendar = Calendar(identifier: .gregorian)
         /*
@@ -283,6 +292,41 @@ enum BankingSync {
             page = try await EnableBanking.transactions(
                 config, uid: uid, from: from, to: to, continuationKey: key
             )
+        }
+
+        /*
+         * What has arrived but is not yet written down.
+         *
+         * A balance is live and a statement is not: an instant transfer credits
+         * the account the second it lands, while the line describing it appears
+         * only once the bank books it — that evening, or the next working day.
+         * Until then the money is visible as a total and invisible as an event,
+         * which reads exactly like a bug.
+         *
+         * Asking for it explicitly is the only way to see it early, because the
+         * API returns booked entries unless told otherwise. Best effort in both
+         * directions: plenty of banks publish nothing here, and a bank that
+         * refuses the question must not fail a sync that has already succeeded.
+         */
+        if pending {
+            do {
+                let waiting = try await EnableBanking.transactions(
+                    config, uid: uid, from: from, to: to, status: "PDNG"
+                )
+                for transaction in waiting.transactions {
+                    if try insert(
+                        transaction, store: store, accountId: accountId,
+                        uid: uid, adopted: &adopted
+                    ) {
+                        inserted += 1
+                    } else {
+                        skipped += 1
+                    }
+                }
+                log.notice("pending: \(waiting.transactions.count, privacy: .public) offered")
+            } catch {
+                log.notice("bank does not publish pending transactions")
+            }
         }
 
         try recomputeBalanceFromOpening(store: store, accountId: accountId)

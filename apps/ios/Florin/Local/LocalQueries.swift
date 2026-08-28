@@ -293,6 +293,26 @@ enum LocalQueries {
                    OR upper(t.payee) LIKE 'SEPA %' OR upper(t.payee) LIKE 'TRANSFER %'
                    OR upper(t.payee) LIKE 'UEBERWEISUNG %' OR upper(t.payee) LIKE 'BONIFICO %'
                    OR upper(t.payee) LIKE 'TRANSFERENCIA %')
+              -- Money that came straight back. An account that is both the
+              -- source and the stop on the way somewhere else shows the sum
+              -- leaving and landing within days; nothing left the patrimoine,
+              -- so there is nothing to ask about.
+              AND NOT EXISTS (
+                SELECT 1 FROM transactions r
+                WHERE r.account_id = t.account_id AND r.deleted_at IS NULL
+                  AND r.id <> t.id AND abs(r.amount + t.amount) < 0.005
+                  AND abs(julianday(r.occurred_at) - julianday(t.occurred_at)) <= 5
+              )
+              -- Already recorded by hand. A bank can take days to deliver a
+              -- movement the user entered themselves the moment they made it,
+              -- and the paired rows they wrote are the same money. Asking
+              -- again would book it twice.
+              AND NOT EXISTS (
+                SELECT 1 FROM transactions m
+                WHERE m.deleted_at IS NULL AND m.transfer_pair_id IS NOT NULL
+                  AND abs(m.amount - t.amount) < 0.005
+                  AND abs(julianday(m.occurred_at) - julianday(t.occurred_at)) <= 5
+              )
             ORDER BY t.occurred_at DESC LIMIT 20
             """
         ).map { LocalLedger.transaction(from: $0) }

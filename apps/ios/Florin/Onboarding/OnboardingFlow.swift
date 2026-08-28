@@ -66,7 +66,11 @@ struct OnboardingFlow: View {
      * user on a dashboard of zeros. There is nothing to confirm before the
      * bank has been connected, so the fork is where that path ends.
      */
-    private var lastStep: Int { path == .manual ? 3 : 1 }
+    private var lastStep: Int { path == .manual ? 3 : 2 }
+
+    /// The page that asks to be allowed to speak, on the path where it would
+    /// have something to say.
+    private var isNotifyStep: Bool { step == 2 && path == .bank }
 
     var body: some View {
         ZStack {
@@ -80,6 +84,7 @@ struct OnboardingFlow: View {
                     case 0: welcome
                     case 1: fork
                     case 2 where path == .manual: account
+                    case 2: notify
                     default: ready
                     }
                 }
@@ -318,6 +323,42 @@ struct OnboardingFlow: View {
         .padding(.horizontal, Florin.gutter)
     }
 
+    /*
+     * Asked once, and asked here.
+     *
+     * iOS puts this prompt to a person exactly once in the life of an install:
+     * decline it and the only way back is Settings, which nobody finds. So the
+     * system dialog is never raised on arrival — this page makes the case
+     * first, and only the button that means yes goes on to summon it. Saying
+     * "plus tard" here costs nothing and leaves the real prompt unspent.
+     *
+     * Only on the bank path. With no bank connected there is nothing to
+     * announce, and asking to send what does not exist spends the one prompt
+     * on nothing.
+     */
+    private var notify: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "bell.badge")
+                .font(.system(size: 46))
+                .foregroundStyle(Florin.accent)
+
+            Text(Strings.device("v2.onboard.notifyTitle", "Vous tenir au courant ?"))
+                .font(.system(size: 27, weight: .semibold))
+                .foregroundStyle(Florin.text)
+                .multilineTextAlignment(.center)
+
+            Text(Strings.device(
+                "v2.onboard.notifyBody",
+                "Florin interroge votre banque quelques fois par jour et vous envoie un résumé de ce qui est arrivé — un seul message, pas un par opération. Vous pourrez changer d'avis dans les réglages."
+            ))
+                .font(.system(size: 15))
+                .foregroundStyle(Florin.text2)
+                .multilineTextAlignment(.center)
+                .lineSpacing(3)
+                .padding(.horizontal, 32)
+        }
+    }
+
     private var ready: some View {
         VStack(spacing: 16) {
             Image(systemName: "checkmark.circle.fill")
@@ -375,11 +416,13 @@ struct OnboardingFlow: View {
             HStack(spacing: 8) {
                 if saving { ProgressView().tint(.black) }
                 Text(
-                    step == lastStep
-                        ? (path == .bank
-                            ? Strings.device("v2.onboard.bankTitle", "Connecter ma banque")
-                            : Strings.device("v2.onboarding.start", "Commencer"))
-                        : Strings.device("v2.onboard.continue", "Continuer")
+                    isNotifyStep
+                        ? Strings.device("v2.onboard.notifyEnable", "Me tenir au courant")
+                        : step == lastStep
+                            ? (path == .bank
+                                ? Strings.device("v2.onboard.bankTitle", "Connecter ma banque")
+                                : Strings.device("v2.onboarding.start", "Commencer"))
+                            : Strings.device("v2.onboard.continue", "Continuer")
                 )
                     .font(.system(size: 17, weight: .semibold))
             }
@@ -400,7 +443,19 @@ struct OnboardingFlow: View {
 
     @ViewBuilder
     private var secondaryAction: some View {
-        if step == 0 {
+        if isNotifyStep {
+            Button {
+                // Straight on, without raising the system prompt: an unanswered
+                // permission can still be granted later, a declined one is a
+                // trip to Settings nobody makes.
+                onNeedsBank()
+            } label: {
+                Text(Strings.device("v2.onboard.notifyLater", "Plus tard"))
+                    .font(.system(size: 13.5, weight: .medium))
+                    .foregroundStyle(Florin.text3)
+            }
+            .buttonStyle(.plain)
+        } else if step == 0 {
             Button(action: onUseServer) {
                 Text(Strings.device("v2.onboard.haveServer", "J'ai déjà un serveur Florin"))
                     .font(.system(size: 13.5, weight: .medium))
@@ -431,7 +486,14 @@ struct OnboardingFlow: View {
          * Nothing is written: accounts and balances come from the bank.
          */
         if path == .bank {
-            onNeedsBank()
+            saving = true
+            Task {
+                let granted = await BackgroundRefresh.requestPermission()
+                UserDefaults.standard.set(granted, forKey: "florin.notifications")
+                if granted { BackgroundRefresh.schedule() }
+                saving = false
+                onNeedsBank()
+            }
             return
         }
         saving = true
