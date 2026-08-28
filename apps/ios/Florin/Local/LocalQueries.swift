@@ -38,7 +38,7 @@ enum LocalQueries {
          * ledger that had plainly moved. The index means nothing; the date is
          * the only thing that does.
          */
-        let monthAgo = Self.point(in: series, daysBack: 30)?.balance
+        let monthAgo = try Self.netMonthAgo(db, currentNet: gross - liability)
 
         return Overview(
             generatedAt: ISO8601DateFormatter().string(from: Date()),
@@ -123,6 +123,68 @@ enum LocalQueries {
                 isSynced: row.string("sync_provider") == "enable_banking"
             )
         }
+    }
+
+    /*
+     * What the net worth was a month ago, the way the server says it.
+     *
+     * This used to read the daily patrimony curve at −30 days. Reasonable, and
+     * not the same question: the curve is rebuilt from today's balances walked
+     * backwards, so anything the walk treats differently from the server's own
+     * sum shows up as a different headline. On the same ledger the phone said
+     * +1 128 € on the month where the server said +4 073 €, which is not a
+     * rounding difference — it is two definitions.
+     *
+     * The definition that wins is the server's, because the whole point of the
+     * device build is that it renders the same app: today's net worth minus
+     * everything that has moved since this date last month. A calendar month,
+     * not thirty days. Adjustment rows are left out — a balance reconciliation
+     * or a transfer from an untracked account moves an account without being
+     * wealth earned or spent, and counting them made the month jump by whole
+     * consolidations.
+     *
+     * Returns nil when the ledger does not reach back that far, so the hero
+     * says nothing rather than comparing against a month that was never
+     * recorded.
+     */
+    static func netMonthAgo(_ db: SQLiteDatabase, currentNet: Double) throws -> Double? {
+        let oldest = try db.scalar(
+            """
+            SELECT min(substr(t.occurred_at, 1, 10))
+            FROM transactions t
+            JOIN accounts a ON a.id = t.account_id
+            WHERE t.deleted_at IS NULL AND t.transfer_pair_id IS NULL
+              AND a.is_archived = 0 AND a.is_included_in_net_worth = 1
+              AND a.kind <> 'loan' AND t.status = 'cleared'
+            """
+        )?.string
+        guard let oldest, oldest <= Self.targetMonthAgo() else { return nil }
+
+        let delta = try db.scalar(
+            """
+            SELECT coalesce(sum(t.amount), 0)
+            FROM transactions t
+            JOIN accounts a ON a.id = t.account_id
+            LEFT JOIN categories c ON c.id = t.category_id
+            LEFT JOIN category_groups g ON g.id = c.group_id
+            WHERE t.deleted_at IS NULL AND t.transfer_pair_id IS NULL
+              AND a.is_archived = 0 AND a.is_included_in_net_worth = 1
+              AND a.kind <> 'loan' AND t.status = 'cleared'
+              AND substr(t.occurred_at, 1, 10) > ?
+              AND substr(t.occurred_at, 1, 10) <= date('now')
+              AND (g.kind IS NULL OR g.kind <> 'adjustment')
+            """,
+            [.text(Self.targetMonthAgo())]
+        )?.double ?? 0
+
+        return currentNet - delta
+    }
+
+    /// This date, last month.
+    private static func targetMonthAgo() -> String {
+        let calendar = Calendar(identifier: .gregorian)
+        let date = calendar.date(byAdding: .month, value: -1, to: Date()) ?? Date()
+        return dayFormatter.string(from: date)
     }
 
     static func readCategories(_ db: SQLiteDatabase) throws -> [Category] {

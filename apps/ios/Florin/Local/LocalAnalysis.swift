@@ -9,11 +9,14 @@ enum LocalAnalysis {
     static func data(store: LocalStore) throws -> AnalysisData {
         let db = store.database
         let months = recentMonths(12)
+        // One pass. The shares and the id lookup are two halves of the same
+        // answer, and this is the heaviest query on the screen.
+        let breakdown = try categoryShares(db, days: 30)
 
         return AnalysisData(
             flows: try flows(db, months: months),
-            categories: try categoryShares(db, months: 6).shares,
-            categoryIds: try categoryShares(db, months: 6).ids,
+            categories: breakdown.shares,
+            categoryIds: breakdown.ids,
             categorySeries: try categorySeries(db, months: months),
             dailySpend: try dailySpend(db, days: 30),
             subscriptions: try subscriptions(db),
@@ -61,11 +64,24 @@ enum LocalAnalysis {
 
     // MARK: - Where it went
 
+    /*
+     * The window the screen names, not a different one.
+     *
+     * This asked for six calendar months while the tile above it said
+     * "Dépensé sur 30 jours", so the headline read 18 101 € for a month in
+     * which 2 184 € had been spent, and every category bar was a half-year
+     * total wearing a 30-day label. The server's own endpoint asks for 30
+     * days; local mode has to ask for the same thing or the two renderings
+     * are not the same app.
+     *
+     * Rows are excluded one by one on `amount < 0`, as the server does, rather
+     * than by the sign of a category's sum: a refund inside a category should
+     * not be able to hide the spending it sits next to.
+     */
     static func categoryShares(
         _ db: SQLiteDatabase,
-        months: Int
+        days: Int
     ) throws -> (shares: [CategoryShare], ids: [String: String]) {
-        let since = monthKey(monthsBack: months)
         let rows = try db.query(
             """
             SELECT c.id AS id, c.name AS name, c.emoji AS emoji, g.name AS group_name,
@@ -76,12 +92,12 @@ enum LocalAnalysis {
             JOIN category_groups g ON g.id = c.group_id
             WHERE t.deleted_at IS NULL AND t.status = 'cleared' AND t.is_pending = 0 AND substr(t.occurred_at, 1, 10) <= date('now')
               AND t.transfer_pair_id IS NULL AND a.is_archived = 0
-              AND g.kind = 'expense' AND substr(t.occurred_at, 1, 7) >= ?
+              AND g.kind = 'expense' AND t.amount < 0
+              AND substr(t.occurred_at, 1, 10) >= date('now', ?)
             GROUP BY c.id, c.name, c.emoji, g.name
-            HAVING sum(t.amount) < 0
             ORDER BY sum(t.amount) ASC
             """,
-            [.text(since)]
+            [.text("-\(days) days")]
         )
         var ids: [String: String] = [:]
         let shares = rows.map { row -> CategoryShare in
