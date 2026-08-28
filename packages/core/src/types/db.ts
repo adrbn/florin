@@ -175,10 +175,21 @@ export interface LeftToSpend {
    */
   monthSpentFixed: number
   /**
-   * Trailing average monthly burn (typical full-month spend). Used as a floor
-   * for the month projection so that early in the month — when few bills have
-   * posted and reimbursements can briefly exceed spend — the forecast doesn't
-   * collapse to "you'll spend nothing" and show the whole salary as margin.
+   * Trailing average of the FIXED part of a month, over complete months. Rent,
+   * loans, insurance and subscriptions land whichever day the bank chooses but
+   * always land, so the projection carries the whole expected amount rather
+   * than a share of it prorated by the calendar.
+   */
+  expectedMonthlyFixed?: number
+  /**
+   * Trailing average monthly burn over COMPLETE months (typical full-month
+   * spend). Feeds the month projection's prior: early on, when few days have
+   * been observed, the forecast leans on what a month usually costs rather
+   * than on a handful of days.
+   *
+   * Complete months only. Including the month in progress averages a partial
+   * month against whole ones and drags the figure down exactly when it is
+   * being used to compensate for a partial month.
    */
   expectedMonthlySpend: number
   leftToSpend: number

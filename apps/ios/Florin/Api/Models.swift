@@ -82,6 +82,11 @@ struct LeftToSpend: Decodable, Sendable {
     let monthSpent: Double
     let monthSpentFixed: Double
     let expectedMonthlySpend: Double
+    /// The fixed part of a typical month, over complete months. Bills land
+    /// whichever day the bank chooses but always land, so the projection
+    /// carries the whole expected amount rather than a prorated share.
+    /// Optional: a server that predates the field falls back to zero.
+    var expectedMonthlyFixed: Double?
     let leftToSpend: Double
     let dailyAvgSpent: Double
     let dailyBudgetRemaining: Double?

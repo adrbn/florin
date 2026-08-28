@@ -265,9 +265,21 @@ export async function getMonthBurn(db: SqliteDB, opts: BurnOptions = {}): Promis
   return total >= 0 ? 0 : Math.abs(total)
 }
 
-export async function getAvgMonthlyBurn(db: SqliteDB, months = 6): Promise<number> {
-  const end = formatDate(endOfMonth(new Date()))
-  const start = formatDate(startOfMonth(addMonths(new Date(), -months + 1)))
+/**
+ * Typical monthly burn, over COMPLETE months only.
+ *
+ * The window used to run to the end of the current month and divide by the
+ * full count, so a month three days old was averaged against whole ones and
+ * dragged the figure down — precisely when it is being used to stand in for a
+ * partial month. The same reasoning the savings rates already follow.
+ */
+export async function getAvgMonthlyBurn(
+  db: SqliteDB,
+  months = 6,
+  opts: { fixedOnly?: boolean } = {},
+): Promise<number> {
+  const end = formatDate(endOfMonth(addMonths(new Date(), -1)))
+  const start = formatDate(startOfMonth(addMonths(new Date(), -months)))
   const rows = await db
     .select({ total: burnAmountSql })
     .from(transactions)
@@ -282,6 +294,7 @@ export async function getAvgMonthlyBurn(db: SqliteDB, months = 6): Promise<numbe
         lte(transactions.occurredAt, end),
         sql`${transactions.transferPairId} IS NULL`,
         eq(accounts.isArchived, false),
+        ...(opts.fixedOnly ? [eq(categories.isFixed, true)] : []),
       ),
     )
   const total = Number(rows[0]?.total ?? 0)
@@ -763,6 +776,7 @@ export async function getLeftToSpendThisMonth(db: SqliteDB): Promise<LeftToSpend
   const monthSpent = await getMonthBurn(db, { gross: true })
   const monthSpentFixed = await getMonthBurn(db, { fixedOnly: true })
   const expectedMonthlySpend = await getAvgMonthlyBurn(db, 6)
+  const expectedMonthlyFixed = await getAvgMonthlyBurn(db, 6, { fixedOnly: true })
   const leftToSpend = monthIncome - monthSpent
 
   const today = new Date()
@@ -780,6 +794,7 @@ export async function getLeftToSpendThisMonth(db: SqliteDB): Promise<LeftToSpend
     monthSpent,
     monthSpentFixed,
     expectedMonthlySpend,
+    expectedMonthlyFixed,
     leftToSpend,
     dailyAvgSpent,
     dailyBudgetRemaining,
