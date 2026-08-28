@@ -126,31 +126,34 @@ enum LocalQueries {
     }
 
     /*
-     * What the net worth was a month ago, the way the server says it.
+     * The wealth change over the last COMPLETE calendar month.
      *
-     * This used to read the daily patrimony curve at −30 days. Reasonable, and
-     * not the same question: the curve is rebuilt from today's balances walked
-     * backwards, so anything the walk treats differently from the server's own
-     * sum shows up as a different headline. On the same ledger the phone said
-     * +1 128 € on the month where the server said +4 073 €, which is not a
-     * rounding difference — it is two definitions.
+     * Comparing today against this date last month is arithmetically sound and,
+     * on a real ledger, close to meaningless: a salary lands on a drifting date
+     * — the 24th, the 26th, the 29th — so a fixed one-month window catches one
+     * payday, two, or none. Measured day by day on this account the same figure
+     * read +519 € on 25 July, −2 457 € on the 26th, +647 € on the 29th. Three
+     * thousand euros of swing in four days, with nothing having happened. Today
+     * it reads +4 073 € because the window happens to hold two salaries.
      *
-     * The definition that wins is the server's, because the whole point of the
-     * device build is that it renders the same app: today's net worth minus
-     * everything that has moved since this date last month. A calendar month,
-     * not thirty days. Adjustment rows are left out — a balance reconciliation
-     * or a transfer from an untracked account moves an account without being
-     * wealth earned or spent, and counting them made the month jump by whole
-     * consolidations.
+     * A complete calendar month holds exactly one, whichever day it falls on.
+     * The same ledger then reads +541, +672, +442, −20, +703, +482 — which is
+     * what the month actually was.
      *
-     * Returns nil when the ledger does not reach back that far, so the hero
-     * says nothing rather than comparing against a month that was never
-     * recorded.
+     * The same rule the savings rates already follow, for the same reason: the
+     * month in progress has its spending but not yet its income.
+     *
+     * Adjustment rows stay out — a balance reconciliation moves an account
+     * without being wealth earned or spent.
+     *
+     * Returns nil when the ledger does not reach back to that month, so the
+     * hero says nothing rather than comparing against a month it never saw.
      */
     static func netMonthAgo(_ db: SQLiteDatabase, currentNet: Double) throws -> Double? {
+        let month = Self.lastCompleteMonth()
         let oldest = try db.scalar(
             """
-            SELECT min(substr(t.occurred_at, 1, 10))
+            SELECT min(substr(t.occurred_at, 1, 7))
             FROM transactions t
             JOIN accounts a ON a.id = t.account_id
             WHERE t.deleted_at IS NULL AND t.transfer_pair_id IS NULL
@@ -158,7 +161,7 @@ enum LocalQueries {
               AND a.kind <> 'loan' AND t.status = 'cleared'
             """
         )?.string
-        guard let oldest, oldest <= Self.targetMonthAgo() else { return nil }
+        guard let oldest, oldest <= month else { return nil }
 
         let delta = try db.scalar(
             """
@@ -170,22 +173,22 @@ enum LocalQueries {
             WHERE t.deleted_at IS NULL AND t.transfer_pair_id IS NULL
               AND a.is_archived = 0 AND a.is_included_in_net_worth = 1
               AND a.kind <> 'loan' AND t.status = 'cleared'
-              AND substr(t.occurred_at, 1, 10) > ?
-              AND substr(t.occurred_at, 1, 10) <= date('now')
+              AND substr(t.occurred_at, 1, 7) = ?
               AND (g.kind IS NULL OR g.kind <> 'adjustment')
             """,
-            [.text(Self.targetMonthAgo())]
+            [.text(month)]
         )?.double ?? 0
 
         return currentNet - delta
     }
 
-    /// This date, last month.
-    private static func targetMonthAgo() -> String {
+    /// The month before this one, as `yyyy-MM`.
+    static func lastCompleteMonth() -> String {
         let calendar = Calendar(identifier: .gregorian)
         let date = calendar.date(byAdding: .month, value: -1, to: Date()) ?? Date()
-        return dayFormatter.string(from: date)
+        return monthFormatter.string(from: date)
     }
+
 
     static func readCategories(_ db: SQLiteDatabase) throws -> [Category] {
         try db.query(
@@ -511,29 +514,109 @@ enum LocalQueries {
         return round2(total / Double(months))
     }
 
+    /*
+     * What went out this month, the way the server counts it.
+     *
+     * This joined categories INNER and summed every amount, which quietly
+     * changed the figure in two ways the comment above it claimed it did not.
+     *
+     * Uncategorised debits vanished entirely — an inner join drops them —
+     * although they are money that left. And positive rows inside expense
+     * categories netted off the total, so a refund erased the spending it was
+     * refunding: on a real month the phone read 1 974 € where the server read
+     * 2 400 €, and every figure built on it — the forecast, the projected
+     * margin, what is left to spend — was 426 € too kind.
+     *
+     * Gross means outflows only. Refunds show up where they belong, in the
+     * net figures, not by rewriting what a month cost.
+     *
+     * `fixedOnly` keeps the net convention the server uses for it, since only
+     * a categorised row can be marked fixed and refunds against a bill really
+     * do reduce that bill.
+     */
     private static func sum(
         _ db: SQLiteDatabase,
         month: String,
         kind: String,
         fixedOnly: Bool = false
     ) throws -> Double {
+        guard kind == "expense" else {
+            let value = try db.scalar(
+                """
+                SELECT coalesce(sum(t.amount), 0)
+                FROM transactions t
+                JOIN accounts a ON a.id = t.account_id
+                JOIN categories c ON c.id = t.category_id
+                JOIN category_groups g ON g.id = c.group_id
+                WHERE t.deleted_at IS NULL AND t.status = 'cleared' AND t.is_pending = 0
+                  AND substr(t.occurred_at, 1, 10) <= date('now')
+                  AND substr(t.occurred_at, 1, 7) = ? AND g.kind = ?
+                  AND t.transfer_pair_id IS NULL AND a.is_archived = 0
+                """,
+                [.text(month), .text(kind)]
+            )?.double ?? 0
+            return value
+        }
+
+        let amount = fixedOnly ? Self.netBurnCase : Self.grossBurnCase
         let fixedClause = fixedOnly ? "AND c.is_fixed = 1" : ""
         let value = try db.scalar(
             """
-            SELECT coalesce(sum(t.amount), 0)
+            SELECT coalesce(sum(\(amount)), 0)
             FROM transactions t
-            JOIN categories c ON c.id = t.category_id
-            JOIN category_groups g ON g.id = c.group_id
-            WHERE t.deleted_at IS NULL AND t.status = 'cleared' AND t.is_pending = 0 AND substr(t.occurred_at, 1, 10) <= date('now')
+            JOIN accounts a ON a.id = t.account_id
+            LEFT JOIN categories c ON c.id = t.category_id
+            LEFT JOIN category_groups g ON g.id = c.group_id
+            WHERE t.deleted_at IS NULL AND t.status = 'cleared' AND t.is_pending = 0
+              AND substr(t.occurred_at, 1, 10) <= date('now')
               AND substr(t.occurred_at, 1, 7) = ?
-              AND g.kind = ? \(fixedClause)
+              AND t.transfer_pair_id IS NULL AND a.is_archived = 0 \(fixedClause)
             """,
-            [.text(month), .text(kind)]
+            [.text(month)]
         )?.double ?? 0
-        // Expenses are stored negative; spending is the positive of that, the
-        // same convention the plan uses.
-        return kind == "expense" ? -value : value
+        // A month that took in more than it spent has burnt nothing, not a
+        // negative amount.
+        return value >= 0 ? 0 : abs(value)
     }
+
+    /*
+     * Money that left, ignoring refunds. An uncategorised debit still counts —
+     * it is money gone, whatever it was for — unless it looks like a transfer
+     * between the user's own accounts, which is money moved, not spent.
+     */
+    private static let grossBurnCase = """
+        CASE
+          WHEN \(uncategorisedTransfer) THEN 0
+          WHEN t.amount < 0 AND (g.kind IS NULL OR g.kind = 'expense') THEN t.amount
+          ELSE 0
+        END
+        """
+
+    /// The same, with refunds inside expense categories netted back off.
+    private static let netBurnCase = """
+        CASE
+          WHEN \(uncategorisedTransfer) THEN 0
+          WHEN t.amount < 0 AND (g.kind IS NULL OR g.kind = 'expense') THEN t.amount
+          WHEN t.amount > 0 AND g.kind = 'expense' THEN t.amount
+          ELSE 0
+        END
+        """
+
+    /*
+     * An outgoing transfer nobody has classified.
+     *
+     * Banks label a self-transfer differently per country and language, so the
+     * server matches a list of prefixes; the same list, kept in step. Only
+     * uncategorised rows are caught — filing one under a real category is the
+     * user overriding the guess, and that has to win.
+     */
+    private static let uncategorisedTransfer = """
+        ((upper(t.payee) LIKE 'VIREMENT %' OR upper(t.payee) LIKE 'VIR %'
+          OR upper(t.payee) LIKE 'UBERWEISUNG %' OR upper(t.payee) LIKE 'UEBERWEISUNG %'
+          OR upper(t.payee) LIKE 'TRANSFER %' OR upper(t.payee) LIKE 'TRANSFERENCIA %'
+          OR upper(t.payee) LIKE 'BONIFICO %' OR upper(t.payee) LIKE 'SEPA %')
+         AND t.category_id IS NULL)
+        """
 
     static func allocation(_ accounts: [Account]) -> Allocation {
         var cash = 0.0

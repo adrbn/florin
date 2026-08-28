@@ -114,23 +114,41 @@ final class PlanModel: ObservableObject {
         }
     }
 
-    func removeCategory(_ id: String, named name: String, t: Strings) async {
+    /// How many transactions a category carries — the question that decides
+    /// what deleting it can even mean.
+    func categoryUsage(_ id: String) -> Int {
+        guard let store else { return 0 }
+        return (try? LocalCategories.usage(store: store, id: id)) ?? 0
+    }
+
+    func removeCategory(
+        _ id: String, named name: String, how: LocalCategories.Removal, t: Strings
+    ) async {
         await mutate {
             guard let store = self.store else { return }
-            let erased = try LocalCategories.remove(store: store, id: id)
-            // Archiving is not deleting, and saying "deleted" when a year of
-            // history still carries the label is how people lose trust in
-            // what a screen tells them.
-            self.toast = ToastMessage(
-                text: erased
-                    ? t("v2.plan.categoryDeleted", "« {name} » supprimée", ["name": name])
-                    : t(
-                        "v2.plan.categoryArchived",
-                        "« {name} » retirée du plan. Ses opérations la gardent.",
-                        ["name": name]
-                    ),
-                kind: .success
-            )
+            try LocalCategories.remove(store: store, id: id, how: how)
+            // Say what actually happened. Announcing "supprimée" when a year of
+            // history still carries the label is how people stop believing what
+            // a screen tells them.
+            let text: String
+            switch how {
+            case .reassign:
+                text = t(
+                    "v2.plan.categoryMoved",
+                    "« {name} » supprimée, ses opérations déplacées.", ["name": name]
+                )
+            case .detach:
+                text = t(
+                    "v2.plan.categoryDetached",
+                    "« {name} » supprimée. Ses opérations sont à reclasser.", ["name": name]
+                )
+            case .archive:
+                text = t(
+                    "v2.plan.categoryArchived",
+                    "« {name} » retirée du plan. Ses opérations la gardent.", ["name": name]
+                )
+            }
+            self.toast = ToastMessage(text: text, kind: .success)
         }
     }
 
