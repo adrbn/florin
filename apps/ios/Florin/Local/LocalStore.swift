@@ -159,6 +159,11 @@ extension LocalStore {
              */
             // A duplicate left by an earlier build outlives the sync that
             // created it, so the repair has to run where every launch sees it.
+            let unlabelled = try BankingSync.clearMirrorCategories(store: store)
+            if unlabelled > 0 {
+                log.notice("cleared \(unlabelled, privacy: .public) mirror categories")
+            }
+
             let dropped = try BankingSync.collapseSettledDuplicates(store: store)
             if dropped > 0 {
                 log.notice("dropped \(dropped, privacy: .public) settled duplicates")

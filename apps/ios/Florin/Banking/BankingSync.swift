@@ -540,6 +540,39 @@ extension BankingSync {
      * provisional side. Run after a sync and at launch, because the ledger a
      * launch opens may already carry one from before the fix.
      */
+    /*
+     * A transfer's mirror leg carries no category.
+     *
+     * The leg that lands against a loan is not spending — the spending is the
+     * money leaving the current account, and the category belongs there. A
+     * mirror that carries one cancels the row it mirrors in any query that
+     * does not exclude transfer legs, and one of these had drifted onto
+     * "Rent", which is not even the right bill.
+     *
+     * New mirrors are written without a category; these are the ones from
+     * before that was true.
+     */
+    @discardableResult
+    static func clearMirrorCategories(store: LocalStore) throws -> Int {
+        let rows = try store.database.query(
+            """
+            SELECT t.id AS id
+            FROM transactions t
+            JOIN accounts a ON a.id = t.account_id
+            WHERE a.kind = 'loan' AND t.deleted_at IS NULL
+              AND t.amount > 0 AND t.category_id IS NOT NULL
+              AND t.transfer_pair_id IS NOT NULL
+            """
+        )
+        for row in rows {
+            guard let id = row.string("id") else { continue }
+            try store.database.run(
+                "UPDATE transactions SET category_id = NULL WHERE id = ?", [.text(id)]
+            )
+        }
+        return rows.count
+    }
+
     @discardableResult
     static func collapseSettledDuplicates(store: LocalStore) throws -> Int {
         let ghosts = try store.database.query(

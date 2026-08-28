@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, isNull, lt } from 'drizzle-orm'
+import { and, asc, eq, gte, isNull, lt, sql } from 'drizzle-orm'
 import type { PgDB } from '../client'
 import type { MonthPlan, PlanCategory, PlanGroup } from '@florin/core/types'
 import { categories, categoryGroups, transactions, monthlyBudgets } from '../schema'
@@ -76,7 +76,14 @@ export async function getMonthPlanQuery(
         gte(transactions.occurredAt, start),
         lt(transactions.occurredAt, end),
         isNull(transactions.deletedAt),
-        isNull(transactions.transferPairId),
+        // A leg of a transfer is not spending — except when it is. Money
+        // moved between the user's own accounts stays out, but a repayment
+        // they filed under a category is money they planned and watched
+        // leave: excluding it reported "Réparti 136 €, dépensé 0 €" for a
+        // bill paid every month without fail. Only outflows qualify, so the
+        // mirror landing against the debt can never count as well.
+        sql`(${transactions.transferPairId} IS NULL
+             OR (${transactions.categoryId} IS NOT NULL AND ${transactions.amount} < 0))`,
       ),
     )
 

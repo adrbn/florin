@@ -67,6 +67,23 @@ enum LocalPlan {
             WHERE t.deleted_at IS NULL AND t.is_pending = 0
               AND substr(t.occurred_at, 1, 10) <= date('now')
               AND substr(t.occurred_at, 1, 7) = ?
+              /*
+               * Not the other half of a transfer.
+               *
+               * The server's plan excludes these and the port did not, so a
+               * transfer's inbound leg — if it carried a category — cancelled
+               * the outbound one it mirrors. A loan repayment is exactly that
+               * shape: 135,91 € leaves the current account and the same
+               * amount lands against the debt.
+               *
+               * But excluding both legs is what reported "Réparti 136 €,
+               * dépensé 0 €" for a bill paid every month without fail — the
+               * real leg is paired too. Money the user filed under a category
+               * is money they planned and watched leave, so it counts; only
+               * outflows qualify, which keeps the mirror out for good.
+               */
+              AND (t.transfer_pair_id IS NULL
+                   OR (t.category_id IS NOT NULL AND t.amount < 0))
             """,
             [.text(key)]
         ) {
