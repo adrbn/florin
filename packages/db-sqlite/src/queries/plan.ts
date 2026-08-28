@@ -77,7 +77,8 @@ export function getMonthPlanQuery(db: SqliteDB, year: number, month: number): Mo
     WHERE t.occurred_at >= ?
       AND t.occurred_at < ?
       AND t.deleted_at IS NULL
-      AND t.transfer_pair_id IS NULL
+      AND (t.transfer_pair_id IS NULL
+           OR (t.category_id IS NOT NULL AND t.amount < 0))
   `
 
   // Access the underlying better-sqlite3 instance via drizzle's public $client property.
