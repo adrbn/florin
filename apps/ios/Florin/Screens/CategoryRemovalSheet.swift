@@ -78,7 +78,7 @@ struct CategoryRemovalSheet: View {
                     .padding(.bottom, 12)
                 }
             }
-            .background(Florin.bg)
+            .background(Backdrop(tint: Florin.sheetTint, floor: true))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -171,7 +171,7 @@ private struct CategoryTargetPicker: View {
                 .padding(.horizontal, Florin.gutter)
                 .padding(.top, 8)
             }
-            .background(Florin.bg)
+            .background(Backdrop(tint: Florin.sheetTint, floor: true))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {

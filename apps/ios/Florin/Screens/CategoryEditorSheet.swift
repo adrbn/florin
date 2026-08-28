@@ -117,7 +117,7 @@ struct CategoryEditorSheet: View {
                 }
             }
             .scrollDismissesKeyboard(.interactively)
-            .background(Florin.bg)
+            .background(Backdrop(tint: Florin.sheetTint, floor: true))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

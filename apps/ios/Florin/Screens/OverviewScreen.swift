@@ -20,12 +20,18 @@ struct OverviewScreen: View {
     @State private var addingAccount = false
     @State private var connectingBank = false
     @State private var upcomingExpanded = false
+    @State private var attachExpanded = false
     @State private var reviewExpanded = false
     @State private var scrubbed: PatrimonyPoint?
     @State private var range: Range = .year
     @State private var showGross = false
     /// The delta line answers two different questions; a tap swaps them.
     @State private var showSaving = false
+    /// The movement whose destination is being asked about.
+    @State private var attaching: Transaction?
+    /// Ids already offered this session, so the sheet asks once and the group
+    /// below carries it from then on.
+    @State private var asked: Set<String> = []
 
     /// The served table once it exists, the bundled one before it does — the
     /// failed state renders with no feed behind it, by definition.
@@ -94,9 +100,40 @@ struct OverviewScreen: View {
         .sheet(isPresented: $addingAccount) {
             AddAccountSheet(onSaved: { Task { await model.load(showSpinner: false) } })
         }
+        .sheet(item: $attaching) { tx in
+            AttachTransferSheet(
+                transaction: tx,
+                accounts: model.overview?.accounts ?? [],
+                locale: model.overview?.localeTag ?? "fr-FR",
+                currency: model.overview?.currency ?? "EUR",
+                t: t,
+                onAttach: { await attach(tx, to: $0) },
+                onSpending: { route(.activity, "/m/transactions?needsReview=1") }
+            )
+        }
+        /*
+         * Asked once, when it is fresh.
+         *
+         * A card alone can be ignored for months while the net worth stays
+         * wrong; a prompt on every launch would be nagging about something
+         * that happens twice a year. So the sheet comes up the first time a
+         * movement is seen, and the group on the dashboard keeps it reachable
+         * afterwards.
+         */
+        .task(id: model.overview?.generatedAt) {
+            guard attaching == nil, adding == false else { return }
+            if let first = model.dangling.first(where: { !asked.contains($0.id) }) {
+                asked.insert(first.id)
+                attaching = first
+            }
+        }
         .sheet(isPresented: $adding) {
             if let data = model.overview {
-                AddTransactionSheet(data: data) { try await model.add($0) }
+                AddTransactionSheet(
+                    data: data,
+                    submit: { try await model.add($0) },
+                    onTransfer: { try await model.addTransfer($0) }
+                )
             }
         }
         .task { await model.onForeground() }
@@ -562,6 +599,14 @@ struct OverviewScreen: View {
         return f.string(from: date)
     }
 
+    private func attach(_ tx: Transaction, to accountId: String) async {
+        do {
+            try await model.attachTransfer(tx.id, to: accountId)
+        } catch {
+            model.toast = ToastMessage(text: error.localizedDescription, kind: .failure)
+        }
+    }
+
     /// Avatar, search, sync — the row every neobank puts above the balance.
     private func headerRow(_ data: Overview) -> some View {
         HStack(spacing: 10) {
@@ -689,7 +734,18 @@ struct OverviewScreen: View {
             ? (elapsed * observedDaily + priorWeight * priorDaily) / weight
             : observedDaily
         let fixedComponent = max(lts.monthSpentFixed, expectedFixed)
-        let projected = max(lts.monthSpent, blendedDaily * daysInMonth + fixedComponent)
+        let projectedGross = max(lts.monthSpent, blendedDaily * daysInMonth + fixedComponent)
+        /*
+         * Projected gross, margin net — see computeMonthForecast.
+         *
+         * Refunds arrive in lumps and late, so a model fed net spending stops
+         * believing the month it describes. Gross is the predictable series;
+         * the refunds already banked are simply known and subtracted. Future
+         * ones are not predicted, which errs on the pessimistic side of a
+         * margin — the harmless direction.
+         */
+        let refunds = lts.monthRefunds ?? 0
+        let projected = max(lts.monthSpent - refunds, projectedGross - refunds)
         let margin = lts.monthIncome > 0 ? lts.monthIncome - projected : nil
         let ratio = lts.monthIncome > 0 ? min(1, projected / lts.monthIncome) : 1
 
@@ -804,6 +860,30 @@ struct OverviewScreen: View {
                  * like the upcoming group — the count is the message, the list
                  * is there when you want it.
                  */
+                let dangling = model.dangling
+                if !dangling.isEmpty {
+                    UpcomingGroup(
+                        transactions: dangling,
+                        locale: data.localeTag,
+                        currency: data.currency,
+                        t: data.t,
+                        symbol: "arrow.left.arrow.right",
+                        tint: Florin.accent,
+                        caption: data.t(
+                            "v2.attach.count", "{count} à rattacher", ["count": dangling.count]
+                        ),
+                        expanded: $attachExpanded
+                    ) { tx in
+                        Button { attaching = tx } label: {
+                            TransactionRowView(
+                                tx: tx, locale: data.localeTag,
+                                currency: data.currency, t: data.t
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
                 if !toReview.isEmpty {
                     UpcomingGroup(
                         transactions: toReview,

@@ -13,6 +13,16 @@ import SwiftUI
 /// the reading area stays quiet.
 struct Backdrop: View {
     let tint: Color
+    /*
+     * A sheet is shorter than a screen and reaches the bottom of the display.
+     *
+     * The tab gradient is tuned for a tall scroll: it dips to almost nothing
+     * in the middle so figures keep their contrast, then lifts again at the
+     * very bottom. Inside a sheet that dip lands in the middle of the content
+     * and the last third reads as flat near-black. This holds a floor under it
+     * instead.
+     */
+    var floor = false
 
     var body: some View {
         ZStack {
@@ -34,9 +44,9 @@ struct Backdrop: View {
                     .init(color: tint.opacity(0.62), location: 0.00),
                     .init(color: tint.opacity(0.32), location: 0.14),
                     .init(color: tint.opacity(0.15), location: 0.30),
-                    .init(color: tint.opacity(0.06), location: 0.50),
-                    .init(color: tint.opacity(0.05), location: 0.72),
-                    .init(color: tint.opacity(0.13), location: 1.00),
+                    .init(color: tint.opacity(floor ? 0.16 : 0.06), location: 0.50),
+                    .init(color: tint.opacity(floor ? 0.18 : 0.05), location: 0.72),
+                    .init(color: tint.opacity(floor ? 0.22 : 0.13), location: 1.00),
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -84,6 +94,20 @@ extension TabRoute {
         case .settings: return Color(red: 0.30, green: 0.31, blue: 0.58)
         }
     }
+}
+
+extension Florin {
+    /*
+     * The ground for sheets that compose something.
+     *
+     * The five tabs each own a hue so you know which room you are in. A sheet
+     * is not a room — it is an action taken from wherever you were — and
+     * borrowing the host tab's colour made it read as more of the same screen,
+     * while leaving it untinted let the gradient die into black by the third
+     * row. Jade is the one part of the wheel no tab uses, and being a ground
+     * rather than text it cannot be mistaken for the green that means a gain.
+     */
+    static let sheetTint = Color(red: 0.09, green: 0.44, blue: 0.37)
 }
 
 /// A round icon button on the coloured ground — the Revolut header/action

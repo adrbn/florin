@@ -257,7 +257,19 @@ struct MainTabs: View {
                     .hideSystemTabBar()
                     .tag(TabRoute.overview)
 
-                AccountsScreen(model: model, route: route, onOpenSettings: openSettings)
+                AccountsScreen(
+                    model: model, route: route, onOpenSettings: openSettings,
+                    // "/m/accounts/<id>#<nonce>" — the id is what the link was
+                    // about, and the nonce only makes each arrival distinct.
+                    openAccountId: paths[.accounts]
+                        .flatMap { $0.split(separator: "#").first.map(String.init) }
+                        .flatMap { path in
+                            path.hasPrefix("/m/accounts/")
+                                ? String(path.dropFirst("/m/accounts/".count))
+                                : nil
+                        }
+                        .flatMap { $0.isEmpty ? nil : $0 }
+                )
                     .hideSystemTabBar()
                     .tag(TabRoute.accounts)
 

@@ -113,6 +113,114 @@ enum LocalLedger {
 
     // MARK: - Writing
 
+    /*
+     * Two rows, one pair id.
+     *
+     * A transfer is not a transaction with a special flag — it is a movement
+     * with two ends, and writing it as two paired rows is what lets every
+     * existing query answer correctly without learning anything new: spending
+     * skips paired legs, the plan skips them unless the far side is a debt,
+     * and both balances move.
+     *
+     * On an account the bank also syncs, this leg is provisional: the real one
+     * arrives with its own reference and absorbs it, exactly as a settled
+     * charge absorbs the authorisation it replaces.
+     */
+    static func addTransfer(store: LocalStore, _ move: NewTransfer) throws {
+        guard move.fromAccountId != move.toAccountId else {
+            throw TransferFailure.sameAccount
+        }
+        let amount = abs(move.amount)
+        guard amount > 0 else { throw TransferFailure.noAmount }
+
+        let pair = UUID().uuidString
+        let names = try store.database.query(
+            "SELECT id, name FROM accounts WHERE id IN (?, ?)",
+            [.text(move.fromAccountId), .text(move.toAccountId)]
+        )
+        func name(_ id: String) -> String {
+            names.first { $0.string("id") == id }?.string("name") ?? "?"
+        }
+
+        try store.database.transaction {
+            for (account, value, label) in [
+                (move.fromAccountId, -amount, "Transfer to \(name(move.toAccountId))"),
+                (move.toAccountId, amount, "Transfer from \(name(move.fromAccountId))"),
+            ] {
+                try store.database.run(
+                    """
+                    INSERT INTO transactions
+                        (id, account_id, occurred_at, amount, currency, payee,
+                         normalized_payee, memo, transfer_pair_id, source, status, needs_review)
+                    VALUES (?, ?, ?, ?, 'EUR', ?, ?, ?, ?, 'manual', 'cleared', 0)
+                    """,
+                    [
+                        .text(UUID().uuidString), .text(account), .text(move.occurredAt),
+                        .real(value), .text(label), .text(normalize(label)),
+                        move.memo.map { SQLiteValue.text($0) } ?? .null, .text(pair),
+                    ]
+                )
+                try recomputeBalance(store, accountId: account)
+            }
+        }
+    }
+
+    /*
+     * The other end of a movement the bank only showed one side of.
+     *
+     * Only the current account is bank-synced, so money sent to a savings
+     * account leaves the ledger and never arrives: the balance falls, nothing
+     * rises, and the net worth reports a loss that did not happen. This writes
+     * the missing leg and pairs the two.
+     */
+    static func attachTransfer(store: LocalStore, txId: String, toAccountId: String) throws {
+        let row = try store.database.query(
+            "SELECT account_id, occurred_at, amount, payee FROM transactions WHERE id = ?",
+            [.text(txId)]
+        ).first
+        guard let row, let source = row.string("account_id"),
+              let day = row.string("occurred_at"), let amount = row.double("amount")
+        else { throw TransferFailure.missing }
+        guard source != toAccountId else { throw TransferFailure.sameAccount }
+
+        let pair = UUID().uuidString
+        let label = try store.database.scalar(
+            "SELECT name FROM accounts WHERE id = ?", [.text(source)]
+        )?.string ?? "?"
+
+        try store.database.transaction {
+            try store.database.run(
+                "UPDATE transactions SET transfer_pair_id = ?, updated_at = datetime('now') WHERE id = ?",
+                [.text(pair), .text(txId)]
+            )
+            let mirror = amount < 0 ? "Transfer from \(label)" : "Transfer to \(label)"
+            try store.database.run(
+                """
+                INSERT INTO transactions
+                    (id, account_id, occurred_at, amount, currency, payee,
+                     normalized_payee, transfer_pair_id, source, status, needs_review)
+                VALUES (?, ?, ?, ?, 'EUR', ?, ?, ?, 'manual', 'cleared', 0)
+                """,
+                [
+                    .text(UUID().uuidString), .text(toAccountId), .text(day),
+                    .real(-amount), .text(mirror), .text(normalize(mirror)), .text(pair),
+                ]
+            )
+            try recomputeBalance(store, accountId: toAccountId)
+        }
+    }
+
+    enum TransferFailure: LocalizedError {
+        case sameAccount, noAmount, missing
+        var errorDescription: String? {
+            switch self {
+            case .sameAccount: "Choisissez deux comptes différents."
+            case .noAmount: "Indiquez un montant."
+            case .missing: "Cette opération n'existe plus."
+            }
+        }
+    }
+
     static func add(store: LocalStore, _ tx: NewTransaction) throws {
         try store.database.transaction {
             try store.database.run(

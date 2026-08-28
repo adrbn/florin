@@ -96,6 +96,10 @@ struct LeftToSpend: Decodable, Sendable {
     /// not erase a purchase from a ceiling meant to restrain you — and that
     /// same choice makes it the wrong number for saving: a month with 986 € of
     /// reimbursements read +298 € kept where the accounts had gained 1 284 €.
+    /// Reimbursements already received this month — gross spending minus net.
+    /// Kept apart because a ceiling should not forgive a refunded purchase
+    /// while a margin must: the money really did come back.
+    var monthRefunds: Double?
     var savedThisMonthToDate: Double?
     var savedPrevMonthToDate: Double?
     let leftToSpend: Double
@@ -165,6 +169,22 @@ struct Category: Decodable, Sendable, Identifiable {
 }
 
 /// What the phone posts back to record a transaction.
+/// Money moved between two of the user's own accounts.
+///
+/// Not a transaction with a sign — two rows sharing a pair id, which is what
+/// makes every "is this spending?" query answer no without being taught a new
+/// rule. Recording one on the account a bank also syncs is deliberate: the
+/// real row arrives later and absorbs this one, the same way a settled charge
+/// absorbs the authorisation it replaces.
+struct NewTransfer: Encodable, Sendable {
+    let fromAccountId: String
+    let toAccountId: String
+    /// Always positive; the two legs take their own signs.
+    let amount: Double
+    let occurredAt: String
+    let memo: String?
+}
+
 struct NewTransaction: Encodable, Sendable {
     let accountId: String
     /// Signed: the expense/income toggle decides, never the server.

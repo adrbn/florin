@@ -8,12 +8,24 @@ import SwiftUI
 struct AddTransactionSheet: View {
     let data: Overview
     let submit: (NewTransaction) async throws -> Void
+    var onTransfer: (NewTransfer) async throws -> Void = { _ in }
 
     @Environment(\.dismiss) private var dismiss
     private var t: Strings { data.t }
     @FocusState private var amountFocused: Bool
 
-    @State private var isExpense = true
+    /*
+     * Three things a row can be, not two.
+     *
+     * Without a transfer, moving money to savings has to be entered as an
+     * expense that is not one — it shrinks the account it left, never fills
+     * the account it reached, and lands in a budget as spending. The sign
+     * toggle was the whole vocabulary; this adds the third word.
+     */
+    private enum Kind { case expense, income, transfer }
+    @State private var kind: Kind = .expense
+    @State private var toAccountId = ""
+    private var isExpense: Bool { kind == .expense }
     @State private var amount = ""
     @State private var payee = ""
     @State private var accountId = ""
@@ -32,7 +44,12 @@ struct AddTransactionSheet: View {
     }
 
     private var isValid: Bool {
-        magnitude > 0 && !payee.trimmingCharacters(in: .whitespaces).isEmpty && !accountId.isEmpty
+        guard magnitude > 0, !accountId.isEmpty else { return false }
+        // A transfer needs a destination rather than a payee: the two account
+        // names are the description, and asking for one as well would be
+        // asking the user to name something they have already chosen twice.
+        if kind == .transfer { return !toAccountId.isEmpty && toAccountId != accountId }
+        return !payee.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
     var body: some View {
@@ -54,7 +71,7 @@ struct AddTransactionSheet: View {
                 .padding(.bottom, 28)
             }
             .scrollDismissesKeyboard(.interactively)
-            .background(Backdrop(tint: TabRoute.overview.tint))
+            .background(Backdrop(tint: Florin.sheetTint, floor: true))
             .navigationTitle(t("v2.add.title", "Ajouter"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -86,20 +103,22 @@ struct AddTransactionSheet: View {
      */
     private var direction: some View {
         HStack(spacing: 10) {
-            directionChip(t("v2.add.expense", "Dépense"), expense: true, tint: Florin.negative)
-            directionChip(t("v2.add.income", "Entrée"), expense: false, tint: Florin.positive)
+            directionChip(t("v2.add.expense", "Dépense"), kind: .expense, tint: Florin.negative)
+            directionChip(t("v2.add.income", "Entrée"), kind: .income, tint: Florin.positive)
+            directionChip(t("v2.add.transfer", "Virement"), kind: .transfer, tint: Florin.accent)
         }
         .padding(.horizontal, Florin.gutter)
     }
 
-    private func directionChip(_ label: String, expense: Bool, tint: Color) -> some View {
-        let active = isExpense == expense
+    private func directionChip(_ label: String, kind target: Kind, tint: Color) -> some View {
+        let active = kind == target
         return Button {
             UISelectionFeedbackGenerator().selectionChanged()
-            withAnimation(.snappy(duration: 0.2)) { isExpense = expense }
+            withAnimation(.snappy(duration: 0.2)) { kind = target }
         } label: {
             HStack(spacing: 7) {
-                Image(systemName: expense ? "arrow.down.left" : "arrow.up.right")
+                Image(systemName: target == .expense ? "arrow.down.left"
+                        : target == .income ? "arrow.up.right" : "arrow.left.arrow.right")
                     .font(.system(size: 13, weight: .bold))
                 Text(label).font(.system(size: 15, weight: active ? .semibold : .medium))
             }
@@ -124,9 +143,12 @@ struct AddTransactionSheet: View {
     /// is legible at a glance before you commit it.
     private var figure: some View {
         HStack(alignment: .firstTextBaseline, spacing: 4) {
-            Text(isExpense ? "−" : "+")
+            Text(kind == .income ? "+" : "−")
                 .font(.system(size: 34, weight: .light))
-                .foregroundStyle(isExpense ? Florin.negative : Florin.positive)
+                .foregroundStyle(
+                    kind == .income ? Florin.positive
+                        : kind == .transfer ? Florin.accent : Florin.negative
+                )
                 .opacity(magnitude > 0 ? 1 : 0.25)
             TextField("0", text: $amount)
                 .keyboardType(.decimalPad)
@@ -146,19 +168,24 @@ struct AddTransactionSheet: View {
 
     private var fields: some View {
         RowGroup {
-            HStack(spacing: 12) {
-                Image(systemName: "person.crop.circle")
-                    .font(.system(size: 16))
-                    .foregroundStyle(Florin.text3)
-                    .frame(width: 24)
-                TextField(t("v2.add.payee", "Bénéficiaire"), text: $payee)
-                    .textInputAutocapitalization(.words)
-                    .font(.system(size: 16))
-            }
-            .padding(.horizontal, Florin.gutter)
-            .padding(.vertical, 14)
+            // A transfer has no payee: the two account names describe it, and
+            // asking for one as well is asking the user to name something they
+            // are about to choose twice.
+            if kind != .transfer {
+                HStack(spacing: 13) {
+                    Image(systemName: "person.crop.circle")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(Florin.accent.opacity(0.85))
+                        .frame(width: 22)
+                    TextField(t("v2.add.payee", "Bénéficiaire"), text: $payee)
+                        .textInputAutocapitalization(.words)
+                        .font(.system(size: 15.5, weight: .medium))
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 15)
 
-            Hairline()
+                Hairline()
+            }
 
             pickerRow(
                 symbol: "building.columns",
@@ -185,8 +212,33 @@ struct AddTransactionSheet: View {
                 }
             }
 
+            if kind == .transfer {
+                Hairline()
+                pickerRow(
+                    symbol: "arrow.down.right",
+                    label: t("v2.add.toAccount", "Vers")
+                ) {
+                    Menu {
+                        Picker("", selection: $toAccountId) {
+                            ForEach(usableAccounts.filter { $0.id != accountId }) {
+                                Text($0.name).tag($0.id)
+                            }
+                        }
+                    } label: {
+                        menuValue(
+                            usableAccounts.first { $0.id == toAccountId }?.name
+                                ?? t("v2.add.pickAccount", "Choisir")
+                        )
+                    }
+                }
+            }
+
             Hairline()
 
+            // A transfer has no payee and no category: the two account names
+            // describe it, and money moved between them is not spending to
+            // classify.
+            if kind != .transfer {
             pickerRow(symbol: "tag", label: t("v2.add.category", "Catégorie")) {
                 Menu {
                     Picker("", selection: $categoryId) {
@@ -204,6 +256,7 @@ struct AddTransactionSheet: View {
                     )
                 }
             }
+            }
 
             Hairline()
 
@@ -214,11 +267,11 @@ struct AddTransactionSheet: View {
 
             Hairline()
 
-            HStack(spacing: 12) {
+            HStack(spacing: 13) {
                 Image(systemName: "text.alignleft")
-                    .font(.system(size: 16))
-                    .foregroundStyle(Florin.text3)
-                    .frame(width: 24)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(Florin.accent.opacity(0.85))
+                    .frame(width: 22)
                 TextField(t("v2.add.memo", "Note"), text: $memo, axis: .vertical)
                     .font(.system(size: 16))
                     .lineLimit(1...3)
@@ -231,16 +284,28 @@ struct AddTransactionSheet: View {
 
     /// One line, truncated, with the chevron the row would have had anyway.
     private func menuValue(_ text: String) -> some View {
-        HStack(spacing: 4) {
+        /*
+         * The value carries the weight, and says it can be changed.
+         *
+         * Label and value were the same size in the same direction, so a row
+         * read as a sentence rather than as a choice. The value is now the
+         * heavier of the two and sits in a chip you can see is a target — the
+         * date already had one, and the rest looked inert beside it.
+         */
+        HStack(spacing: 5) {
             Text(text)
-                .font(.system(size: 16))
+                .font(.system(size: 15, weight: .semibold))
                 .lineLimit(1)
                 .truncationMode(.tail)
             Image(systemName: "chevron.up.chevron.down")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.system(size: 10, weight: .bold))
+                .opacity(0.7)
         }
         .foregroundStyle(Florin.accent)
-        .frame(maxWidth: 190, alignment: .trailing)
+        .padding(.horizontal, 11)
+        .padding(.vertical, 6)
+        .background(Florin.accent.opacity(0.14), in: Capsule())
+        .frame(maxWidth: 200, alignment: .trailing)
     }
 
     private func pickerRow<Content: View>(
@@ -248,17 +313,21 @@ struct AddTransactionSheet: View {
         label: String,
         @ViewBuilder control: () -> Content
     ) -> some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 13) {
             Image(systemName: symbol)
-                .font(.system(size: 16))
-                .foregroundStyle(Florin.text3)
-                .frame(width: 24)
-            Text(label).font(.system(size: 16)).foregroundStyle(Florin.text)
-            Spacer(minLength: 8)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(Florin.accent.opacity(0.85))
+                .frame(width: 22)
+            // The label is the quieter half: what matters on each row is the
+            // value, which is also the thing you tap.
+            Text(label)
+                .font(.system(size: 14.5))
+                .foregroundStyle(Florin.text2)
+            Spacer(minLength: 10)
             control()
         }
-        .padding(.horizontal, Florin.gutter)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
     }
 
     private func save() {
@@ -269,6 +338,21 @@ struct AddTransactionSheet: View {
 
         Task {
             do {
+                if kind == .transfer {
+                    try await onTransfer(
+                        NewTransfer(
+                            fromAccountId: accountId,
+                            toAccountId: toAccountId,
+                            amount: abs(magnitude),
+                            occurredAt: ISO8601DateFormatter.florinNoFraction.string(from: noonOn(date)),
+                            memo: trimmedMemo.isEmpty ? nil : trimmedMemo
+                        )
+                    )
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    dismiss()
+                    saving = false
+                    return
+                }
                 try await submit(
                     NewTransaction(
                         accountId: accountId,

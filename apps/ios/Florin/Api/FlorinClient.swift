@@ -73,6 +73,45 @@ struct FlorinClient: Sendable {
         return store
     }
 
+    /// Recording a movement between two of the user's own accounts.
+    func addTransfer(_ move: NewTransfer) async throws {
+        if isLocal { return try LocalLedger.addTransfer(store: try localStore(), move) }
+        var request = FlorinAuth.request(try endpoint("/api/v2/transfers"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(move)
+        let (_, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw FlorinError.badStatus((response as? HTTPURLResponse)?.statusCode ?? 0)
+        }
+    }
+
+    /// Writing the far end of a movement the bank only showed one side of.
+    func attachTransfer(_ txId: String, to accountId: String) async throws {
+        if isLocal {
+            return try LocalLedger.attachTransfer(
+                store: try localStore(), txId: txId, toAccountId: accountId
+            )
+        }
+        var request = FlorinAuth.request(try endpoint("/api/v2/transfers/attach"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(
+            withJSONObject: ["transactionId": txId, "accountId": accountId]
+        )
+        let (_, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw FlorinError.badStatus((response as? HTTPURLResponse)?.statusCode ?? 0)
+        }
+    }
+
+    /// Movements seen leaving but never seen landing. Empty against a server,
+    /// which owns every account it syncs and pairs them itself.
+    func danglingTransfers() throws -> [Transaction] {
+        guard isLocal else { return [] }
+        return try LocalQueries.danglingTransfers(try localStore().database)
+    }
+
     func add(_ tx: NewTransaction) async throws {
         if isLocal { return try LocalLedger.add(store: try localStore(), tx) }
         var request = FlorinAuth.request(try endpoint("/api/v2/transactions"))
@@ -220,6 +259,20 @@ final class OverviewModel: ObservableObject {
 
     func add(_ tx: NewTransaction) async throws {
         try await client.add(tx)
+        await load(showSpinner: false)
+    }
+
+    func addTransfer(_ move: NewTransfer) async throws {
+        try await client.addTransfer(move)
+        await load(showSpinner: false)
+    }
+
+    /// Movements seen leaving but never seen landing — the far account is not
+    /// one the bank syncs, so nothing ever credited it.
+    var dangling: [Transaction] { (try? client.danglingTransfers()) ?? [] }
+
+    func attachTransfer(_ txId: String, to accountId: String) async throws {
+        try await client.attachTransfer(txId, to: accountId)
         await load(showSpinner: false)
     }
 
