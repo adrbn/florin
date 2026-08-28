@@ -337,6 +337,8 @@
   "v2.overview.inMonth": "in {month}",
   "v2.overview.incomeEstimated": "Salaris van deze maand nog niet binnen — op basis van de vorige",
   "v2.overview.invested": "Belegd",
+  "v2.overview.keptThisMonth": "deze maand gehouden",
+  "v2.overview.keptVsLastMonth": "gehouden · {prev} op dezelfde dag",
   "v2.overview.leftToSpend": "Nog te besteden",
   "v2.overview.leftToSpendBasis": "Op basis van “{category}”",
   "v2.overview.leftToSpendNone": "Geen salaris gevonden in de laatste 90 dagen",

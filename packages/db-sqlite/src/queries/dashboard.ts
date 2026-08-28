@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, isNull, lte, sql } from 'drizzle-orm'
+import { and, desc, eq, gte, isNull, lt, lte, sql } from 'drizzle-orm'
 import type { SqliteDB } from '../client'
 import { accounts, categories, categoryGroups, recurringRules, transactions } from '../schema'
 import { getLoanLiabilities } from './loan-liabilities'
@@ -271,6 +271,68 @@ async function getMonthIncome(db: SqliteDB, excludeCategoryId: string | null): P
       ),
     )
   return Number(row?.total ?? 0)
+}
+
+/**
+ * What was left over at this same day of the previous month.
+ *
+ * Same arithmetic as `leftToSpend`, one month back and cut at the same day —
+ * with the month's salary counted whether or not it had landed by then, which
+ * is the whole point: a payslip that arrives on the 29th would otherwise make
+ * the 28th of that month look like a catastrophe.
+ */
+async function getPrevMonthSavedToDate(db: SqliteDB, salaryCategoryId: string | null): Promise<number> {
+  const today = new Date()
+  const start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 1, 1))
+  const monthEnd = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 0))
+  const day = Math.min(today.getUTCDate(), monthEnd.getUTCDate())
+  const startIso = formatDate(start)
+  const cutIso = formatDate(new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), day)))
+  const endIso = formatDate(new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1)))
+
+  const [spentRow] = await db
+    .select({ total: burnAmountSql })
+    .from(transactions)
+    .innerJoin(accounts, eq(transactions.accountId, accounts.id))
+    .leftJoin(categories, eq(transactions.categoryId, categories.id))
+    .leftJoin(categoryGroups, eq(categories.groupId, categoryGroups.id))
+    .where(
+      and(
+        isNull(transactions.deletedAt),
+        eq(transactions.status, 'cleared'),
+        gte(transactions.occurredAt, startIso),
+        lte(transactions.occurredAt, cutIso),
+        sql`${transactions.transferPairId} IS NULL`,
+        eq(accounts.isArchived, false),
+      ),
+    )
+  const spentRaw = Number(spentRow?.total ?? 0)
+  const spent = spentRaw >= 0 ? 0 : Math.abs(spentRaw)
+
+  const [incomeRow] = await db
+    .select({
+      salary: sql<number>`COALESCE(SUM(CASE WHEN ${transactions.categoryId} = ${salaryCategoryId}
+        THEN ${transactions.amount} ELSE 0 END), 0)`,
+      other: sql<number>`COALESCE(SUM(CASE WHEN ${transactions.categoryId} <> ${salaryCategoryId}
+        AND ${transactions.occurredAt} <= ${cutIso} THEN ${transactions.amount} ELSE 0 END), 0)`,
+    })
+    .from(transactions)
+    .innerJoin(accounts, eq(transactions.accountId, accounts.id))
+    .innerJoin(categories, eq(transactions.categoryId, categories.id))
+    .innerJoin(categoryGroups, eq(categories.groupId, categoryGroups.id))
+    .where(
+      and(
+        isNull(transactions.deletedAt),
+        eq(transactions.status, 'cleared'),
+        gte(transactions.occurredAt, startIso),
+        lt(transactions.occurredAt, endIso),
+        sql`${transactions.amount} > 0`,
+        sql`${transactions.transferPairId} IS NULL`,
+        eq(accounts.isArchived, false),
+        eq(categoryGroups.kind, 'income'),
+      ),
+    )
+  return Number(incomeRow?.salary ?? 0) + Number(incomeRow?.other ?? 0) - spent
 }
 
 export async function getMonthBurn(db: SqliteDB, opts: BurnOptions = {}): Promise<number> {
@@ -828,6 +890,11 @@ export async function getLeftToSpendThisMonth(db: SqliteDB): Promise<LeftToSpend
   const expectedMonthlySpend = await getAvgMonthlyBurn(db, 6)
   const expectedMonthlyFixed = await getAvgMonthlyBurn(db, 6, { fixedOnly: true })
   const leftToSpend = monthIncome - monthSpent
+  // Saving is income minus spending NET of reimbursements — a refund really
+  // does put money back, even though the ceiling above counts gross.
+  const netSpent = await getMonthBurn(db)
+  const savedThisMonthToDate = monthIncome - netSpent
+  const savedPrevMonthToDate = await getPrevMonthSavedToDate(db, salaryCategoryId)
 
   const today = new Date()
   const daysElapsed = today.getUTCDate()
@@ -845,6 +912,8 @@ export async function getLeftToSpendThisMonth(db: SqliteDB): Promise<LeftToSpend
     monthSpentFixed,
     expectedMonthlySpend,
     expectedMonthlyFixed,
+    savedThisMonthToDate,
+    savedPrevMonthToDate,
     leftToSpend,
     dailyAvgSpent,
     dailyBudgetRemaining,
