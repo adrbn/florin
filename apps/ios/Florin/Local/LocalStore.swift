@@ -40,15 +40,24 @@ final class LocalStore {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         var file = folder.appendingPathComponent("florin.db")
         /*
-         * Excluded from iCloud backup, on purpose.
+         * Backed up. The reasoning that excluded it has expired.
          *
-         * A WAL database restored mid-write is a corrupt database, and this one
-         * is reconstructible: it is a local projection of a ledger that is
-         * either on the user's server or re-derivable from their bank. Backing
-         * it up trades a real corruption risk for a convenience we do not need.
+         * It was excluded because a WAL database restored mid-write is corrupt,
+         * and because this one was "a local projection of a ledger that is
+         * either on the user's server or re-derivable from their bank". That
+         * second clause is what justified the trade, and it is no longer true:
+         * this ledger now holds accounts, transactions, transfers, categories
+         * and budgets that exist nowhere else. Losing the phone would lose them
+         * outright.
+         *
+         * The corruption risk is real and is answered where it arises — the
+         * write-ahead log is checkpointed when the app leaves the foreground,
+         * so what a backup captures is a settled file rather than a database
+         * caught mid-sentence. Apple asks that regenerable caches stay out of
+         * backups; a person's own ledger is the opposite of regenerable.
          */
         var values = URLResourceValues()
-        values.isExcludedFromBackup = true
+        values.isExcludedFromBackup = false
         try? file.setResourceValues(values)
         return file
     }
@@ -136,6 +145,20 @@ extension LocalStore {
         } catch {
             log.error("banking selftest failed: \(error.localizedDescription, privacy: .public)")
         }
+    }
+
+    /*
+     * Settle the write-ahead log.
+     *
+     * A backup taken while the -wal file holds uncommitted pages restores a
+     * database caught mid-sentence. Folding it back into the main file when the
+     * app leaves the foreground means whatever iCloud copies is a whole ledger
+     * — which is the condition under which including it in backups is safe at
+     * all.
+     */
+    static func checkpoint() {
+        guard let store = shared else { return }
+        try? store.database.exec("PRAGMA wal_checkpoint(TRUNCATE)")
     }
 
     static func probeAtLaunch() {

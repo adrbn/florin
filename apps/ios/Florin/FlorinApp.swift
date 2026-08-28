@@ -24,11 +24,24 @@ struct FlorinApp: App {
          * already behind us.
          */
         LocalStore.probeAtLaunch()
+        // Registered before the first frame, as iOS requires: a handler added
+        // later is never called, and the app is simply never woken again.
+        BackgroundRefresh.register()
+        BackgroundRefresh.schedule()
     }
+
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
             RootView().environmentObject(server)
+        }
+        .onChange(of: scenePhase) { _, phase in
+            // Leaving the foreground is the moment a backup is most likely to
+            // run, and the moment the ledger is guaranteed to be idle. Folding
+            // the write-ahead log back in here is what makes including the
+            // database in backups safe — see LocalStore.checkpoint.
+            if phase != .active { LocalStore.checkpoint() }
         }
     }
 }
