@@ -51,9 +51,29 @@ struct BankingSettings: View {
                     } else if configured {
                         ready
                     } else {
-                        step(1, Strings.device("v2.connect.stepKey", "Créer une clé"), done: hasKey) { keyStep }
-                        step(2, Strings.device("v2.connect.stepRegister", "Enregistrer l'application"), done: !appId.isEmpty) { registerStep }
-                        step(3, Strings.device("v2.connect.stepAppId", "Coller l'identifiant"), done: !appId.isEmpty) { appIdStep }
+                        step(1, hasKey
+                                ? Strings.device("v2.connect.stepKeyDone", "Clé créée")
+                                : Strings.device("v2.connect.stepKey", "Créer une clé"),
+                             hasKey ? .done : .now,
+                             // Collapsing step one hid the only way back to it.
+                             // A key can only be replaced by making a new
+                             // application, so this stays reachable — quietly.
+                             trailing: hasKey
+                                ? {
+                                    AnyView(
+                                        Button(Strings.device("v2.connect.regenerateKey", "Régénérer la clé")) {
+                                            confirmingRegenerate = true
+                                        }
+                                        .font(.system(size: 12.5))
+                                        .foregroundStyle(Florin.text3)
+                                        .buttonStyle(.plain)
+                                    )
+                                }
+                                : nil) { keyStep }
+                        step(2, Strings.device("v2.connect.stepRegister", "Enregistrer l'application"),
+                             hasKey ? .now : .later) { registerStep }
+                        step(3, Strings.device("v2.connect.stepAppId", "Coller l'identifiant"),
+                             hasKey ? .now : .later) { appIdStep }
                     }
                 }
                 .padding(.horizontal, Florin.gutter)
@@ -77,9 +97,15 @@ struct BankingSettings: View {
                 .zIndex(2)
         }
         .preferredColorScheme(.dark)
-        // Only a sheet when it is one. Presented full screen during onboarding,
-        // these would fight the cover.
-        .presentationDetents(onConnected == nil ? [.medium, .large] : [.large])
+        /*
+         * Full height, always.
+         *
+         * From settings this opened at the medium detent — half a screen for a
+         * three-step setup, so the first thing anyone had to do was drag the
+         * sheet up before they could read step two. The steps are short enough
+         * to fit now; what they need is the room.
+         */
+        .presentationDetents([.large])
         .presentationDragIndicator(onConnected == nil ? .visible : .hidden)
         .task {
             if let store = LocalStore.shared { appId = BankingFlow.appId(store) ?? "" }
@@ -156,19 +182,28 @@ struct BankingSettings: View {
             Text(Strings.device("v2.connect.setupTitle", "Connecter votre banque"))
                 .font(.system(size: 24, weight: .semibold))
                 .foregroundStyle(Florin.text)
+            /*
+             * One line, not three.
+             *
+             * The lead used to spend three lines on reassurance — how long it
+             * takes, that credentials never reach Florin, that you sign in at
+             * your bank. All true, and all of it pushing the first actual step
+             * off the screen. What someone needs before they start is that this
+             * happens once and that their bank keeps their password; the rest
+             * is discovered by doing it.
+             */
             Text(Strings.device(
                 "v2.connect.setupLead",
-                "Une seule fois, environ 2 minutes. Vos identifiants bancaires ne passent jamais par Florin — vous vous connectez chez votre banque."
+                "Une seule fois, ~2 min. Vos identifiants restent chez votre banque."
             ))
                 .font(.system(size: 13.5))
                 .foregroundStyle(Florin.text2)
                 .multilineTextAlignment(.center)
-                .lineSpacing(2)
         }
         // Clear of the close button, and of the sheet's own grabber: a title
         // that starts right under the top edge reads as clipped.
         .padding(.top, 54)
-        .padding(.bottom, 6)
+        .padding(.bottom, 2)
     }
 
     private var ready: some View {
@@ -213,108 +248,133 @@ struct BankingSettings: View {
         .florinSurface()
     }
 
+    /*
+     * A step that is finished takes one line.
+     *
+     * All three used to stand open at once, each with its own paragraph, and
+     * only ever one of them was actionable — so the screen was three times the
+     * height it needed to be and the thing you were meant to do next was
+     * usually below the fold. Done steps keep their place in the list, because
+     * seeing what is behind you is how you know where you are, but they keep it
+     * in a single line.
+     */
+    /// Behind you, in front of you, or the one to do.
+    enum StepState { case done, now, later }
+
     private func step<Content: View>(
         _ number: Int,
         _ title: String,
-        done: Bool,
+        _ state: StepState,
+        trailing: (() -> AnyView)? = nil,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        let open = state == .now
+        return VStack(alignment: .leading, spacing: open ? 12 : 0) {
             HStack(spacing: 10) {
                 ZStack {
                     Circle()
-                        .fill(done ? Florin.positive : Florin.surface3)
+                        .fill(state == .done ? Florin.positive : Florin.surface3)
                         .frame(width: 24, height: 24)
-                    if done {
+                    if state == .done {
                         Image(systemName: "checkmark")
                             .font(.system(size: 11, weight: .bold))
                             .foregroundStyle(.black)
                     } else {
                         Text("\(number)")
                             .font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(Florin.text2)
+                            .foregroundStyle(state == .now ? Florin.text2 : Florin.text3)
                     }
                 }
                 Text(title)
                     .font(.system(size: 15.5, weight: .semibold))
-                    .foregroundStyle(Florin.text)
+                    .foregroundStyle(open ? Florin.text : Florin.text2)
                 Spacer()
+                if let trailing { trailing() }
             }
-            content()
+            if open { content() }
         }
-        .padding(18)
+        .padding(.horizontal, 18)
+        .padding(.vertical, open ? 18 : 14)
         .florinSurface()
+        .opacity(state == .later ? 0.5 : 1)
     }
 
+    /*
+     * One sentence and one button.
+     *
+     * The dump of the certificate and the button to copy it used to live here,
+     * which is a step too early: nothing is done with the certificate until the
+     * Enable Banking form is open, and by then this card has collapsed. They
+     * have moved to step 2, beside the field they are pasted into.
+     */
     @ViewBuilder
     private var keyStep: some View {
         Text(Strings.device(
             "v2.connect.keyHint",
-            "Florin crée une clé qui reste sur ce téléphone. Seul le certificat public en sort — c'est lui qu'Enable Banking demande, et il ne pourra plus être changé ensuite."
+            "Elle reste sur ce téléphone. Seul le certificat public en sort."
         ))
             .font(.system(size: 13))
             .foregroundStyle(Florin.text2)
 
-        if let publicKey {
-            Text(publicKey)
-                .font(.system(size: 9.5, design: .monospaced))
-                .foregroundStyle(Florin.text3)
-                .lineLimit(4)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(10)
-                .background(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Florin.surface2)
-                )
-
-            Button {
-                UIPasteboard.general.string = publicKey
-                copied = true
-                UINotificationFeedbackGenerator().notificationOccurred(.success)
-            } label: {
-                Label(
-                    copied
-                        ? Strings.device("v2.connect.certCopied", "Certificat copié")
-                        : Strings.device("v2.connect.copyCert", "Copier le certificat"),
-                    systemImage: copied ? "checkmark" : "doc.on.doc"
-                )
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(Florin.text)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 11)
-                    .florinGlass(in: Capsule())
-            }
-            .buttonStyle(.plain)
-        }
-
-        Button {
-            if hasKey { confirmingRegenerate = true } else { makeKey() }
-        } label: {
-            Text(hasKey
-                ? Strings.device("v2.connect.regenerateKey", "Régénérer la clé")
-                : Strings.device("v2.connect.createKey", "Créer la clé"))
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(hasKey ? Florin.text3 : .black)
+        Button { makeKey() } label: {
+            Text(Strings.device("v2.connect.createKey", "Créer la clé"))
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(.black)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(hasKey ? Color.clear : Florin.accent, in: Capsule())
+                .padding(.vertical, 13)
+                .background(Florin.accent, in: Capsule())
         }
         .buttonStyle(.plain)
     }
 
+    /*
+     * A form to fill, written as the list it is.
+     *
+     * This was one paragraph carrying four separate instructions — pick an
+     * option by its English name, paste a certificate, paste a URL exactly,
+     * then remember to activate. Prose hides how many things that is, and
+     * someone doing it for the first time loses their place halfway through.
+     * As four lines it is the same information, shorter on the screen, and
+     * each line is next to the button that satisfies it.
+     */
     @ViewBuilder
     private var registerStep: some View {
-        Text(Strings.device(
-            "v2.connect.registerHint",
-            "Créez une application chez Enable Banking en choisissant « Generate outside the browser », collez-y le certificat, et indiquez cette adresse de redirection — recopiée exactement. Pensez ensuite à activer l'application depuis la console :"
+        instruction(Strings.device(
+            "v2.connect.registerPick",
+            "Choisissez « Generate outside the browser »."
         ))
-            .font(.system(size: 13))
-            .foregroundStyle(Florin.text2)
 
+        instruction(Strings.device("v2.connect.registerCert", "Collez-y le certificat."))
+        Button {
+            UIPasteboard.general.string = publicKey ?? (try? BankingKey.certificatePEM()) ?? ""
+            copied = true
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        } label: {
+            Label(
+                copied
+                    ? Strings.device("v2.connect.certCopied", "Certificat copié")
+                    : Strings.device("v2.connect.copyCert", "Copier le certificat"),
+                systemImage: copied ? "checkmark" : "doc.on.doc"
+            )
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(Florin.text)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .florinGlass(in: Capsule())
+        }
+        .buttonStyle(.plain)
+
+        instruction(Strings.device(
+            "v2.connect.registerRedirect",
+            "Recopiez cette adresse de redirection, à l'identique."
+        ))
         HStack(spacing: 8) {
             Text(BankingFlow.redirectURL)
-                .font(.system(size: 12, design: .monospaced))
+                .font(.system(size: 11.5, design: .monospaced))
                 .foregroundStyle(Florin.accent)
-            Spacer()
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+            Spacer(minLength: 6)
             Button {
                 UIPasteboard.general.string = BankingFlow.redirectURL
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
@@ -324,28 +384,41 @@ struct BankingSettings: View {
             .buttonStyle(.plain)
             .foregroundStyle(Florin.text2)
         }
-        .padding(12)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
         .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Florin.surface2))
+
+        instruction(Strings.device(
+            "v2.connect.registerActivate",
+            "Activez l'application depuis la console."
+        ))
 
         Link(destination: URL(string: "https://enablebanking.com/cp")!) {
             Label(Strings.device("v2.connect.openEnableBanking", "Ouvrir Enable Banking"), systemImage: "arrow.up.right.square")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(Florin.text)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(.black)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 11)
-                .florinGlass(in: Capsule())
+                .padding(.vertical, 12)
+                .background(Florin.accent, in: Capsule())
+        }
+    }
+
+    /// One instruction, marked as one thing to do.
+    private func instruction(_ text: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Circle()
+                .fill(Florin.text3)
+                .frame(width: 4, height: 4)
+                .offset(y: -3)
+            Text(text)
+                .font(.system(size: 13))
+                .foregroundStyle(Florin.text2)
+            Spacer(minLength: 0)
         }
     }
 
     @ViewBuilder
     private var appIdStep: some View {
-        Text(Strings.device(
-            "v2.connect.appIdHint",
-            "L'identifiant de l'application que vous venez de créer."
-        ))
-            .font(.system(size: 13))
-            .foregroundStyle(Florin.text2)
-
         TextField("00000000-0000-0000-0000-000000000000", text: storedAppId)
             .font(.system(size: 14, design: .monospaced))
             .textInputAutocapitalization(.never)
