@@ -197,11 +197,39 @@ struct Transaction: Decodable, Sendable, Identifiable {
         )
     }
 
+    /*
+     * Four shapes, one date.
+     *
+     * The server sends ISO-8601; SQLite's own `datetime('now')` writes
+     * "2026-08-06 00:00:00" with a space and no zone, and a ledger can hold a
+     * bare "2026-08-06". Only the ISO forms were parsed, so anything written
+     * by the device itself fell through to `.distantPast` and rendered as
+     * "1 janv. 1" — a row correct in every other respect, dated two thousand
+     * years ago.
+     */
     var day: Date {
         ISO8601DateFormatter.florin.date(from: date)
             ?? ISO8601DateFormatter.florinNoFraction.date(from: date)
+            ?? Transaction.plain.date(from: date)
+            ?? Transaction.dayOnly.date(from: String(date.prefix(10)))
             ?? .distantPast
     }
+
+    nonisolated(unsafe) private static let plain: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        f.timeZone = TimeZone(secondsFromGMT: 0)
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
+
+    nonisolated(unsafe) private static let dayOnly: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.timeZone = TimeZone(secondsFromGMT: 0)
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
 }
 
 extension ISO8601DateFormatter {

@@ -645,23 +645,41 @@ struct AssignSheet: View {
         .task(id: category.id) { await loadRows() }
     }
 
+    /*
+     * Through the seam, not around it.
+     *
+     * This built an HTTP URL and called URLSession directly. On the device the
+     * base is `florin-local://device`, which URLSession cannot open at all —
+     * and the failure was swallowed by a `guard … else { return }`, so the
+     * sheet said "Rien de dépensé sur cette catégorie ce mois-ci" directly
+     * under a heading reading "Dépensé 70 €". Two numbers from the same screen
+     * contradicting each other, with nothing to suggest the list had simply
+     * failed to load.
+     *
+     * `FlorinClient.transactions` already answers both sources. The only
+     * reason this call was written by hand is that it was written before the
+     * seam existed.
+     */
     private func loadRows() async {
         loadingRows = true
         defer { loadingRows = false }
-        var components = URLComponents(url: base, resolvingAgainstBaseURL: false)
-        components?.path = "/api/v2/transactions"
-        components?.queryItems = [
-            URLQueryItem(name: "categoryId", value: category.id),
-            URLQueryItem(name: "from", value: "\(month)-01"),
-            URLQueryItem(name: "to", value: Self.lastDay(of: month)),
-            URLQueryItem(name: "limit", value: "100"),
-        ]
-        guard let url = components?.url else { return }
-        guard let (data, response) = try? await URLSession.shared.data(for: FlorinAuth.request(url)),
-              let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
-              let page = try? JSONDecoder().decode(TransactionPage.self, from: data)
+
+        var filter = TxFilter()
+        filter.categoryId = category.id
+        filter.from = Self.day("\(month)-01")
+        filter.to = Self.day(Self.lastDay(of: month))
+
+        guard let page = try? await FlorinClient(base: base)
+            .transactions(filter: filter, offset: 0, limit: 100)
         else { return }
         rows = page.transactions
+    }
+
+    private static func day(_ iso: String) -> Date? {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.timeZone = .current
+        return f.date(from: iso)
     }
 
     /// The route's `to` is inclusive of that day, so the window has to end on
