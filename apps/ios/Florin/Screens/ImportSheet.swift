@@ -13,6 +13,8 @@ struct ImportSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var picking = false
     @State private var rows: [LocalImport.Row] = []
+    @State private var order: LocalImport.DateOrder = .dayFirst
+    @State private var rejected = 0
     @State private var fileName = ""
     @State private var accountId = ""
     @State private var accounts: [Account] = []
@@ -126,6 +128,42 @@ struct ImportSheet: View {
                         .font(.system(size: 13))
                         .foregroundStyle(Florin.text2)
                 }
+                /*
+                 * Said, not assumed.
+                 *
+                 * When every date in the file has both parts under thirteen
+                 * nothing can tell 04/12 from 12/04. It is read the French way
+                 * and the reading is stated, because the dates above are the
+                 * one place someone can check it against what they remember.
+                 */
+                if order == .ambiguous {
+                    Text(t(
+                        "v2.import.ambiguousDates",
+                        "Dates lues au format jour/mois. Vérifiez la période ci-dessus."
+                    ))
+                    .font(.system(size: 12))
+                    .foregroundStyle(Florin.warn)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 26)
+                }
+                if order == .inconsistent {
+                    Text(t(
+                        "v2.import.inconsistentDates",
+                        "Ce fichier mélange deux formats de date — souvent le signe qu'il a été rouvert dans Excel. Réexportez-le depuis votre banque."
+                    ))
+                    .font(.system(size: 12))
+                    .foregroundStyle(Florin.negative)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 26)
+                }
+                if rejected > 0 {
+                    Text(t(
+                        "v2.import.rejected",
+                        "{count} lignes ignorées : date illisible.", ["count": rejected]
+                    ))
+                    .font(.system(size: 12))
+                    .foregroundStyle(Florin.warn)
+                }
                 AmountText(
                     value: rows.reduce(0) { $0 + $1.amount }, locale: locale,
                     currency: currency, signed: true, tone: .auto, size: 17, weight: .medium
@@ -198,8 +236,8 @@ struct ImportSheet: View {
                 .background(Florin.accent, in: Capsule())
             }
             .buttonStyle(.plain)
-            .disabled(working || accountId.isEmpty)
-            .opacity(accountId.isEmpty ? 0.4 : 1)
+            .disabled(working || accountId.isEmpty || order == .inconsistent)
+            .opacity(accountId.isEmpty || order == .inconsistent ? 0.4 : 1)
             .padding(.horizontal, Florin.gutter)
             .padding(.bottom, 12)
         }
@@ -236,7 +274,10 @@ struct ImportSheet: View {
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
         do {
             let data = try Data(contentsOf: url)
-            rows = try LocalImport.parse(data: data, fileName: url.lastPathComponent)
+            let parsed = try LocalImport.parse(data: data, fileName: url.lastPathComponent)
+            rows = parsed.rows
+            order = parsed.order
+            rejected = parsed.rejected
             fileName = url.lastPathComponent
         } catch {
             failure = error.localizedDescription

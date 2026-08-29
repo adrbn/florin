@@ -24,12 +24,64 @@ enum LocalImport {
         let memo: String?
     }
 
+    /*
+     * Which way round the day and the month are.
+     *
+     * Reading every ambiguous date as European is right for the person this app
+     * was written for and silently wrong for anyone else: "04/12/2026" becomes
+     * the fourth of December instead of the twelfth of April, with no error and
+     * no way to notice. A single date cannot say which it is — but a file
+     * usually can, because somewhere in a month of transactions there is a day
+     * above the twelfth.
+     */
+    enum DateOrder {
+        case dayFirst
+        case monthFirst
+        /// Every date in the file has both parts under thirteen. Read as
+        /// day-first, and said out loud rather than assumed.
+        case ambiguous
+        /// Neither reading fits every row. Refused rather than halved.
+        case inconsistent
+
+        var dayIsFirst: Bool { self != .monthFirst }
+    }
+
+    struct Parsed {
+        var rows: [Row]
+        var order: DateOrder = .dayFirst
+        /// Lines that looked like data and whose date would not read. Counted
+        /// rather than dropped: a file half of whose rows are missing should
+        /// not import looking complete.
+        var rejected: Int = 0
+    }
+
     struct Preview {
         var rows: [Row] = []
         var duplicates: Int = 0
         var earliest: String?
         var latest: String?
         var total: Double = 0
+    }
+
+    /*
+     * What a column can be called, gathered from real exports.
+     *
+     * The amount pattern is anchored at the start and deliberately not at the
+     * end: banks qualify the column rather than rename it — "Montant(EUROS)",
+     * "montant_operation", "Montant (EUR)", "Montant net". Anchoring both ends
+     * rejected all four while the leading anchor still keeps "Original Amount"
+     * and "accountbalance" out, and in a file with two amount columns the first
+     * match is the euro one.
+     */
+    enum Role {
+        static let date = "date|datum|valeur"
+        static let payee =
+            "payee|description|libell|label|merchant|name|nature|motif"
+            + "|bénéficiaire|beneficiaire|empfänger|contrepartie|intitul|objet"
+        static let amount = "^\"?(amount|montant|betrag|somme)"
+        static let debit = "debit|débit|ausgabe|retrait|paid out|sortie"
+        static let credit = "credit|crédit|einnahme|depot|dépôt|paid in|entrée"
+        static let memo = "memo|note|reference|référence|comment|détail|detail"
     }
 
     enum Failure: LocalizedError {
@@ -50,7 +102,7 @@ enum LocalImport {
 
     // MARK: - Reading a file
 
-    static func parse(data: Data, fileName: String) throws -> [Row] {
+    static func parse(data: Data, fileName: String) throws -> Parsed {
         /*
          * Latin-1 as the fallback, not a failure.
          *
@@ -65,50 +117,176 @@ enum LocalImport {
         guard let text, !text.isEmpty else { throw Failure.unreadable }
 
         let ext = (fileName as NSString).pathExtension.lowercased()
-        let rows = (ext == "ofx" || ext == "qfx") ? parseOFX(text) : try parseCSV(text)
-        guard !rows.isEmpty else { throw Failure.empty }
-        return rows
+        // OFX carries YYYYMMDD, which has no ambiguity to resolve.
+        let parsed = (ext == "ofx" || ext == "qfx")
+            ? Parsed(rows: parseOFX(text))
+            : try parseCSV(text)
+        guard !parsed.rows.isEmpty else { throw Failure.empty }
+        return parsed
+    }
+
+    /*
+     * Decided over the whole file, and by what the calendar allows.
+     *
+     * Neither hledger nor GnuCash will guess this — they make you declare the
+     * format, and refuse or ask when you have not. A phone reading a file has
+     * nowhere to put that question before it is answered, so the file is asked
+     * first: a component above twelve can only be a day, and a date the
+     * calendar rejects — the thirty-first of February — refutes the reading
+     * that produced it. Only when the file will say nothing is the person
+     * asked, and they are told which way it was read either way.
+     */
+    static func order(of dates: [String]) -> DateOrder {
+        let triples = dates.compactMap { raw -> (Int, Int, Int)? in
+            let parts = raw.prefix(10).split(whereSeparator: { "/-.".contains($0) })
+            guard parts.count == 3, let a = Int(parts[0]), let b = Int(parts[1]),
+                  let c = Int(parts[2])
+            else { return nil }
+            // A four-digit leading group is a year, and those dates are already
+            // unambiguous — they say nothing about the rest of the file.
+            guard parts[0].count < 4 else { return nil }
+            return (a, b, c)
+        }
+        guard !triples.isEmpty else { return .ambiguous }
+
+        /*
+         * The year has to be placed before the day and the month can be.
+         *
+         * "26-01-02" is either the twenty-sixth of January or the second of
+         * January 2026, and testing "26 > 12, therefore day-first" answers a
+         * question that was never asked. When every group is two digits and
+         * none exceeds thirty-one, nothing here can tell.
+         */
+        guard triples.allSatisfy({ $0.2 > 31 || String($0.2).count == 4 || $0.2 > 12 })
+                || triples.contains(where: { $0.0 > 31 || $0.1 > 31 })
+        else {
+            // The last group is small too: could be a year, could be a day.
+            return triples.allSatisfy({ $0.2 <= 12 }) ? .ambiguous : .dayFirst
+        }
+
+        let dayFirstHolds = triples.allSatisfy { valid(day: $0.0, month: $0.1, year: $0.2) }
+        let monthFirstHolds = triples.allSatisfy { valid(day: $0.1, month: $0.0, year: $0.2) }
+        switch (dayFirstHolds, monthFirstHolds) {
+        case (true, false): return .dayFirst
+        case (false, true): return .monthFirst
+        case (true, true): return .ambiguous
+        /*
+         * Neither reading fits the whole file.
+         *
+         * The usual cause is a statement opened in Excel under an American
+         * locale: it silently swaps the rows it can read as month-first and
+         * leaves the rest alone, so the file ends up carrying both. Picking one
+         * would import half of it wrong, quietly.
+         */
+        case (false, false): return .inconsistent
+        }
+    }
+
+    private static func valid(day: Int, month: Int, year: Int) -> Bool {
+        guard month >= 1, month <= 12, day >= 1 else { return false }
+        return day <= daysIn(month: month, year: century(year))
+    }
+
+    private static func daysIn(month: Int, year: Int) -> Int {
+        switch month {
+        case 1, 3, 5, 7, 8, 10, 12: 31
+        case 4, 6, 9, 11: 30
+        default: (year % 4 == 0 && year % 100 != 0) || year % 400 == 0 ? 29 : 28
+        }
+    }
+
+    /*
+     * Two digits, resolved backwards.
+     *
+     * `+ 2000` turns "99" into 2099. A statement is a record of what has
+     * happened, so the year is the most recent one that reading allows.
+     */
+    static func century(_ raw: Int) -> Int {
+        guard raw < 100 else { return raw }
+        let calendar = Calendar(identifier: .gregorian)
+        let thisYear = calendar.component(.year, from: Date())
+        let candidate = 2000 + raw
+        return candidate > thisYear + 1 ? candidate - 100 : candidate
     }
 
     // MARK: - CSV
 
-    static func parseCSV(_ text: String) throws -> [Row] {
+    static func parseCSV(_ text: String) throws -> Parsed {
         let lines = text
             .replacingOccurrences(of: "\r\n", with: "\n")
             .replacingOccurrences(of: "\r", with: "\n")
             .split(separator: "\n", omittingEmptySubsequences: true)
             .map(String.init)
-        guard let header = lines.first else { throw Failure.empty }
-
-        // Guessed from the header, because a French export is semicolons and an
-        // English one is commas, and both call themselves .csv.
-        let delimiter: Character = header.contains("\t") ? "\t"
-            : header.contains(";") ? ";" : ","
-        let columns = split(header, by: delimiter).map {
-            $0.lowercased().trimmingCharacters(in: .whitespaces)
+        /*
+         * The header is rarely the first line, and rarely the first line that
+         * mentions a date either.
+         *
+         * French banks open a statement with the account number, the balance
+         * and the period — and La Banque Postale's preamble contains a line
+         * that literally begins "Date", three lines above the real header.
+         * Looking for a date is not enough to find the table; a preamble line
+         * naming one scores a single role, while a header scores several. Two
+         * distinct roles is the test: a date column and something holding an
+         * amount. Nothing above the line that passes is read.
+         */
+        var headerAt = 0
+        var delimiter: Character = ","
+        var columns: [String] = []
+        for (index, line) in lines.prefix(20).enumerated() {
+            let guess: Character = line.contains("\t") ? "\t"
+                : line.contains(";") ? ";" : ","
+            let cells = split(line, by: guess).map {
+                $0.lowercased().trimmingCharacters(in: .whitespaces)
+            }
+            guard cells.count >= 2 else { continue }
+            func names(_ pattern: String) -> Bool {
+                cells.contains { $0.range(of: pattern, options: .regularExpression) != nil }
+            }
+            guard names(Role.date) else { continue }
+            guard names(Role.amount) || names(Role.debit) || names(Role.credit) else { continue }
+            headerAt = index
+            delimiter = guess
+            columns = cells
+            break
         }
+        guard !columns.isEmpty else { throw Failure.noDateColumn }
 
         func find(_ pattern: String) -> Int? {
             columns.firstIndex { $0.range(of: pattern, options: .regularExpression) != nil }
         }
-        guard let dateAt = find("date|datum|valeur") else { throw Failure.noDateColumn }
-        let payeeAt = find("payee|description|libell|label|merchant|name|nature|motif")
-        let amountAt = find("^\"?(amount|montant|betrag|somme)\"?$")
-        let debitAt = find("debit|débit|ausgabe|retrait")
-        let creditAt = find("credit|crédit|einnahme|depot|dépôt")
-        let memoAt = find("memo|note|reference|référence|commentaire")
+        guard let dateAt = find(Role.date) else { throw Failure.noDateColumn }
+        let payeeAt = find(Role.payee)
+        let amountAt = find(Role.amount)
+        let debitAt = find(Role.debit)
+        let creditAt = find(Role.credit)
+        let memoAt = find(Role.memo)
         guard amountAt != nil || debitAt != nil || creditAt != nil else {
             throw Failure.noAmountColumn
         }
 
+        // Two passes: the first only to learn which way round the dates are,
+        // because that cannot be decided from the row being read.
+        let body = Array(lines.dropFirst(headerAt + 1))
+        let order = Self.order(of: body.compactMap { line -> String? in
+            let cells = split(line, by: delimiter)
+            guard dateAt < cells.count else { return nil }
+            return cells[dateAt].trimmingCharacters(in: .whitespaces)
+        })
+
         var out: [Row] = []
-        for line in lines.dropFirst() {
+        var rejected = 0
+        for line in body {
             let cells = split(line, by: delimiter)
             func cell(_ index: Int?) -> String {
                 guard let index, index < cells.count else { return "" }
                 return cells[index].trimmingCharacters(in: .whitespaces)
             }
-            guard let day = date(from: cell(dateAt)) else { continue }
+            guard let day = date(from: cell(dateAt), dayFirst: order.dayIsFirst) else {
+                // A trailing "Solde en début de période" carries no date and is
+                // not a loss; a row that should have parsed is.
+                if !cell(dateAt).isEmpty { rejected += 1 }
+                continue
+            }
 
             let amount: Double
             if let amountAt, !cell(amountAt).isEmpty {
@@ -132,7 +310,7 @@ enum LocalImport {
                 )
             )
         }
-        return out
+        return Parsed(rows: out, order: order, rejected: rejected)
     }
 
     /// Quote-aware, because a French label contains the delimiter often enough
@@ -216,7 +394,7 @@ enum LocalImport {
 
     /// ISO first, then European, then OFX's `YYYYMMDD`. Never American: this
     /// app is French-first and `03/04` has to mean one thing.
-    static func date(from raw: String) -> String? {
+    static func date(from raw: String, dayFirst: Bool = true) -> String? {
         let value = raw.trimmingCharacters(in: .whitespaces)
         guard !value.isEmpty else { return nil }
 
@@ -232,10 +410,15 @@ enum LocalImport {
             return "\(year)-\(month)-\(day)"
         }
         let parts = value.prefix(10).split(whereSeparator: { "/-.".contains($0) })
-        guard parts.count == 3, let d = Int(parts[0]), let m = Int(parts[1]),
-              var y = Int(parts[2]), d >= 1, d <= 31, m >= 1, m <= 12
+        guard parts.count == 3, let first = Int(parts[0]), let second = Int(parts[1]),
+              var y = Int(parts[2])
         else { return nil }
-        if y < 100 { y += 2000 }
+        let d = dayFirst ? first : second
+        let m = dayFirst ? second : first
+        y = century(y)
+        // The calendar, not just the range: the thirty-first of February is
+        // what tells one reading of a file from the other.
+        guard valid(day: d, month: m, year: y) else { return nil }
         return String(format: "%04d-%02d-%02d", y, m, d)
     }
 }
