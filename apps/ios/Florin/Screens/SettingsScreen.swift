@@ -291,26 +291,6 @@ struct SettingsScreen: View {
                 .tint(Florin.accent)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-
-                if notificationsOn {
-                    Hairline()
-                    SettingsRow(
-                        label: t("v2.settings.notifyTest", "Envoyer un test"),
-                        symbol: "bell.badge",
-                        action: {
-                            Task {
-                                await BackgroundRefresh.sendTest()
-                                task = .success(
-                                    title: t("v2.settings.notifyTestSent", "Test envoyé"),
-                                    detail: t(
-                                        "v2.settings.notifyTestHint",
-                                        "Fermez Florin : la notification arrive dans cinq secondes. Une bannière ne s'affiche pas au-dessus de l'app qui l'a envoyée."
-                                    )
-                                )
-                            }
-                        }
-                    )
-                }
             }
         }
     }
