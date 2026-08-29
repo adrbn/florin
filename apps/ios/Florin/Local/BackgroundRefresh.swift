@@ -177,28 +177,4 @@ enum BackgroundRefresh {
         )
     }
 
-    /*
-     * One notification, on purpose, a few seconds from now.
-     *
-     * The real one arrives from a background wake-up iOS may take days to
-     * grant, so "did I set this up correctly?" is otherwise a question you
-     * answer by waiting. The delay is there so the app can be put away first:
-     * a banner does not appear over the app that posted it.
-     */
-    static func sendTest() async {
-        let content = UNMutableNotificationContent()
-        content.title = Strings.device("v2.notify.testTitle", "Florin vous parlera comme ça")
-        content.body = Strings.device(
-            "v2.notify.testBody",
-            "Un résumé le matin, quand votre banque a publié la nuit."
-        )
-        content.sound = .default
-        try? await UNUserNotificationCenter.current().add(
-            UNNotificationRequest(
-                identifier: UUID().uuidString,
-                content: content,
-                trigger: UNTimeIntervalNotificationTrigger(timeInterval: 5, repeats: false)
-            )
-        )
-    }
 }
