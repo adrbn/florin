@@ -33,10 +33,29 @@ enum LocalBootstrap {
     private static let marker = "bootstrapped_at"
 
     static func run(on store: LocalStore, locale: String) throws -> Bool {
+        /*
+         * Seed an empty ledger, not merely an unmarked one.
+         *
+         * The only test was a marker in `settings`, which asks "has this app
+         * seeded before" rather than "does this ledger already have
+         * categories" — and those come apart the moment a ledger arrives from
+         * somewhere else carrying its own. It then seeds a second, parallel set
+         * beside the real one: two groups called Revenus and Revenues, each
+         * with their own Salaires, and every existing transaction still filed
+         * under the first. Counting is the honest question.
+         */
         let already = try store.database.scalar(
             "SELECT value FROM settings WHERE key = ?", [.text(marker)]
         )
         guard already?.string == nil else { return false }
+        let existing = try store.database.scalar("SELECT count(*) FROM categories")?.int ?? 0
+        guard existing == 0 else {
+            try store.database.run(
+                "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+                [.text(marker), .text("adopted")]
+            )
+            return false
+        }
 
         let groups = try seedGroups(for: locale)
         try store.database.transaction {

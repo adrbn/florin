@@ -266,6 +266,10 @@ struct UpcomingGroup<Row: View>: View {
     var tint: Color = Florin.accent
     /// Overrides the "{count} en prévision" line.
     var caption: String?
+    /// Actions belonging to the group, drawn inside the card under the rows
+    /// and only while it is open — a line of links floating under a closed
+    /// card belongs to nothing on screen.
+    var footer: AnyView?
     @Binding var expanded: Bool
     @ViewBuilder var row: (Transaction) -> Row
 
@@ -309,6 +313,10 @@ struct UpcomingGroup<Row: View>: View {
                 ForEach(Array(transactions.enumerated()), id: \.element.id) { index, tx in
                     Hairline()
                     row(tx)
+                }
+                if let footer {
+                    Hairline()
+                    footer
                 }
             }
         }
