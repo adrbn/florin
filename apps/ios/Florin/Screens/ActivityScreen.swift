@@ -510,31 +510,37 @@ struct TransactionList<Banner: View>: View {
                  * already out of every total; this keeps them out of the way
                  * without hiding them.
                  */
-                if !upcoming.isEmpty {
-                    UpcomingGroup(
-                        transactions: upcoming,
-                        locale: locale,
-                        currency: currency,
-                        t: t,
-                        expanded: $upcomingExpanded
-                    ) { tx in
-                        row(tx)
-                    }
-                    .padding(.horizontal, Florin.gutter)
-                }
-
                 /*
-                 * The same shape the dashboard uses.
+                 * Twelve points apart, like the dashboard.
                  *
-                 * This was an eyebrow, a count in a capsule, two link-sized
-                 * actions and an always-open list — a fourth way of presenting
-                 * a group of transactions on a screen that already had three.
-                 * The dashboard folds its queue into one line you can open;
-                 * so does this, from the same component, so the two read as
-                 * the same thing seen twice rather than two features.
+                 * Two folded groups stacked at the list's own 22-point rhythm
+                 * read as two sections of the screen rather than as two lines
+                 * of the same waiting room.
                  */
-                if !pending.isEmpty, !model.filter.needsReview {
-                    VStack(alignment: .leading, spacing: 8) {
+                VStack(spacing: 12) {
+                    if !upcoming.isEmpty {
+                        UpcomingGroup(
+                            transactions: upcoming,
+                            locale: locale,
+                            currency: currency,
+                            t: t,
+                            expanded: $upcomingExpanded
+                        ) { tx in
+                            row(tx)
+                        }
+                    }
+
+                    /*
+                     * The same shape the dashboard uses.
+                     *
+                     * This was an eyebrow, a count in a capsule, two link-sized
+                     * actions and an always-open list — a fourth way of
+                     * presenting a group of transactions on a screen that
+                     * already had three. The dashboard folds its queue into one
+                     * line you can open; so does this, from the same component,
+                     * so the two read as the same thing seen twice.
+                     */
+                    if !pending.isEmpty, !model.filter.needsReview {
                         UpcomingGroup(
                             transactions: pending,
                             locale: locale,
@@ -549,50 +555,14 @@ struct TransactionList<Banner: View>: View {
                                 // smaller of the two is the misleading one.
                                 ["count": max(model.reviewCount, pending.count)]
                             ),
+                            footer: AnyView(queueActions),
                             expanded: $reviewExpanded
                         ) { tx in
                             row(tx)
                         }
-
-                        HStack(spacing: 10) {
-                            Spacer()
-                            Button {
-                                UISelectionFeedbackGenerator().selectionChanged()
-                                // The same control has to be the way out, or it
-                                // sits there repeating an instruction the user
-                                // has already followed.
-                                withAnimation(.snappy(duration: 0.2)) {
-                                    selection = selection == nil ? [] : nil
-                                    if selection != nil { reviewExpanded = true }
-                                }
-                            } label: {
-                                Text(
-                                    selection == nil
-                                        ? t("v2.review.selectMany", "Sélectionner")
-                                        : t("v2.review.selectDone", "Désélectionner")
-                                )
-                                .font(.system(size: 11.5, weight: .medium))
-                                .foregroundStyle(Florin.accent)
-                            }
-                            .buttonStyle(.plain)
-
-                            Text("·")
-                                .font(.system(size: 11.5))
-                                .foregroundStyle(Florin.text3)
-
-                            Button {
-                                scope.wrappedValue = .review
-                            } label: {
-                                Text(t("v2.common.seeAll", "Tout voir"))
-                                    .font(.system(size: 11.5, weight: .medium))
-                                    .foregroundStyle(Florin.accent)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        .padding(.horizontal, Florin.gutter + 4)
                     }
-                    .padding(.horizontal, Florin.gutter)
                 }
+                .padding(.horizontal, Florin.gutter)
 
                 ForEach(days, id: \.key) { day in
                     VStack(alignment: .leading, spacing: 10) {
@@ -625,6 +595,45 @@ struct TransactionList<Banner: View>: View {
                 }
             }
         }
+    }
+
+    /// Select several, or open the tab that holds them all.
+    private var queueActions: some View {
+        HStack(spacing: 10) {
+            Spacer()
+            Button {
+                UISelectionFeedbackGenerator().selectionChanged()
+                // The same control has to be the way out, or it sits there
+                // repeating an instruction the user has already followed.
+                withAnimation(.snappy(duration: 0.2)) {
+                    selection = selection == nil ? [] : nil
+                }
+            } label: {
+                Text(
+                    selection == nil
+                        ? t("v2.review.selectMany", "Sélectionner")
+                        : t("v2.review.selectDone", "Désélectionner")
+                )
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Florin.accent)
+            }
+            .buttonStyle(.plain)
+
+            Text("·")
+                .font(.system(size: 12))
+                .foregroundStyle(Florin.text3)
+
+            Button {
+                scope.wrappedValue = .review
+            } label: {
+                Text(t("v2.common.seeAll", "Tout voir"))
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Florin.accent)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, Florin.gutter)
+        .padding(.vertical, 11)
     }
 
     private func row(_ tx: Transaction) -> some View {
