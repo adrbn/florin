@@ -40,6 +40,19 @@ struct TopBar<Middle: View, Trailing: View>: View {
     /// avatar *worked* as a back button, but nothing on screen said so — it
     /// still read "open settings", which is the wrong promise.
     var back = false
+    /*
+     * Centre the middle on the screen rather than on what is left of it.
+     *
+     * The bar is a row — gear, middle, trailing — so a middle that fills the
+     * remaining width centres itself between the gear and the buttons. With one
+     * control on the left and two on the right that midpoint is not the
+     * screen's, and a title reads as nudged off-centre by exactly the width of
+     * the difference.
+     *
+     * Only for a title. A search field is *supposed* to take the space that is
+     * left, and centring it would leave a gap under the buttons.
+     */
+    var centersMiddle = false
     @ViewBuilder var middle: Middle
     @ViewBuilder var trailing: Trailing
 
@@ -69,10 +82,24 @@ struct TopBar<Middle: View, Trailing: View>: View {
                     : Strings.device("v2.settings.title", "Réglages")
             )
 
-            middle
-            trailing
+            if centersMiddle {
+                Spacer(minLength: 0)
+                trailing
+            } else {
+                middle
+                trailing
+            }
         }
         .padding(.horizontal, Florin.gutter)
+        .overlay {
+            if centersMiddle {
+                middle
+                    // Clear of the widest side, so a long title shrinks rather
+                    // than sliding under a button.
+                    .padding(.horizontal, 104)
+                    .allowsHitTesting(false)
+            }
+        }
     }
 }
 

@@ -37,10 +37,11 @@ struct AnalysisScreen: View {
 
     var body: some View {
         TabScaffold(tint: TabRoute.analysis.tint, refresh: { await model.load() }) {
-            TopBar(onProfile: onOpenSettings) {
+            TopBar(onProfile: onOpenSettings, centersMiddle: true) {
                     Text(t("v2.analysis.title", "Analyse"))
                         .font(.system(size: 17, weight: .semibold))
-                        .frame(maxWidth: .infinity)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                 } trailing: {
                     CircleButton(symbol: "arrow.left.arrow.right", size: 44) {
                         route(.activity, TabRoute.activity.rootPath)
