@@ -292,6 +292,26 @@ final class OverviewModel: ObservableObject {
         }
     }
 
+    /*
+     * Pull-to-refresh, where the gesture cannot cut the work short.
+     *
+     * `.refreshable` runs its body in a task SwiftUI cancels once it is done
+     * with the gesture, and a bank sync is not a thing that should stop because
+     * a finger lifted. It did: the catch below silences cancellation so the
+     * screen would stop reporting "Annulé" on a normal pull — which hid the
+     * fact that the sync had been abandoned somewhere in the middle. That is
+     * why pulling felt so much faster than the sync button beside it, which
+     * runs in a task of its own and always finishes.
+     *
+     * Starting the work unstructured breaks the parent-child link: cancelling
+     * this refresh no longer reaches the sync, and awaiting its result keeps
+     * the spinner honest about how long the bank actually takes.
+     */
+    func refresh() async {
+        let work = Task { await sync() }
+        _ = await work.result
+    }
+
     func sync(announce: Bool = true, announceOnlyIfNew: Bool = false) async {
         guard !syncing else { return }
         syncing = true

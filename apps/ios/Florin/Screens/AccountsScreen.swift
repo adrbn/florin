@@ -121,7 +121,7 @@ struct AccountsScreen: View {
     }
 
     private func loaded(_ data: Overview) -> some View {
-        TabScaffold(tint: TabRoute.accounts.tint, refresh: { await model.sync() }) {
+        TabScaffold(tint: TabRoute.accounts.tint, refresh: { await model.refresh() }) {
             TopBar(onProfile: onOpenSettings) {
                 Text(t("v2.nav.accounts", "Comptes"))
                     .font(.system(size: 17, weight: .semibold))
