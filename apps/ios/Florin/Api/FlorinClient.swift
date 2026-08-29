@@ -283,8 +283,24 @@ final class OverviewModel: ObservableObject {
     /// Called when the app comes to the foreground. Refreshes the figures every
     /// time — that is free — but only reaches out to the banks when the last
     /// attempt is stale.
+    /// Leave the home screen the two figures it shows. Silent when there is no
+    /// shared container, which is every install signed with a free Apple ID.
+    private func publishSnapshot() {
+        guard let data = overview else { return }
+        WidgetSnapshot.write(
+            WidgetSnapshot(
+                netWorth: data.netWorth.net,
+                leftToSpend: data.leftToSpend.leftToSpend,
+                currency: data.currency,
+                locale: data.localeTag,
+                updatedAt: Date()
+            )
+        )
+    }
+
     func onForeground() async {
         await load(showSpinner: overview == nil)
+        publishSnapshot()
         if Date().timeIntervalSince(lastSyncAttempt) > Self.autoSyncInterval {
             // Announce only when it actually brought something back: a pill on
             // every single app open saying "à jour" is nagging, not informing.
@@ -321,6 +337,7 @@ final class OverviewModel: ObservableObject {
         do {
             let result = try await client.sync()
             await load(showSpinner: false)
+            publishSnapshot()
             let inserted = result.transactionsInserted
             if announce || (announceOnlyIfNew && inserted > 0) {
                 toast = ToastMessage(

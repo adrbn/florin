@@ -60,7 +60,7 @@ enum BackgroundRefresh {
 
         let last = (try? store.database.scalar(
             "SELECT max(last_synced_at) FROM bank_connections"
-        )?.string)?.flatMap { ISO8601DateFormatter.florinNoFraction.date(from: $0) }
+        )?.string).flatMap { Timestamp.parse($0) }
         if let last, Date().timeIntervalSince(last) < minimumInterval {
             log.notice("skipped: synced recently")
             return -1
@@ -73,7 +73,9 @@ enum BackgroundRefresh {
         // Booked only. Nobody is waiting on this one, and the extra call per
         // account would spend the day's unattended budget faster than it
         // earns it.
-        _ = try? await BankingSync.run(store: store, config: config, pending: false)
+        _ = try? await BankingSync.run(
+            store: store, config: config, pending: false, trigger: "scheduler"
+        )
         let after = (try? store.database.scalar(
             "SELECT count(*) FROM transactions WHERE deleted_at IS NULL"
         )?.int) ?? before

@@ -30,6 +30,19 @@ struct ReviewCategorySheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var index = 0
     @State private var working = false
+    /*
+     * The guess the app already made and threw away.
+     *
+     * `LocalCategoriser.suggest` runs on every incoming row and only writes
+     * itself above 0.8 confidence — below that the row lands here and the guess
+     * is discarded, which is the wrong end to lose it. It was not certain
+     * enough to file unattended; it is easily good enough to offer to someone
+     * who is standing right here deciding.
+     *
+     * Read once: it is a scan of the filed history, not something to redo per
+     * card.
+     */
+    @State private var memory: LocalCategoriser.Memory?
 
     private var current: Transaction? {
         index < transactions.count ? transactions[index] : nil
@@ -57,6 +70,10 @@ struct ReviewCategorySheet: View {
                 }
                 footer
             }
+        }
+        .task {
+            guard let store = LocalStore.shared else { return }
+            memory = try? LocalCategoriser.remember(store: store)
         }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
@@ -123,9 +140,25 @@ struct ReviewCategorySheet: View {
         ))
     }
 
+    /// What the ledger thinks this is, when it has an opinion.
+    private var suggestion: Category? {
+        guard let memory, let tx = current,
+              let hit = LocalCategoriser.suggest(
+                  memory, payee: tx.payee, amount: tx.amount, accountId: ""
+              )
+        else { return nil }
+        return categories.first { $0.id == hit.categoryId }
+    }
+
     private var picker: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
+                if let hint = suggestion {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Eyebrow(text: t("v2.review.suggestion", "Sans doute"))
+                        chip(hint, prominent: true)
+                    }
+                }
                 ForEach(groups, id: \.name) { group in
                     VStack(alignment: .leading, spacing: 8) {
                         Eyebrow(text: group.name)
@@ -145,7 +178,7 @@ struct ReviewCategorySheet: View {
         .opacity(working ? 0.5 : 1)
     }
 
-    private func chip(_ category: Category) -> some View {
+    private func chip(_ category: Category, prominent: Bool = false) -> some View {
         Button {
             guard let tx = current, !working else { return }
             working = true
@@ -163,8 +196,11 @@ struct ReviewCategorySheet: View {
                     .foregroundStyle(Florin.text)
                     .lineLimit(1)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 9)
+            .padding(.horizontal, prominent ? 16 : 12)
+            .padding(.vertical, prominent ? 12 : 9)
+            .background(
+                prominent ? Florin.accent.opacity(0.22) : .clear, in: Capsule()
+            )
             .florinGlass(in: Capsule())
             .contentShape(Capsule())
         }

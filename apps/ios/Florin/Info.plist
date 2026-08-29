@@ -63,6 +63,10 @@
 	     the next phone without having thought ahead. Nothing sensitive lives
 	     there: the ledger itself and the banking key stay in Application
 	     Support, which this does not expose. -->
+	<!-- Shown by the system the first time Face ID is asked for. Without it
+	     the prompt does not appear at all and the app looks broken. -->
+	<key>NSFaceIDUsageDescription</key>
+	<string>Florin demande Face ID pour ouvrir votre grand livre.</string>
 	<key>UIFileSharingEnabled</key>
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>

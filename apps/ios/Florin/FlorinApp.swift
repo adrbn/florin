@@ -41,13 +41,20 @@ struct FlorinApp: App {
             // run, and the moment the ledger is guaranteed to be idle. Folding
             // the write-ahead log back in here is what makes including the
             // database in backups safe — see LocalStore.checkpoint.
-            if phase != .active { LocalStore.checkpoint() }
+            if phase != .active {
+                LocalStore.checkpoint()
+                // Locked before the snapshot iOS takes for the app switcher,
+                // not when someone comes back — otherwise the ledger is
+                // legible in the switcher to anyone holding the phone.
+                AppLock.shared.willResignActive()
+            }
         }
     }
 }
 
 struct RootView: View {
     @EnvironmentObject private var server: ServerStore
+    @ObservedObject private var lock = AppLock.shared
     /// Dark by default. Florin is a night-table app and the Obsidian palette
     /// was designed dark-first; following the system would hand most users the
     /// light theme they never asked for.
@@ -184,6 +191,21 @@ struct RootView: View {
                 onboarded = UUID()
             })
         }
+        /*
+         * Above the covers, not beside them.
+         *
+         * Settings and the bank setup are full-screen covers; a lock presented
+         * as one more of them would sit behind whichever was already up. As an
+         * overlay on the root it covers the covers, which is the only place a
+         * lock can honestly be.
+         */
+        .overlay {
+            if lock.locked {
+                LockScreen()
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeOut(duration: 0.18), value: lock.locked)
     }
 }
 

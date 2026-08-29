@@ -328,6 +328,48 @@ enum LocalQueries {
         ).map { LocalLedger.transaction(from: $0) }
     }
 
+    /// The last runs, newest first, with their per-account lines.
+    static func syncRuns(_ db: SQLiteDatabase?) throws -> [SyncRun] {
+        guard let db else { return [] }
+        let rows = try db.query(
+            """
+            SELECT id, started_at, trigger, status, accounts_total, accounts_ok,
+                   tx_inserted, error_summary, duration_ms
+            FROM bank_sync_runs ORDER BY started_at DESC LIMIT 30
+            """
+        )
+        return try rows.map { row in
+            let id = row.string("id") ?? ""
+            let lines = try db.query(
+                """
+                SELECT id, account_uid, tx_fetched, tx_inserted, tx_error
+                FROM bank_sync_account_results WHERE run_id = ?
+                """,
+                [.text(id)]
+            ).map {
+                SyncRunAccount(
+                    id: $0.string("id") ?? UUID().uuidString,
+                    uid: $0.string("account_uid") ?? "?",
+                    fetched: $0.int("tx_fetched") ?? 0,
+                    inserted: $0.int("tx_inserted") ?? 0,
+                    error: $0.string("tx_error")
+                )
+            }
+            return SyncRun(
+                id: id,
+                startedAt: row.string("started_at") ?? "",
+                trigger: row.string("trigger") ?? "manual",
+                status: row.string("status") ?? "ok",
+                accountsTotal: row.int("accounts_total") ?? 0,
+                accountsOk: row.int("accounts_ok") ?? 0,
+                inserted: row.int("tx_inserted") ?? 0,
+                errorSummary: row.string("error_summary"),
+                durationMs: row.int("duration_ms"),
+                accounts: lines
+            )
+        }
+    }
+
     static func readCategories(_ db: SQLiteDatabase) throws -> [Category] {
         try db.query(
             """

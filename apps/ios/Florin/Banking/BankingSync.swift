@@ -23,10 +23,14 @@ enum BankingSync {
     ///   but not yet booked. One extra call per account, so it is left to the
     ///   caller: worth it when someone is watching and waiting for a payment,
     ///   not worth it for a scheduled pull in the middle of the night.
+    /// - Parameter trigger: who asked — `manual`, `scheduler` or `initial`.
+    ///   Recorded so a sync that found nothing can be told apart from one that
+    ///   never ran.
     static func run(
         store: LocalStore,
         config: EnableBanking.Config,
-        pending: Bool = true
+        pending: Bool = true,
+        trigger: String = "manual"
     ) async throws -> Result {
         var result = Result()
 
@@ -42,9 +46,39 @@ enum BankingSync {
                   let sessionId = connection.string("session_id")
             else { continue }
 
+            /*
+             * The run is opened before the first network call.
+             *
+             * The two tables this writes have been in the schema since the
+             * start and nothing on the phone ever filled them, which is why
+             * "the bank shows it and Florin does not" could only ever be
+             * answered by reasoning. A row per run, a row per account, and the
+             * question becomes a query.
+             *
+             * Opened up-front rather than written at the end, so a sync that
+             * dies — a crash, a killed background task, a bank that never
+             * answers — leaves evidence that it was tried at all.
+             */
+            let runId = UUID().uuidString
+            let startedAt = Date()
+            try? store.database.run(
+                """
+                INSERT INTO bank_sync_runs
+                    (id, connection_id, trigger, started_at, status)
+                VALUES (?, ?, ?, ?, 'running')
+                """,
+                [
+                    .text(runId), .text(connectionId), .text(trigger),
+                    .text(Timestamp.now()),
+                ]
+            )
+            var accountsOk = 0
+            var accountsTotal = 0
+
             do {
                 let session = try await EnableBanking.session(config, id: sessionId)
                 let uids = session.accounts ?? []
+                accountsTotal = uids.count
                 if uids.isEmpty {
                     /*
                      * Zero accounts is a real answer, not a failure.
@@ -64,16 +98,55 @@ enum BankingSync {
                 }
 
                 for uid in uids {
-                    let accountId = try await upsertAccount(
-                        store: store, config: config, uid: uid, connectionId: connectionId
-                    )
-                    result.accounts += 1
-                    let counts = try await importTransactions(
-                        store: store, config: config, uid: uid, accountId: accountId,
-                        since: connection.string("sync_start_date"), pending: pending
-                    )
-                    result.inserted += counts.inserted
-                    result.skipped += counts.skipped
+                    /*
+                     * One account failing is not the sync failing.
+                     *
+                     * A bank that answers for the current account and refuses
+                     * for the savings one used to abort the whole run at the
+                     * first refusal, so the accounts after it in the list were
+                     * never even tried. Each is recorded on its own row and the
+                     * run carries on.
+                     */
+                    let line = UUID().uuidString
+                    do {
+                        let accountId = try await upsertAccount(
+                            store: store, config: config, uid: uid, connectionId: connectionId
+                        )
+                        result.accounts += 1
+                        let counts = try await importTransactions(
+                            store: store, config: config, uid: uid, accountId: accountId,
+                            since: connection.string("sync_start_date"), pending: pending
+                        )
+                        result.inserted += counts.inserted
+                        result.skipped += counts.skipped
+                        accountsOk += 1
+                        try? store.database.run(
+                            """
+                            INSERT INTO bank_sync_account_results
+                                (id, run_id, account_uid, account_id, balance_fetched,
+                                 tx_fetched, tx_inserted)
+                            VALUES (?, ?, ?, ?, 1, ?, ?)
+                            """,
+                            [
+                                .text(line), .text(runId), .text(uid), .text(accountId),
+                                .integer(Int64(counts.inserted + counts.skipped)),
+                                .integer(Int64(counts.inserted)),
+                            ]
+                        )
+                    } catch {
+                        result.failures.append("\(uid): \(error.localizedDescription)")
+                        try? store.database.run(
+                            """
+                            INSERT INTO bank_sync_account_results
+                                (id, run_id, account_uid, balance_fetched, tx_error)
+                            VALUES (?, ?, ?, 0, ?)
+                            """,
+                            [
+                                .text(line), .text(runId), .text(uid),
+                                .text(error.localizedDescription),
+                            ]
+                        )
+                    }
                 }
 
                 /*
@@ -96,11 +169,11 @@ enum BankingSync {
                 try store.database.run(
                     """
                     UPDATE bank_connections
-                    SET last_synced_at = datetime('now'), last_sync_error = NULL,
+                    SET last_synced_at = ?, last_sync_error = NULL,
                         updated_at = datetime('now')
                     WHERE id = ?
                     """,
-                    [.text(connectionId)]
+                    [.text(Timestamp.now()), .text(connectionId)]
                 )
             } catch {
                 // Kept on the row rather than only raised: the next screen the
@@ -115,6 +188,43 @@ enum BankingSync {
                 result.failures.append(error.localizedDescription)
                 log.error("sync failed: \(error.localizedDescription, privacy: .public)")
             }
+
+            /*
+             * Close the run, whichever way it went.
+             *
+             * `partial` is the state worth having a word for: the sync reached
+             * the bank and came back with some accounts and not others, which
+             * looks like success from the outside and is the shape almost every
+             * real complaint takes.
+             */
+            let status: String
+            if accountsTotal == 0 {
+                status = result.failures.isEmpty ? "ok" : "error"
+            } else if accountsOk == accountsTotal {
+                status = "ok"
+            } else if accountsOk > 0 {
+                status = "partial"
+            } else {
+                status = "error"
+            }
+            try? store.database.run(
+                """
+                UPDATE bank_sync_runs
+                SET finished_at = ?, status = ?, accounts_total = ?, accounts_ok = ?,
+                    tx_inserted = ?, error_summary = ?, duration_ms = ?
+                WHERE id = ?
+                """,
+                [
+                    .text(Timestamp.now()), .text(status),
+                    .integer(Int64(accountsTotal)), .integer(Int64(accountsOk)),
+                    .integer(Int64(result.inserted)),
+                    result.failures.isEmpty
+                        ? .null
+                        : .text(result.failures.joined(separator: " · ")),
+                    .integer(Int64(Date().timeIntervalSince(startedAt) * 1000)),
+                    .text(runId),
+                ]
+            )
         }
         return result
     }
