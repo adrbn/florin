@@ -313,7 +313,7 @@ struct OverviewScreen: View {
             // iOS 26 fades content into the bars instead of hard-clipping it.
             .modifier(SoftScrollEdge())
             // Pull down to actually pull the banks, not just re-read the server.
-            .refreshable { await model.sync() }
+            .refreshable { await model.refresh() }
         )
     }
 
