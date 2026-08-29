@@ -21,6 +21,8 @@ struct TransactionDetailSheet: View {
     @State private var editing = false
     @State private var confirmingDelete = false
     @State private var working = false
+    @State private var contentHeight: CGFloat = 0
+    @State private var filing = false
 
     var body: some View {
         NavigationStack {
@@ -30,19 +32,45 @@ struct TransactionDetailSheet: View {
                     actions
                 }
                 .padding(.top, 8)
-                .padding(.bottom, 28)
+                .padding(.bottom, 20)
+                .background(
+                    GeometryReader { proxy in
+                        Color.clear.preference(
+                            key: SheetContentHeight.self, value: proxy.size.height
+                        )
+                    }
+                )
             }
+            .onPreferenceChange(SheetContentHeight.self) { contentHeight = $0 }
             .scrollBounceBehavior(.basedOnSize)
             .background(Backdrop(tint: TabRoute.activity.tint))
             .navigationTitle(PayeeText.humanize(tx.payee))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(t("v2.common.close", "Fermer")) { dismiss() }
+                    // A glyph, not the word. "Fermer" in a toolbar draws a
+                    // capsule wide enough to read as the sheet's main action,
+                    // which is the one thing it is not.
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    .accessibilityLabel(t("v2.common.close", "Fermer"))
                 }
             }
         }
-        .presentationDetents([.medium, .large])
+        /*
+         * As tall as it needs to be.
+         *
+         * A medium detent is half the screen whatever the sheet contains, so a
+         * transaction with four actions had its last one — the red delete —
+         * cut through the middle, and one with two left a void underneath. The
+         * height is the content's, plus the navigation bar and the home
+         * indicator; `.large` stays available for a long memo.
+         */
+        .presentationDetents([.height(min(contentHeight + 64, 720)), .large])
         .presentationDragIndicator(.visible)
         .presentationBackground(.clear)
         .sheet(isPresented: $picking) {
@@ -53,6 +81,22 @@ struct TransactionDetailSheet: View {
             ) { id in
                 run { await onPatch(TxPatch(categoryId: .some(id))) }
             }
+        }
+        .sheet(isPresented: $filing) {
+            ReviewCategorySheet(
+                transactions: [tx],
+                categories: categories,
+                locale: locale,
+                currency: currency,
+                t: t,
+                onAssign: { _, categoryId in
+                    await onPatch(TxPatch(categoryId: .some(categoryId)))
+                },
+                onFinish: {
+                    filing = false
+                    run { await onPatch(TxPatch(approve: true)) }
+                }
+            )
         }
         .sheet(isPresented: $editing) {
             TransactionEditor(tx: tx, locale: locale, currency: currency, t: t) { patch in
@@ -121,7 +165,14 @@ struct TransactionDetailSheet: View {
                     symbol: "checkmark",
                     prominent: true
                 ) {
-                    run { await onPatch(TxPatch(approve: true)) }
+                    // Nothing leaves the queue uncategorised without that being
+                    // a decision. A transfer is the exception: it has no
+                    // category by design.
+                    if tx.categoryName == nil && !tx.isTransfer {
+                        filing = true
+                    } else {
+                        run { await onPatch(TxPatch(approve: true)) }
+                    }
                 }
             }
             SheetAction(label: t("v2.review.categorize", "Catégoriser"), symbol: "tag") {
@@ -241,5 +292,14 @@ struct FlowRow: Layout {
             }
             y += height + spacing
         }
+    }
+}
+
+
+/// The measured height of a sheet's content, for sizing its detent.
+private struct SheetContentHeight: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
     }
 }
