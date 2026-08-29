@@ -107,6 +107,12 @@ struct TransactionList<Banner: View>: View {
     }
 
     @AppStorage("florin.hint.reviewLearns") private var hintDismissed = false
+    /// Open by default: unlike what has not happened yet, these are waiting on
+    /// the person looking at them.
+    @State private var reviewExpanded = true
+    /// The rows a batch is about to validate, and the unfiled subset standing
+    /// between it and the ledger.
+    @State private var filing: (ids: [String], missing: [Transaction])?
 
     private enum Scope: Hashable { case all, expense, income, review }
 
@@ -184,7 +190,22 @@ struct TransactionList<Banner: View>: View {
 
                     Button {
                         let ids = Array(picked)
+                        /*
+                         * Transfers are excluded on purpose.
+                         *
+                         * Money moving between two of your own accounts is not
+                         * spending and has no category by design — asking for
+                         * one would be the app inventing a problem and then
+                         * making the person answer for it.
+                         */
+                        let missing = pending.filter {
+                            picked.contains($0.id) && $0.categoryName == nil && !$0.isTransfer
+                        }
                         withAnimation(.snappy(duration: 0.2)) { selection = nil }
+                        guard missing.isEmpty else {
+                            filing = (ids, missing)
+                            return
+                        }
                         Task {
                             await model.approve(ids, t: t)
                             await onLedgerChanged()
@@ -253,6 +274,31 @@ struct TransactionList<Banner: View>: View {
                     await onLedgerChanged()
                 }
             )
+        }
+        .sheet(isPresented: Binding(
+            get: { filing != nil },
+            set: { if !$0 { filing = nil } }
+        )) {
+            if let batch = filing {
+                ReviewCategorySheet(
+                    transactions: batch.missing,
+                    categories: model.categories,
+                    locale: locale,
+                    currency: currency,
+                    t: t,
+                    onAssign: { id, categoryId in
+                        await model.apply(TxPatch(categoryId: .some(categoryId)), to: id, t: t)
+                    },
+                    onFinish: {
+                        let ids = batch.ids
+                        filing = nil
+                        Task {
+                            await model.approve(ids, t: t)
+                            await onLedgerChanged()
+                        }
+                    }
+                )
+            }
         }
         .florinToast($model.toast)
     }
@@ -406,6 +452,32 @@ struct TransactionList<Banner: View>: View {
             Text(t("v2.activity.count", "{count} opérations", ["count": model.total]))
             Spacer()
             if model.loading { ProgressView().controlSize(.mini) }
+            /*
+             * Selecting works on the tab that is only about selecting.
+             *
+             * The control lived in the header of the inline queue, and that
+             * header exists only when the queue is a section of a longer list —
+             * so opening the "À vérifier" tab, the one place where every row is
+             * waiting on a decision, left no way to pick several and validate
+             * them at once. The floating bar was already built for it.
+             */
+            if scope.wrappedValue == .review, !pending.isEmpty {
+                Button {
+                    UISelectionFeedbackGenerator().selectionChanged()
+                    withAnimation(.snappy(duration: 0.2)) {
+                        selection = selection == nil ? [] : nil
+                    }
+                } label: {
+                    Text(
+                        selection == nil
+                            ? t("v2.review.selectMany", "Sélectionner")
+                            : t("v2.review.selectDone", "Désélectionner")
+                    )
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Florin.accent)
+                }
+                .buttonStyle(.plain)
+            }
         }
         .font(.system(size: 12))
         .foregroundStyle(Florin.text3)
@@ -451,19 +523,38 @@ struct TransactionList<Banner: View>: View {
                     .padding(.horizontal, Florin.gutter)
                 }
 
+                /*
+                 * The same shape the dashboard uses.
+                 *
+                 * This was an eyebrow, a count in a capsule, two link-sized
+                 * actions and an always-open list — a fourth way of presenting
+                 * a group of transactions on a screen that already had three.
+                 * The dashboard folds its queue into one line you can open;
+                 * so does this, from the same component, so the two read as
+                 * the same thing seen twice rather than two features.
+                 */
                 if !pending.isEmpty, !model.filter.needsReview {
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack {
-                            Eyebrow(text: t("v2.review.title", "À vérifier"))
-                            // The ledger's count, not this page's — they differ
-                            // until every page is loaded, and the smaller of
-                            // the two is the misleading one.
-                            Text("\(max(model.reviewCount, pending.count))")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 1)
-                                .background(Florin.warn, in: Capsule())
+                    VStack(alignment: .leading, spacing: 8) {
+                        UpcomingGroup(
+                            transactions: pending,
+                            locale: locale,
+                            currency: currency,
+                            t: t,
+                            symbol: "questionmark.circle",
+                            tint: Florin.warn,
+                            caption: t(
+                                "v2.review.toCheckCount", "{count} à vérifier",
+                                // The ledger's count, not this page's — they
+                                // differ until every page is loaded, and the
+                                // smaller of the two is the misleading one.
+                                ["count": max(model.reviewCount, pending.count)]
+                            ),
+                            expanded: $reviewExpanded
+                        ) { tx in
+                            row(tx)
+                        }
+
+                        HStack(spacing: 10) {
                             Spacer()
                             Button {
                                 UISelectionFeedbackGenerator().selectionChanged()
@@ -472,6 +563,7 @@ struct TransactionList<Banner: View>: View {
                                 // has already followed.
                                 withAnimation(.snappy(duration: 0.2)) {
                                     selection = selection == nil ? [] : nil
+                                    if selection != nil { reviewExpanded = true }
                                 }
                             } label: {
                                 Text(
@@ -497,16 +589,9 @@ struct TransactionList<Banner: View>: View {
                             }
                             .buttonStyle(.plain)
                         }
-                        .padding(.horizontal, Florin.gutter)
-
-                        RowGroup(tint: Florin.warn.opacity(0.09)) {
-                            ForEach(Array(pending.enumerated()), id: \.element.id) { index, tx in
-                                if index > 0 { Hairline() }
-                                row(tx)
-                            }
-                        }
-                        .padding(.horizontal, Florin.gutter)
+                        .padding(.horizontal, Florin.gutter + 4)
                     }
+                    .padding(.horizontal, Florin.gutter)
                 }
 
                 ForEach(days, id: \.key) { day in

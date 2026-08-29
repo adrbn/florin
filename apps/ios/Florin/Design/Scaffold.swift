@@ -236,11 +236,27 @@ struct ChipBar<Value: Hashable>: View {
                     .lineLimit(1)
                     // Filling the width makes every chip a quarter of the row,
                     // and "Tendances" does not fit a quarter at 14pt. Shrinking
-                    // a hair is invisible; truncating to "Tendan…" is not.
-                    .minimumScaleFactor(fill ? 0.72 : 1)
+                    // a hair is invisible; truncating to "Tendan…" is not — and
+                    // a chip carrying a count has that much less room, which is
+                    // how "À vérifier" became "À véri…" the day the queue
+                    // reached two digits.
+                    .minimumScaleFactor(fill ? (option.badge > 0 ? 0.6 : 0.72) : 1)
                 if option.badge > 0 {
+                    /*
+                     * One line, always, and never squeezed.
+                     *
+                     * The chips fill the row, so a two-digit count made the
+                     * stack wider than its quarter and SwiftUI wrapped the
+                     * cheapest text it could find — the badge — into "1" over
+                     * "2" inside a capsule sized for one line. Fixing the badge
+                     * makes the label give way instead, which it is already
+                     * built to do.
+                     */
                     Text("\(option.badge)")
                         .font(.system(size: 11, weight: .bold))
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .fixedSize()
                         .foregroundStyle(.white)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 1)
