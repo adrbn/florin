@@ -1,6 +1,7 @@
 import BackgroundTasks
 import Foundation
 import OSLog
+import UIKit
 import UserNotifications
 
 /// Noticing what arrived while the app was closed.
@@ -151,5 +152,53 @@ enum BackgroundRefresh {
     static func requestPermission() async -> Bool {
         (try? await UNUserNotificationCenter.current()
             .requestAuthorization(options: [.alert, .badge])) ?? false
+    }
+
+    /*
+     * Whether any of this can work at all.
+     *
+     * The wake-up depends on two switches the app does not own — the
+     * notification permission and iOS's own background refresh — and when
+     * either is off Florin looks broken while behaving correctly. Reading them
+     * back is the difference between "you had no notifications" and "you had
+     * none because background refresh is off for this app".
+     */
+    struct Readiness {
+        var notificationsAllowed = false
+        var backgroundAllowed = false
+    }
+
+    @MainActor
+    static func readiness() async -> Readiness {
+        let settings = try? await UNUserNotificationCenter.current().notificationSettings()
+        return Readiness(
+            notificationsAllowed: settings?.authorizationStatus == .authorized,
+            backgroundAllowed: UIApplication.shared.backgroundRefreshStatus == .available
+        )
+    }
+
+    /*
+     * One notification, on purpose, a few seconds from now.
+     *
+     * The real one arrives from a background wake-up iOS may take days to
+     * grant, so "did I set this up correctly?" is otherwise a question you
+     * answer by waiting. The delay is there so the app can be put away first:
+     * a banner does not appear over the app that posted it.
+     */
+    static func sendTest() async {
+        let content = UNMutableNotificationContent()
+        content.title = Strings.device("v2.notify.testTitle", "Florin vous parlera comme ça")
+        content.body = Strings.device(
+            "v2.notify.testBody",
+            "Un résumé le matin, quand votre banque a publié la nuit."
+        )
+        content.sound = .default
+        try? await UNUserNotificationCenter.current().add(
+            UNNotificationRequest(
+                identifier: UUID().uuidString,
+                content: content,
+                trigger: UNTimeIntervalNotificationTrigger(timeInterval: 5, repeats: false)
+            )
+        )
     }
 }

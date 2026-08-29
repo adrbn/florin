@@ -40,6 +40,7 @@ struct SettingsScreen: View {
 
     private var t: Strings { model.overview?.t ?? .empty }
     @AppStorage("florin.notifications") private var notificationsOn = false
+    @State private var readiness: BackgroundRefresh.Readiness?
     @State private var showingBanking = false
     @State private var showingSyncLog = false
     @State private var showingImport = false
@@ -224,7 +225,10 @@ struct SettingsScreen: View {
              * its hard-coded French, so the screen stayed French whatever
              * language had been chosen.
              */
-            .task { await model.load(showSpinner: false) }
+            .task {
+                await model.load(showSpinner: false)
+                readiness = await BackgroundRefresh.readiness()
+            }
         }
     }
 
@@ -242,9 +246,26 @@ struct SettingsScreen: View {
         if model.base.scheme == "florin-local" {
             SettingsGroup(
                 title: t("v2.settings.notifications", "Notifications"),
-                footer: t(
+                footer: readiness.map { state -> String in
+                    if !state.notificationsAllowed && notificationsOn {
+                        return t(
+                            "v2.settings.notifyBlocked",
+                            "Les notifications sont refusées pour Florin dans les réglages d'iOS."
+                        )
+                    }
+                    if !state.backgroundAllowed {
+                        return t(
+                            "v2.settings.backgroundOff",
+                            "L'actualisation en arrière-plan est désactivée pour Florin dans les réglages d'iOS — Florin ne pourra pas interroger votre banque tout seul."
+                        )
+                    }
+                    return t(
+                        "v2.settings.notificationsHint",
+                        "Florin interroge votre banque le matin et vous dit ce qui est arrivé pendant la nuit."
+                    )
+                } ?? t(
                     "v2.settings.notificationsHint",
-                    "Florin interroge votre banque quelques fois par jour et vous dit ce qui est arrivé."
+                    "Florin interroge votre banque le matin et vous dit ce qui est arrivé pendant la nuit."
                 )
             ) {
                 Toggle(isOn: Binding(
@@ -270,6 +291,26 @@ struct SettingsScreen: View {
                 .tint(Florin.accent)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
+
+                if notificationsOn {
+                    Hairline()
+                    SettingsRow(
+                        label: t("v2.settings.notifyTest", "Envoyer un test"),
+                        symbol: "bell.badge",
+                        action: {
+                            Task {
+                                await BackgroundRefresh.sendTest()
+                                task = .success(
+                                    title: t("v2.settings.notifyTestSent", "Test envoyé"),
+                                    detail: t(
+                                        "v2.settings.notifyTestHint",
+                                        "Fermez Florin : la notification arrive dans cinq secondes. Une bannière ne s'affiche pas au-dessus de l'app qui l'a envoyée."
+                                    )
+                                )
+                            }
+                        }
+                    )
+                }
             }
         }
     }
