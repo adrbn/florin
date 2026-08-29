@@ -1,11 +1,27 @@
 import SwiftUI
 import WidgetKit
 
-/// The dashboard's first line, on the home screen.
+/*
+ * What a finance widget is for.
+ *
+ * The first version led with net worth, which is the wrong number for a home
+ * screen: it moves once a month, so on a screen someone sees eighty times a day
+ * it says nothing new between glances. It is a figure you go and look at, not
+ * one you keep an eye on.
+ *
+ * What earns the space is the question actually asked in a shop, several times
+ * a week — can I spend this? That is what is left for the month, and it only
+ * answers if it comes with how long it has to last. A number on its own is a
+ * fact; the same number over eleven days is a decision.
+ *
+ * So the pace is the point: what the remainder allows per day, against what has
+ * been spent per day so far. Above means the month ends short, and it says so
+ * before the month does.
+ */
 struct FlorinWidgets: Widget {
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: "FlorinNetWorth", provider: Provider()) { entry in
-            NetWorthView(entry: entry)
+        StaticConfiguration(kind: "FlorinLeftToSpend", provider: Provider()) { entry in
+            LeftToSpendView(entry: entry)
                 .containerBackground(for: .widget) {
                     LinearGradient(
                         colors: [
@@ -16,8 +32,8 @@ struct FlorinWidgets: Widget {
                     )
                 }
         }
-        .configurationDisplayName("Florin")
-        .description("Votre patrimoine et ce qu'il vous reste pour le mois.")
+        .configurationDisplayName("Reste à vivre")
+        .description("Ce qu'il vous reste pour le mois, et le rythme que ça autorise.")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
@@ -38,57 +54,71 @@ struct Provider: TimelineProvider {
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<Entry>) -> Void) {
         /*
-         * One entry, refreshed in an hour.
+         * Refreshed on the hour, though rarely by it.
          *
-         * The figures only change when the app or its background sync writes a
-         * new snapshot, and both reload the timeline themselves. The hour is a
-         * floor so a widget on a phone whose owner has not opened Florin in
-         * days still comes back to check rather than sitting on a stale entry
-         * for ever.
+         * The figures change when the app or its background sync writes a new
+         * snapshot, and both reload the timeline themselves. The hour is a
+         * floor, so a phone whose owner has not opened Florin in days still
+         * comes back — which matters here, because the days remaining fall
+         * whether or not anything was spent.
          */
         let entry = Entry(date: Date(), snapshot: WidgetSnapshot.read())
         completion(Timeline(entries: [entry], policy: .after(Date().addingTimeInterval(3600))))
     }
 }
 
-struct NetWorthView: View {
+struct LeftToSpendView: View {
     let entry: Entry
     @Environment(\.widgetFamily) private var family
 
+    private var snapshot: WidgetSnapshot? { entry.snapshot }
+
+    /// A snapshot older than a day and a half describes a month that has moved
+    /// on without it. Said, rather than shown as though it were current.
+    private var stale: Bool {
+        guard let snapshot else { return false }
+        return Date().timeIntervalSince(snapshot.updatedAt) > 36 * 3600
+    }
+
     var body: some View {
-        if let snapshot = entry.snapshot {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Patrimoine")
+        if let snapshot, let left = snapshot.leftToSpend {
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Reste à vivre")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.white.opacity(0.55))
-                Text(money(snapshot.netWorth, snapshot))
-                    .font(.system(size: family == .systemSmall ? 24 : 30, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .minimumScaleFactor(0.6)
-                    .lineLimit(1)
 
-                if let left = snapshot.leftToSpend {
-                    Spacer(minLength: 6)
-                    Text("Reste à vivre")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.55))
-                    Text(money(left, snapshot))
-                        .font(.system(size: family == .systemSmall ? 17 : 21, weight: .medium))
-                        .foregroundStyle(left < 0 ? Color(red: 1, green: 0.42, blue: 0.42)
-                                                  : Color(red: 0.35, green: 0.86, blue: 0.6))
-                        .minimumScaleFactor(0.6)
-                        .lineLimit(1)
+                Text(money(left, snapshot, decimals: false))
+                    .font(.system(size: family == .systemSmall ? 28 : 34, weight: .semibold))
+                    .foregroundStyle(left < 0 ? .red.opacity(0.9) : .white)
+                    .minimumScaleFactor(0.5)
+                    .lineLimit(1)
+                    .padding(.top, 1)
+
+                if let days = snapshot.daysRemaining, days > 0 {
+                    Text(days == 1 ? "1 jour restant" : "\(days) jours restants")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.white.opacity(0.6))
                 }
-                Spacer(minLength: 0)
+
+                Spacer(minLength: 6)
+
+                pace(snapshot, left: left)
+
+                if stale {
+                    Text("Chiffres du \(day(snapshot.updatedAt))")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.white.opacity(0.4))
+                        .padding(.top, 3)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         } else {
             /*
              * Never a zero.
              *
-             * A widget confidently printing 0,00 € is worse than a blank one:
-             * it is indistinguishable from a real answer, and on an install
-             * without a shared container it would print it for ever.
+             * A widget confidently printing 0 € is indistinguishable from a real
+             * answer, and on an install with no shared container — every one
+             * signed with a free Apple ID — it would print it for ever.
              */
             VStack(alignment: .leading, spacing: 4) {
                 Image(systemName: "lock.circle")
@@ -105,13 +135,63 @@ struct NetWorthView: View {
         }
     }
 
-    private func money(_ value: Double, _ snapshot: WidgetSnapshot) -> String {
+    /// The comparison that makes the number actionable: what is allowed a day,
+    /// against what has been spent a day.
+    @ViewBuilder
+    private func pace(_ snapshot: WidgetSnapshot, left: Double) -> some View {
+        if let budget = snapshot.dailyBudget, budget > 0 {
+            let spent = snapshot.dailySpent ?? 0
+            let over = spent > budget
+            VStack(alignment: .leading, spacing: 3) {
+                if family != .systemSmall, spent > 0 {
+                    // A bar of the allowed rate against the kept one — over one
+                    // means the month runs out early.
+                    GeometryReader { proxy in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(.white.opacity(0.14))
+                            Capsule()
+                                .fill(over ? Color.red.opacity(0.75)
+                                           : Color(red: 0.35, green: 0.86, blue: 0.6))
+                                .frame(width: proxy.size.width * min(spent / budget, 1))
+                        }
+                    }
+                    .frame(height: 5)
+                    .padding(.bottom, 2)
+                }
+
+                // What the remainder allows, then what is actually being
+                // spent. The colour carries the verdict; the words stay flat.
+                Text("\(money(budget, snapshot, decimals: false)) par jour")
+                    .font(.system(size: 12.5, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.85))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+
+                if spent > 0 {
+                    Text("vous dépensez \(money(spent, snapshot, decimals: false))")
+                        .font(.system(size: 11))
+                        .foregroundStyle(over ? .red.opacity(0.85) : .white.opacity(0.5))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+            }
+        }
+    }
+
+    private func money(_ value: Double, _ snapshot: WidgetSnapshot, decimals: Bool) -> String {
         let f = NumberFormatter()
         f.numberStyle = .currency
         f.locale = Locale(identifier: snapshot.locale)
         f.currencyCode = snapshot.currency
-        f.maximumFractionDigits = 0
+        f.maximumFractionDigits = decimals ? 2 : 0
         return f.string(from: NSNumber(value: value)) ?? "—"
+    }
+
+    private func day(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: entry.snapshot?.locale ?? "fr_FR")
+        f.setLocalizedDateFormatFromTemplate("dMMM")
+        return f.string(from: date)
     }
 }
 

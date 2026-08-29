@@ -19,6 +19,13 @@ import WidgetKit
 struct WidgetSnapshot: Codable {
     var netWorth: Double
     var leftToSpend: Double?
+    /// How long it has to last, and what that allows a day — the two figures
+    /// that turn a number into an answer.
+    var daysRemaining: Int?
+    var dailyBudget: Double?
+    /// The pace actually kept so far this month. Above the budget means the
+    /// month ends short, and that is the only thing worth glancing at.
+    var dailySpent: Double?
     var currency: String
     var locale: String
     var updatedAt: Date
