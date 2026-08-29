@@ -240,6 +240,40 @@ struct TimestampTests {
     }
 }
 
+// MARK: - When the phone asks the bank
+
+@Suite("Background")
+struct BackgroundTests {
+    private func at(_ iso: String) -> Date {
+        ISO8601DateFormatter.florinNoFraction.date(from: iso)!
+    }
+
+    private func hourAndMinute(_ date: Date) -> (Int, Int) {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let c = calendar.dateComponents([.hour, .minute], from: date)
+        return (c.hour ?? -1, c.minute ?? -1)
+    }
+
+    @Test("the wake-up is aimed at the morning after the bank posts")
+    func morning() {
+        // Whatever the hour, the next request lands at 07:15.
+        for iso in ["2026-08-29T09:00:00Z", "2026-08-29T23:30:00Z", "2026-08-29T03:00:00Z"] {
+            let next = BackgroundRefresh.nextMorning(from: at(iso))
+            #expect(hourAndMinute(next) == (7, 15))
+            #expect(next > at(iso))
+        }
+    }
+
+    @Test("a run at seven does not ask to be woken again at a quarter past")
+    func notImmediately() {
+        // The hour of clearance: otherwise the task fires, reschedules for
+        // fifteen minutes later, and spends the day waking up.
+        let justBefore = BackgroundRefresh.nextMorning(from: at("2026-08-29T05:10:00Z"))
+        #expect(justBefore.timeIntervalSince(at("2026-08-29T05:10:00Z")) >= 3600)
+    }
+}
+
 // MARK: - Backup
 
 // Serialised: these share the Documents folder, where an export prunes the
