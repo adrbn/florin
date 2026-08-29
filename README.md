@@ -61,12 +61,41 @@ in Settings.
 - Ledger in `Library/Application Support/Florin/florin.db`, included in the
   iPhone's iCloud backup, plus an export/restore pair for moving to a new phone
 - No App Store build: AGPL-3.0 and the App Store terms do not mix, and Enable
-  Banking requires one registered application per person. Build it yourself with
-  a free Apple ID, or install the signed build from Releases.
+  Banking requires one registered application per person.
+
+**Install it.** Every release carries `Florin-<version>-unsigned.ipa`. It is
+unsigned on purpose — a build signed with someone else's certificate installs on
+nobody else's phone — so it is re-signed on the way in, with your own Apple ID,
+by [AltStore](https://altstore.io), [SideStore](https://sidestore.io) or
+[Sideloadly](https://sideloadly.io). Nothing to pay and no developer account
+needed; a free Apple ID re-signs for seven days at a time, a paid one for a year.
+
+Two things a sideloaded build will not do, both because of what a free Apple ID
+is allowed to declare rather than anything in the app:
+
+- **Bank sync needs a domain you control.** The consent screen returns through an
+  `https` callback, which iOS only routes to an app whose Associated Domains
+  entitlement matches a file hosted on that domain — and that entitlement needs a
+  paid account. The file also names one team and one bundle id, so it must be
+  yours: host your own (see `apps/site/.well-known/apple-app-site-association`)
+  and point `BankingFlow.redirectHost` and `project.yml` at it. You are
+  registering your own Enable Banking application with your own redirect URL
+  anyway.
+- **Notifications and background refresh** are similarly gated behind
+  capabilities a personal team cannot declare.
+
+Everything else works: manual entry, transfers, categories, budgets, the
+dashboard, import/export — or point it at your own Florin server, and the phone
+becomes a client of it.
+
+**Build it yourself** with Xcode 26 or newer:
 
 ```bash
 cd apps/ios && xcodegen generate && open Florin.xcodeproj
 ```
+
+Select your own team in Signing & Capabilities and run it on a device. The
+deployment floor is iOS 17.4; the glass material is behind `#available(iOS 26)`.
 
 ### Web (`apps/web`)
 

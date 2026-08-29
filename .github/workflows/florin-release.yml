@@ -59,6 +59,51 @@ jobs:
             apps/desktop/dist/*.blockmap
             apps/desktop/dist/latest-mac.yml
 
+  build-ios:
+    # Xcode 26 or newer: the app compiles against the iOS 26 SDK for the glass
+    # material, behind #available so it still runs on the 17.4 floor. An older
+    # image fails at the first `glassEffect` rather than at configuration time,
+    # which is why the versions are printed before anything is built.
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: |
+          xcodebuild -version
+          xcodebuild -showsdks | grep -i ios || true
+      - name: Generate the project
+        run: |
+          brew install xcodegen
+          cd apps/ios && xcodegen generate
+      - name: Archive, unsigned
+        # Nobody else can use a certificate of ours, and an .ipa signed with one
+        # would install on nobody else's phone. Shipping it unsigned is the only
+        # form that is useful to a stranger: AltStore, SideStore and Sideloadly
+        # all re-sign with the installer's own Apple ID on the way in.
+        run: |
+          cd apps/ios
+          xcodebuild archive \
+            -project Florin.xcodeproj -scheme Florin -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/Florin.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" CODE_SIGN_ENTITLEMENTS=""
+      - name: Package the .ipa
+        # An .ipa is a zip with the bundle under Payload/ — there is no
+        # exportArchive step that produces one without a signing identity.
+        run: |
+          VERSION="${GITHUB_REF_NAME#Florin-v}"
+          mkdir -p "$RUNNER_TEMP/ipa/Payload"
+          cp -R "$RUNNER_TEMP/Florin.xcarchive/Products/Applications/Florin.app" \
+                "$RUNNER_TEMP/ipa/Payload/"
+          cd "$RUNNER_TEMP/ipa"
+          zip -qry "$GITHUB_WORKSPACE/Florin-${VERSION}-unsigned.ipa" Payload
+          ls -lh "$GITHUB_WORKSPACE/Florin-${VERSION}-unsigned.ipa"
+      - name: Upload the .ipa to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Florin-*-unsigned.ipa
+
   attach-server:
     runs-on: ubuntu-latest
     steps:
