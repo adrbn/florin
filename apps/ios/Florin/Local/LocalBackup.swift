@@ -80,7 +80,20 @@ enum LocalBackup {
             && old.pathExtension == "sqlite" {
             try? FileManager.default.removeItem(at: old)
         }
-        try? FileManager.default.removeItem(at: destination)
+        /*
+         * Written aside, then moved into place.
+         *
+         * VACUUM INTO refuses to write over a file that exists, so exporting
+         * twice in the same day meant deleting the previous one first and
+         * hoping nothing looked in between — and if the vacuum then failed
+         * halfway, what was left at that path was a truncated database wearing
+         * the name of a backup. Building it under a scratch name and moving it
+         * over means the file at the destination is either the previous good
+         * copy or the new one, never a half of either.
+         */
+        let scratch = FileManager.default.temporaryDirectory
+            .appendingPathComponent("export-\(UUID().uuidString).sqlite")
+        defer { try? FileManager.default.removeItem(at: scratch) }
         /*
          * VACUUM INTO, not a file copy.
          *
@@ -95,7 +108,8 @@ enum LocalBackup {
          * a consistent read, which is both the readable answer and the compact
          * one: no free pages, no log to fold in first.
          */
-        try store.database.run("VACUUM INTO ?", [.text(destination.path)])
+        try store.database.run("VACUUM INTO ?", [.text(scratch.path)])
+        _ = try FileManager.default.replaceItemAt(destination, withItemAt: scratch)
         return destination
     }
 

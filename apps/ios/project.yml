@@ -70,11 +70,22 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: Florin/Info.plist
-        CURRENT_PROJECT_VERSION: 382
+        CURRENT_PROJECT_VERSION: 383
         MARKETING_VERSION: "1.3.0"
     dependencies:
       - target: FlorinWidgets
         embed: true
+
+  FlorinTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [FlorinTests]
+    dependencies:
+      - target: Florin
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.adrbn.florin.tests
+        GENERATE_INFOPLIST_FILE: YES
 
   # The home-screen widget. It reads a small JSON snapshot the app leaves in the
   # shared container — never the database, which stays where it is.
@@ -103,6 +114,6 @@ targets:
         # file and not the Local folder it lives in.
         APPLICATION_EXTENSION_API_ONLY: YES
         SKIP_INSTALL: YES
-        CURRENT_PROJECT_VERSION: 382
+        CURRENT_PROJECT_VERSION: 383
         MARKETING_VERSION: "1.3.0"
         INFOPLIST_KEY_CFBundleDisplayName: Florin
