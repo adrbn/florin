@@ -256,6 +256,68 @@ enum LocalLedger {
         }
     }
 
+    /*
+     * A statement, written into the ledger.
+     *
+     * Imported rows land in the review queue rather than straight into the
+     * totals. They come from a file the app cannot check — a wrong column, a
+     * date read the other way round, the same statement imported twice — and
+     * the queue is exactly the place where a person looks at a row before it
+     * counts. The categoriser gets its pass at them like anything else.
+     */
+    static func importRows(
+        store: LocalStore, accountId: String, rows: [LocalImport.Row]
+    ) throws -> (inserted: Int, skipped: Int) {
+        var inserted = 0
+        var skipped = 0
+        try store.database.transaction {
+            for row in rows {
+                /*
+                 * Already here?
+                 *
+                 * Statements overlap: the file downloaded in March covers
+                 * February too, and importing both is the normal thing to do.
+                 * Same account, same day, same amount, same label is the same
+                 * operation — there is no identifier in a CSV to do better,
+                 * and a bank does not post the identical line twice in a day.
+                 */
+                let existing = try store.database.scalar(
+                    """
+                    SELECT count(*) FROM transactions
+                    WHERE account_id = ? AND deleted_at IS NULL
+                      AND substr(occurred_at, 1, 10) = ?
+                      AND abs(amount - ?) < 0.005
+                      AND normalized_payee = ?
+                    """,
+                    [
+                        .text(accountId), .text(row.day), .real(row.amount),
+                        .text(normalize(row.payee)),
+                    ]
+                )?.int ?? 0
+                guard existing == 0 else { skipped += 1; continue }
+
+                try store.database.run(
+                    """
+                    INSERT INTO transactions
+                        (id, account_id, occurred_at, amount, currency, payee,
+                         normalized_payee, memo, source, status, needs_review)
+                    VALUES (?, ?, ?, ?, 'EUR', ?, ?, ?, 'import', 'cleared', 1)
+                    """,
+                    [
+                        .text(UUID().uuidString), .text(accountId), .text(row.day),
+                        .real(row.amount), .text(row.payee),
+                        .text(normalize(row.payee)),
+                        row.memo.map { SQLiteValue.text($0) } ?? .null,
+                    ]
+                )
+                inserted += 1
+            }
+            try recomputeBalance(store, accountId: accountId)
+        }
+        if inserted > 0 { _ = try? LocalCategoriser.backfill(store: store) }
+        return (inserted, skipped)
+    }
+
     static func add(store: LocalStore, _ tx: NewTransaction) throws {
         try store.database.transaction {
             try store.database.run(

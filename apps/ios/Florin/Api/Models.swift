@@ -38,7 +38,7 @@ struct Overview: Decodable, Sendable {
 
     var lastSynced: Date? {
         guard let lastSyncedAt else { return nil }
-        return ISO8601DateFormatter.florin.date(from: lastSyncedAt)
+        return Timestamp.parse(lastSyncedAt)
             ?? ISO8601DateFormatter.florinNoFraction.date(from: lastSyncedAt)
     }
 
@@ -275,4 +275,41 @@ extension ISO8601DateFormatter {
         return f
     }()
     nonisolated(unsafe) static let florinNoFraction = ISO8601DateFormatter()
+}
+
+/*
+ * Two ways a timestamp gets into this ledger, and both have to read.
+ *
+ * A server sends ISO-8601 — "2026-08-29T07:15:00Z". SQLite's own
+ * `datetime('now')` writes "2026-08-29 07:15:00": a space instead of the T, no
+ * zone, and no ISO parser accepts it. Rows written by the phone were therefore
+ * unreadable by the phone, silently: the background refresh asks when it last
+ * synced to decide whether to sync again, got nil every time, and so never
+ * skipped — spending unattended bank calls it had already spent.
+ *
+ * New writes use `Timestamp.now()`. This reads either, because every row
+ * written before that is still in the old shape.
+ */
+enum Timestamp {
+    /// Now, in the one format everything here can read back.
+    static func now() -> String {
+        ISO8601DateFormatter.florinNoFraction.string(from: Date())
+    }
+
+    /// A stored timestamp, whichever of the two shapes it is in.
+    static func parse(_ value: String?) -> Date? {
+        guard let value, !value.isEmpty else { return nil }
+        if let date = ISO8601DateFormatter.florin.date(from: value) { return date }
+        if let date = ISO8601DateFormatter.florinNoFraction.date(from: value) { return date }
+        // SQLite's own, read as UTC — which is what datetime('now') produces.
+        return sqlite.date(from: value)
+    }
+
+    private nonisolated(unsafe) static let sqlite: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(identifier: "UTC")
+        f.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        return f
+    }()
 }

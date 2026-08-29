@@ -46,6 +46,12 @@ targets:
           # has already refused: "Using HTTPS callbacks requires Associated
           # Domains using the webcredentials service type".
           - webcredentials:florin-cpe.pages.dev
+        # Shared with the widget, and only ever a preference: App Groups need a
+        # paid team, so a sideloaded build signed with a free Apple ID has no
+        # container. Nothing depends on it — the widget says "ouvrez Florin"
+        # and the app is unaffected.
+        com.apple.security.application-groups:
+          - group.com.adrbn.florin
           #
           # No `?mode=developer`. It tells iOS to fetch the association file
           # straight from the domain instead of Apple's CDN, which sounds like
@@ -64,5 +70,39 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: Florin/Info.plist
-        CURRENT_PROJECT_VERSION: 380
+        CURRENT_PROJECT_VERSION: 382
         MARKETING_VERSION: "1.3.0"
+    dependencies:
+      - target: FlorinWidgets
+        embed: true
+
+  # The home-screen widget. It reads a small JSON snapshot the app leaves in the
+  # shared container — never the database, which stays where it is.
+  FlorinWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: FlorinWidgets
+      - path: Florin/Local/WidgetSnapshot.swift
+    entitlements:
+      path: FlorinWidgets/FlorinWidgets.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.adrbn.florin
+    info:
+      path: FlorinWidgets/Info.plist
+      properties:
+        CFBundleDisplayName: Florin
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.adrbn.florin.widgets
+        # Extensions may not call app-only API, and the compiler enforces it
+        # rather than warning — which is why the widget compiles one shared
+        # file and not the Local folder it lives in.
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
+        CURRENT_PROJECT_VERSION: 382
+        MARKETING_VERSION: "1.3.0"
+        INFOPLIST_KEY_CFBundleDisplayName: Florin

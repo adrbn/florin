@@ -36,10 +36,13 @@ struct SettingsScreen: View {
     @State private var serverStatus: ServerStatus = .unknown
     @State private var changingLocale = false
     @AppStorage("florin.locale") private var chosenLocale = ""
+    @AppStorage(AppLock.key) private var lockOn = false
 
     private var t: Strings { model.overview?.t ?? .empty }
     @AppStorage("florin.notifications") private var notificationsOn = false
     @State private var showingBanking = false
+    @State private var showingSyncLog = false
+    @State private var showingImport = false
     @State private var confirmingImport = false
     @AppStorage("florin.lastExport") private var lastExport = 0.0
     @State private var exported: URL?
@@ -73,6 +76,17 @@ struct SettingsScreen: View {
             .navigationTitle(t("v2.settings.title", "Réglages"))
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $showingBanking) { BankingSettings() }
+            .sheet(isPresented: $showingSyncLog) {
+                SyncLogScreen(t: t, locale: model.overview?.localeTag ?? "fr-FR")
+            }
+            .sheet(isPresented: $showingImport) {
+                ImportSheet(
+                    t: t,
+                    locale: model.overview?.localeTag ?? "fr-FR",
+                    currency: model.overview?.currency ?? "EUR",
+                    onDone: { await model.load(showSpinner: false) }
+                )
+            }
             /*
              * A cover, so nothing behind it can be touched mid-write.
              *
@@ -337,9 +351,36 @@ struct SettingsScreen: View {
             title: t("v2.settings.discretion", "Discrétion"),
             footer: t(
                 "v2.settings.discretionHint",
-                "Secouez le téléphone pour masquer ou réafficher tous les montants, ou maintenez le chiffre principal. Ça cache, ça ne verrouille pas : quiconque tient le téléphone peut le rouvrir."
+                "Le verrou demande votre visage à chaque ouverture. Secouer le téléphone masque les montants ou les réaffiche — ça cache, ça ne verrouille pas."
             )
         ) {
+            if let method = AppLock.biometryName {
+                Toggle(isOn: Binding(
+                    get: { lockOn },
+                    set: { on in
+                        lockOn = on
+                        AppLock.shared.set(on)
+                    }
+                )) {
+                    HStack(spacing: 11) {
+                        Image(systemName: "faceid")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(Florin.accent)
+                            .frame(width: 20)
+                        Text(t(
+                            "v2.settings.lock", "Verrouiller avec {method}",
+                            ["method": method]
+                        ))
+                        .font(.system(size: 15.5))
+                        .foregroundStyle(Florin.text)
+                    }
+                }
+                .tint(Florin.accent)
+                .padding(.horizontal, Florin.gutter)
+                .padding(.vertical, 11)
+                Hairline()
+            }
+
             Toggle(
                 isOn: Binding(get: { privacy.hidden }, set: { privacy.set($0) })
             ) {
@@ -558,6 +599,24 @@ struct SettingsScreen: View {
          * accounts that never came from a bank at all. Only offered when there
          * is a server to read.
          */
+        // Only where a sync has ever run: an empty log is a row that answers a
+        // question nobody has yet.
+        if flowHasConnection {
+            Hairline()
+            SettingsRow(
+                label: t("v2.synclog.title", "Journal de synchro"),
+                symbol: "list.bullet.rectangle",
+                action: { showingSyncLog = true }
+            )
+        }
+
+        Hairline()
+        SettingsRow(
+            label: t("v2.import.title", "Importer un relevé"),
+            symbol: "doc.text",
+            action: { showingImport = true }
+        )
+
         if server.resolvedURL != nil {
             Hairline()
             SettingsRow(
