@@ -60,6 +60,8 @@ struct SettingsScreen: View {
                 ScrollView {
                     VStack(spacing: 24) {
                         sourceSection
+                        bankSection
+                        importSection
                         notificationsSection
                         backupSection
                         displaySection
@@ -501,8 +503,85 @@ struct SettingsScreen: View {
 
             if sourceBinding.wrappedValue == .server {
                 serverRows
-            } else {
-                deviceRows
+            }
+        }
+    }
+
+    /*
+     * One card was doing three jobs.
+     *
+     * Where the ledger lives, how the bank reaches it and how a file gets in
+     * were eight rows in a single stack under one heading — a list you read to
+     * the end to find out what was in it. They are three things, and the person
+     * looking for one of them is not looking for the other two.
+     */
+    @ViewBuilder
+    private var bankSection: some View {
+        if sourceBinding.wrappedValue != .server {
+            SettingsGroup(title: t("v2.settings.bank", "Banque")) {
+                SettingsRow(
+                    label: t("v2.settings.bankConnection", "Connexion bancaire"),
+                    symbol: "building.columns",
+                    action: { showingBanking = true }
+                ) {
+                    SettingsValue(
+                        text: BankingFlow.isConfigured
+                            ? t("v2.settings.bankingReady", "Configurée")
+                            : t("v2.settings.bankingMissing", "Non configurée")
+                    )
+                }
+                lastSyncRow
+                if BankingFlow.isConfigured { syncRow }
+
+                /*
+                 * Re-attaching, without asking the bank again.
+                 *
+                 * A connection can outlive the pairing that told it which local
+                 * account it feeds. Left alone the next sync finds no match and
+                 * creates a second account for the same money. This re-reads the
+                 * existing session and asks again; no consent is spent.
+                 */
+                if flowHasConnection {
+                    Hairline()
+                    SettingsRow(
+                        label: t("v2.settings.remapAccounts", "Rattacher les comptes"),
+                        symbol: "link",
+                        action: { Task { await remapAccounts() } }
+                    )
+                    Hairline()
+                    SettingsRow(
+                        label: t("v2.synclog.title", "Journal de synchronisation"),
+                        symbol: "list.bullet.rectangle",
+                        action: { showingSyncLog = true }
+                    )
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var importSection: some View {
+        if sourceBinding.wrappedValue != .server {
+            SettingsGroup(
+                title: t("v2.settings.bringIn", "Importer"),
+                footer: t(
+                    "v2.settings.bringInHint",
+                    "Pour les comptes que votre banque ne synchronise pas."
+                )
+            ) {
+                SettingsRow(
+                    label: t("v2.import.title", "Importer un relevé"),
+                    symbol: "doc.text",
+                    action: { showingImport = true }
+                )
+                if server.resolvedURL != nil {
+                    Hairline()
+                    SettingsRow(
+                        label: t("v2.settings.importFromServer", "Importer depuis le serveur"),
+                        symbol: "square.and.arrow.down",
+                        action: { confirmingImport = true }
+                    )
+                }
             }
         }
     }
@@ -555,78 +634,6 @@ struct SettingsScreen: View {
         }
     }
 
-    @ViewBuilder
-    private var deviceRows: some View {
-        SettingsRow(
-            label: t("v2.settings.banking", "Synchronisation bancaire"),
-            symbol: "building.columns",
-            action: { showingBanking = true }
-        ) {
-            SettingsValue(
-                text: BankingFlow.isConfigured
-                    ? t("v2.settings.bankingReady", "Configurée")
-                    : t("v2.settings.bankingMissing", "Non configurée")
-            )
-        }
-        lastSyncRow
-        if BankingFlow.isConfigured { syncRow }
-
-        /*
-         * Re-attaching, without asking the bank again.
-         *
-         * A connection can outlive the pairing that told it which local account
-         * it feeds — an import that predates the pairing being stored, an
-         * account deleted by hand. Left alone the next sync finds no match and
-         * creates a second account for the same money. This re-reads the
-         * existing session and asks the question again; the bank is not
-         * involved and no consent is spent.
-         */
-        if flowHasConnection {
-            Hairline()
-            SettingsRow(
-                label: t("v2.settings.remapAccounts", "Rattacher mes comptes"),
-                symbol: "link",
-                action: { Task { await remapAccounts() } }
-            )
-        }
-
-        /*
-         * Bringing a server's ledger onto the phone.
-         *
-         * Re-fetching from the bank was the wrong answer to "I want my history
-         * here": a bank exposes what its consent allows, while the server holds
-         * everything ever recorded — the manual rows, the categories and the
-         * accounts that never came from a bank at all. Only offered when there
-         * is a server to read.
-         */
-        // Only where a sync has ever run: an empty log is a row that answers a
-        // question nobody has yet.
-        if flowHasConnection {
-            Hairline()
-            SettingsRow(
-                label: t("v2.synclog.title", "Journal de synchro"),
-                symbol: "list.bullet.rectangle",
-                action: { showingSyncLog = true }
-            )
-        }
-
-        Hairline()
-        SettingsRow(
-            label: t("v2.import.title", "Importer un relevé"),
-            symbol: "doc.text",
-            action: { showingImport = true }
-        )
-
-        if server.resolvedURL != nil {
-            Hairline()
-            SettingsRow(
-                label: t("v2.settings.importFromServer", "Importer depuis mon serveur"),
-                symbol: "square.and.arrow.down",
-                action: { confirmingImport = true }
-            )
-        }
-    }
-
     /// True when a bank session exists on this device.
     private var flowHasConnection: Bool {
         guard let store = LocalStore.shared else { return false }
@@ -676,7 +683,7 @@ struct SettingsScreen: View {
     private var lastSyncRow: some View {
         if let last = model.overview?.lastSynced {
             Hairline()
-            SettingsRow(label: t("v2.account.lastSync", "Dernière synchro"), symbol: "clock") {
+            SettingsRow(label: t("v2.account.lastSync", "Dernière synchronisation"), symbol: "clock") {
                 Text(last, format: .relative(presentation: .named))
                     .font(.system(size: 15))
                     .foregroundStyle(Florin.text2)
@@ -688,7 +695,7 @@ struct SettingsScreen: View {
     private var syncRow: some View {
         Hairline()
         SettingsRow(
-            label: t("v2.add.sync", "Synchroniser les banques"),
+            label: t("v2.add.sync", "Synchroniser maintenant"),
             symbol: "arrow.trianglehead.2.clockwise",
             action: { Task { await model.sync() } }
         ) {

@@ -291,6 +291,9 @@ final class OverviewModel: ObservableObject {
             WidgetSnapshot(
                 netWorth: data.netWorth.net,
                 leftToSpend: data.leftToSpend.leftToSpend,
+                daysRemaining: data.leftToSpend.daysRemaining,
+                dailyBudget: data.leftToSpend.dailyBudgetRemaining,
+                dailySpent: data.leftToSpend.dailyAvgSpent,
                 currency: data.currency,
                 locale: data.localeTag,
                 updatedAt: Date()
