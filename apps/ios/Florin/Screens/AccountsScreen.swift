@@ -122,10 +122,11 @@ struct AccountsScreen: View {
 
     private func loaded(_ data: Overview) -> some View {
         TabScaffold(tint: TabRoute.accounts.tint, refresh: { await model.refresh() }) {
-            TopBar(onProfile: onOpenSettings) {
+            TopBar(onProfile: onOpenSettings, centersMiddle: true) {
                 Text(t("v2.nav.accounts", "Comptes"))
                     .font(.system(size: 17, weight: .semibold))
-                    .frame(maxWidth: .infinity)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             } trailing: {
                 HStack(spacing: 8) {
                     /*
