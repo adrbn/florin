@@ -28,6 +28,7 @@ struct OnboardingFlow: View {
     @State private var balanceText = ""
     @State private var saving = false
     @State private var picking = false
+    @State private var importing = false
     @State private var failure: String?
     @FocusState private var focus: Field?
 
@@ -56,6 +57,16 @@ struct OnboardingFlow: View {
          * because for them that is the answer.
          */
         case restore
+        /*
+         * Neither the bank nor by hand.
+         *
+         * A great many accounts are not reachable over PSD2 — every French
+         * livret, most of them — and typing a year of a savings account back in
+         * is not a thing anyone does. The statement is a download away, and
+         * offering it only from settings meant discovering it after already
+         * having decided the app could not hold that account.
+         */
+        case importFile
     }
 
     /// The ground shifts colour as you advance — the same per-section tinting
@@ -83,6 +94,8 @@ struct OnboardingFlow: View {
         switch path {
         case .manual: 3
         case .restore: 1
+        // The account the statement lands in, and then the file.
+        case .importFile: 2
         default: 2
         }
     }
@@ -102,7 +115,7 @@ struct OnboardingFlow: View {
                     switch step {
                     case 0: welcome
                     case 1: fork
-                    case 2 where path == .manual: account
+                    case 2 where path == .manual || path == .importFile: account
                     case 2: notify
                     default: ready
                     }
@@ -125,6 +138,14 @@ struct OnboardingFlow: View {
                     .frame(height: 30)
                     .padding(.bottom, 18)
             }
+        }
+        .sheet(isPresented: $importing, onDismiss: { onFinish() }) {
+            ImportSheet(
+                t: .device,
+                locale: Strings.device.localeTag,
+                currency: "EUR",
+                onDone: {}
+            )
         }
         .fileImporter(isPresented: $picking, allowedContentTypes: [.data]) { result in
             guard case let .success(url) = result, let store = LocalStore.shared else { return }
@@ -213,6 +234,12 @@ struct OnboardingFlow: View {
                     emoji: "✍️",
                     title: Strings.device("v2.onboard.manualTitle", "Saisir mes comptes"),
                     detail: Strings.device("v2.onboard.manualDetail", "Vous entrez ce que vous avez, et vous ajoutez vos opérations vous-même.")
+                )
+                choice(
+                    .importFile,
+                    emoji: "📄",
+                    title: Strings.device("v2.onboard.importTitle", "Importer un relevé"),
+                    detail: Strings.device("v2.onboard.importDetail", "Le fichier CSV ou OFX téléchargé chez votre banque.")
                 )
                 choice(
                     .restore,
@@ -455,7 +482,9 @@ struct OnboardingFlow: View {
             HStack(spacing: 8) {
                 if saving { ProgressView().tint(.black) }
                 Text(
-                    path == .restore && step == 1
+                    path == .importFile && step == 2
+                        ? Strings.device("v2.onboard.importPick", "Choisir le relevé")
+                        : path == .restore && step == 1
                         ? Strings.device("v2.onboard.restorePick", "Choisir le fichier")
                         : isNotifyStep
                         ? Strings.device("v2.onboard.notifyEnable", "Me tenir au courant")
@@ -528,6 +557,24 @@ struct OnboardingFlow: View {
          */
         if path == .restore {
             picking = true
+            return
+        }
+        if path == .importFile {
+            // The account first: a statement has to land somewhere, and the
+            // balance is the one figure the file does not carry.
+            saving = true
+            do {
+                try LocalOnboarding.createFirstAccount(
+                    name: name.trimmingCharacters(in: .whitespaces),
+                    kind: kind,
+                    balance: Self.parse(balanceText)
+                )
+                saving = false
+                importing = true
+            } catch {
+                saving = false
+                failure = error.localizedDescription
+            }
             return
         }
         if path == .bank {
