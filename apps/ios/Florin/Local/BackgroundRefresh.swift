@@ -32,13 +32,45 @@ enum BackgroundRefresh {
         }
     }
 
-    /// Ask again for later. Called after every run and at launch, because iOS
-    /// keeps at most one pending request per identifier and drops it once it
-    /// fires.
+    /*
+     * Ask for the morning, not for six hours from now.
+     *
+     * A bank does not publish continuously. La Banque Postale posts to its PSD2
+     * feed overnight, so what was spent on Tuesday appears in the small hours of
+     * Wednesday — and a wake-up six hours after the last one lands wherever the
+     * clock happens to fall, which for a batched feed means either nothing new
+     * or a summary delivered at four in the morning.
+     *
+     * Asking for shortly after seven puts the wake-up after the batch and
+     * before the day: one notification, in the morning, saying what landed
+     * overnight. iOS is free to ignore the time entirely — `earliestBeginDate`
+     * is the earliest, not the appointment — but a request aimed at a useful
+     * hour is more likely to be granted at one than a request aimed at nothing.
+     *
+     * Called after every run and at launch: iOS keeps at most one pending
+     * request per identifier and drops it once it fires.
+     */
     static func schedule() {
         let request = BGAppRefreshTaskRequest(identifier: taskId)
-        request.earliestBeginDate = Date(timeIntervalSinceNow: minimumInterval)
+        request.earliestBeginDate = nextMorning()
         try? BGTaskScheduler.shared.submit(request)
+    }
+
+    /// The next 07:15 that is at least an hour away — so a run at 07:00 does
+    /// not immediately ask to be woken again fifteen minutes later.
+    static func nextMorning(from now: Date = Date()) -> Date {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let floor = now.addingTimeInterval(3600)
+        var components = calendar.dateComponents([.year, .month, .day], from: floor)
+        components.hour = 7
+        components.minute = 15
+        guard let candidate = calendar.date(from: components) else {
+            return now.addingTimeInterval(minimumInterval)
+        }
+        return candidate > floor
+            ? candidate
+            : calendar.date(byAdding: .day, value: 1, to: candidate) ?? floor
     }
 
     private static func handle(_ task: BGAppRefreshTask) {
