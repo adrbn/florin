@@ -66,6 +66,17 @@ export function mapAccount(a: Account, remainingDebt?: number): V2Account {
     debt,
     isIncludedInNetWorth: a.isIncludedInNetWorth,
     isArchived: a.isArchived,
+    /*
+     * The contract, so a client can walk the schedule itself.
+     *
+     * `debt` above is this server's answer at this moment — correct, and frozen
+     * the instant it is copied. A client that holds its own ledger needs the
+     * four inputs behind it, or its loan is a number that can never move again.
+     */
+    loanOriginalPrincipal: num(a.loanOriginalPrincipal) || null,
+    loanInterestRate: num(a.loanInterestRate) || null,
+    loanTermMonths: a.loanTermMonths ?? null,
+    loanMonthlyPayment: num(a.loanMonthlyPayment) || null,
     syncProvider: a.syncProvider,
     lastSyncedAt: iso(a.lastSyncedAt),
     displayColor: a.displayColor,
@@ -100,6 +111,17 @@ export function mapCategories(groups: CategoryGroupWithCategories[]): V2Category
        * is a label; this is the meaning.
        */
       groupKind: g.kind,
+      /*
+       * The loan this category mirrors, when it mirrors one.
+       *
+       * Filing a repayment here is what tells a ledger the debt moved — the
+       * server writes the counterpart on the loan account and steps down the
+       * amortisation schedule. A client keeping its own copy could not do any
+       * of that without knowing which category carries the link, so its loan
+       * stayed exactly where it was while the money left the current account,
+       * and every instalment widened the gap.
+       */
+      linkedLoanAccountId: c.linkedLoanAccountId ?? null,
     })),
   )
 }
