@@ -45,14 +45,14 @@ describe('getLeftToSpendThisMonth — salary category detection', () => {
       accountId: acc,
       occurredAt: isoMonthsAgo(2),
       amount: 2994.76,
-      payee: 'VIREMENT DE DIRECTION SPE FINANC',
+      payee: 'VIREMENT SALAIRE EMPLOYEUR',
       categoryId: CAT_SALARY,
     })
     seedTx(ctx, {
       accountId: acc,
       occurredAt: isoMonthsAgo(1),
       amount: 2998.98,
-      payee: 'VIREMENT DE DIRECTION SPE FINANC',
+      payee: 'VIREMENT SALAIRE EMPLOYEUR',
       categoryId: CAT_SALARY,
     })
     // Small misc income this month, plus ONE 500 € cheque deposited today —

@@ -66,7 +66,7 @@ describe('cleanPayee / humanizePayee', () => {
   })
 
   it('strips the trailing capture date and card number', () => {
-    expect(cleanPayee('ACHAT CB CRF ST MARTIN 17.08.2026 CARTE 4589')).toBe('CRF ST MARTIN')
+    expect(cleanPayee('ACHAT CB SUPERMARCHE 17.08.2026 CARTE 4589')).toBe('SUPERMARCHE')
   })
 
   it('never returns an empty string', () => {

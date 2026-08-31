@@ -15,7 +15,7 @@ describe('isPlaceholderOf', () => {
       isPlaceholderOf('VIREMENT INSTANTANE CREDIT', 'VIREMENT INSTANTANE DE MME ROBINO AGNES'),
     ).toBe(true)
     expect(
-      isPlaceholderOf('VIREMENT INSTANTANE CREDIT', 'VIREMENT INSTANTANE DE Adrien Robino RB'),
+      isPlaceholderOf('VIREMENT INSTANTANE CREDIT', 'VIREMENT INSTANTANE DE Jean Dupont RB'),
     ).toBe(true)
   })
 

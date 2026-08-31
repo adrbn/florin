@@ -8,7 +8,7 @@ import Foundation
 /// a Friday evening bar tab arrives dated Monday. The real date is usually
 /// sitting in the free-text line:
 ///
-///     "ACHAT CB BAR LO FARO 14.04.26 EUR 7,00 CARTE NO 469 OC APPLE PAY"
+///     "ACHAT CB CAFE DU MARCHE 14.04.26 EUR 7,00 CARTE NO 469 OC APPLE PAY"
 ///
 /// Matching a bank row against one the server had already corrected therefore
 /// meant matching two different days. Reading the same date here removes the

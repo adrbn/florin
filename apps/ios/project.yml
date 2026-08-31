@@ -12,7 +12,7 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    # Adrien Robino (Individual, paid). The iPhone 16 Pro is already
+    # The signing team (Individual, paid). The test device is already
     # registered under it, and the team owns a `2TWQF4T93E.*` wildcard
     # development profile, so any bundle id here is covered.
     DEVELOPMENT_TEAM: 2TWQF4T93E

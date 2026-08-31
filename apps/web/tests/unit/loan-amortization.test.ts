@@ -80,7 +80,8 @@ describe('simulateSchedule with extra payments', () => {
   })
 })
 
-// Real-world loan from La Banque Postale: 10 000 € student loan, mensualité
+// A real consumer loan, kept because a synthetic one would not have caught
+// the TAEG-versus-taux-débiteur discrepancy this calibrates for: 10 000 €, mensualité
 // 135,91 €, 84 months, started 2024-06-30. The bank amortizes on the taux
 // débiteur (~3,83 %) while its statement quotes the TAEG (3,90 %). After 25
 // payments the bank's "capital restant dû" reads 7 298,12 €.

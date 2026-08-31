@@ -27,12 +27,12 @@ struct ImportTests {
         Date;Libellé;Montant
         28/08/2026;VIREMENT INSTANTANE CREDIT;13,00
         27/08/2026;ACHAT CB FORNO CAMPO;-4,50
-        27/08/2026;VIREMENT DE DIRECTION SPE FINANC;2 998,98
+        27/08/2026;VIREMENT SALAIRE EMPLOYEUR;2 500,00
         """)
         #expect(parsed.count == 3)
         #expect(parsed[0].day == "2026-08-28")
         #expect(parsed[0].amount == 13.00)
-        #expect(parsed[2].amount == 2998.98)
+        #expect(parsed[2].amount == 2500.00)
     }
 
     @Test("separate debit and credit columns become one signed amount")
@@ -130,8 +130,8 @@ struct ImportTests {
     func preamble() throws {
         // What a French bank actually sends: three lines that are not a table.
         let parsed = try rows("""
-        Compte;N°1264549N035
-        Solde au 28/08/2026;3 497,82
+        Compte;N°0000000X000
+        Solde au 28/08/2026;1 234,56
         Période;du 01/08/2026 au 28/08/2026
 
         Date;Libellé;Montant
@@ -147,7 +147,7 @@ struct ImportTests {
         #expect(LocalImport.number("1 234,56") == 1234.56)
         #expect(LocalImport.number("-1.234,56") == -1234.56)
         #expect(LocalImport.number("42,49-") == -42.49)
-        #expect(LocalImport.number("\u{202F}2 998,98") == 2998.98)
+        #expect(LocalImport.number("\u{202F}2 500,00") == 2500.00)
         #expect(LocalImport.number("") == nil)
     }
 
@@ -182,10 +182,10 @@ struct ImportTests {
         let parsed = try rows("""
         Téléchargement du  19/03/2026;
         Date;Date valeur;Libellé;Débit Euros;Crédit Euros;
-        15/03/2026;15/03/2026;VIREMENT SALAIRE;;2 998,98;
+        15/03/2026;15/03/2026;VIREMENT SALAIRE;;2 500,00;
         16/03/2026;16/03/2026;CARTE INTERMARCHE;77,77;;
         """)
-        #expect(parsed.map(\.amount) == [2998.98, -77.77])
+        #expect(parsed.map(\.amount) == [2500.00, -77.77])
     }
 
     @Test("Société Générale, whose amount column is not called montant alone")

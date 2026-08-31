@@ -4,7 +4,7 @@
  * tab shows up in Florin dated the following Monday. The true transaction
  * date is usually embedded in the free-text payee line:
  *
- *   "ACHAT CB BAR LO FARO 14.04.26 EUR 7,00 CARTE NO 469 OC APPLE PAY"
+ *   "ACHAT CB CAFE DU MARCHE 14.04.26 EUR 7,00 CARTE NO 469 OC APPLE PAY"
  *
  * This helper pulls out that date and, when it's plausibly close to the
  * booked date, returns it so the caller can override the display date.

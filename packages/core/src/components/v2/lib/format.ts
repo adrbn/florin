@@ -203,7 +203,7 @@ export function relativeTime(date: Date, locale: string, now = new Date()): stri
 /**
  * Turn a raw bank payee into something a human wants to read.
  *
- * PSD2 feeds hand over strings like "ACHAT CB CRF ST MARTIN 17.08.2026 CARTE
+ * PSD2 feeds hand over strings like "ACHAT CB SUPERMARCHE 17.08.2026 CARTE
  * 4589" — an operation code, the merchant, the capture date and the card
  * number, all shouting in caps. Three passes fix it:
  *   1. drop leading rail/operation words ("ACHAT CB", "PRLV SEPA", "VIR");
