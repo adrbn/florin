@@ -198,6 +198,12 @@ extension LocalStore {
              * launch is mirrored by the categoriser itself rather than waiting
              * for the next one.
              */
+            // Before adding any, take back the ones a broken catch-up added.
+            let undone = try LocalLedger.dropDuplicateLoanMirrors(store: store)
+            if undone > 0 {
+                log.notice("removed \(undone, privacy: .public) duplicate loan mirrors")
+            }
+
             let mirrored = try LocalLedger.reconcileLoanMirrors(store: store)
             if mirrored > 0 {
                 log.notice("wrote \(mirrored, privacy: .public) missing loan mirrors")

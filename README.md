@@ -5,22 +5,45 @@
 <h1 align="center">Florin</h1>
 
 <p align="center">
-  Privacy-first personal finance — a native macOS app, a native iPhone app, and a self-hostable web app.
+  <strong>Personal finance that stays on your own machines.</strong><br>
+  A native Mac app, a native iPhone app, and a self-hostable web app — one codebase, no SaaS in the middle.
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/license-AGPL--3.0-green" alt="License">
-  <img src="https://img.shields.io/badge/stack-Next.js%2015%20%C2%B7%20Electron%2035%20%C2%B7%20SwiftUI%20%C2%B7%20Drizzle-111" alt="Stack">
+  <a href="https://github.com/adrbn/florin/releases/latest"><img src="https://img.shields.io/github/v/release/adrbn/florin?sort=semver&filter=Florin-v*&label=release&color=6c5ce7" alt="Latest release"></a>
+  <a href="https://github.com/adrbn/florin/actions/workflows/florin-release.yml"><img src="https://img.shields.io/github/actions/workflow/status/adrbn/florin/florin-release.yml?label=build" alt="Build"></a>
+  <img src="https://img.shields.io/badge/platforms-macOS%20%C2%B7%20iOS%20%C2%B7%20self--hosted-111" alt="Platforms">
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-green" alt="License"></a>
 </p>
 
 ---
 
+## Download
+
+| | |
+| --- | --- |
+| **macOS** | [`Florin-*-arm64.dmg`](https://github.com/adrbn/florin/releases/latest) — signed, notarised, auto-updating |
+| **iPhone** | [`Florin-*-unsigned.ipa`](https://github.com/adrbn/florin/releases/latest) — sideload with [AltStore](https://altstore.io), [SideStore](https://sidestore.io) or [Sideloadly](https://sideloadly.io); see [iPhone](#iphone-appsios) |
+| **Self-hosted** | [`Florin-*-server.tar.gz`](https://github.com/adrbn/florin/releases/latest) — `docker compose up -d`; see [Install — Web](#install--web-self-host) |
+
+Nothing to sign up for, on any of them. There is no Florin account, because there is no
+Florin server.
+
 ## Why
 
-- **Your data stays on your machine.** No SaaS middleman, no analytics, no telemetry.
-- **Real bank sync via PSD2.** Connects to 2 000+ EU banks through [Enable Banking](https://enablebanking.com/) — you register your own free app and keep the credentials.
-- **YNAB-style workflow.** Category groups (Needs / Wants / Bills / Savings / Income), a review queue for new imports, auto-categorization rules, monthly plan.
-- **Three shapes, one codebase.** Native macOS desktop (Electron + SQLite), native iPhone app (SwiftUI + SQLite), or self-hosted web (Docker + Postgres).
+- **Your data stays on your machines.** No SaaS middleman, no analytics, no telemetry, no
+  account to create. The Mac and the iPhone hold their own SQLite ledger; the web build
+  runs on hardware you control.
+- **Real bank sync, under your own credentials.** PSD2 access to 2 000+ European banks via
+  [Enable Banking](https://enablebanking.com/) — you register your own free application, so
+  the consent is between you and your bank rather than through anyone's shared key.
+- **Arithmetic that matches the bank.** A loan's *capital restant dû* comes from a real
+  amortisation schedule, on the periodic rate recovered from your contract rather than the
+  advertised one — to the euro. A savings rate counts complete months only. When a figure
+  cannot be computed honestly, the app says so instead of showing a zero.
+- **A budgeting workflow, not a chart gallery.** Category groups, a review queue that learns
+  from how you file your own history, monthly plan, and a month-end projection that widens
+  when it should.
 
 ## Features
 
@@ -237,6 +260,17 @@ onto another phone is a dead session — and the signing key could not be there
 anyway: it lives in the keychain marked `ThisDeviceOnly`, which is precisely a
 promise never to appear on a second device. Reconnect the bank on the new phone.
 
+## Status
+
+Built and used daily by one person on their own money, which is the only test bed it has
+and a fairly demanding one. Web and desktop ship from the same tag and share a test suite;
+the iPhone app has its own. The figures that would be embarrassing to get wrong — a loan's
+remaining capital, a savings rate, a month-end projection — are checked against real bank
+statements rather than against themselves.
+
+What it is not: a product with support, a hosted service, or an App Store download. See
+[Licence](#licence) for why the last one is unlikely.
+
 ## Repo layout
 
 ```
@@ -270,6 +304,24 @@ cd apps/desktop && pnpm dev
 
 `packages/db-pg` and `packages/db-sqlite` are deliberate twins — same schema shape and query surface over different drivers. A query or sync fix almost always has to land in **both**, and likewise for the `apps/web` / `apps/desktop` server actions that wrap them.
 
-## License
+## Contributing
 
-[AGPL-3.0](./LICENSE). Self-host, fork, modify, redistribute — any hosted derivative must publish its source.
+Issues and pull requests are welcome. Two things worth knowing before you open one:
+
+- `packages/db-pg` and `packages/db-sqlite` are deliberate twins. A query or sync fix
+  almost always belongs in **both**, and a version bump belongs in web, desktop and iOS
+  together — a test fails the build otherwise.
+- Figures are expected to be checked against something real. A change to how a number is
+  computed should come with a test that pins it to a statement, a documented case, or an
+  independent calculation.
+
+## Licence
+
+[AGPL-3.0](./LICENSE). Self-host, fork, modify and redistribute freely — any hosted
+derivative must publish its source, which is the point: a Florin someone runs for you
+should be a Florin you can read.
+
+This is also why there is no App Store build. The App Store's terms and the GPL family do
+not mix for redistributors, and Enable Banking expects one registered application per
+person rather than a shared one. Build it yourself, or take the signed Mac app and the
+sideloadable iPhone build from [Releases](https://github.com/adrbn/florin/releases).
