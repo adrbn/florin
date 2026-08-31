@@ -419,17 +419,36 @@ struct LoanMirrorTests {
         #expect(before - after > 90)
     }
 
-    @Test("re-filing the payment elsewhere gives the step back")
+    @Test("saying it was something else takes the step back")
     func undo() throws {
         let (store, ccp, loan, category) = try ledger()
+        // Another category, so the ledger is being told plainly that this debit
+        // is not the loan.
+        let other = UUID().uuidString
+        try store.database.run(
+            """
+            INSERT INTO categories (id, group_id, name)
+            VALUES (?, (SELECT id FROM category_groups LIMIT 1), 'Courses')
+            """,
+            [.text(other)]
+        )
         let id = try payment(store, on: ccp)
         try LocalLedger.patch(store: store, id: id, TxPatch(categoryId: .some(category)))
         #expect(mirrors(store, on: loan) == 1)
 
-        // Moved out of the loan category: the counterpart must not linger, or
-        // the debt keeps a step it should return.
-        try LocalLedger.patch(store: store, id: id, TxPatch(categoryId: .some(nil)))
+        try LocalLedger.patch(store: store, id: id, TxPatch(categoryId: .some(other)))
         #expect(mirrors(store, on: loan) == 0)
+    }
+
+    @Test("clearing the category leaves the amount to speak")
+    func clearedStaysDetected() throws {
+        let (store, ccp, loan, category) = try ledger()
+        let id = try payment(store, on: ccp)
+        try LocalLedger.patch(store: store, id: id, TxPatch(categoryId: .some(category)))
+        // Unfiled is not "not the loan": the debit still matches the contract
+        // to the cent, and the money still went there.
+        try LocalLedger.patch(store: store, id: id, TxPatch(categoryId: .some(nil)))
+        #expect(mirrors(store, on: loan) == 1)
     }
 
     @Test("a repayment filed before the mirror existed gets its counterpart")
@@ -471,6 +490,47 @@ struct LoanMirrorTests {
         #expect(filed == category)
         // Seven repayments, seven counterparts.
         #expect(mirrors(store, on: loan) == 7)
+    }
+
+    @Test("an instalment is recognised by its amount, with no category at all")
+    func detectedByAmount() throws {
+        let (store, ccp, loan, _) = try ledger()
+        // Never categorised, never linked — just a debit matching the contract.
+        _ = try payment(store, on: ccp)
+        #expect(mirrors(store, on: loan) == 0)
+
+        #expect(try LocalLedger.reconcileLoanMirrors(store: store) == 1)
+        #expect(mirrors(store, on: loan) == 1)
+    }
+
+    @Test("a second debit in the same month is not a second instalment")
+    func onePerMonth() throws {
+        let (store, ccp, loan, _) = try ledger()
+        _ = try payment(store, on: ccp)
+        _ = try LocalLedger.reconcileLoanMirrors(store: store)
+        // A coincidence — same amount, same month. The loan is already paid
+        // for August and must not be paid twice.
+        _ = try payment(store, on: ccp)
+        _ = try LocalLedger.reconcileLoanMirrors(store: store)
+        #expect(mirrors(store, on: loan) == 1)
+    }
+
+    @Test("a nearby amount is not the instalment")
+    func exactToTheCent() throws {
+        let (store, ccp, loan, _) = try ledger()
+        let id = UUID().uuidString
+        try store.database.run(
+            """
+            INSERT INTO transactions
+                (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
+                 source, status, needs_review)
+            VALUES (?, ?, '2026-08-05', -135.90, 'EUR', 'AUTRE CHOSE', 'autre chose',
+                    'enable_banking', 'cleared', 1)
+            """,
+            [.text(id), .text(ccp)]
+        )
+        #expect(try LocalLedger.reconcileLoanMirrors(store: store) == 0)
+        #expect(mirrors(store, on: loan) == 0)
     }
 
     @Test("filing the same payment twice does not pay the loan twice")

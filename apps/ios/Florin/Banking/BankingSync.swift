@@ -166,6 +166,16 @@ enum BankingSync {
                 let named = try LocalCategoriser.backfill(store: store)
                 if named > 0 { log.notice("categorised \(named, privacy: .public) rows") }
 
+                /*
+                 * A repayment that just arrived pays the loan now, not at the
+                 * next launch. The month's instalment is the one transaction
+                 * whose effect someone actively looks for after a sync.
+                 */
+                let repaid = try LocalLedger.reconcileLoanMirrors(store: store)
+                if repaid > 0 {
+                    log.notice("loan repayments recorded: \(repaid, privacy: .public)")
+                }
+
                 try store.database.run(
                     """
                     UPDATE bank_connections

@@ -441,20 +441,57 @@ enum LocalLedger {
               )
             """
         ).compactMap { $0.string("id") }
-        guard !orphans.isEmpty else { return 0 }
+
+        /*
+         * The instalment, recognised by its amount.
+         *
+         * Waiting to be told which category means "this is the loan" is a lot
+         * of ceremony for a debit that is the same to the cent every month and
+         * already has its amount written on the loan. So a payment matching the
+         * contract's mensualité exactly, leaving a cash account, is treated as
+         * one — no category needed, nothing to configure beyond the contract
+         * itself.
+         *
+         * Two guards keep it honest. The match is to the cent, not
+         * approximate: an ordinary purchase of 135,91 € is possible and a
+         * purchase of 135,90 € is not this. And one per calendar month per
+         * loan, so a coincidence in a month already accounted for is ignored
+         * rather than paying the loan twice.
+         */
+        let detected = try store.database.query(
+            """
+            SELECT t.id FROM transactions t
+            JOIN accounts a ON a.id = t.account_id
+            JOIN accounts loan ON loan.kind = 'loan' AND loan.loan_monthly_payment > 0
+            WHERE t.deleted_at IS NULL AND a.kind <> 'loan'
+              AND t.amount < 0
+              AND abs(abs(t.amount) - loan.loan_monthly_payment) < 0.005
+              AND t.transfer_pair_id IS NULL
+              AND NOT EXISTS (
+                SELECT 1 FROM transactions m
+                WHERE m.account_id = loan.id AND m.deleted_at IS NULL
+                  AND m.transfer_pair_id IS NOT NULL
+                  AND substr(m.occurred_at, 1, 7) = substr(t.occurred_at, 1, 7)
+              )
+            GROUP BY t.id
+            """
+        ).compactMap { $0.string("id") }
+
+        let all = Array(Set(orphans + detected))
+        guard !all.isEmpty else { return 0 }
         try store.database.transaction {
-            for id in orphans {
+            for id in all {
                 try syncLoanMirror(store, transactionId: id)
             }
         }
-        return orphans.count
+        return all.count
     }
 
     static func syncLoanMirror(_ store: LocalStore, transactionId id: String) throws {
         let row = try store.database.query(
             """
             SELECT t.amount, t.occurred_at, t.payee, t.transfer_pair_id,
-                   c.linked_loan_account_id AS loan_id
+                   t.category_id, c.linked_loan_account_id AS loan_id
             FROM transactions t
             LEFT JOIN categories c ON c.id = t.category_id
             WHERE t.id = ?
@@ -462,7 +499,28 @@ enum LocalLedger {
             [.text(id)]
         ).first
         guard let row else { return }
-        let loanId = row.string("loan_id")
+        /*
+         * A category, when there is one, is a decision. The amount is a guess.
+         *
+         * So the guess only runs where nothing has been decided: an unfiled
+         * debit matching the contract's mensualité to the cent is the
+         * instalment, and needs no setting. But filing that same row under
+         * Courses says plainly that it is not — and must take the counterpart
+         * away rather than being overruled by the arithmetic.
+         */
+        var loanId = row.string("loan_id")
+        if loanId == nil, row.string("category_id") == nil,
+           let amount = row.double("amount"), amount < 0 {
+            loanId = try store.database.scalar(
+                """
+                SELECT id FROM accounts
+                WHERE kind = 'loan' AND loan_monthly_payment > 0
+                  AND abs(loan_monthly_payment - ?) < 0.005
+                LIMIT 1
+                """,
+                [.real(abs(amount))]
+            )?.string
+        }
 
         /*
          * Re-filed elsewhere, so the old counterpart has to go.
