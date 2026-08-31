@@ -105,6 +105,27 @@ enum LocalCategories {
         case archive
     }
 
+    /// Re-run the loan mirror for everything that just changed category, so a
+    /// bulk move cannot leave a counterpart pointing at a loan the transaction
+    /// no longer feeds.
+    private static func syncMirrors(_ store: LocalStore, movedFrom category: String) throws {
+        let touched = try store.database.query(
+            """
+            SELECT t.id FROM transactions t
+            WHERE t.deleted_at IS NULL AND t.transfer_pair_id IS NOT NULL
+              AND EXISTS (
+                SELECT 1 FROM transactions m
+                JOIN accounts a ON a.id = m.account_id
+                WHERE m.transfer_pair_id = t.transfer_pair_id AND m.id <> t.id
+                  AND a.kind = 'loan'
+              )
+            """
+        ).compactMap { $0.string("id") }
+        for id in touched {
+            try LocalLedger.syncLoanMirror(store, transactionId: id)
+        }
+    }
+
     static func remove(store: LocalStore, id: String, how: Removal) throws {
         try store.database.transaction {
             switch how {
@@ -116,6 +137,7 @@ enum LocalCategories {
                     """,
                     [.text(target), .text(id)]
                 )
+                try syncMirrors(store, movedFrom: id)
                 try purge(store: store, id: id)
 
             case .detach:
@@ -127,6 +149,7 @@ enum LocalCategories {
                     """,
                     [.text(id)]
                 )
+                try syncMirrors(store, movedFrom: id)
                 try purge(store: store, id: id)
 
             case .archive:

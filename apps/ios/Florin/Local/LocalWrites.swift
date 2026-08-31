@@ -414,6 +414,42 @@ enum LocalLedger {
      * category across every account, so a categorised counterpart would cancel
      * the very instalment it represents — 136 € out, 136 € in, nothing spent.
      */
+    /*
+     * Instalments already filed, from before there was a mirror to write.
+     *
+     * `backfill` only looks at rows with no category, so a repayment the
+     * categoriser filed last month is invisible to it for ever. Those are
+     * precisely the ones missing their counterpart — on this ledger, twenty-six
+     * repayments on the current account against twenty-four on the loan.
+     *
+     * Cheap when there is nothing to do: one indexed lookup that finds no rows.
+     */
+    @discardableResult
+    static func reconcileLoanMirrors(store: LocalStore) throws -> Int {
+        let orphans = try store.database.query(
+            """
+            SELECT t.id FROM transactions t
+            JOIN categories c ON c.id = t.category_id
+            WHERE c.linked_loan_account_id IS NOT NULL
+              AND t.deleted_at IS NULL
+              AND NOT EXISTS (
+                SELECT 1 FROM transactions m
+                WHERE m.transfer_pair_id = t.transfer_pair_id
+                  AND m.transfer_pair_id IS NOT NULL
+                  AND m.id <> t.id AND m.account_id = c.linked_loan_account_id
+                  AND m.deleted_at IS NULL
+              )
+            """
+        ).compactMap { $0.string("id") }
+        guard !orphans.isEmpty else { return 0 }
+        try store.database.transaction {
+            for id in orphans {
+                try syncLoanMirror(store, transactionId: id)
+            }
+        }
+        return orphans.count
+    }
+
     static func syncLoanMirror(_ store: LocalStore, transactionId id: String) throws {
         let row = try store.database.query(
             """
