@@ -384,6 +384,7 @@ struct AccountDetailScreen: View {
     let route: ActivityRoute
 
     @StateObject private var portfolio: PortfolioModel
+    @State private var editingLoan = false
 
     init(model: OverviewModel, route: ActivityRoute) {
         self.model = model
@@ -414,11 +415,74 @@ struct AccountDetailScreen: View {
             showsBack: true
         ) {
             portfolioBanner
+            loanBanner
         }
         .task {
             guard let account, account.kind.hasPrefix("broker"), let id = route.accountId else { return }
             await portfolio.load(accountId: id)
         }
+        .sheet(isPresented: $editingLoan) {
+            if let account {
+                LoanSettingsSheet(
+                    account: account, t: t,
+                    locale: model.overview?.localeTag ?? "fr-FR",
+                    onSaved: { await model.load(showSpinner: false) }
+                )
+            }
+        }
+    }
+
+    /*
+     * A loan, and whether the app can follow it.
+     *
+     * The remaining debt cannot be recovered from the repayments: knowing that
+     * 135,91 € leaves every month says nothing about how much was borrowed, at
+     * what rate, or over how long. Without the contract the only figure
+     * available is the total handed over — which is what this app used to show
+     * and is very nearly the opposite of what is owed — so an unconfigured loan
+     * says so rather than printing a number that looks like an answer.
+     */
+    @ViewBuilder
+    private var loanBanner: some View {
+        if let account, account.kind == "loan" {
+            let configured = loanIsConfigured
+            Button { editingLoan = true } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: configured ? "percent" : "exclamationmark.circle")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(configured ? Florin.accent : Florin.warn)
+                        .frame(width: 22)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(configured
+                             ? t("v2.loan.title", "Votre prêt")
+                             : t("v2.loan.setUp", "Renseignez votre prêt"))
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(Florin.text)
+                        Text(configured
+                             ? t("v2.loan.configured", "Chaque mensualité réduit le capital restant dû.")
+                             : t("v2.loan.setUpHint", "Capital, taux et durée — sans eux, le restant dû ne peut pas être calculé."))
+                            .font(.system(size: 12))
+                            .foregroundStyle(Florin.text2)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 4)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Florin.text3)
+                }
+                .padding(14)
+                .florinSurface()
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var loanIsConfigured: Bool {
+        guard let account, let store = LocalStore.shared else { return false }
+        return ((try? store.database.scalar(
+            "SELECT loan_original_principal FROM accounts WHERE id = ?", [.text(account.id)]
+        )?.double) as? Double ?? 0) ?? 0 > 0
     }
 
     /*
