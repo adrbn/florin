@@ -137,7 +137,9 @@ struct LoanSettingsSheet: View {
             Color.clear.frame(width: 30, height: 30)
         }
         .padding(.horizontal, Florin.gutter)
-        .padding(.top, 14)
+        // Clear of the drag indicator, which sits in the first twenty points
+        // and left the title looking pinned to the edge of the sheet.
+        .padding(.top, 26)
         .padding(.bottom, 12)
     }
 
