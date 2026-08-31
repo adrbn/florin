@@ -137,6 +137,9 @@ enum ServerImport {
     ) async throws {
         let db = store.database
         var brokers: [String: String] = [:]
+        // Declared before the categories are written: the link they carry
+        // cannot be resolved until the accounts exist, several loops later.
+        var pendingLoanLinks: [(local: String, remoteAccount: String)] = []
         try db.transaction {
             // Everything the server is about to supply, cleared first. Inside
             // the same transaction, so a failure leaves the device untouched
@@ -197,11 +200,23 @@ enum ServerImport {
                     ]
                 )
                 categoryIds[category.name.lowercased()] = id
+                /*
+                 * The link is set later, not here.
+                 *
+                 * Categories are written before accounts, so the loan this one
+                 * mirrors does not have a local id yet. Remembering the pair
+                 * and resolving it once the accounts exist is the only order
+                 * that works without a second pass over the server's payload.
+                 */
+                if let remoteLoan = category.linkedLoanAccountId {
+                    pendingLoanLinks.append((local: id, remoteAccount: remoteLoan))
+                }
             }
 
             // Accounts, keyed by the server's own id so a second import updates
             // the same rows.
             var accountIds: [String: String] = [:]
+            var localForRemoteAccount: [String: String] = [:]
             // Server id → local id, for the one thing the overview does not
             // carry: the positions behind a wrapper's market value.
             var brokerAccounts: [String: String] = [:]
@@ -233,8 +248,10 @@ enum ServerImport {
                     INSERT OR REPLACE INTO accounts
                         (id, name, kind, currency, current_balance, opening_balance,
                          market_value, is_included_in_net_worth,
+                         loan_original_principal, loan_interest_rate,
+                         loan_term_months, loan_monthly_payment,
                          sync_provider, sync_external_id, display_order)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'server', ?,
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'server', ?,
                             (SELECT coalesce(max(display_order) + 1, 0) FROM accounts))
                     """,
                     [
@@ -243,10 +260,15 @@ enum ServerImport {
                         .real(account.netContribution),
                         .real(account.marketValue),
                         .integer(account.isIncludedInNetWorth ? 1 : 0),
+                        account.loanOriginalPrincipal.map { SQLiteValue.real($0) } ?? .null,
+                        account.loanInterestRate.map { SQLiteValue.real($0) } ?? .null,
+                        account.loanTermMonths.map { SQLiteValue.integer(Int64($0)) } ?? .null,
+                        account.loanMonthlyPayment.map { SQLiteValue.real($0) } ?? .null,
                         .text(external),
                     ]
                 )
                 accountIds[account.name] = id
+                localForRemoteAccount[account.id] = id
                 if account.kind.hasPrefix("broker") { brokerAccounts[account.id] = id }
             }
 
@@ -313,6 +335,16 @@ enum ServerImport {
                         .real(budget.assigned),
                         budget.note.map { SQLiteValue.text($0) } ?? .null,
                     ]
+                )
+            }
+
+            // Now that both sides exist, the categories that mirror a loan can
+            // point at it.
+            for link in pendingLoanLinks {
+                guard let localAccount = localForRemoteAccount[link.remoteAccount] else { continue }
+                try db.run(
+                    "UPDATE categories SET linked_loan_account_id = ? WHERE id = ?",
+                    [.text(localAccount), .text(link.local)]
                 )
             }
 

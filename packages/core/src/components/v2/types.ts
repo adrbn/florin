@@ -59,6 +59,15 @@ export interface V2Account {
   netContribution: number
   /** Amortization-derived remaining debt. Loans only. */
   debt: number | null
+  /**
+   * The loan contract, so a client holding its own ledger can walk the
+   * schedule rather than freeze `debt` at the moment it copied it. Loans only;
+   * null when the account is not one or the contract is not configured.
+   */
+  loanOriginalPrincipal: number | null
+  loanInterestRate: number | null
+  loanTermMonths: number | null
+  loanMonthlyPayment: number | null
   isIncludedInNetWorth: boolean
   isArchived: boolean
   syncProvider: string
@@ -80,6 +89,11 @@ export interface V2Category {
   groupName: string
   /** 'income' | 'expense' | 'adjustment' — see `mapCategories`. */
   groupKind: string
+  /**
+   * The loan account this category mirrors, when it mirrors one. Filing a
+   * transaction here is what moves that loan's remaining debt.
+   */
+  linkedLoanAccountId: string | null
 }
 
 export interface V2Holding {

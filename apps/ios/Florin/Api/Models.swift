@@ -140,6 +140,18 @@ struct Account: Decodable, Sendable, Identifiable {
     let total: Double
     let netContribution: Double
     let debt: Double?
+    /*
+     * The contract behind the debt.
+     *
+     * `debt` is the server's answer at the moment it was asked, and it freezes
+     * the instant it is copied. These four are what let the device walk the
+     * schedule itself, so a repayment recorded here moves the figure instead of
+     * leaving it where the last import found it.
+     */
+    var loanOriginalPrincipal: Double?
+    var loanInterestRate: Double?
+    var loanTermMonths: Int?
+    var loanMonthlyPayment: Double?
     let isIncludedInNetWorth: Bool
     let isArchived: Bool
     let displayIcon: String?
@@ -157,6 +169,15 @@ struct Category: Decodable, Sendable, Identifiable {
     let name: String
     let emoji: String?
     let groupName: String
+    /*
+     * The loan this category mirrors.
+     *
+     * Filing a repayment here is what tells the ledger the debt moved. Without
+     * it a device holding its own copy has no way to know which category
+     * carries that meaning, so the money left the current account and the loan
+     * sat exactly where it was — every instalment widening the gap.
+     */
+    var linkedLoanAccountId: String?
     /*
      * Optional because older servers do not send it.
      *
