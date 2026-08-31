@@ -421,11 +421,20 @@ struct AccountDetailScreen: View {
         }
     }
 
-    /// A wrapper's performance, above its ledger.
-    ///
-    /// Opening a PEA to a list of "Ajustement −2 496,52 €" rows answers nothing:
-    /// those are the mechanical re-valuations, not the story. The story is one
-    /// line — what went in, what it is worth, and the gap as a percentage.
+    /*
+     * What the wrapper did, above its ledger.
+     *
+     * Opening a PEA to a list of "Ajustement −2 496,52 €" rows answers nothing:
+     * those are the mechanical re-valuations, not the story.
+     *
+     * The euro figure leads and the percentage follows it. A ratio is the
+     * honest way to compare two portfolios and the wrong way to feel one —
+     * "+0,8 %" says nothing you can spend, and it is the same number whether
+     * the wrapper holds three hundred euros or thirty thousand. The gain is
+     * measured against everything paid in rather than against the invested
+     * slice, because a PEA holds idle cash too and measuring only the invested
+     * part flatters a wrapper that is half in cash.
+     */
     @ViewBuilder
     private var portfolioBanner: some View {
         if let data = portfolio.payload {
@@ -434,23 +443,28 @@ struct AccountDetailScreen: View {
             let currency = model.overview?.currency ?? "EUR"
             let up = v.marche >= 0
 
-            VStack(spacing: 14) {
-                HStack(spacing: 6) {
-                    Image(systemName: up ? "arrow.up.right" : "arrow.down.right")
-                        .font(.system(size: 13, weight: .bold))
-                    Text(Money.percent(v.performancePct, locale: locale, digits: 1))
-                        .font(.system(size: 26, weight: .medium))
-                        .monospacedDigit()
-                    AmountText(
-                        value: v.marche, locale: locale, currency: currency,
-                        decimals: false, signed: true, tone: .auto, size: 15
-                    )
+            VStack(spacing: 13) {
+                VStack(spacing: 2) {
+                    Text(t("v2.account.performance", "Plus-value"))
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(Florin.text3)
+                    HStack(alignment: .firstTextBaseline, spacing: 7) {
+                        AmountText(
+                            value: v.marche, locale: locale, currency: currency,
+                            decimals: false, signed: true, tone: .auto, size: 27, weight: .semibold
+                        )
+                        if let pct = v.performancePct {
+                            Text(Money.percent(pct, locale: locale, digits: 1))
+                                .font(.system(size: 14, weight: .medium))
+                                .monospacedDigit()
+                                .foregroundStyle(up ? Florin.positive : Florin.negative)
+                        }
+                    }
                 }
-                .foregroundStyle(up ? Florin.positive : Florin.negative)
 
                 HStack(spacing: 0) {
                     stat(t("v2.tools.contributed", "Versé"), v.verse, locale, currency)
-                    stat(t("v2.account.marketValue", "Valeur de marché"),
+                    stat(t("v2.account.marketValue", "Valeur"),
                          v.marketValue + v.cash, locale, currency)
                     if v.cash > 0.5 {
                         stat(t("v2.overview.cash", "Liquidités"), v.cash, locale, currency)
@@ -458,30 +472,67 @@ struct AccountDetailScreen: View {
                 }
 
                 if !data.holdings.isEmpty {
-                    VStack(spacing: 10) {
+                    Hairline()
+                    VStack(spacing: 11) {
                         ForEach(data.holdings) { holding in
-                            HStack(spacing: 10) {
-                                Text(holding.label)
-                                    .font(.system(size: 13.5))
-                                    .foregroundStyle(Florin.text)
-                                    .lineLimit(1)
-                                Spacer(minLength: 6)
-                                if let pct = holding.plusValuePct {
-                                    Text(Money.percent(pct, locale: locale, digits: 1))
-                                        .font(.system(size: 12, weight: .semibold))
-                                        .monospacedDigit()
-                                        .foregroundStyle(pct >= 0 ? Florin.positive : Florin.negative)
-                                }
-                                AmountText(
-                                    value: holding.marketValue, locale: locale,
-                                    currency: currency, decimals: false, size: 13.5
-                                )
-                            }
+                            holdingRow(holding, locale: locale, currency: currency)
                         }
                     }
                 }
             }
             .padding(.vertical, 4)
+        }
+    }
+
+    /// One position: what it is, how much of it there is, and what it is worth.
+    private func holdingRow(_ holding: Holding, locale: String, currency: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(holding.label)
+                    .font(.system(size: 13.5))
+                    .foregroundStyle(Florin.text)
+                    .lineLimit(1)
+                HStack(spacing: 4) {
+                    /*
+                     * Quantity and price, which the header cannot carry.
+                     *
+                     * With one position the value on the right repeats the
+                     * total above it exactly; this is the line that says
+                     * something the header does not.
+                     */
+                    Text(Money.quantity(holding.quantity, locale: locale))
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Florin.text3)
+                    if let price = holding.lastPrice {
+                        Text("×")
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(Florin.text3)
+                        Text(Money.string(price, locale: locale, currency: currency, decimals: true))
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(holding.isStale ? Florin.warn : Florin.text3)
+                        if holding.isStale {
+                            // A quote older than two days describes a market
+                            // that has opened and closed since.
+                            Image(systemName: "clock.badge.exclamationmark")
+                                .font(.system(size: 10))
+                                .foregroundStyle(Florin.warn)
+                        }
+                    }
+                }
+            }
+            Spacer(minLength: 6)
+            VStack(alignment: .trailing, spacing: 2) {
+                AmountText(
+                    value: holding.marketValue, locale: locale,
+                    currency: currency, decimals: false, size: 13.5
+                )
+                if let pct = holding.plusValuePct {
+                    Text(Money.percent(pct, locale: locale, digits: 1))
+                        .font(.system(size: 11.5, weight: .medium))
+                        .monospacedDigit()
+                        .foregroundStyle(pct >= 0 ? Florin.positive : Florin.negative)
+                }
+            }
         }
     }
 

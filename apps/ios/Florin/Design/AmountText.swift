@@ -51,6 +51,23 @@ enum Money {
         formatter(locale: locale, currency: currency, decimals: true, signed: false).currencySymbol ?? currency
     }
 
+    /*
+     * A share count, written the way a broker writes it.
+     *
+     * Not currency: 569 units of a fund is not 569 €, and formatting it as
+     * money on a screen full of money is how someone reads a quantity as a
+     * balance. Fractional shares are real — brokers sell them by the euro —
+     * so the decimals stay when they exist and go when they do not.
+     */
+    static func quantity(_ value: Double, locale: String) -> String {
+        let f = NumberFormatter()
+        f.locale = Locale(identifier: locale)
+        f.numberStyle = .decimal
+        f.minimumFractionDigits = 0
+        f.maximumFractionDigits = value == value.rounded() ? 0 : 4
+        return f.string(from: NSNumber(value: value)) ?? "\(value)"
+    }
+
     static func percent(_ value: Double?, locale: String, digits: Int = 1) -> String {
         guard let value, value.isFinite else { return "—" }
         let f = NumberFormatter()

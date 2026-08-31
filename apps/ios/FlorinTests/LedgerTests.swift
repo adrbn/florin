@@ -240,6 +240,208 @@ struct TimestampTests {
     }
 }
 
+// MARK: - What is still owed
+
+/*
+ * The same loan the server's own tests use, and the same reference: a real
+ * statement from La Banque Postale. 10 000 € over 84 months at an advertised
+ * 3,90 %, instalment 135,91 €, first payment 30 June 2024.
+ *
+ * The phone reported this loan's debt as the sum of the repayments sitting on
+ * the loan account — 3 543 € after twenty-six instalments, which is the money
+ * already paid. The bank's capital restant dû at that point is a little over
+ * seven thousand.
+ */
+@Suite("Loan")
+struct LoanTests {
+    private let principal = 10_000.0
+    private let rate = 0.039
+    private let term = 84
+    private let payment = 135.91
+
+    private func debt(after payments: Int) -> Double {
+        LocalLoan.liability(
+            principal: principal, annualRate: rate, termMonths: term,
+            monthlyPayment: payment, paymentsMade: payments
+        ).remainingDebt
+    }
+
+    @Test("the periodic rate is recovered from principal, payment and term")
+    func calibration() {
+        // The bank quotes the TAEG and amortises on the taux débiteur; taking
+        // the advertised rate drifts a few euros and spills an extra month.
+        let solved = LocalLoan.solveAnnualRate(
+            principal: principal, monthlyPayment: payment, termMonths: term
+        )
+        #expect(solved != nil)
+        #expect(abs((solved ?? 0) - 0.0383) < 0.0005)
+        // And it reproduces the instalment it was solved from.
+        let check = LocalLoan.monthlyPayment(
+            principal: principal, annualRate: solved ?? 0, termMonths: term
+        )
+        #expect(abs(check - payment) < 0.01)
+    }
+
+    @Test("capital restant dû lands within a euro of the bank's own figure")
+    func matchesTheBank() {
+        // The statement says 7 298,12 € after twenty-five instalments. This is
+        // the assertion the server makes, so the two builds agree by
+        // construction rather than by coincidence.
+        #expect(abs(debt(after: 25) - 7298.12) < 1)
+    }
+
+    @Test("what is owed is not what has been paid")
+    func notTheAmountPaid() {
+        // Twenty-six instalments of 135,91 € is 3 533,66 € handed over — the
+        // number the phone used to print as the debt. The debt is more than
+        // twice that.
+        let paid = 26.0 * payment
+        #expect(debt(after: 26) > 7_000)
+        #expect(abs(debt(after: 26) - paid) > 3_500)
+    }
+
+    @Test("each instalment moves it, which is what validating one is for")
+    func eachPaymentCounts() {
+        let before = debt(after: 25)
+        let after = debt(after: 26)
+        #expect(after < before)
+        // Early in a loan most of the instalment is interest, so the debt
+        // falls by less than the 135,91 € paid.
+        let step = before - after
+        #expect(step > 100 && step < payment)
+    }
+
+    @Test("the loan closes on its contractual term")
+    func closes() {
+        #expect(debt(after: term) < 1)
+    }
+
+    @Test("a zero-interest loan solves to zero, an impossible one to nothing")
+    func edges() {
+        #expect(LocalLoan.solveAnnualRate(principal: 1200, monthlyPayment: 100, termMonths: 12) == 0)
+        #expect(LocalLoan.solveAnnualRate(principal: 10_000, monthlyPayment: 50, termMonths: 12) == nil)
+    }
+
+    @Test("an unconfigured loan falls back rather than reporting zero owed")
+    func unconfigured() {
+        let l = LocalLoan.liability(
+            principal: 0, annualRate: 0, termMonths: 0, monthlyPayment: 0,
+            paymentsMade: 0, fallbackBalance: -2_400
+        )
+        #expect(l.remainingDebt == 2_400)
+        #expect(!l.fromSchedule)
+    }
+}
+
+// MARK: - Filing a repayment
+
+@Suite("Loan mirror", .serialized)
+struct LoanMirrorTests {
+    /// A current account, a loan, and the category that mirrors it.
+    private func ledger() throws -> (LocalStore, ccp: String, loan: String, category: String) {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("florin-loan-\(UUID().uuidString).db")
+        let store = try LocalStore(url: url)
+        let ccp = UUID().uuidString, loan = UUID().uuidString
+        let group = UUID().uuidString, category = UUID().uuidString
+        try store.database.exec("""
+        INSERT INTO category_groups (id, name, kind) VALUES ('\(group)', 'Charges', 'expense');
+        INSERT INTO accounts (id, name, kind, currency) VALUES ('\(ccp)', 'CCP', 'checking', 'EUR');
+        INSERT INTO accounts (id, name, kind, currency, loan_original_principal,
+                              loan_interest_rate, loan_term_months, loan_monthly_payment,
+                              loan_start_date)
+          VALUES ('\(loan)', 'Prêt', 'loan', 'EUR', 10000, 0.039, 84, 135.91, '2024-06-30');
+        INSERT INTO categories (id, group_id, name, linked_loan_account_id)
+          VALUES ('\(category)', '\(group)', 'Remboursement du prêt', '\(loan)');
+        """)
+        return (store, ccp, loan, category)
+    }
+
+    private func payment(_ store: LocalStore, on account: String) throws -> String {
+        let id = UUID().uuidString
+        try store.database.run(
+            """
+            INSERT INTO transactions
+                (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
+                 source, status, needs_review)
+            VALUES (?, ?, '2026-08-05', -135.91, 'EUR', 'PRELEVEMENT LBP', 'prelevement lbp',
+                    'enable_banking', 'cleared', 1)
+            """,
+            [.text(id), .text(account)]
+        )
+        return id
+    }
+
+    private func mirrors(_ store: LocalStore, on loan: String) -> Int {
+        ((try? store.database.scalar(
+            "SELECT count(*) FROM transactions WHERE account_id = ? AND deleted_at IS NULL",
+            [.text(loan)]
+        )?.int) as? Int ?? -1) ?? -1
+    }
+
+    @Test("filing the instalment writes the other half on the loan")
+    func writesTheMirror() throws {
+        let (store, ccp, loan, category) = try ledger()
+        let id = try payment(store, on: ccp)
+        #expect(mirrors(store, on: loan) == 0)
+
+        try LocalLedger.patch(store: store, id: id, TxPatch(categoryId: .some(category)))
+
+        #expect(mirrors(store, on: loan) == 1)
+        // Opposite sign, no category of its own — the plan sums spending by
+        // category across accounts, so a categorised mirror would cancel the
+        // instalment it represents.
+        let row = try store.database.query(
+            "SELECT amount, category_id, transfer_pair_id FROM transactions WHERE account_id = ?",
+            [.text(loan)]
+        ).first
+        #expect(row?.double("amount") == 135.91)
+        #expect(row?.string("category_id") == nil)
+        #expect(row?.string("transfer_pair_id") != nil)
+    }
+
+    @Test("the remaining debt goes down, by the principal and not by the payment")
+    func debtMoves() throws {
+        let (store, ccp, loan, category) = try ledger()
+        func debt() throws -> Double {
+            try LocalQueries.readAccounts(store.database)
+                .first { $0.id == loan }?.debt ?? -1
+        }
+        let before = try debt()
+        try LocalLedger.patch(
+            store: store, id: try payment(store, on: ccp), TxPatch(categoryId: .some(category))
+        )
+        let after = try debt()
+        #expect(after < before)
+        // Early in a loan most of the instalment is interest; the debt falls by
+        // less than the 135,91 € handed over.
+        #expect(before - after < 135.91)
+        #expect(before - after > 90)
+    }
+
+    @Test("re-filing the payment elsewhere gives the step back")
+    func undo() throws {
+        let (store, ccp, loan, category) = try ledger()
+        let id = try payment(store, on: ccp)
+        try LocalLedger.patch(store: store, id: id, TxPatch(categoryId: .some(category)))
+        #expect(mirrors(store, on: loan) == 1)
+
+        // Moved out of the loan category: the counterpart must not linger, or
+        // the debt keeps a step it should return.
+        try LocalLedger.patch(store: store, id: id, TxPatch(categoryId: .some(nil)))
+        #expect(mirrors(store, on: loan) == 0)
+    }
+
+    @Test("filing the same payment twice does not pay the loan twice")
+    func idempotent() throws {
+        let (store, ccp, loan, category) = try ledger()
+        let id = try payment(store, on: ccp)
+        try LocalLedger.patch(store: store, id: id, TxPatch(categoryId: .some(category)))
+        try LocalLedger.patch(store: store, id: id, TxPatch(categoryId: .some(category)))
+        #expect(mirrors(store, on: loan) == 1)
+    }
+}
+
 // MARK: - When the phone asks the bank
 
 @Suite("Background")

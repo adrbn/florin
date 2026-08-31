@@ -1,6 +1,6 @@
 import Foundation
 
-struct PortfolioValuation: Decodable, Sendable {
+struct PortfolioValuation: Codable, Sendable {
     let marketValue: Double
     let costBasis: Double
     let plusValue: Double
@@ -22,7 +22,7 @@ struct PortfolioValuation: Decodable, Sendable {
     }
 }
 
-struct Holding: Decodable, Sendable, Identifiable {
+struct Holding: Codable, Sendable, Identifiable {
     let id: String
     let label: String
     let quantity: Double
@@ -34,7 +34,7 @@ struct Holding: Decodable, Sendable, Identifiable {
     let isStale: Bool
 }
 
-struct PortfolioPayload: Decodable, Sendable {
+struct PortfolioPayload: Codable, Sendable {
     let valuation: PortfolioValuation
     let holdings: [Holding]
 }
@@ -51,6 +51,22 @@ final class PortfolioModel: ObservableObject {
     func load(accountId: String) async {
         guard !loading, payload == nil else { return }
         loading = true
+        /*
+         * The device computes it rather than asking for it.
+         *
+         * This went straight to HTTP, and on a device ledger the base address
+         * is `florin-local://device` — a scheme URLSession cannot open. The
+         * request failed, the `try?` swallowed it, and the banner simply never
+         * appeared: an investment account on the phone showed a total and a
+         * list of mechanical rows, with the figures that explain them missing.
+         */
+        if base.scheme == "florin-local" {
+            if let store = LocalStore.shared {
+                payload = try? LocalQueries.portfolio(store.database, accountId: accountId)
+            }
+            loading = false
+            return
+        }
         var components = URLComponents(url: base, resolvingAgainstBaseURL: false)
         components?.path = "/api/v2/accounts/\(accountId)/portfolio"
         if let url = components?.url,

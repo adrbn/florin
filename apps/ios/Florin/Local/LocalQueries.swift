@@ -98,12 +98,24 @@ enum LocalQueries {
     static func readAccounts(_ db: SQLiteDatabase) throws -> [Account] {
         try db.query(
             """
-            SELECT id, name, kind, institution, current_balance, market_value,
-                   opening_balance, is_included_in_net_worth, is_archived, display_icon,
-                   sync_provider
-            FROM accounts
-            WHERE is_archived = 0
-            ORDER BY display_order, name
+            SELECT a.id, a.name, a.kind, a.institution, a.current_balance, a.market_value,
+                   a.opening_balance, a.is_included_in_net_worth, a.is_archived,
+                   a.display_icon, a.sync_provider,
+                   a.loan_original_principal, a.loan_interest_rate, a.loan_term_months,
+                   a.loan_monthly_payment,
+                   /*
+                    * Instalments actually made, counted the way the server
+                    * counts them: rows on the loan account that are half of a
+                    * transfer pair. A repayment exists here only once its
+                    * counterpart has been written, which is what makes
+                    * validating one move the remaining debt.
+                    */
+                   (SELECT count(*) FROM transactions t
+                    WHERE t.account_id = a.id AND t.transfer_pair_id IS NOT NULL
+                      AND t.deleted_at IS NULL) AS payments_made
+            FROM accounts a
+            WHERE a.is_archived = 0
+            ORDER BY a.display_order, a.name
             """
         ).map { row in
             let balance = row.double("current_balance") ?? 0
@@ -126,7 +138,26 @@ enum LocalQueries {
                 marketValue: round2(market),
                 total: round2(total),
                 netContribution: round2(row.double("opening_balance") ?? 0),
-                debt: kind == "loan" ? round2(abs(balance)) : nil,
+                /*
+                 * The capital still owed, not the money already handed over.
+                 *
+                 * This was `abs(balance)` — the sum of the repayment rows on
+                 * the loan account, which is what has been paid. After
+                 * twenty-six instalments it read 3 543 € and called it the
+                 * debt, when the debt was everything that number is not. The
+                 * schedule is the same one the server walks; see LocalLoan.
+                 */
+                debt: kind == "loan"
+                    ? round2(LocalLoan.liability(
+                        principal: row.double("loan_original_principal") ?? 0,
+                        annualRate: row.double("loan_interest_rate") ?? 0,
+                        termMonths: row.int("loan_term_months") ?? 0,
+                        monthlyPayment: row.double("loan_monthly_payment") ?? 0,
+                        paymentsMade: row.int("payments_made") ?? 0,
+                        fallbackBalance: balance,
+                        totalPaid: abs(balance)
+                      ).remainingDebt)
+                    : nil,
                 isIncludedInNetWorth: row.bool("is_included_in_net_worth"),
                 isArchived: row.bool("is_archived"),
                 displayIcon: row.string("display_icon"),
@@ -368,6 +399,88 @@ enum LocalQueries {
                 accounts: lines
             )
         }
+    }
+
+    /*
+     * The wrapper's own arithmetic, on the device.
+     *
+     * This is the server's `getPortfolioValuation`, ported: the phone had the
+     * banner and no way to fill it — `PortfolioModel` asked over HTTP, and on a
+     * device ledger the address is `florin-local://device`, which URLSession
+     * cannot open. The request failed, the payload stayed nil, and an
+     * investment account showed a total and a list of mechanical "Achat" rows.
+     */
+    static func portfolio(_ db: SQLiteDatabase, accountId: String) throws -> PortfolioPayload? {
+        guard let account = try db.query(
+            "SELECT kind, current_balance, market_value FROM accounts WHERE id = ?",
+            [.text(accountId)]
+        ).first, (account.string("kind") ?? "").hasPrefix("broker") else { return nil }
+
+        let marketValue = account.double("market_value") ?? 0
+        let cash = account.double("current_balance") ?? 0
+        let costBasis = (try db.scalar(
+            "SELECT coalesce(sum(cost_basis), 0) FROM holdings WHERE account_id = ?",
+            [.text(accountId)]
+        )?.double) ?? 0
+
+        /*
+         * Versé: the money moved in from outside, net.
+         *
+         * A leg counts when it is explicitly paired OR reads as a transfer and
+         * carries no category — manual "Transfer from CCP" contributions are
+         * routinely unpaired, because the counterpart arrives from the bank
+         * days later, and requiring a pair silently dropped real money in.
+         * Summing net rather than inbound-only cancels the sweep-backs.
+         */
+        let verse = (try db.scalar(
+            """
+            -- Aliased `t`, because the shared transfer predicate names it.
+            SELECT coalesce(sum(t.amount), 0) FROM transactions t
+            WHERE t.account_id = ? AND t.deleted_at IS NULL AND t.status = 'cleared'
+              AND (t.transfer_pair_id IS NOT NULL OR (\(uncategorisedTransfer)))
+            """,
+            [.text(accountId)]
+        )?.double) ?? 0
+
+        let holdings = try db.query(
+            """
+            SELECT id, label, quantity, cost_basis, last_price, last_price_at
+            FROM holdings WHERE account_id = ? ORDER BY created_at
+            """,
+            [.text(accountId)]
+        ).map { row -> Holding in
+            let quantity = row.double("quantity") ?? 0
+            let basis = row.double("cost_basis") ?? 0
+            let price = row.double("last_price")
+            let value = quantity * (price ?? 0)
+            let gain = value - basis
+            // Two days: a quote older than that describes a market that has
+            // opened and closed since, and the figure should say so.
+            let pricedAt = Timestamp.parse(row.string("last_price_at"))
+            return Holding(
+                id: row.string("id") ?? UUID().uuidString,
+                label: row.string("label") ?? "",
+                quantity: quantity,
+                costBasis: round2(basis),
+                marketValue: round2(value),
+                plusValue: round2(gain),
+                plusValuePct: basis > 0 ? gain / basis * 100 : nil,
+                lastPrice: price,
+                isStale: pricedAt.map { Date().timeIntervalSince($0) > 48 * 3600 } ?? false
+            )
+        }
+
+        return PortfolioPayload(
+            valuation: PortfolioValuation(
+                marketValue: round2(marketValue),
+                costBasis: round2(costBasis),
+                plusValue: round2(marketValue - costBasis),
+                cash: round2(cash),
+                verse: round2(verse),
+                marche: round2(marketValue + cash - verse)
+            ),
+            holdings: holdings
+        )
     }
 
     static func readCategories(_ db: SQLiteDatabase) throws -> [Category] {

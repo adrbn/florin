@@ -395,7 +395,93 @@ enum LocalLedger {
                 values + [.text(id)]
             )
             try recomputeAffectedBalance(store, transactionId: id)
+            try syncLoanMirror(store, transactionId: id)
         }
+    }
+
+    /*
+     * A repayment has two sides, and the phone only ever wrote one.
+     *
+     * Filing the monthly instalment under the category that mirrors a loan is
+     * what tells the ledger the debt moved. On the server that writes a
+     * counterpart row on the loan account and the remaining debt advances one
+     * step down the amortisation schedule. On the device nothing happened at
+     * all: the money left the current account and the loan sat exactly where it
+     * was, so a repayment read as pure consumption and every month widened the
+     * gap.
+     *
+     * The mirror deliberately carries no category. The plan sums spending by
+     * category across every account, so a categorised counterpart would cancel
+     * the very instalment it represents — 136 € out, 136 € in, nothing spent.
+     */
+    static func syncLoanMirror(_ store: LocalStore, transactionId id: String) throws {
+        let row = try store.database.query(
+            """
+            SELECT t.amount, t.occurred_at, t.payee, t.transfer_pair_id,
+                   c.linked_loan_account_id AS loan_id
+            FROM transactions t
+            LEFT JOIN categories c ON c.id = t.category_id
+            WHERE t.id = ?
+            """,
+            [.text(id)]
+        ).first
+        guard let row else { return }
+        let loanId = row.string("loan_id")
+
+        /*
+         * Re-filed elsewhere, so the old counterpart has to go.
+         *
+         * Without this, moving a payment out of the loan category leaves its
+         * mirror behind and the debt keeps the step it should give back.
+         */
+        let existing = try store.database.query(
+            """
+            SELECT m.id, m.account_id FROM transactions m
+            JOIN accounts a ON a.id = m.account_id
+            WHERE m.transfer_pair_id = (SELECT transfer_pair_id FROM transactions WHERE id = ?)
+              AND m.id <> ? AND a.kind = 'loan' AND m.deleted_at IS NULL
+            """,
+            [.text(id), .text(id)]
+        ).first
+
+        if let existing, existing.string("account_id") != loanId {
+            try store.database.run(
+                "DELETE FROM transactions WHERE id = ?", [.text(existing.string("id") ?? "")]
+            )
+            try store.database.run(
+                "UPDATE transactions SET transfer_pair_id = NULL WHERE id = ?", [.text(id)]
+            )
+            if let account = existing.string("account_id") {
+                try recomputeBalance(store, accountId: account)
+            }
+        }
+
+        guard let loanId, existing?.string("account_id") != loanId else {
+            if let loanId { try recomputeBalance(store, accountId: loanId) }
+            return
+        }
+
+        let amount = row.double("amount") ?? 0
+        let pair = row.string("transfer_pair_id") ?? UUID().uuidString
+        let label = "↳ \(row.string("payee") ?? "")"
+        try store.database.run(
+            "UPDATE transactions SET transfer_pair_id = ? WHERE id = ?",
+            [.text(pair), .text(id)]
+        )
+        try store.database.run(
+            """
+            INSERT INTO transactions
+                (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
+                 category_id, source, status, needs_review, transfer_pair_id)
+            VALUES (?, ?, ?, ?, 'EUR', ?, ?, NULL, 'manual', 'cleared', 0, ?)
+            """,
+            [
+                .text(UUID().uuidString), .text(loanId),
+                .text(row.string("occurred_at") ?? ""), .real(-amount),
+                .text(label), .text(normalize(label)), .text(pair),
+            ]
+        )
+        try recomputeBalance(store, accountId: loanId)
     }
 
     /// A soft delete, like every other surface: the row stays so a sync that
