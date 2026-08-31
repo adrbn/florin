@@ -45,17 +45,27 @@ struct LoanSettingsSheet: View {
                         preview
 
                         VStack(spacing: 0) {
+                            /*
+                             * Round numbers, deliberately.
+                             *
+                             * The first draft used the author's own contract —
+                             * 10 000 over 84 months at 3,9 %, 135,91 € — which
+                             * reads as a filled-in form rather than a hint, and
+                             * is somebody's actual loan. These are obviously
+                             * illustrative: they teach the unit each field
+                             * wants and nothing else.
+                             */
                             field(t("v2.loan.principal", "Capital emprunté"),
-                                  "10 000", $principal, .principal, .decimalPad)
+                                  "20 000", $principal, .principal, .decimalPad)
                             Hairline()
                             field(t("v2.loan.rate", "Taux annuel"),
-                                  "3,9 %", $rate, .rate, .decimalPad)
+                                  "3 %", $rate, .rate, .decimalPad)
                             Hairline()
                             field(t("v2.loan.term", "Durée en mois"),
-                                  "84", $months, .months, .numberPad)
+                                  "120", $months, .months, .numberPad)
                             Hairline()
                             field(t("v2.loan.payment", "Mensualité"),
-                                  "135,91", $payment, .payment, .decimalPad)
+                                  "200", $payment, .payment, .decimalPad)
                         }
                         .florinSurface()
 
