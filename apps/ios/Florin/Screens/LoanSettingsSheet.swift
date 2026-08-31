@@ -300,6 +300,7 @@ struct LoanSettingsSheet: View {
             }
             // Instalments already filed get their counterpart now rather than
             // at the next launch.
+            _ = try? LocalLedger.dropDuplicateLoanMirrors(store: store)
             _ = try? LocalLedger.reconcileLoanMirrors(store: store)
         } catch {
             saving = false

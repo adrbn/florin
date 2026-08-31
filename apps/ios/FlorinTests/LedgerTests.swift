@@ -533,6 +533,53 @@ struct LoanMirrorTests {
         #expect(mirrors(store, on: loan) == 0)
     }
 
+    @Test("a ledger whose pair ids do not match is not paid twice")
+    func importedPairsAreNotDoubled() throws {
+        let (store, ccp, loan, category) = try ledger()
+        // What a server import leaves behind: both legs present, each with its
+        // own pair id, so nothing links them. The catch-up used to read that
+        // as "no counterpart" and write a second one.
+        let id = try payment(store, on: ccp)
+        try store.database.run(
+            "UPDATE transactions SET category_id = ?, transfer_pair_id = ? WHERE id = ?",
+            [.text(category), .text("imported:a"), .text(id)]
+        )
+        try store.database.run(
+            """
+            INSERT INTO transactions
+                (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
+                 source, status, needs_review, transfer_pair_id)
+            VALUES (?, ?, '2026-08-05', 135.91, 'EUR', '↳ PRELEVEMENT LBP', 'prelevement lbp',
+                    'server', 'cleared', 0, 'imported:b')
+            """,
+            [.text(UUID().uuidString), .text(loan)]
+        )
+        #expect(mirrors(store, on: loan) == 1)
+
+        #expect(try LocalLedger.reconcileLoanMirrors(store: store) == 0)
+        #expect(mirrors(store, on: loan) == 1)
+    }
+
+    @Test("counterparts written twice are taken back")
+    func dropsDuplicates() throws {
+        let (store, ccp, loan, _) = try ledger()
+        _ = try payment(store, on: ccp)
+        for _ in 0..<2 {
+            try store.database.run(
+                """
+                INSERT INTO transactions
+                    (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
+                     source, status, needs_review, transfer_pair_id)
+                VALUES (?, ?, '2026-08-05', 135.91, 'EUR', '↳ x', 'x', 'manual', 'cleared', 0, ?)
+                """,
+                [.text(UUID().uuidString), .text(loan), .text(UUID().uuidString)]
+            )
+        }
+        #expect(mirrors(store, on: loan) == 2)
+        #expect(try LocalLedger.dropDuplicateLoanMirrors(store: store) == 1)
+        #expect(mirrors(store, on: loan) == 1)
+    }
+
     @Test("filing the same payment twice does not pay the loan twice")
     func idempotent() throws {
         let (store, ccp, loan, category) = try ledger()

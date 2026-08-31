@@ -424,6 +424,44 @@ enum LocalLedger {
      *
      * Cheap when there is nothing to do: one indexed lookup that finds no rows.
      */
+    /*
+     * Instalments paid twice, taken back.
+     *
+     * A catch-up that matched on pair ids wrote a second counterpart for every
+     * repayment on an imported ledger, because there the two legs of a transfer
+     * carry different ids. The loan then read fifty-three instalments where
+     * there were twenty-six, and the remaining debt roughly halved.
+     *
+     * One repayment per calendar month is the rule the schedule assumes, so
+     * anything beyond the first in a month is the mistake. The oldest row is
+     * kept — it is the one that came from the server, with the real date.
+     */
+    @discardableResult
+    static func dropDuplicateLoanMirrors(store: LocalStore) throws -> Int {
+        let extra = try store.database.query(
+            """
+            SELECT m.id FROM transactions m
+            JOIN accounts a ON a.id = m.account_id AND a.kind = 'loan'
+            WHERE m.deleted_at IS NULL
+              AND EXISTS (
+                SELECT 1 FROM transactions k
+                WHERE k.account_id = m.account_id AND k.deleted_at IS NULL
+                  AND substr(k.occurred_at, 1, 7) = substr(m.occurred_at, 1, 7)
+                  AND abs(k.amount - m.amount) < 0.005
+                  AND (k.created_at < m.created_at
+                       OR (k.created_at = m.created_at AND k.id < m.id))
+              )
+            """
+        ).compactMap { $0.string("id") }
+        guard !extra.isEmpty else { return 0 }
+        try store.database.transaction {
+            for id in extra {
+                try store.database.run("DELETE FROM transactions WHERE id = ?", [.text(id)])
+            }
+        }
+        return extra.count
+    }
+
     @discardableResult
     static func reconcileLoanMirrors(store: LocalStore) throws -> Int {
         let orphans = try store.database.query(
@@ -432,12 +470,25 @@ enum LocalLedger {
             JOIN categories c ON c.id = t.category_id
             WHERE c.linked_loan_account_id IS NOT NULL
               AND t.deleted_at IS NULL
+              /*
+               * Matched on what the row IS, not on a shared identifier.
+               *
+               * A ledger imported from a server has the two legs of a transfer
+               * under different pair ids — the import mints one per leg — so
+               * asking "does a row share my pair id" answers no for every
+               * repayment that already has a counterpart, and the catch-up
+               * writes a second one. That turned twenty-six instalments into
+               * fifty-three and halved the debt.
+               *
+               * Same loan, same day, opposite amount is the same repayment
+               * whatever either row calls its pair.
+               */
               AND NOT EXISTS (
                 SELECT 1 FROM transactions m
-                WHERE m.transfer_pair_id = t.transfer_pair_id
-                  AND m.transfer_pair_id IS NOT NULL
-                  AND m.id <> t.id AND m.account_id = c.linked_loan_account_id
+                WHERE m.account_id = c.linked_loan_account_id
                   AND m.deleted_at IS NULL
+                  AND substr(m.occurred_at, 1, 10) = substr(t.occurred_at, 1, 10)
+                  AND abs(m.amount + t.amount) < 0.005
               )
             """
         ).compactMap { $0.string("id") }
@@ -466,11 +517,9 @@ enum LocalLedger {
             WHERE t.deleted_at IS NULL AND a.kind <> 'loan'
               AND t.amount < 0
               AND abs(abs(t.amount) - loan.loan_monthly_payment) < 0.005
-              AND t.transfer_pair_id IS NULL
               AND NOT EXISTS (
                 SELECT 1 FROM transactions m
                 WHERE m.account_id = loan.id AND m.deleted_at IS NULL
-                  AND m.transfer_pair_id IS NOT NULL
                   AND substr(m.occurred_at, 1, 7) = substr(t.occurred_at, 1, 7)
               )
             GROUP BY t.id
