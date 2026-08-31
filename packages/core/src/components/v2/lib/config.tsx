@@ -38,7 +38,7 @@ export function useV2Config(): V2Config {
 export interface MoneyHelpers {
   tag: string
   currency: string
-  /** "128 404,17 €" */
+  /** "128 000,00 €" */
   fmt: (v: number, o?: { signed?: boolean; decimals?: boolean }) => string
   /** "128 k €" */
   compact: (v: number) => string

@@ -232,9 +232,9 @@ enum ServerImport {
                  * Copying `balance` alone lost two things and both showed up in
                  * the headline figure: a broker's cash balance is near zero
                  * while its holdings are the account (PEA read 0.40 instead of
-                 * 3491.22), and a loan's balance is what has been repaid while
-                 * the debt is what is still owed (3543.41 instead of 7185.62).
-                 * Together they put net worth out by 151.39 — close enough to
+                 * 3500.00), and a loan's balance is what has been repaid while
+                 * the debt is what is still owed (3500 instead of 7200).
+                 * Together they put net worth out by a hundred and fifty — close enough to
                  * look plausible, which is the dangerous kind of wrong.
                  *
                  * A loan is stored negative because that is how this ledger

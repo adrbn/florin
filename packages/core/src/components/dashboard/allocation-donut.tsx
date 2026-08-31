@@ -68,7 +68,7 @@ export function AllocationDonut({ allocation, locale }: AllocationDonutProps) {
         ) : (
           /*
            * Donut beside the legend needs ~300px of card width, otherwise the
-           * legend can't fit "Liquidités 11 660,58 €" and the labels truncate to
+           * legend can't fit "Liquidités 11 500,00 €" and the labels truncate to
            * "Liqui…" while the donut shrinks to a stub (four tiles on one row in
            * a windowed app leaves each only ~275px). Under that, stack instead:
            * the donut sits above a full-width legend — bigger donut, no label

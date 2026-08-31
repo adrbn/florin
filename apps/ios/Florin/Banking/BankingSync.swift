@@ -545,7 +545,7 @@ enum BankingSync {
          * indistinguishable — and a row whose label carries no date still
          * needs that day of tolerance. So candidates are gathered and then
          * judged: an exact date is trusted on its own, a neighbouring day only
-         * when the names agree. The bank sends a counterparty ("Adrien
+         * when the names agree. The bank sends a counterparty ("Jean
          * Dupont") while the ledger holds the whole label ("VIREMENT INSTANTANE
          * DE Jean Dupont"), so one containing the other is the test.
          *

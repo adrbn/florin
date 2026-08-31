@@ -37,7 +37,7 @@ struct Bubble: View {
     }
 }
 
-/// Bank payees arrive as "ACHAT CB CRF ST MARTIN 17.08.2026 CARTE 4589".
+/// Bank payees arrive as "ACHAT CB SUPERMARCHE 17.08.2026 CARTE 4589".
 /// Same cleaning rules as the web `cleanPayee` / `humanizePayee`.
 enum PayeeText {
     private static let leadWords: Set<String> = [

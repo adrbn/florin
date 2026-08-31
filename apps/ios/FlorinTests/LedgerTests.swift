@@ -27,7 +27,7 @@ struct ImportTests {
         Date;Libellé;Montant
         28/08/2026;VIREMENT INSTANTANE CREDIT;13,00
         27/08/2026;ACHAT CB BOULANGERIE DU PARC;-4,50
-        27/08/2026;VIREMENT DE DIRECTION SPE FINANC;2 500,00
+        27/08/2026;VIREMENT SALAIRE EMPLOYEUR;2 500,00
         """)
         #expect(parsed.count == 3)
         #expect(parsed[0].day == "2026-08-28")
@@ -130,8 +130,8 @@ struct ImportTests {
     func preamble() throws {
         // What a French bank actually sends: three lines that are not a table.
         let parsed = try rows("""
-        Compte;N°1264549N035
-        Solde au 28/08/2026;3 497,82
+        Compte;N°0000000X000
+        Solde au 28/08/2026;1 234,56
         Période;du 01/08/2026 au 28/08/2026
 
         Date;Libellé;Montant

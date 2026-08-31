@@ -488,7 +488,7 @@ struct AccountDetailScreen: View {
     /*
      * What the wrapper did, above its ledger.
      *
-     * Opening a PEA to a list of "Ajustement −2 496,52 €" rows answers nothing:
+     * Opening a PEA to a list of "Ajustement −2 500,00 €" rows answers nothing:
      * those are the mechanical re-valuations, not the story.
      *
      * The euro figure leads and the percentage follows it. A ratio is the
