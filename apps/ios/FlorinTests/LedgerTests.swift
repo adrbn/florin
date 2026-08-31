@@ -151,6 +151,24 @@ struct ImportTests {
         #expect(LocalImport.number("") == nil)
     }
 
+    @Test("an English number is not divided by a thousand")
+    func englishNumbers() {
+        // The first rule read the comma as decimal wherever it appeared, so
+        // 1,234.56 came back as 1.23456 — every amount in a British or American
+        // statement silently a thousandth of itself.
+        #expect(LocalImport.number("1,234.56") == 1234.56)
+        #expect(LocalImport.number("12,345.67") == 12345.67)
+        #expect(LocalImport.number("-1,234.56") == -1234.56)
+        // Three digits after the separator group thousands; one or two divide.
+        #expect(LocalImport.number("1,234") == 1234)
+        #expect(LocalImport.number("1.234") == 1234)
+        #expect(LocalImport.number("1,23") == 1.23)
+        #expect(LocalImport.number("1.23") == 1.23)
+        // And the continental forms still read the continental way.
+        #expect(LocalImport.number("1.234,56") == 1234.56)
+        #expect(LocalImport.number("1 234,56") == 1234.56)
+    }
+
     /*
      * Real header rows, taken from real exports.
      *

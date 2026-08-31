@@ -286,13 +286,26 @@ final class BankingFlow: NSObject, ObservableObject {
             guard session.start() else {
                 Self.log.error("ASWebAuthenticationSession refused to start")
                 continuation.resume(throwing: EnableBanking.Failure.rejected(
+                    /*
+                     * Two causes, and one of them never resolves.
+                     *
+                     * This used to say "réessayez dans une minute", which is
+                     * true of a freshly deployed association and false of the
+                     * other case: a build re-signed with someone else's Apple
+                     * ID has no Associated Domains entitlement at all, and no
+                     * amount of waiting grows one. Telling that person to retry
+                     * leaves them retrying for ever, after having generated a
+                     * key and registered an application for nothing.
+                     */
                     Strings.device(
                         "v2.connect.presentRefused",
                         """
-                        iOS a refusé d'ouvrir la page de la banque. Le lien de \
-                        redirection ({host}) n'est pas encore validé sur cet \
-                        appareil — réessayez dans une minute, en gardant le \
-                        téléphone connecté à Internet.
+                        iOS a refusé d'ouvrir la page de la banque : le lien de \
+                        redirection ({host}) n'est pas validé pour cette \
+                        installation. Si vous venez d'installer l'app depuis \
+                        les releases, c'est attendu — la connexion bancaire \
+                        demande un domaine qui vous appartient et un compte \
+                        Apple payant. Voir le README.
                         """,
                         ["host": Self.redirectHost]
                     )

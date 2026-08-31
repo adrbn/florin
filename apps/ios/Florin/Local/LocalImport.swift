@@ -383,11 +383,48 @@ enum LocalImport {
             .trimmingCharacters(in: .whitespaces)
         guard !value.isEmpty else { return nil }
         if value.hasSuffix("-") { value = "-" + value.dropLast() }
-        // A comma present means the comma is the decimal mark, so any dot in
-        // the same number is a thousands separator.
-        if value.contains(",") {
-            value = value.replacingOccurrences(of: ".", with: "")
-                .replacingOccurrences(of: ",", with: ".")
+        /*
+         * Whichever separator comes last is the decimal one.
+         *
+         * The first rule here was "a comma means the comma is decimal", which
+         * is true of 1.234,56 and quietly wrong about 1,234.56 — it stripped
+         * the dot and returned 1.23456, so a British or American statement
+         * imported with every amount divided by a thousand and no error to say
+         * so. Position settles it: in a well-formed number the decimal mark is
+         * the rightmost separator, and everything before it groups thousands.
+         */
+        let lastComma = value.lastIndex(of: ",")
+        let lastDot = value.lastIndex(of: ".")
+        switch (lastComma, lastDot) {
+        case let (comma?, dot?):
+            let decimal: Character = comma > dot ? "," : "."
+            let grouping: Character = decimal == "," ? "." : ","
+            value = value.replacingOccurrences(of: String(grouping), with: "")
+                .replacingOccurrences(of: String(decimal), with: ".")
+        /*
+         * One separator, and the digits after it decide.
+         *
+         * "1,234" is one-and-a-bit in France and a thousand-odd in Britain;
+         * "1.234" is the same problem mirrored. Nothing in the character
+         * settles it — but money is written with one or two decimals and
+         * thousands are grouped in threes, so the count does. Exactly three
+         * digits after the separator means it groups; anything else means it
+         * divides.
+         *
+         * It is a heuristic, and it is wrong for an amount written with three
+         * decimals — 12,500 read as twelve thousand five hundred. Bank
+         * statements do not do that; unit prices sometimes do.
+         */
+        case let (comma?, nil):
+            value = value.replacingOccurrences(
+                of: ",", with: value.distance(from: value.index(after: comma), to: value.endIndex) == 3 ? "" : "."
+            )
+        case let (nil, dot?):
+            if value.distance(from: value.index(after: dot), to: value.endIndex) == 3 {
+                value = value.replacingOccurrences(of: ".", with: "")
+            }
+        default:
+            break
         }
         return Double(value)
     }
