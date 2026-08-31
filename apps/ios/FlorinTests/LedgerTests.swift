@@ -432,6 +432,47 @@ struct LoanMirrorTests {
         #expect(mirrors(store, on: loan) == 0)
     }
 
+    @Test("a repayment filed before the mirror existed gets its counterpart")
+    func reconcile() throws {
+        let (store, ccp, loan, category) = try ledger()
+        // Filed the way the categoriser files: straight into the column, with
+        // no mirror — which is how every automatic repayment landed.
+        let id = try payment(store, on: ccp)
+        try store.database.run(
+            "UPDATE transactions SET category_id = ? WHERE id = ?",
+            [.text(category), .text(id)]
+        )
+        #expect(mirrors(store, on: loan) == 0)
+
+        #expect(try LocalLedger.reconcileLoanMirrors(store: store) == 1)
+        #expect(mirrors(store, on: loan) == 1)
+        // And it does not do it again on the next launch.
+        #expect(try LocalLedger.reconcileLoanMirrors(store: store) == 0)
+    }
+
+    @Test("the categoriser writes the mirror when it files a repayment itself")
+    func categoriserMirrors() throws {
+        let (store, ccp, loan, category) = try ledger()
+        // A payee the ledger has filed before, so the categoriser is certain.
+        for _ in 0..<6 {
+            let past = try payment(store, on: ccp)
+            try store.database.run(
+                "UPDATE transactions SET category_id = ?, needs_review = 0 WHERE id = ?",
+                [.text(category), .text(past)]
+            )
+        }
+        _ = try LocalLedger.reconcileLoanMirrors(store: store)
+        let fresh = try payment(store, on: ccp)
+        _ = try LocalCategoriser.backfill(store: store)
+
+        let filed = try store.database.scalar(
+            "SELECT category_id FROM transactions WHERE id = ?", [.text(fresh)]
+        )?.string
+        #expect(filed == category)
+        // Seven repayments, seven counterparts.
+        #expect(mirrors(store, on: loan) == 7)
+    }
+
     @Test("filing the same payment twice does not pay the loan twice")
     func idempotent() throws {
         let (store, ccp, loan, category) = try ledger()

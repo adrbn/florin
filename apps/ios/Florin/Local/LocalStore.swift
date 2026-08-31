@@ -192,6 +192,17 @@ extension LocalStore {
                 log.notice("dropped \(dropped, privacy: .public) settled duplicates")
             }
 
+            /*
+             * Repayments filed before the mirror existed, given their
+             * counterpart. Runs before the categoriser so a row it files this
+             * launch is mirrored by the categoriser itself rather than waiting
+             * for the next one.
+             */
+            let mirrored = try LocalLedger.reconcileLoanMirrors(store: store)
+            if mirrored > 0 {
+                log.notice("wrote \(mirrored, privacy: .public) missing loan mirrors")
+            }
+
             let named = try LocalCategoriser.backfill(store: store)
             if named > 0 {
                 log.notice("categorised \(named, privacy: .public) waiting rows")

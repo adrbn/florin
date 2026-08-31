@@ -287,6 +287,17 @@ enum LocalCategoriser {
                     """,
                     [.text(hit.categoryId), .text(id)]
                 )
+                /*
+                 * A loan repayment filed by the machine is still a repayment.
+                 *
+                 * The mirror was written from the categorise path only, which
+                 * is the one a person takes. A monthly instalment is the most
+                 * recognisable payee in a ledger, so the categoriser files it
+                 * unattended above its threshold and the row never went that
+                 * way — the debt stayed put for exactly the payments most
+                 * likely to be automatic.
+                 */
+                try LocalLedger.syncLoanMirror(store, transactionId: id)
                 filled += 1
             }
         }
