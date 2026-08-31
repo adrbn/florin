@@ -23,7 +23,33 @@ struct BankingSettings: View {
     @State private var banks: [Aspsp] = []
     @State private var searching = false
     @State private var query = ""
-    @State private var country = "FR"
+    /*
+     * The country the bank list is drawn from.
+     *
+     * It was a constant, "FR", read in exactly one place and settable from
+     * nowhere — so a Belgian or a German got French banks and no way to say
+     * otherwise. It starts from the phone's own region now, which is right far
+     * more often than a constant, and can be changed beside the list.
+     *
+     * PSD2 is an EU framework, so the choices are the countries Enable Banking
+     * actually covers rather than every ISO code.
+     */
+    @State private var country = Locale.current.region?.identifier ?? "FR"
+
+    /// Enable Banking's coverage, by the name each country calls itself.
+    private static let countries: [(code: String, name: String)] = [
+        ("AT", "Österreich"), ("BE", "België"), ("BG", "България"),
+        ("CH", "Schweiz"), ("CY", "Κύπρος"), ("CZ", "Česko"),
+        ("DE", "Deutschland"), ("DK", "Danmark"), ("EE", "Eesti"),
+        ("ES", "España"), ("FI", "Suomi"), ("FR", "France"),
+        ("GB", "United Kingdom"), ("GR", "Ελλάδα"), ("HR", "Hrvatska"),
+        ("HU", "Magyarország"), ("IE", "Ireland"), ("IS", "Ísland"),
+        ("IT", "Italia"), ("LT", "Lietuva"), ("LU", "Luxembourg"),
+        ("LV", "Latvija"), ("MT", "Malta"), ("NL", "Nederland"),
+        ("NO", "Norge"), ("PL", "Polska"), ("PT", "Portugal"),
+        ("RO", "România"), ("SE", "Sverige"), ("SI", "Slovenija"),
+        ("SK", "Slovensko"),
+    ]
 
     /// Reads the stored value, not the typed one: the whole point of the bug
     /// above was a screen that claimed to be ready on the strength of a
@@ -200,6 +226,25 @@ struct BankingSettings: View {
                 .font(.system(size: 13.5))
                 .foregroundStyle(Florin.text2)
                 .multilineTextAlignment(.center)
+
+            /*
+             * Said before the work, not after it.
+             *
+             * The three steps below are real effort — generate a key, register
+             * an application on someone else's website, paste an identifier —
+             * and on a build re-signed with a free Apple ID none of it can
+             * work, because the bank's redirect needs an entitlement that
+             * account cannot grant. Learning that at the end, from a failure,
+             * is the wrong order.
+             */
+            Text(Strings.device(
+                "v2.connect.sideloadNote",
+                "Installé depuis les releases ? La connexion bancaire demande un domaine qui vous appartient et un compte Apple payant — les autres fonctions marchent sans."
+            ))
+                .font(.system(size: 12))
+                .foregroundStyle(Florin.text3)
+                .multilineTextAlignment(.center)
+                .padding(.top, 2)
         }
         // Clear of the close button, and of the sheet's own grabber: a title
         // that starts right under the top edge reads as clipped.
@@ -515,6 +560,25 @@ struct BankingSettings: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Eyebrow(text: Strings.device("v2.connect.yourBank", "Votre banque"))
+                Menu {
+                    ForEach(Self.countries, id: \.code) { entry in
+                        Button(entry.name) {
+                            guard entry.code != country else { return }
+                            country = entry.code
+                            Task { await loadBanks() }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 3) {
+                        Text(Self.countries.first { $0.code == country }?.name ?? country)
+                            .font(.system(size: 12.5, weight: .medium))
+                            .foregroundStyle(Florin.text2)
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(Florin.text3)
+                    }
+                }
+                .padding(.leading, 8)
                 Spacer()
                 if flow.busy || searching {
                     ProgressView().controlSize(.small)

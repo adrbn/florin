@@ -136,7 +136,10 @@ struct OnboardingFlow: View {
 
                 secondaryAction
                     .frame(height: 30)
-                    .padding(.bottom, 18)
+
+                backAction
+                    .frame(height: 30)
+                    .padding(.bottom, 10)
             }
         }
         .sheet(isPresented: $importing, onDismiss: { onFinish() }) {
@@ -510,6 +513,41 @@ struct OnboardingFlow: View {
     /// with no path chosen used to land on the closing page having skipped
     /// the only question that decides what the app does next.
     private var canAdvance: Bool { step != 1 || path != nil }
+
+    /*
+     * A way back, which there was not.
+     *
+     * Past the welcome screen both controls moved forward — on the bank step
+     * the primary asked for notifications and the secondary said "plus tard",
+     * and both went to the bank setup. Someone who picked the wrong option, or
+     * who reached the bank screen and discovered they could not use it, had no
+     * route to the other choices: the only exit was force-quitting the app,
+     * which nothing on screen suggested.
+     */
+    @ViewBuilder
+    private var backAction: some View {
+        if step > 0 {
+            Button {
+                withAnimation {
+                    // Back into the fork resets the choice, so the next screen
+                    // is the question rather than the answer already given.
+                    if step == 1 { path = nil }
+                    step -= 1
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 11, weight: .semibold))
+                    Text(Strings.device("v2.common.back", "Retour"))
+                        .font(.system(size: 13.5, weight: .medium))
+                }
+                .foregroundStyle(Florin.text3)
+                .padding(8)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+    }
 
     @ViewBuilder
     private var secondaryAction: some View {
