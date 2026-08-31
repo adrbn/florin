@@ -105,9 +105,9 @@ enum ServerImport {
             }
         }
 
-        try write(
+        try await write(
             overview: overview, transactions: rows, budgets: budgets,
-            expenseGroupNames: expenseGroups, into: store
+            expenseGroupNames: expenseGroups, into: store, from: base
         )
         log.notice("imported \(rows.count) transactions from \(base.host ?? "?", privacy: .public)")
         return progress
@@ -132,9 +132,11 @@ enum ServerImport {
         transactions: [Transaction],
         budgets: [(year: Int, month: Int, categoryName: String, assigned: Double, note: String?)],
         expenseGroupNames: Set<String>,
-        into store: LocalStore
-    ) throws {
+        into store: LocalStore,
+        from base: URL
+    ) async throws {
         let db = store.database
+        var brokers: [String: String] = [:]
         try db.transaction {
             // Everything the server is about to supply, cleared first. Inside
             // the same transaction, so a failure leaves the device untouched
@@ -200,6 +202,9 @@ enum ServerImport {
             // Accounts, keyed by the server's own id so a second import updates
             // the same rows.
             var accountIds: [String: String] = [:]
+            // Server id → local id, for the one thing the overview does not
+            // carry: the positions behind a wrapper's market value.
+            var brokerAccounts: [String: String] = [:]
             for account in overview.accounts {
                 let external = "server:\(account.id)"
                 let existing = try db.scalar(
@@ -242,6 +247,7 @@ enum ServerImport {
                     ]
                 )
                 accountIds[account.name] = id
+                if account.kind.hasPrefix("broker") { brokerAccounts[account.id] = id }
             }
 
             for transaction in transactions {
@@ -309,6 +315,60 @@ enum ServerImport {
                     ]
                 )
             }
+
+            // Handed out of the transaction so the network calls that follow
+            // are not made while a write lock is held.
+            brokers = brokerAccounts
         }
+
+        /*
+         * The positions behind a wrapper, which the overview does not carry.
+         *
+         * A broker account came across with its market value and nothing to
+         * explain it: no line for the fund, no cost basis, and — since the
+         * device prices its own holdings — nothing for the next refresh to
+         * price. The wrapper's own screen showed a total and a list of
+         * mechanical adjustment rows, which is the state this import exists to
+         * get someone out of.
+         *
+         * One request per broker account, after the ledger is written: a
+         * failure here costs the position lines and leaves everything else
+         * imported, which is the right way round.
+         */
+        for (remoteId, localId) in brokers {
+            guard let payload = await portfolio(from: base, accountId: remoteId) else { continue }
+            try store.database.transaction {
+                try store.database.run(
+                    "DELETE FROM holdings WHERE account_id = ?", [.text(localId)]
+                )
+                for holding in payload.holdings {
+                    try store.database.run(
+                        """
+                        INSERT INTO holdings
+                            (id, account_id, label, quantity, cost_basis, currency,
+                             last_price, last_price_at)
+                        VALUES (?, ?, ?, ?, ?, 'EUR', ?, ?)
+                        """,
+                        [
+                            .text(UUID().uuidString), .text(localId),
+                            .text(holding.label), .real(holding.quantity),
+                            .real(holding.costBasis),
+                            holding.lastPrice.map { SQLiteValue.real($0) } ?? .null,
+                            holding.lastPrice != nil ? .text(Timestamp.now()) : .null,
+                        ]
+                    )
+                }
+            }
+        }
+    }
+
+    private static func portfolio(from base: URL, accountId: String) async -> PortfolioPayload? {
+        var components = URLComponents(url: base, resolvingAgainstBaseURL: false)
+        components?.path = "/api/v2/accounts/\(accountId)/portfolio"
+        guard let url = components?.url,
+              let (data, response) = try? await FlorinAuth.session.data(for: FlorinAuth.request(url)),
+              let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode)
+        else { return nil }
+        return try? JSONDecoder().decode(PortfolioPayload.self, from: data)
     }
 }
