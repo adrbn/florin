@@ -578,6 +578,36 @@ struct LoanMirrorTests {
         #expect(mirrors(store, on: loan) == 1)
     }
 
+    @Test("a payment on the 30th is not a second instalment for the 1st")
+    func acrossAMonthBoundary() throws {
+        let (store, ccp, loan, _) = try ledger()
+        // The bank takes it on the 30th of one month and posts the counterpart
+        // on the 1st of the next. Keyed on the calendar month those look like
+        // two different instalments; they are one.
+        try store.database.run(
+            """
+            INSERT INTO transactions
+                (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
+                 source, status, needs_review, transfer_pair_id)
+            VALUES (?, ?, '2026-09-01', 135.91, 'EUR', '↳ x', 'x', 'server', 'cleared', 0, ?)
+            """,
+            [.text(UUID().uuidString), .text(loan), .text(UUID().uuidString)]
+        )
+        let id = UUID().uuidString
+        try store.database.run(
+            """
+            INSERT INTO transactions
+                (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
+                 source, status, needs_review)
+            VALUES (?, ?, '2026-08-30', -135.91, 'EUR', 'PRELEVEMENT LBP', 'prelevement lbp',
+                    'enable_banking', 'cleared', 1)
+            """,
+            [.text(id), .text(ccp)]
+        )
+        #expect(try LocalLedger.reconcileLoanMirrors(store: store) == 0)
+        #expect(mirrors(store, on: loan) == 1)
+    }
+
     @Test("counterparts written twice are taken back")
     func dropsDuplicates() throws {
         let (store, ccp, loan, _) = try ledger()
