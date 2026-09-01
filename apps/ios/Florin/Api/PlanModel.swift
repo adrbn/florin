@@ -179,6 +179,28 @@ final class PlanModel: ObservableObject {
         Task { await load() }
     }
 
+    /// Months that carry a plan worth copying, newest first. Device only —
+    /// the server has its own copy button on its own screen.
+    var planSources: [LocalPlan.PlanSource] {
+        guard base.scheme == "florin-local", let plan, let store = LocalStore.shared
+        else { return [] }
+        return (try? LocalPlan.sourceMonths(
+            store.database, excluding: (plan.year, plan.month)
+        )) ?? []
+    }
+
+    /// Bring another month's amounts into this one, leaving anything already
+    /// set alone.
+    func copyPlan(from source: LocalPlan.PlanSource) async {
+        guard let plan, let store = LocalStore.shared else { return }
+        _ = try? LocalPlan.copyPlan(
+            store: store,
+            from: (source.year, source.month),
+            to: (plan.year, plan.month)
+        )
+        await load()
+    }
+
     func assign(_ amount: Double, to categoryId: String) async {
         guard let plan else { return }
         do {

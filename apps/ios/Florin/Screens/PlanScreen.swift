@@ -61,8 +61,44 @@ struct PlanScreen: View {
             TopBar(onProfile: onOpenSettings) {
                 monthStepper
             } trailing: {
-                CircleButton(symbol: "arrow.left.arrow.right", size: 44) {
-                    route(.activity, TabRoute.activity.rootPath)
+                HStack(spacing: 8) {
+                    /*
+                     * Last month's amounts, brought forward.
+                     *
+                     * A budget barely moves month to month — the rent does not,
+                     * the groceries hardly — so an empty month is twenty
+                     * amounts to retype that the ledger already holds one
+                     * screen away. Offered only where there is something to
+                     * copy from.
+                     */
+                    if !model.planSources.isEmpty {
+                        Menu {
+                            ForEach(model.planSources) { source in
+                                Button {
+                                    Task { await model.copyPlan(from: source) }
+                                } label: {
+                                    Text(t(
+                                        "v2.plan.copyFrom", "{month} · {count} catégories",
+                                        [
+                                            "month": Self.monthName(source.year, source.month),
+                                            "count": source.categories,
+                                        ]
+                                    ))
+                                }
+                            }
+                        } label: {
+                            Image(systemName: "doc.on.doc")
+                                .font(.system(size: 15, weight: .medium))
+                                .foregroundStyle(Florin.text2)
+                                .frame(width: 44, height: 44)
+                                .florinGlass(in: Circle())
+                                .contentShape(Circle())
+                        }
+                        .accessibilityLabel(t("v2.plan.copyPlan", "Reprendre un plan"))
+                    }
+                    CircleButton(symbol: "arrow.left.arrow.right", size: 44) {
+                        route(.activity, TabRoute.activity.rootPath)
+                    }
                 }
             }
             .padding(.bottom, 24)
@@ -169,6 +205,19 @@ struct PlanScreen: View {
 
     /// Month navigation lives in the middle of the top row, where the title
     /// would otherwise be — on this screen the month *is* the title.
+    /// "août 2026", in the reader's own language.
+    private static func monthName(_ year: Int, _ month: Int) -> String {
+        var components = DateComponents()
+        components.year = year
+        components.month = month
+        let calendar = Calendar(identifier: .gregorian)
+        guard let date = calendar.date(from: components) else { return "\(month)/\(year)" }
+        let f = DateFormatter()
+        f.locale = Locale(identifier: Strings.device.localeTag)
+        f.setLocalizedDateFormatFromTemplate("MMMMy")
+        return f.string(from: date)
+    }
+
     private var monthStepper: some View {
         HStack(spacing: 4) {
             Button { model.step(-1) } label: {
