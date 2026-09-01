@@ -88,9 +88,9 @@ struct PlanScreen: View {
                             }
                         } label: {
                             Image(systemName: "doc.on.doc")
-                                .font(.system(size: 15, weight: .medium))
+                                .font(.system(size: 14, weight: .medium))
                                 .foregroundStyle(Florin.text2)
-                                .frame(width: 44, height: 44)
+                                .frame(width: 38, height: 38)
                                 .florinGlass(in: Circle())
                                 .contentShape(Circle())
                         }
@@ -223,17 +223,28 @@ struct PlanScreen: View {
             Button { model.step(-1) } label: {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 13, weight: .semibold))
-                    .frame(width: 32, height: 44)
+                    .frame(width: 26, height: 44)
             }
+            /*
+             * One line, whatever the month is called.
+             *
+             * "Septembre 2026" is the longest label French produces, and with a
+             * second button now in the corner the capsule lost the width to
+             * hold it — so it wrapped, and a two-line month inside a
+             * fixed-height capsule sits off-centre as well as broken. It
+             * shrinks instead, which no month needs by more than a hair.
+             */
             Text(MonthLabel.long(model.month, locale: locale))
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(Florin.text)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
                 .frame(maxWidth: .infinity)
                 .contentTransition(.numericText())
             Button { model.step(1) } label: {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 13, weight: .semibold))
-                    .frame(width: 32, height: 44)
+                    .frame(width: 26, height: 44)
             }
         }
         .foregroundStyle(Florin.text2)
