@@ -24,6 +24,7 @@ struct PlanScreen: View {
      * say which of the two it wants.
      */
     @State private var sheet: PlanSheet?
+    @State private var pickingSource = false
 
     private enum PlanSheet: Identifiable {
         case assign(PlanCategory)
@@ -61,62 +62,17 @@ struct PlanScreen: View {
             TopBar(onProfile: onOpenSettings) {
                 monthStepper
             } trailing: {
-                HStack(spacing: 8) {
-                    /*
-                     * Last month's amounts, brought forward.
-                     *
-                     * A budget barely moves month to month — the rent does not,
-                     * the groceries hardly — so an empty month is twenty
-                     * amounts to retype that the ledger already holds one
-                     * screen away. Offered only where there is something to
-                     * copy from.
-                     */
-                    if !model.planSources.isEmpty {
-                        Menu {
-                            ForEach(model.planSources) { source in
-                                Button {
-                                    Task { await model.copyPlan(from: source) }
-                                } label: {
-                                    Text(t(
-                                        "v2.plan.copyFrom", "{month} · {count} catégories",
-                                        [
-                                            "month": Self.monthName(source.year, source.month),
-                                            "count": source.categories,
-                                        ]
-                                    ))
-                                }
-                            }
-                        } label: {
-                            Image(systemName: "doc.on.doc")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundStyle(Florin.text2)
-                                .frame(width: 38, height: 38)
-                                .florinGlass(in: Circle())
-                                .contentShape(Circle())
-                        }
-                        .accessibilityLabel(t("v2.plan.copyPlan", "Reprendre un plan"))
-                    }
-                    CircleButton(symbol: "arrow.left.arrow.right", size: 44) {
-                        route(.activity, TabRoute.activity.rootPath)
-                    }
+                CircleButton(symbol: "arrow.left.arrow.right", size: 44) {
+                    route(.activity, TabRoute.activity.rootPath)
                 }
             }
             .padding(.bottom, 24)
 
             if let plan = model.plan {
                 hero(plan)
-                    /*
-                     * Swipe the headline band to change month.
-                     *
-                     * On the whole screen it swallowed the rows' taps: a
-                     * DragGesture attached to a container competes with the
-                     * drag recogniser every Button already uses, and the rows
-                     * simply stopped opening. Up here there is nothing to
-                     * tap, the list below keeps its own scrolling, and the
-                     * chevrons remain for anyone who never tries the gesture.
-                     */
                     .contentShape(Rectangle())
                 summary(plan)
+                emptyPlanOffer(plan)
                 ForEach(plan.groups) { group in
                     groupSection(group)
                 }
@@ -130,6 +86,28 @@ struct PlanScreen: View {
                 .padding(.vertical, 60)
             } else {
                 ProgressView().frame(maxWidth: .infinity).padding(.vertical, 60)
+            }
+        }
+        /*
+         * The whole page turns, not just its headline.
+         *
+         * Simultaneously, which is the difference: an exclusive drag on a
+         * container beats the recogniser every Button already uses, and the
+         * rows stopped opening the last time this was tried. Sharing the
+         * gesture costs the rows nothing, and the list keeps its own vertical
+         * scrolling because the swipe only fires on a drag that is plainly
+         * sideways.
+         */
+        .simultaneousGesture(monthSwipe)
+        .sheet(isPresented: $pickingSource) {
+            PlanCopySheet(
+                sources: model.planSources,
+                hasAmounts: (model.plan?.totalAssigned ?? 0) > 0,
+                t: t,
+                locale: locale,
+                currency: currency
+            ) { source in
+                await model.copyPlan(from: source)
             }
         }
         .task { if model.plan == nil { await model.load() } }
@@ -194,6 +172,18 @@ struct PlanScreen: View {
     /// Horizontal only, and past a real distance, so it cannot be mistaken for
     /// the vertical scroll it sits on top of.
     private var monthSwipe: some Gesture {
+        /*
+         * Horizontal, and only horizontal.
+         *
+         * An earlier version put this on the whole screen with `.gesture` and
+         * the rows stopped opening: an exclusive drag recogniser on a container
+         * wins against the one every Button already uses. Attached
+         * simultaneously it competes with nothing — and the two conditions keep
+         * it out of the way of the list's own scrolling, which is the other
+         * gesture it shares the screen with. A drag has to be half again as
+         * wide as it is tall, and wider than sixty points, before it counts as
+         * turning a page.
+         */
         DragGesture(minimumDistance: 24)
             .onEnded { drag in
                 let dx = drag.translation.width
@@ -205,6 +195,49 @@ struct PlanScreen: View {
 
     /// Month navigation lives in the middle of the top row, where the title
     /// would otherwise be — on this screen the month *is* the title.
+    /*
+     * A month with nothing in it, and the one thing worth doing about it.
+     *
+     * An empty plan is a screen of zeros with twenty amounts to type, and the
+     * amounts are almost the ones from last month. Offered where the emptiness
+     * is visible — directly under the two tiles that are reading zero — rather
+     * than behind a corner button nobody presses on a screen they have just
+     * opened for the first time this month.
+     */
+    @ViewBuilder
+    private func emptyPlanOffer(_ plan: MonthPlan) -> some View {
+        if plan.totalAssigned == 0, !model.planSources.isEmpty {
+            Button { pickingSource = true } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "doc.on.doc")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(Florin.accent)
+                        .frame(width: 22)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(t("v2.plan.emptyTitle", "Ce mois est vide"))
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(Florin.text)
+                        Text(t(
+                            "v2.plan.emptyHint",
+                            "Reprenez les montants d'un mois déjà réparti."
+                        ))
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(Florin.text2)
+                    }
+                    Spacer(minLength: 4)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Florin.text3)
+                }
+                .padding(14)
+                .florinSurface()
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, Florin.gutter)
+        }
+    }
+
     /// "août 2026", in the reader's own language.
     private static func monthName(_ year: Int, _ month: Int) -> String {
         var components = DateComponents()
@@ -252,6 +285,29 @@ struct PlanScreen: View {
         .frame(maxWidth: .infinity)
         .frame(height: 44)
         .florinGlass(in: Capsule())
+        .contentShape(Capsule())
+        // The control that shows the month should also be the one you can
+        // throw sideways.
+        .simultaneousGesture(monthSwipe)
+        /*
+         * The rarer thing, on the thing it acts on.
+         *
+         * Copying a plan happens once a month at most, and a button for it in
+         * the corner sat beside one used every day, competing for a place it
+         * did not need. Held, the month offers what can be done to a month.
+         */
+        .contextMenu {
+            if !model.planSources.isEmpty {
+                Button {
+                    pickingSource = true
+                } label: {
+                    Label(
+                        t("v2.plan.copyPlan", "Reprendre le plan d'un autre mois"),
+                        systemImage: "doc.on.doc"
+                    )
+                }
+            }
+        }
     }
 
     private func hero(_ plan: MonthPlan) -> some View {
