@@ -155,6 +155,80 @@ enum LocalPlan {
     }
 
     /// Assigning is an upsert: one budget row per (year, month, category).
+    /// A month that has budgets, and how many — for offering something to copy.
+    struct PlanSource: Identifiable, Equatable {
+        var year: Int
+        var month: Int
+        var categories: Int
+        var total: Double
+        var id: String { "\(year)-\(month)" }
+    }
+
+    /// The months worth copying from, newest first.
+    static func sourceMonths(_ db: SQLiteDatabase, excluding: (year: Int, month: Int)) throws -> [PlanSource] {
+        try db.query(
+            """
+            SELECT year, month, count(*) AS n, coalesce(sum(assigned), 0) AS total
+            FROM monthly_budgets
+            WHERE assigned > 0 AND NOT (year = ? AND month = ?)
+            GROUP BY year, month
+            ORDER BY year DESC, month DESC
+            LIMIT 12
+            """,
+            [.integer(Int64(excluding.year)), .integer(Int64(excluding.month))]
+        ).map {
+            PlanSource(
+                year: $0.int("year") ?? 0, month: $0.int("month") ?? 0,
+                categories: $0.int("n") ?? 0, total: $0.double("total") ?? 0
+            )
+        }
+    }
+
+    /*
+     * Last month's plan, brought forward.
+     *
+     * A budget is mostly the same month after month — the rent does not move,
+     * the groceries barely — so starting an empty month by retyping twenty
+     * amounts is work the ledger already knows the answer to.
+     *
+     * Only categories with nothing assigned are filled. Copying over a figure
+     * someone has already set this month would undo a deliberate decision to
+     * answer a question they did not ask.
+     */
+    @discardableResult
+    static func copyPlan(
+        store: LocalStore, from source: (year: Int, month: Int), to target: (year: Int, month: Int)
+    ) throws -> Int {
+        var copied = 0
+        try store.database.transaction {
+            let rows = try store.database.query(
+                """
+                SELECT b.category_id, b.assigned FROM monthly_budgets b
+                JOIN categories c ON c.id = b.category_id AND c.is_archived = 0
+                WHERE b.year = ? AND b.month = ? AND b.assigned > 0
+                """,
+                [.integer(Int64(source.year)), .integer(Int64(source.month))]
+            )
+            for row in rows {
+                guard let category = row.string("category_id") else { continue }
+                let existing = try store.database.scalar(
+                    """
+                    SELECT assigned FROM monthly_budgets
+                    WHERE year = ? AND month = ? AND category_id = ?
+                    """,
+                    [.integer(Int64(target.year)), .integer(Int64(target.month)), .text(category)]
+                )?.double
+                guard (existing ?? 0) == 0 else { continue }
+                try assign(
+                    store: store, year: target.year, month: target.month,
+                    categoryId: category, amount: row.double("assigned") ?? 0
+                )
+                copied += 1
+            }
+        }
+        return copied
+    }
+
     static func assign(
         store: LocalStore,
         year: Int,
