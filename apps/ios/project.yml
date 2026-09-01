@@ -70,7 +70,7 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: Florin/Info.plist
-        CURRENT_PROJECT_VERSION: 398
+        CURRENT_PROJECT_VERSION: 399
         MARKETING_VERSION: "1.3.2"
     dependencies:
       - target: FlorinWidgets
@@ -114,6 +114,6 @@ targets:
         # file and not the Local folder it lives in.
         APPLICATION_EXTENSION_API_ONLY: YES
         SKIP_INSTALL: YES
-        CURRENT_PROJECT_VERSION: 398
+        CURRENT_PROJECT_VERSION: 399
         MARKETING_VERSION: "1.3.2"
         INFOPLIST_KEY_CFBundleDisplayName: Florin

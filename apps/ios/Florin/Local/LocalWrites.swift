@@ -446,8 +446,8 @@ enum LocalLedger {
               AND EXISTS (
                 SELECT 1 FROM transactions k
                 WHERE k.account_id = m.account_id AND k.deleted_at IS NULL
-                  AND substr(k.occurred_at, 1, 7) = substr(m.occurred_at, 1, 7)
                   AND abs(k.amount - m.amount) < 0.005
+                  AND abs(julianday(k.occurred_at) - julianday(m.occurred_at)) <= 5
                   AND (k.created_at < m.created_at
                        OR (k.created_at = m.created_at AND k.id < m.id))
               )
@@ -487,8 +487,8 @@ enum LocalLedger {
                 SELECT 1 FROM transactions m
                 WHERE m.account_id = c.linked_loan_account_id
                   AND m.deleted_at IS NULL
-                  AND substr(m.occurred_at, 1, 10) = substr(t.occurred_at, 1, 10)
                   AND abs(m.amount + t.amount) < 0.005
+                  AND abs(julianday(m.occurred_at) - julianday(t.occurred_at)) <= 5
               )
             """
         ).compactMap { $0.string("id") }
@@ -517,10 +517,25 @@ enum LocalLedger {
             WHERE t.deleted_at IS NULL AND a.kind <> 'loan'
               AND t.amount < 0
               AND abs(abs(t.amount) - loan.loan_monthly_payment) < 0.005
+              /*
+               * A window, because a month boundary is not one.
+               *
+               * "One counterpart per calendar month" looked like the rule and
+               * is not: a debit taken on the 30th of April is the May
+               * instalment, and the bank dates the two sides differently often
+               * enough that they land either side of a month end. The guard
+               * then saw no counterpart in "the same month" and wrote a second
+               * one — which is how twenty-six repayments became twenty-eight.
+               *
+               * Five days around the payment is what a bank's own posting
+               * spread looks like, and no two instalments of the same loan are
+               * that close together.
+               */
               AND NOT EXISTS (
                 SELECT 1 FROM transactions m
                 WHERE m.account_id = loan.id AND m.deleted_at IS NULL
-                  AND substr(m.occurred_at, 1, 7) = substr(t.occurred_at, 1, 7)
+                  AND abs(m.amount + t.amount) < 0.005
+                  AND abs(julianday(m.occurred_at) - julianday(t.occurred_at)) <= 5
               )
             GROUP BY t.id
             """

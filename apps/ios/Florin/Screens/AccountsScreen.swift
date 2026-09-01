@@ -470,8 +470,9 @@ struct AccountDetailScreen: View {
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(Florin.text3)
                 }
-                .padding(14)
-                .florinSurface()
+                // No surface of its own: the list already wraps this slot in a
+                // card, and adding one drew a box inside a box.
+                .padding(.vertical, 2)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
