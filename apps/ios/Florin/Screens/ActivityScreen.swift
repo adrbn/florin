@@ -47,6 +47,21 @@ struct TransactionList<Banner: View>: View {
     let base: URL
     let tint: Color
     let title: String
+    /*
+     * The heading follows the filter.
+     *
+     * Opening an account fixed the title, the caption and the hero at that
+     * moment, and the filter inside the sheet then changed which account's rows
+     * were listed without any of them noticing — so the page said "Prêt
+     * étudiant" over the PEA's transactions and its balance. The list knows
+     * which account is being shown; the title should ask it rather than
+     * remember what it was opened with.
+     */
+    private var filteredAccount: Account? {
+        guard let id = model.filter.accountId else { return nil }
+        return model.accounts.first { $0.id == id }
+    }
+
     let locale: String
     let currency: String
     let t: Strings
@@ -141,8 +156,10 @@ struct TransactionList<Banner: View>: View {
             header
             if let heroValue {
                 HeroBlock(
-                    caption: heroCaption ?? title,
-                    value: heroValue,
+                    // The account being shown, and its balance — both follow
+                    // the filter rather than what the screen was opened with.
+                    caption: filteredAccount?.name ?? heroCaption ?? title,
+                    value: filteredAccount?.displayValue ?? heroValue,
                     locale: locale,
                     currency: currency,
                     size: 48
