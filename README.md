@@ -131,9 +131,9 @@ Developer membership: properly signed, no seven-day expiry, updates arrive on
 their own — and bank sync actually works, because the build carries the
 Associated Domains entitlement a re-signed one cannot. External testers join by
 link, up to 10 000, without joining your developer team; each build passes a
-Beta App Review and expires after 90 days. Point the reviewer at "Saisir mes
-comptes": the bank path asks them to register their own Enable Banking
-application, which is not something a reviewer will do.
+Beta App Review and expires after 90 days. The steps, the answers App Store
+Connect asks for, and the review note that keeps a first submission from being
+rejected are in [`apps/ios/TESTFLIGHT.md`](apps/ios/TESTFLIGHT.md).
 
 **Build it yourself** with Xcode 26 or newer:
 
