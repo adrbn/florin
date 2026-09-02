@@ -47,15 +47,30 @@ Florin server.
 
 ## Features
 
-- Multi-account tracking: checking, savings, cash, loans, brokerage
-- Dashboard: net worth, burn rate, safety gauge, monthly margin, patrimony chart with forecast, asset allocation, rolling savings rate, month-end projection, long-term goal
-- Investing: holdings with cost basis and unrealized P/L, opt-in live quotes, contributed-vs-market split, and a contribution-ceiling gauge for tax wrappers (France's PEA by default)
-- Loans: real amortization — solves the periodic rate from principal/payment/term so "capital restant dû" matches the bank to the cent
-- Review queue with bulk approve / recategorize / delete
-- Reflect analytics: 52-week spending heatmap, rolling savings rate, subscriptions radar, "if I stopped X" counterfactual, net worth over time
-- CSV / OFX / QFX import with auto column mapping
-- PDF monthly summary export
-- Command palette (⌘K), keyboard shortcuts, dark mode, English + French
+**The month you are in**
+- A dashboard that leads with what is left to spend, and how long it has to last
+- A month-end projection that widens when the month is young and narrows as it fills, rather than pretending to know on the 3rd
+- A plan in category groups, with a review queue that learns from how you file your own history — and offers its guess rather than filing silently when it is unsure
+- Bring last month's amounts forward instead of retyping them
+
+**Money that is not cash**
+- Loans on a real amortisation schedule: the periodic rate is recovered from your contract, so *capital restant dû* matches the bank rather than approximating it, and every instalment moves it
+- Holdings with cost basis and unrealised gain, contributed-versus-market split, live quotes fetched by symbol alone
+- Net worth over time, asset allocation, rolling savings rate over complete months
+
+**Getting money in**
+- PSD2 bank sync through your own Enable Banking application
+- CSV and OFX import that reads what French, German and English banks actually export — preamble lines, semicolons, comma decimals, and a date order it works out from the file
+- Manual entry, transfers between your own accounts, and a prompt when money leaves for an account the bank does not sync
+
+**Living with it**
+- Face ID over the whole ledger; shake to hide every amount
+- A home-screen widget with what is left and the daily pace it allows
+- One notification a morning, after the bank has published overnight — never one per transaction
+- Export a copy you can read with any SQLite tool, and restore it onto a new phone
+- English, French and Dutch throughout
+
+## Platforms
 
 ### Desktop (`apps/desktop`)
 
@@ -110,6 +125,15 @@ is allowed to declare rather than anything in the app:
 Everything else works: manual entry, transfers, categories, budgets, the
 dashboard, import/export — or point it at your own Florin server, and the phone
 becomes a client of it.
+
+**TestFlight.** The signed route, and the better one if you have an Apple
+Developer membership: properly signed, no seven-day expiry, updates arrive on
+their own — and bank sync actually works, because the build carries the
+Associated Domains entitlement a re-signed one cannot. External testers join by
+link, up to 10 000, without joining your developer team; each build passes a
+Beta App Review and expires after 90 days. Point the reviewer at "Saisir mes
+comptes": the bank path asks them to register their own Enable Banking
+application, which is not something a reviewer will do.
 
 **Build it yourself** with Xcode 26 or newer:
 

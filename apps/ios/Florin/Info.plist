@@ -67,6 +67,13 @@
 	     the prompt does not appear at all and the app looks broken. -->
 	<key>NSFaceIDUsageDescription</key>
 	<string>Florin demande Face ID pour ouvrir votre grand livre.</string>
+	<!-- Asked on every TestFlight and App Store upload, and it would be asked
+	     again on each one if the answer were not stored here. Florin's only
+	     cryptography is HTTPS and the RSA signature on its own API requests —
+	     authentication, not content protection — which is the exemption every
+	     such app claims. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>UIFileSharingEnabled</key>
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
