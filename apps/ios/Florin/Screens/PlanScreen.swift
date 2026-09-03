@@ -258,10 +258,25 @@ struct PlanScreen: View {
         withAnimation(.easeOut(duration: 0.16), completionCriteria: .logicallyComplete) {
             dragX = direction * pageWidth
         } completion: {
-            model.step(delta)
-            dragX = -direction * pageWidth
-            withAnimation(.easeOut(duration: 0.22)) { dragX = 0 }
-            turning = false
+            Task {
+                /*
+                 * The month is read while the page is off screen.
+                 *
+                 * On the device that is a query against a file and takes no
+                 * time at all, so the page can come back already made. Against
+                 * a server it is a round trip, and holding an empty screen for
+                 * the length of one would be worse than the thing this fixes —
+                 * so there the load runs behind the movement, as before.
+                 */
+                if model.isLocal {
+                    await model.stepAndLoad(delta)
+                } else {
+                    model.step(delta)
+                }
+                dragX = -direction * pageWidth
+                withAnimation(.easeOut(duration: 0.22)) { dragX = 0 }
+                turning = false
+            }
         }
     }
 

@@ -180,21 +180,45 @@ final class PlanModel: ObservableObject {
         }
     }
 
+    /// True when the figures come from this device's own database, and a month
+    /// can therefore be read in the time it takes to answer a gesture.
+    var isLocal: Bool { base.scheme == "florin-local" }
+
     /// Move to the previous or next month. Steps through the calendar rather
     /// than adding 30 days, or December + 1 lands in December.
     func step(_ delta: Int) {
+        guard moveMonth(delta) else { return }
+        Task { await load() }
+    }
+
+    /*
+     * The same step, awaited.
+     *
+     * A caller animating the change wants the next month already made when it
+     * comes on screen. Firing the load and returning meant the page slid back
+     * in still showing the month it had left, and whatever the new one added —
+     * the card offering to copy a plan into an empty month, most visibly —
+     * appeared halfway through the movement.
+     */
+    func stepAndLoad(_ delta: Int) async {
+        guard moveMonth(delta) else { return }
+        await load()
+    }
+
+    @discardableResult
+    private func moveMonth(_ delta: Int) -> Bool {
         let parts = month.split(separator: "-").compactMap { Int($0) }
-        guard parts.count == 2 else { return }
+        guard parts.count == 2 else { return false }
         var components = DateComponents()
         components.year = parts[0]
         components.month = parts[1]
         components.day = 1
         let calendar = Calendar(identifier: .gregorian)
         guard let date = calendar.date(from: components),
-              let moved = calendar.date(byAdding: .month, value: delta, to: date) else { return }
+              let moved = calendar.date(byAdding: .month, value: delta, to: date) else { return false }
         let next = calendar.dateComponents([.year, .month], from: moved)
         month = String(format: "%04d-%02d", next.year ?? parts[0], next.month ?? parts[1])
-        Task { await load() }
+        return true
     }
 
     /// Months that carry a plan worth copying, newest first. Device only —
