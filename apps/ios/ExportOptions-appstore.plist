@@ -8,8 +8,25 @@
 	<string>2TWQF4T93E</string>
 	<key>uploadSymbols</key>
 	<true/>
+	<!--
+	  Manual, not automatic.
+
+	  Automatic signing asks App Store Connect for a cloud-managed distribution
+	  certificate, and that needs an API key with Admin rights. The certificate
+	  here was issued against the CSR in ~/florin-signing instead, so the
+	  profiles are named outright and the export needs no cloud call at all.
+	-->
 	<key>signingStyle</key>
-	<string>automatic</string>
+	<string>manual</string>
+	<key>signingCertificate</key>
+	<string>iPhone Distribution: Adrien Robino (2TWQF4T93E)</string>
+	<key>provisioningProfiles</key>
+	<dict>
+		<key>com.adrbn.florin</key>
+		<string>Florin App Store</string>
+		<key>com.adrbn.florin.widgets</key>
+		<string>Florin Widgets App Store</string>
+	</dict>
 	<key>destination</key>
 	<string>export</string>
 </dict>
