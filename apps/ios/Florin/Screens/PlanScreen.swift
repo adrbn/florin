@@ -31,6 +31,14 @@ struct PlanScreen: View {
     @State private var dragX: CGFloat = 0
     @State private var pageWidth: CGFloat = 400
     @State private var turning = false
+    /*
+     * True from the moment a drag reads as sideways.
+     *
+     * `@GestureState` rather than `@State` on purpose: it returns to false on
+     * its own when the gesture ends *or is cancelled*, so a swipe interrupted
+     * by a call or a notification cannot leave the screen unable to scroll.
+     */
+    @GestureState private var sideways = false
 
     private enum PlanSheet: Identifiable {
         case assign(PlanCategory)
@@ -135,6 +143,17 @@ struct PlanScreen: View {
          * sideways.
          */
         .simultaneousGesture(monthSwipe)
+        /*
+         * A page turn is not a pull.
+         *
+         * The scroll view underneath owns the vertical axis and the refresh
+         * that hangs off it, and it went on owning both while the page was
+         * being pushed sideways — so a swipe with any downward lean in it
+         * reloaded the month as well as turning it. Taking scrolling away the
+         * moment the drag reads as horizontal cancels the pan it had already
+         * started, which is what stops the refresh reaching its threshold.
+         */
+        .scrollDisabled(sideways)
         .sheet(isPresented: $pickingSource) {
             PlanCopySheet(
                 sources: model.planSources,
@@ -221,6 +240,14 @@ struct PlanScreen: View {
          * turning a page.
          */
         DragGesture(minimumDistance: 24)
+            // Latched for the rest of the gesture: a swipe that starts across
+            // and then wanders down is still a page turn, and handing the
+            // scroll view back halfway would be worse than never taking it.
+            .updating($sideways) { drag, state, _ in
+                if abs(drag.translation.width) > abs(drag.translation.height) * 1.5 {
+                    state = true
+                }
+            }
             .onChanged { drag in
                 let dx = drag.translation.width
                 guard !turning, abs(dx) > abs(drag.translation.height) * 1.5 else { return }
