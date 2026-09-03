@@ -39,10 +39,11 @@ Tout ce que la soumission demande, prêt à coller. L'app est `6807898365`,
 2. **Confidentialité de l'app** — « Non, nous ne collectons aucune donnée ».
    Le questionnaire n'est pas exposé par l'API ; c'est une déclaration légale,
    trois clics dans **Distribution → Confidentialité de l'app**.
-3. **Statut de commerçant** — voir juste en dessous.
+3. **Statut de commerçant** — accepté (voir section suivante).
 4. **Coordonnées d'examen** (nom, téléphone, e-mail) et les notes de la section
    [Notes pour l'examinateur](#notes-pour-lexaminateur).
-5. **Soumettre.**
+5. **Attacher la build 1.3.4 une fois construite avec un Xcode public.**
+6. **Soumettre.**
 
 ## Statut de commerçant — à lire avant tout le reste
 
