@@ -7,33 +7,42 @@ Tout ce que la soumission demande, prêt à coller. L'app est `6807898365`,
 
 ## Où on en est
 
-**Fait, et vérifié :**
+**Posé dans App Store Connect, par l'API, le 3 septembre 2026 :**
+
+| | |
+|---|---|
+| Version | `1.3.4` (renommée depuis `1.0`, pour correspondre au `CFBundleShortVersionString`) |
+| Sous-titre | Vos comptes restent chez vous |
+| Description, mots-clés, texte promotionnel | fr-FR, remplis |
+| URL | assistance, marketing, politique de confidentialité |
+| Catégorie principale | Finance |
+| Classification par âge | déclarée, sans restriction — l'app ressort 4+ |
+| Captures 6,9″ | cinq, 1320 × 2868, téléversées et acceptées |
+
+**Fait sur cette machine :**
 
 | | |
 |---|---|
 | Certificat de distribution | `iOS Distribution: Adrien Robino`, émis le 03/09/2026, valable jusqu'au 03/09/2027. Créé depuis la CSR de `~/florin-signing/`, installé dans le trousseau. |
-| Profils App Store | `Florin App Store` et `Florin Widgets App Store`, actifs, installés dans `~/Library/MobileDevice/Provisioning Profiles/`. |
-| IPA signée | `apps/ios/build-export/Florin.ipa`, 5,7 Mo, signée pour l'App Store. |
+| Profils App Store | `Florin App Store` et `Florin Widgets App Store`, actifs, dans `~/Library/MobileDevice/Provisioning Profiles/`. |
+| IPA signée | `apps/ios/build-export/Florin.ipa`, 5,7 Mo. |
 | Icône | Aplatie sur blanc. Apple refuse un canal alpha sur l'icône 1024 ; le rendu est identique au pixel près, iOS applique son propre masque. |
-| Conformité export | `ITSAppUsesNonExemptEncryption = false` dans l'Info.plist, donc la question n'est plus posée à chaque envoi. |
-| Captures 6,9″ | `AppStore/screenshots-6.9/`, 1320 × 2868, ledger fictif. |
+| Conformité export | `ITSAppUsesNonExemptEncryption = false` dans l'Info.plist. |
 
-**Bloqué sur une seule chose :** Apple refuse tout ce qui est construit avec un
-Xcode bêta, à la validation comme au téléversement.
+**Reste à faire, et seul le titulaire du compte peut le faire :**
 
-```
-Unsupported SDK or Xcode version (90534)
-```
-
-Cette machine n'a que **Xcode-beta 27.0**. Il faut un Xcode public ou RC — c'est
-le seul geste que je ne peux pas faire à ta place, l'installation demandant ton
-compte Apple.
-
-1. App Store → chercher « Xcode » → installer (ou developer.apple.com/download).
-2. `sudo xcode-select -s /Applications/Xcode.app`
-3. Relancer les trois commandes de la section [Construire et envoyer](#construire-et-envoyer).
-
----
+1. **Installer un Xcode public.** Apple refuse tout binaire construit avec une
+   bêta, à la validation comme au téléversement (`error 90534`), et cette
+   machine n'a que Xcode-beta 27.0. `sudo xcode-select -s /Applications/Xcode.app`
+   ne marchera qu'une fois Xcode installé — sinon le chemin n'existe pas et la
+   commande répond `invalid developer directory`.
+2. **Confidentialité de l'app** — « Non, nous ne collectons aucune donnée ».
+   Le questionnaire n'est pas exposé par l'API ; c'est une déclaration légale,
+   trois clics dans **Distribution → Confidentialité de l'app**.
+3. **Statut de commerçant** — voir juste en dessous.
+4. **Coordonnées d'examen** (nom, téléphone, e-mail) et les notes de la section
+   [Notes pour l'examinateur](#notes-pour-lexaminateur).
+5. **Soumettre.**
 
 ## Statut de commerçant — à lire avant tout le reste
 
