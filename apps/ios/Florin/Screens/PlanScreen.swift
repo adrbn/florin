@@ -25,10 +25,12 @@ struct PlanScreen: View {
      */
     @State private var sheet: PlanSheet?
     @State private var pickingSource = false
-    /// How far the page has been dragged, and which way the last turn went —
-    /// the transition needs the direction to know which edge to leave by.
+    /// How far the page has been dragged, how wide it is, and whether a turn
+    /// is already under way — one gesture per page or the two animations
+    /// overlap and fight each other.
     @State private var dragX: CGFloat = 0
-    @State private var turn = 1
+    @State private var pageWidth: CGFloat = 400
+    @State private var turning = false
 
     private enum PlanSheet: Identifiable {
         case assign(PlanCategory)
@@ -74,15 +76,19 @@ struct PlanScreen: View {
 
             if let plan = model.plan {
                 /*
-                 * The month turns like a page.
+                 * The month turns like a page — one movement, not two.
                  *
-                 * Changing the label and swapping the numbers underneath it
-                 * left nothing to say which way you had gone, or that you had
-                 * gone anywhere. Keyed on the month so SwiftUI treats the two
-                 * months as different views, it slides out the way the finger
-                 * pushed it and the next one follows in behind — and the
-                 * offset makes the drag itself visible before it is released,
-                 * so the page is under the thumb rather than after it.
+                 * A keyed view with a move transition looked right on paper and
+                 * jolted twice on the phone: the finger's offset was released
+                 * back to zero in the same update that started the transition,
+                 * so the page snapped home before setting off again. The two
+                 * animations were describing the same motion and neither knew
+                 * about the other.
+                 *
+                 * One offset owns it instead. The drag carries it, the release
+                 * carries it the rest of the way out, the month changes while
+                 * the page is off-screen, and it comes back from the far side.
+                 * Nothing else moves, so there is nothing left to disagree.
                  */
                 VStack(alignment: .leading, spacing: 30) {
                     hero(plan)
@@ -94,14 +100,18 @@ struct PlanScreen: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .background {
+                    GeometryReader { proxy in
+                        Color.clear
+                            .onAppear { pageWidth = proxy.size.width }
+                            .onChange(of: proxy.size.width) { _, width in
+                                pageWidth = width
+                            }
+                    }
+                }
                 .offset(x: dragX)
-                .id(model.month)
-                .transition(.asymmetric(
-                    insertion: .move(edge: turn > 0 ? .trailing : .leading)
-                        .combined(with: .opacity),
-                    removal: .move(edge: turn > 0 ? .leading : .trailing)
-                        .combined(with: .opacity)
-                ))
+                // A page on its way out is not a page you can read.
+                .opacity(pageWidth > 0 ? 1 - min(0.55, abs(dragX) / pageWidth) : 1)
             } else if let failure = model.failure {
                 VStack(spacing: 10) {
                     Image(systemName: "wifi.exclamationmark").font(.system(size: 28))
@@ -213,7 +223,7 @@ struct PlanScreen: View {
         DragGesture(minimumDistance: 24)
             .onChanged { drag in
                 let dx = drag.translation.width
-                guard abs(dx) > abs(drag.translation.height) * 1.5 else { return }
+                guard !turning, abs(dx) > abs(drag.translation.height) * 1.5 else { return }
                 // Damped past the point where the page would turn: the drag
                 // keeps answering the finger without the content ever leaving
                 // the screen while it is still being held.
@@ -223,16 +233,36 @@ struct PlanScreen: View {
                     : dx
             }
             .onEnded { drag in
+                guard !turning else { return }
                 let dx = drag.translation.width
                 guard abs(dx) > abs(drag.translation.height) * 1.5, abs(dx) > 60 else {
                     withAnimation(.snappy(duration: 0.2)) { dragX = 0 }
                     return
                 }
                 UISelectionFeedbackGenerator().selectionChanged()
-                turn = dx < 0 ? 1 : -1
-                dragX = 0
-                withAnimation(.snappy(duration: 0.3)) { model.step(turn) }
+                turn(dx < 0 ? 1 : -1)
             }
+    }
+
+    /*
+     * Out the way it was pushed, then in from the far side.
+     *
+     * The month changes in the completion, while the page is off-screen, so
+     * the new figures are never seen arriving — and the return leg starts from
+     * a parked offset rather than from a transition, which is what keeps the
+     * whole thing one movement.
+     */
+    private func turn(_ delta: Int) {
+        let direction: CGFloat = delta > 0 ? -1 : 1
+        turning = true
+        withAnimation(.easeOut(duration: 0.16), completionCriteria: .logicallyComplete) {
+            dragX = direction * pageWidth
+        } completion: {
+            model.step(delta)
+            dragX = -direction * pageWidth
+            withAnimation(.easeOut(duration: 0.22)) { dragX = 0 }
+            turning = false
+        }
     }
 
     /// Month navigation lives in the middle of the top row, where the title
@@ -295,7 +325,7 @@ struct PlanScreen: View {
 
     private var monthStepper: some View {
         HStack(spacing: 4) {
-            Button { model.step(-1) } label: {
+            Button { turn(-1) } label: {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 13, weight: .semibold))
                     .frame(width: 26, height: 44)
@@ -316,7 +346,7 @@ struct PlanScreen: View {
                 .minimumScaleFactor(0.75)
                 .frame(maxWidth: .infinity)
                 .contentTransition(.numericText())
-            Button { model.step(1) } label: {
+            Button { turn(1) } label: {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 13, weight: .semibold))
                     .frame(width: 26, height: 44)
