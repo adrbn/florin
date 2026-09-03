@@ -169,7 +169,31 @@ export function computeMonthForecast(lts: LeftToSpend): MonthForecast {
    * margin is the harmless direction.
    */
   const refunds = lts.monthRefunds ?? 0
-  const projectedNetSpend = Math.max(lts.monthSpent - refunds, projectedSpend - refunds)
+  /*
+   * Refunds are projected, not merely counted.
+   *
+   * Only the ones already banked used to be subtracted, from a gross series —
+   * so on the 3rd of a month the model carried a full month of spending and
+   * not one of the reimbursements that answer it. On a ledger averaging 416 €
+   * back a month it read a margin of +86 € where the month reliably ends near
+   * +500 €, with the bar drawn nearly full before anything had happened.
+   *
+   * Blended exactly like the daily spend, and for the same reason: early on,
+   * six months of habit know more than three days do; by the 28th what has
+   * actually arrived decides. Never below what is already banked.
+   */
+  const observedRefundDaily = lts.daysElapsed > 0 ? refunds / lts.daysElapsed : 0
+  const priorRefundDaily =
+    daysInMonth > 0 ? Math.max(0, lts.expectedMonthlyRefunds ?? 0) / daysInMonth : 0
+  const blendedRefundDaily =
+    weight > 0
+      ? (lts.daysElapsed * observedRefundDaily + priorWeight * priorRefundDaily) / weight
+      : observedRefundDaily
+  const projectedRefunds = Math.max(refunds, blendedRefundDaily * daysInMonth)
+  const projectedNetSpend = Math.max(
+    lts.monthSpent - refunds,
+    projectedSpend - projectedRefunds,
+  )
   const hasIncome = lts.monthIncome > 0
   const projectedMargin = hasIncome ? lts.monthIncome - projectedNetSpend : null
   return {

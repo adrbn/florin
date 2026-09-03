@@ -107,7 +107,7 @@
     "v2.analysis.ageOfMoneyHint": "How long the money you spend has been with you",
     "v2.analysis.avgPerDay": "Average per day",
     "v2.analysis.biweekly": "Every 2 weeks",
-    "v2.analysis.busiestDay": "Most expensive day",
+    "v2.analysis.busiestDay": "Heaviest day",
     "v2.analysis.byCategory": "By category",
     "v2.analysis.byGroup": "By group",
     "v2.analysis.byWeekday": "By weekday",
@@ -625,7 +625,13 @@
     "v2.tools.title": "Tools",
     "v2.tools.totalCost": "Total interest cost",
     "v2.tools.totalPaid": "Total repaid",
-    "v2.tools.years": "Duration (years)"
+    "v2.tools.years": "Duration (years)",
+    "v2.plan.incomeExpected": "Income expected",
+    "v2.plan.ofExpectedIncome": "of about {income} expected",
+    "v2.analysis.tab.calendar": "Calendar",
+    "v2.analysis.calendarCaption": "Spending per day, over {days} days",
+    "v2.analysis.quietDays": "{count} days without spending",
+    "v2.analysis.perActiveDay": "{amount} on days with spending"
   },
   "fr": {
     "v2.a11y.back": "Retour",
@@ -735,7 +741,7 @@
     "v2.analysis.ageOfMoneyHint": "Depuis combien de temps l'argent que vous dépensez est chez vous",
     "v2.analysis.avgPerDay": "Moyenne par jour",
     "v2.analysis.biweekly": "Toutes les 2 semaines",
-    "v2.analysis.busiestDay": "Journée la plus chère",
+    "v2.analysis.busiestDay": "Jour le plus lourd",
     "v2.analysis.byCategory": "Par catégorie",
     "v2.analysis.byGroup": "Par poste",
     "v2.analysis.byWeekday": "Par jour de semaine",
@@ -1253,7 +1259,13 @@
     "v2.tools.title": "Outils",
     "v2.tools.totalCost": "Coût total du crédit",
     "v2.tools.totalPaid": "Total remboursé",
-    "v2.tools.years": "Durée (années)"
+    "v2.tools.years": "Durée (années)",
+    "v2.plan.incomeExpected": "Revenus attendus",
+    "v2.plan.ofExpectedIncome": "sur environ {income} attendus",
+    "v2.analysis.tab.calendar": "Calendrier",
+    "v2.analysis.calendarCaption": "Dépenses par jour, sur {days} jours",
+    "v2.analysis.quietDays": "{count} jours sans dépense",
+    "v2.analysis.perActiveDay": "{amount} les jours de dépense"
   },
   "nl": {
     "v2.a11y.back": "Terug",
@@ -1363,7 +1375,7 @@
     "v2.analysis.ageOfMoneyHint": "Hoe lang het geld dat je uitgeeft al bij je is",
     "v2.analysis.avgPerDay": "Gemiddeld per dag",
     "v2.analysis.biweekly": "Om de 2 weken",
-    "v2.analysis.busiestDay": "Duurste dag",
+    "v2.analysis.busiestDay": "Zwaarste dag",
     "v2.analysis.byCategory": "Per categorie",
     "v2.analysis.byGroup": "Per groep",
     "v2.analysis.byWeekday": "Per weekdag",
@@ -1881,6 +1893,12 @@
     "v2.tools.title": "Hulpmiddelen",
     "v2.tools.totalCost": "Totale rentekosten",
     "v2.tools.totalPaid": "Totaal terugbetaald",
-    "v2.tools.years": "Looptijd (jaren)"
+    "v2.tools.years": "Looptijd (jaren)",
+    "v2.plan.incomeExpected": "Verwacht inkomen",
+    "v2.plan.ofExpectedIncome": "van ongeveer {income} verwacht",
+    "v2.analysis.tab.calendar": "Kalender",
+    "v2.analysis.calendarCaption": "Uitgaven per dag, over {days} dagen",
+    "v2.analysis.quietDays": "{count} dagen zonder uitgaven",
+    "v2.analysis.perActiveDay": "{amount} op dagen met uitgaven"
   }
 }

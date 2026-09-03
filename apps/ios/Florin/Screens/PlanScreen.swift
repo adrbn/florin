@@ -25,6 +25,10 @@ struct PlanScreen: View {
      */
     @State private var sheet: PlanSheet?
     @State private var pickingSource = false
+    /// How far the page has been dragged, and which way the last turn went —
+    /// the transition needs the direction to know which edge to leave by.
+    @State private var dragX: CGFloat = 0
+    @State private var turn = 1
 
     private enum PlanSheet: Identifiable {
         case assign(PlanCategory)
@@ -69,13 +73,35 @@ struct PlanScreen: View {
             .padding(.bottom, 24)
 
             if let plan = model.plan {
-                hero(plan)
-                    .contentShape(Rectangle())
-                summary(plan)
-                emptyPlanOffer(plan)
-                ForEach(plan.groups) { group in
-                    groupSection(group)
+                /*
+                 * The month turns like a page.
+                 *
+                 * Changing the label and swapping the numbers underneath it
+                 * left nothing to say which way you had gone, or that you had
+                 * gone anywhere. Keyed on the month so SwiftUI treats the two
+                 * months as different views, it slides out the way the finger
+                 * pushed it and the next one follows in behind — and the
+                 * offset makes the drag itself visible before it is released,
+                 * so the page is under the thumb rather than after it.
+                 */
+                VStack(alignment: .leading, spacing: 30) {
+                    hero(plan)
+                        .contentShape(Rectangle())
+                    summary(plan)
+                    emptyPlanOffer(plan)
+                    ForEach(plan.groups) { group in
+                        groupSection(group)
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .offset(x: dragX)
+                .id(model.month)
+                .transition(.asymmetric(
+                    insertion: .move(edge: turn > 0 ? .trailing : .leading)
+                        .combined(with: .opacity),
+                    removal: .move(edge: turn > 0 ? .leading : .trailing)
+                        .combined(with: .opacity)
+                ))
             } else if let failure = model.failure {
                 VStack(spacing: 10) {
                     Image(systemName: "wifi.exclamationmark").font(.system(size: 28))
@@ -185,11 +211,27 @@ struct PlanScreen: View {
          * turning a page.
          */
         DragGesture(minimumDistance: 24)
+            .onChanged { drag in
+                let dx = drag.translation.width
+                guard abs(dx) > abs(drag.translation.height) * 1.5 else { return }
+                // Damped past the point where the page would turn: the drag
+                // keeps answering the finger without the content ever leaving
+                // the screen while it is still being held.
+                let give: CGFloat = 60
+                dragX = abs(dx) > give
+                    ? (dx < 0 ? -1 : 1) * (give + (abs(dx) - give) / 3)
+                    : dx
+            }
             .onEnded { drag in
                 let dx = drag.translation.width
-                guard abs(dx) > abs(drag.translation.height) * 1.5, abs(dx) > 60 else { return }
+                guard abs(dx) > abs(drag.translation.height) * 1.5, abs(dx) > 60 else {
+                    withAnimation(.snappy(duration: 0.2)) { dragX = 0 }
+                    return
+                }
                 UISelectionFeedbackGenerator().selectionChanged()
-                model.step(dx < 0 ? 1 : -1)
+                turn = dx < 0 ? 1 : -1
+                dragX = 0
+                withAnimation(.snappy(duration: 0.3)) { model.step(turn) }
             }
     }
 
@@ -322,12 +364,19 @@ struct PlanScreen: View {
             size: 50
         ) {
             Text(
-                t(
-                    "v2.plan.ofIncome",
-                    "sur {income} de revenus",
-                    ["income": Money.string(plan.income, locale: locale,
-                                            currency: currency, decimals: false)]
-                )
+                plan.isEstimated
+                    ? t(
+                        "v2.plan.ofExpectedIncome",
+                        "sur environ {income} attendus",
+                        ["income": Money.string(plan.plannedAgainst, locale: locale,
+                                                currency: currency, decimals: false)]
+                    )
+                    : t(
+                        "v2.plan.ofIncome",
+                        "sur {income} de revenus",
+                        ["income": Money.string(plan.income, locale: locale,
+                                                currency: currency, decimals: false)]
+                    )
             )
             .font(.system(size: 13))
             .foregroundStyle(over ? Florin.negative : Florin.text2)

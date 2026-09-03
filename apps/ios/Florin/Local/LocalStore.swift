@@ -192,6 +192,11 @@ extension LocalStore {
                 log.notice("dropped \(dropped, privacy: .public) settled duplicates")
             }
 
+            let relabelled = try BankingSync.collapseRelabelledDuplicates(store: store)
+            if relabelled > 0 {
+                log.notice("dropped \(relabelled, privacy: .public) relabelled duplicates")
+            }
+
             /*
              * Repayments filed before the mirror existed, given their
              * counterpart. Runs before the categoriser so a row it files this

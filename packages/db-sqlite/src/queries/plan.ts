@@ -204,7 +204,31 @@ export function getMonthPlanQuery(db: SqliteDB, year: number, month: number): Mo
 
   // ---- totalAssigned = sum of ALL budget rows for this month ----
   const totalAssigned = Math.round(budgetResults.reduce((s, b) => s + b.assigned, 0) * 100) / 100
-  const readyToAssign = Math.round((income - totalAssigned) * 100) / 100
+
+  /*
+   * A month still running is planned against what it will bring in.
+   *
+   * `income` is what has landed, and a salary lands around the 27th — so for
+   * twenty-six days of every month the plan was measured against a figure
+   * that had nothing to do with it, announcing "sur 0 € de revenus" and
+   * calling a perfectly ordinary plan an overspend.
+   *
+   * The median of the six complete months before it is the estimate: robust
+   * where a mean is not, since one month carrying a 500 € cheque or a tax
+   * refund should not raise what the next is expected to earn. A month that
+   * is over keeps its own figure — there is nothing left to estimate.
+   */
+  const monthIsOver = end <= new Date().toISOString().slice(0, 10)
+  let expectedIncome = income
+  let incomeIsEstimated = false
+  if (!monthIsOver) {
+    const typical = median(getRecentMonthlyIncome(rawDb, start))
+    if (typical > income) {
+      expectedIncome = Math.round(typical * 100) / 100
+      incomeIsEstimated = true
+    }
+  }
+  const readyToAssign = Math.round((expectedIncome - totalAssigned) * 100) / 100
   const overspentCount = groups.reduce((s, g) => s + g.overspentCount, 0)
 
   return {
@@ -212,8 +236,45 @@ export function getMonthPlanQuery(db: SqliteDB, year: number, month: number): Mo
     month,
     groups,
     income,
+    expectedIncome,
+    incomeIsEstimated,
     totalAssigned,
     readyToAssign,
     overspentCount,
   }
+}
+
+/** The middle value, or the mean of the two middle ones. Zero when empty. */
+function median(values: number[]): number {
+  if (values.length === 0) return 0
+  const sorted = [...values].sort((a, b) => a - b)
+  const middle = Math.floor(sorted.length / 2)
+  const high = sorted[middle] ?? 0
+  const low = sorted[middle - 1] ?? high
+  return sorted.length % 2 === 1 ? high : (low + high) / 2
+}
+
+/**
+ * Income per complete month for the six months before `before`, months with
+ * none omitted — a ledger that starts mid-history should not be told it earns
+ * nothing every other month.
+ */
+function getRecentMonthlyIncome(
+  db: import('better-sqlite3').Database,
+  before: string,
+): number[] {
+  const rows = db
+    .prepare(
+      `SELECT substr(t.occurred_at, 1, 7) AS month, SUM(t.amount) AS total
+       FROM transactions t
+       JOIN categories c ON c.id = t.category_id
+       JOIN category_groups g ON g.id = c.group_id
+       WHERE t.deleted_at IS NULL AND g.kind = 'income' AND t.amount > 0
+         AND t.transfer_pair_id IS NULL
+         AND substr(t.occurred_at, 1, 10) >= date(?, '-6 months')
+         AND substr(t.occurred_at, 1, 10) < ?
+       GROUP BY month`,
+    )
+    .all(before, before) as { month: string; total: number }[]
+  return rows.map((r) => Number(r.total ?? 0)).filter((n) => n > 0)
 }

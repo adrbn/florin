@@ -97,6 +97,55 @@ describe('computeMonthForecast', () => {
     expect(f.onTrack).toBe(true)
   })
 
+  it('expects the refunds a month usually brings, not only the ones banked', () => {
+    /*
+     * Day 3 of a 30-day month on a real ledger: 2 999 EUR of income, a gross
+     * prior of 3 045 EUR, and 416 EUR of reimbursements in a usual month.
+     *
+     * Counting only the refunds already received read a margin of +86 EUR
+     * with the bar all but full, for a month that reliably ends near +500.
+     */
+    const early = {
+      ...base,
+      monthIncome: 2998.98,
+      monthSpent: 53.5,
+      monthSpentFixed: 0,
+      expectedMonthlySpend: 3045.15,
+      expectedMonthlyFixed: 0,
+      monthRefunds: 0,
+      daysElapsed: 3,
+      daysRemaining: 27,
+    }
+    const blind = computeMonthForecast(early)
+    const seeing = computeMonthForecast({ ...early, expectedMonthlyRefunds: 416.09 })
+
+    expect(blind.projectedMargin as number).toBeLessThan(100)
+    expect(seeing.projectedMargin as number).toBeGreaterThan(400)
+    // Roughly a month's worth of refunds separates the two.
+    const lifted = (seeing.projectedMargin as number) - (blind.projectedMargin as number)
+    expect(lifted).toBeGreaterThan(350)
+    expect(lifted).toBeLessThan(420)
+  })
+
+  it('lets the month itself decide once it is nearly over', () => {
+    // Day 28: a month that has genuinely had no reimbursement should not be
+    // told to expect one, however regular they usually are.
+    const f = computeMonthForecast({
+      ...base,
+      monthIncome: 2998.98,
+      monthSpent: 2900,
+      monthSpentFixed: 0,
+      expectedMonthlySpend: 3045.15,
+      expectedMonthlyFixed: 0,
+      monthRefunds: 0,
+      expectedMonthlyRefunds: 416.09,
+      daysElapsed: 28,
+      daysRemaining: 2,
+    })
+    // The prior is nearly silent by now: at most a fraction of a usual month.
+    expect(f.projectedMargin as number).toBeLessThan(150)
+  })
+
   it('never projects less than what has already gone out', () => {
     const f = computeMonthForecast({
       ...base,

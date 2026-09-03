@@ -29,7 +29,7 @@ struct AnalysisScreen: View {
         _model = StateObject(wrappedValue: AnalysisModel(base: overview.base))
     }
 
-    private enum Tab: Hashable { case where_, trends, flows, subs }
+    private enum Tab: Hashable { case where_, trends, flows, calendar, subs }
 
     private var t: Strings { overview.overview?.t ?? .device }
     private var locale: String { overview.overview?.localeTag ?? "fr-FR" }
@@ -75,6 +75,7 @@ struct AnalysisScreen: View {
             (.where_, t("v2.analysis.tab.overview", "Où"), 0),
             (.trends, t("v2.analysis.tab.trends", "Tendances"), 0),
             (.flows, t("v2.analysis.tab.flows", "Flux"), 0),
+            (.calendar, t("v2.analysis.tab.calendar", "Calendrier"), 0),
             (.subs, t("v2.analysis.tab.subs", "Abonnements"), 0),
         ]
     }
@@ -121,6 +122,18 @@ struct AnalysisScreen: View {
                                                     currency: currency, decimals: false)])
                         : ""
                 )
+            case .calendar:
+                let days = data?.dailySpend ?? []
+                let spent = days.reduce(0) { $0 + $1.amount }
+                let active = days.filter { $0.amount > 0 }.count
+                return (
+                    t("v2.analysis.spent30", "Dépensé sur 30 jours"), spent,
+                    active > 0
+                        ? t("v2.analysis.perActiveDay", "{amount} les jours de dépense",
+                            ["amount": Money.string(spent / Double(active), locale: locale,
+                                                    currency: currency, decimals: false)])
+                        : ""
+                )
             case .subs:
                 let annual = data?.subscriptions.reduce(0) { $0 + $1.annualCost } ?? 0
                 return (
@@ -151,6 +164,7 @@ struct AnalysisScreen: View {
             case .where_: whereTab(data)
             case .trends: trendsTab(data)
             case .flows: flowsTab(data)
+            case .calendar: calendarTab(data)
             case .subs: subsTab(data)
             }
         } else if let failure = model.failure {
@@ -549,6 +563,176 @@ struct AnalysisScreen: View {
     }
 
     // MARK: - Abonnements
+
+    /*
+     * A month of spending, one square per day.
+     *
+     * The browser has had this for a year and the phone never did — the string
+     * for its name was sitting unused in the bundle. It answers a question the
+     * category views cannot: not what the money went on, but when. Weekends
+     * that cost more than weeks, the run of days after payday, the four quiet
+     * days that show up as gaps.
+     *
+     * Week-aligned columns rather than a calendar month, because thirty days
+     * back is what the query returns and a half-empty grid reads as missing
+     * data. Squares are scaled against the heaviest day rather than an
+     * absolute amount, so the picture is about this ledger and not about a
+     * threshold chosen here.
+     */
+    private func calendarTab(_ data: AnalysisData) -> some View {
+        let byDay = Dictionary(uniqueKeysWithValues: data.dailySpend.map { ($0.date, $0.amount) })
+        let calendar = Calendar(identifier: .gregorian)
+        let today = calendar.startOfDay(for: Date())
+        // Fill out to the end of this week so the last column is not a stub,
+        // then run back five whole weeks.
+        let weekday = calendar.component(.weekday, from: today)
+        let toSunday = (8 - weekday) % 7
+        let last = calendar.date(byAdding: .day, value: toSunday, to: today) ?? today
+        let cells: [(date: Date, key: String, amount: Double, future: Bool)] =
+            (0..<35).reversed().compactMap { back in
+                guard let date = calendar.date(byAdding: .day, value: -back, to: last)
+                else { return nil }
+                let key = LocalQueries.dayFormatter.string(from: date)
+                return (date, key, byDay[key] ?? 0, date > today)
+            }
+        let peak = cells.map(\.amount).max() ?? 0
+        let quiet = cells.filter { !$0.future && $0.amount <= 0 }.count
+        let heaviest = cells.max { $0.amount < $1.amount }
+
+        return VStack(alignment: .leading, spacing: 30) {
+            VStack(alignment: .leading, spacing: 12) {
+                Eyebrow(text: t("v2.analysis.calendarCaption",
+                                "Dépenses par jour, sur {days} jours", ["days": 35]))
+                    .padding(.horizontal, Florin.gutter)
+
+                FlorinCard {
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(spacing: 6) {
+                            ForEach(Self.weekdayInitials(locale), id: \.self) { initial in
+                                Text(initial)
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundStyle(Florin.text3)
+                                    .frame(maxWidth: .infinity)
+                            }
+                        }
+                        VStack(spacing: 6) {
+                            ForEach(0..<5, id: \.self) { week in
+                                HStack(spacing: 6) {
+                                    ForEach(0..<7, id: \.self) { day in
+                                        let cell = cells[week * 7 + day]
+                                        dayCell(cell, peak: peak)
+                                    }
+                                }
+                            }
+                        }
+                        legend(peak)
+                    }
+                }
+                .padding(.horizontal, Florin.gutter)
+            }
+
+            if let heaviest, heaviest.amount > 0 {
+                VStack(alignment: .leading, spacing: 12) {
+                    Eyebrow(text: t("v2.analysis.busiestDay", "Jour le plus lourd"))
+                        .padding(.horizontal, Florin.gutter)
+                    FlorinCard {
+                        HStack {
+                            Text(DayLabel.string(heaviest.date, locale: locale, t: t))
+                                .font(.system(size: 14, weight: .medium))
+                            Spacer()
+                            AmountText(value: -heaviest.amount, locale: locale,
+                                       currency: currency, decimals: false, signed: false)
+                        }
+                    }
+                    .padding(.horizontal, Florin.gutter)
+                    if quiet > 0 {
+                        Text(t("v2.analysis.quietDays", "{count} jours sans dépense",
+                               ["count": quiet]))
+                            .font(.system(size: 12.5))
+                            .foregroundStyle(Florin.text2)
+                            .padding(.horizontal, Florin.gutter)
+                    }
+                }
+            }
+        }
+    }
+
+    private func dayCell(
+        _ cell: (date: Date, key: String, amount: Double, future: Bool), peak: Double
+    ) -> some View {
+        // Square root rather than linear: one 400 € day would otherwise make
+        // every ordinary day the same pale colour.
+        let share = peak > 0 && cell.amount > 0 ? (cell.amount / peak).squareRoot() : 0
+        let calendar = Calendar(identifier: .gregorian)
+        let isToday = calendar.isDateInToday(cell.date)
+        let fill: Color
+        if cell.future {
+            fill = Florin.surface2.opacity(0.35)
+        } else if share > 0 {
+            fill = TabRoute.analysis.tint.opacity(0.18 + 0.72 * share)
+        } else {
+            fill = Florin.surface2
+        }
+        return RoundedRectangle(cornerRadius: 6, style: .continuous)
+            .fill(fill)
+            .aspectRatio(1, contentMode: .fit)
+            .frame(maxWidth: .infinity)
+            .overlay(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .strokeBorder(Florin.text.opacity(isToday ? 0.55 : 0), lineWidth: 1.5)
+            )
+            .overlay(dayNumber(cell, share: share))
+            .accessibilityLabel(
+                Self.cellLabel(cell.date, cell.amount, locale: locale, currency: currency, t: t)
+            )
+    }
+
+    private static func cellLabel(
+        _ date: Date, _ amount: Double, locale: String, currency: String, t: Strings
+    ) -> String {
+        let day = DayLabel.string(date, locale: locale, t: t)
+        let money = Money.string(amount, locale: locale, currency: currency, decimals: false)
+        return day + ", " + money
+    }
+
+    private func dayNumber(
+        _ cell: (date: Date, key: String, amount: Double, future: Bool), share: Double
+    ) -> some View {
+        let day = Calendar(identifier: .gregorian).component(.day, from: cell.date)
+        let tone: Color = share > 0.55 ? Color.white.opacity(0.9) : Florin.text3
+        return Text(String(day))
+            .font(.system(size: 9, weight: .medium))
+            .foregroundStyle(tone)
+            .opacity(cell.future ? 0.3 : 1)
+    }
+
+    private func legend(_ peak: Double) -> some View {
+        HStack(spacing: 6) {
+            Text(Money.string(0, locale: locale, currency: currency, decimals: false))
+                .font(.system(size: 10)).foregroundStyle(Florin.text3)
+            ForEach([0.0, 0.35, 0.6, 0.8, 1.0], id: \.self) { step in
+                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                    .fill(step > 0
+                          ? TabRoute.analysis.tint.opacity(0.18 + 0.72 * step)
+                          : Florin.surface2)
+                    .frame(width: 14, height: 8)
+            }
+            Text(Money.string(peak, locale: locale, currency: currency, decimals: false))
+                .font(.system(size: 10)).foregroundStyle(Florin.text3)
+            Spacer()
+        }
+        .hiddenWhenPrivate()
+    }
+
+    /// Monday-first initials in the reader's own language.
+    private static func weekdayInitials(_ locale: String) -> [String] {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: locale)
+        let symbols = formatter.veryShortStandaloneWeekdaySymbols ?? ["S", "M", "T", "W", "T", "F", "S"]
+        // `veryShortStandaloneWeekdaySymbols` starts on Sunday; the grid starts
+        // on Monday, and repeated initials are why each carries its index.
+        return (1...7).map { symbols[$0 % 7] }
+    }
 
     private func subsTab(_ data: AnalysisData) -> some View {
         let sorted = data.subscriptions.sorted { $0.annualCost > $1.annualCost }

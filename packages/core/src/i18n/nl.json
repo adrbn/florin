@@ -908,5 +908,12 @@
   "intro.budgetBody": "Je transacties sorteren zichzelf in categorieën. Je bevestigt de voorstellen één keer, en het plan blijft vanzelf kloppen.",
   "intro.eyebrowBank": "Optioneel",
   "intro.bankTitle": "Koppel je bank.\nEén keer.",
-  "intro.bankBody": "Drie stappen in Instellingen en je transacties komen vanzelf binnen. Liever niet? Florin werkt prima handmatig of met een CSV-bestand."
+  "intro.bankBody": "Drie stappen in Instellingen en je transacties komen vanzelf binnen. Liever niet? Florin werkt prima handmatig of met een CSV-bestand.",
+  "v2.plan.incomeExpected": "Verwacht inkomen",
+  "v2.plan.ofExpectedIncome": "van ongeveer {income} verwacht",
+  "v2.analysis.tab.calendar": "Kalender",
+  "v2.analysis.calendarCaption": "Uitgaven per dag, over {days} dagen",
+  "v2.analysis.busiestDay": "Zwaarste dag",
+  "v2.analysis.quietDays": "{count} dagen zonder uitgaven",
+  "v2.analysis.perActiveDay": "{amount} op dagen met uitgaven"
 }

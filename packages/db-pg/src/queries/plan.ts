@@ -196,7 +196,32 @@ export async function getMonthPlanQuery(
 
   // ---- totalAssigned = sum of ALL budget rows for this month ----
   const totalAssigned = Math.round(budgetRows.reduce((s, b) => s + parseFloat(b.assigned), 0) * 100) / 100
-  const readyToAssign = Math.round((income - totalAssigned) * 100) / 100
+
+  /*
+   * A month still running is planned against what it will bring in.
+   *
+   * `income` is what has landed, and a salary lands around the 27th — so for
+   * twenty-six days of every month the plan was measured against a figure
+   * that had nothing to do with it, announcing "sur 0 € de revenus" and
+   * calling a perfectly ordinary plan an overspend.
+   *
+   * The median of the six complete months before it is the estimate: robust
+   * where a mean is not, since one month carrying a 500 € cheque or a tax
+   * refund should not raise what the next is expected to earn. A month that
+   * is over keeps its own figure — there is nothing left to estimate.
+   */
+  const monthIsOver = end <= new Date()
+  let expectedIncome = income
+  let incomeIsEstimated = false
+  if (!monthIsOver) {
+    const history = await getRecentMonthlyIncome(db, start)
+    const typical = median(history)
+    if (typical > income) {
+      expectedIncome = Math.round(typical * 100) / 100
+      incomeIsEstimated = true
+    }
+  }
+  const readyToAssign = Math.round((expectedIncome - totalAssigned) * 100) / 100
   const overspentCount = groups.reduce((s, g) => s + g.overspentCount, 0)
 
   return {
@@ -204,8 +229,49 @@ export async function getMonthPlanQuery(
     month,
     groups,
     income,
+    expectedIncome,
+    incomeIsEstimated,
     totalAssigned,
     readyToAssign,
     overspentCount,
   }
+}
+
+/** The middle value, or the mean of the two middle ones. Zero when empty. */
+function median(values: number[]): number {
+  if (values.length === 0) return 0
+  const sorted = [...values].sort((a, b) => a - b)
+  const middle = Math.floor(sorted.length / 2)
+  const high = sorted[middle] ?? 0
+  const low = sorted[middle - 1] ?? high
+  return sorted.length % 2 === 1 ? high : (low + high) / 2
+}
+
+/**
+ * Income per complete month for the six months before `before`, months with
+ * none omitted — a ledger that starts mid-history should not be told it earns
+ * nothing every other month.
+ */
+async function getRecentMonthlyIncome(db: PgDB, before: Date): Promise<number[]> {
+  const from = new Date(Date.UTC(before.getUTCFullYear(), before.getUTCMonth() - 6, 1))
+  const rows = await db
+    .select({
+      month: sql<string>`to_char(${transactions.occurredAt}, 'YYYY-MM')`,
+      total: sql<string>`SUM(${transactions.amount})`,
+    })
+    .from(transactions)
+    .innerJoin(categories, eq(transactions.categoryId, categories.id))
+    .innerJoin(categoryGroups, eq(categories.groupId, categoryGroups.id))
+    .where(
+      and(
+        isNull(transactions.deletedAt),
+        eq(categoryGroups.kind, 'income'),
+        sql`${transactions.amount} > 0`,
+        isNull(transactions.transferPairId),
+        gte(transactions.occurredAt, from),
+        lt(transactions.occurredAt, before),
+      ),
+    )
+    .groupBy(sql`to_char(${transactions.occurredAt}, 'YYYY-MM')`)
+  return rows.map((r) => Number(r.total ?? '0')).filter((n) => n > 0)
 }

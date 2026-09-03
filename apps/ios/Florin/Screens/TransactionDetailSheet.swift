@@ -18,6 +18,10 @@ struct TransactionDetailSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var picking = false
+    /// The category chosen in this visit. The row this sheet was handed is a
+    /// value from a list that has not refetched, so it still says "sans
+    /// catégorie" a moment after one was assigned.
+    @State private var filed: String?
     @State private var editing = false
     @State private var confirmingDelete = false
     @State private var working = false
@@ -76,10 +80,25 @@ struct TransactionDetailSheet: View {
         .sheet(isPresented: $picking) {
             CategoryPicker(
                 categories: categories,
-                selected: tx.categoryName,
+                selected: filed ?? tx.categoryName,
                 t: t
             ) { id in
-                run { await onPatch(TxPatch(categoryId: .some(id))) }
+                /*
+                 * Filing is not finishing.
+                 *
+                 * This closed the sheet, which put the one action the row was
+                 * open for — "Vérifié" — behind reopening it. Categorising and
+                 * approving are two halves of the same decision and belong in
+                 * one visit, so the sheet stays and remembers what was just
+                 * filed: the row it was handed cannot tell it, being a value
+                 * from a list that has not refetched yet.
+                 */
+                working = true
+                Task {
+                    await onPatch(TxPatch(categoryId: .some(id)))
+                    filed = categories.first { $0.id == id }?.name
+                    working = false
+                }
             }
         }
         .sheet(isPresented: $filing) {
@@ -135,8 +154,8 @@ struct TransactionDetailSheet: View {
                 Pill(text: tx.accountName)
                 Pill(
                     text: ((tx.categoryEmoji.map { $0 + " " } ?? "")
-                        + (tx.categoryName ?? t("v2.common.uncategorized", "Sans catégorie"))),
-                    tone: tx.categoryName == nil ? Florin.text3 : Florin.accent
+                        + (filed ?? tx.categoryName ?? t("v2.common.uncategorized", "Sans catégorie"))),
+                    tone: (filed ?? tx.categoryName) == nil ? Florin.text3 : Florin.accent
                 )
                 if tx.needsReview {
                     Pill(text: t("v2.activity.needsReview", "À vérifier"), tone: Florin.negative)
@@ -168,7 +187,7 @@ struct TransactionDetailSheet: View {
                     // Nothing leaves the queue uncategorised without that being
                     // a decision. A transfer is the exception: it has no
                     // category by design.
-                    if tx.categoryName == nil && !tx.isTransfer {
+                    if tx.categoryName == nil, filed == nil, !tx.isTransfer {
                         filing = true
                     } else {
                         run { await onPatch(TxPatch(approve: true)) }

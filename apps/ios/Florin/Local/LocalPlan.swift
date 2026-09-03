@@ -92,7 +92,8 @@ enum LocalPlan {
                      SELECT 1 FROM transactions p
                      JOIN accounts pa ON pa.id = p.account_id
                      WHERE p.transfer_pair_id = t.transfer_pair_id
-                       AND p.id <> t.id AND pa.kind = 'loan')))
+                       AND p.id <> t.id AND p.deleted_at IS NULL
+                       AND pa.kind = 'loan')))
             """,
             [.text(key)]
         ) {
@@ -143,13 +144,38 @@ enum LocalPlan {
             )
         }
 
+        /*
+         * A month still running is planned against what it will bring in.
+         *
+         * `income` is what has landed, and a salary lands around the 27th — so
+         * for twenty-six days of every month the plan was measured against a
+         * figure that had nothing to do with it, announcing "sur 0 € de
+         * revenus" and calling an ordinary plan an overspend.
+         *
+         * The median of the six complete months before it is the estimate:
+         * robust where a mean is not, since one month carrying a 500 € cheque
+         * should not raise what the next is expected to earn. A month that is
+         * over keeps its own figure — there is nothing left to estimate.
+         */
+        var expected = round2(income)
+        var estimated = false
+        if key >= LocalQueries.monthFormatter.string(from: Date()) {
+            let typical = try typicalIncome(db, before: key)
+            if typical > expected {
+                expected = typical
+                estimated = true
+            }
+        }
+
         return MonthPlan(
             year: year,
             month: month,
             groups: groups,
             income: round2(income),
+            expectedIncome: expected,
+            incomeIsEstimated: estimated,
             totalAssigned: round2(totalAssigned),
-            readyToAssign: round2(income - totalAssigned),
+            readyToAssign: round2(expected - totalAssigned),
             overspentCount: groups.reduce(0) { $0 + $1.overspentCount }
         )
     }
@@ -261,4 +287,36 @@ enum LocalPlan {
     }
 
     private static func round2(_ value: Double) -> Double { (value * 100).rounded() / 100 }
+
+    /*
+     * The middle month of the six before this one, months with no income left
+     * out — a ledger that starts mid-history should not be told it earns
+     * nothing every other month. The median rather than the mean, so one
+     * month carrying a cheque or a tax refund does not raise the estimate.
+     */
+    private static func typicalIncome(_ db: SQLiteDatabase, before key: String) throws -> Double {
+        let totals = try db.query(
+            """
+            SELECT substr(t.occurred_at, 1, 7) AS month, sum(t.amount) AS total
+            FROM transactions t
+            JOIN categories c ON c.id = t.category_id
+            JOIN category_groups g ON g.id = c.group_id
+            WHERE t.deleted_at IS NULL AND g.kind = 'income' AND t.amount > 0
+              AND t.transfer_pair_id IS NULL
+              AND substr(t.occurred_at, 1, 7) >= strftime('%Y-%m', date(? || '-01', '-6 months'))
+              AND substr(t.occurred_at, 1, 7) < ?
+            GROUP BY month
+            """,
+            [.text(key), .text(key)]
+        ).compactMap { $0.double("total") }.filter { $0 > 0 }.sorted()
+
+        guard !totals.isEmpty else { return 0 }
+        let middle = totals.count / 2
+        return round2(
+            totals.count % 2 == 1
+                ? totals[middle]
+                : (totals[middle - 1] + totals[middle]) / 2
+        )
+    }
+
 }

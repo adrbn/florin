@@ -82,8 +82,11 @@ export function PlanScreen({
         />
         <div className="flex flex-wrap items-center gap-2 pt-1">
           <Pill>
-            {t('v2.plan.income', 'Income this month')}{' '}
-            <Amount value={plan.income} decimals={false} />
+            {plan.incomeIsEstimated
+              ? t('v2.plan.incomeExpected', 'Income expected')
+              : t('v2.plan.income', 'Income this month')}{' '}
+            {plan.incomeIsEstimated && '≈ '}
+            <Amount value={plan.expectedIncome ?? plan.income} decimals={false} />
           </Pill>
           <Pill>
             {t('v2.plan.assigned', 'Assigned')}{' '}

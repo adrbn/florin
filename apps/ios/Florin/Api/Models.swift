@@ -87,6 +87,10 @@ struct LeftToSpend: Decodable, Sendable {
     /// carries the whole expected amount rather than a prorated share.
     /// Optional: a server that predates the field falls back to zero.
     var expectedMonthlyFixed: Double?
+    /// What comes back in a usual month: six months of gross spending minus
+    /// six of net. The forecast projects it rather than assuming no refund
+    /// will land after today. Optional, like the fixed prior.
+    var expectedMonthlyRefunds: Double?
     /// What was left over at this same day of the previous month, measured the
     /// same way — the month's salary counted whether or not it had landed by
     /// then, because a payslip arriving on the 29th would otherwise make the

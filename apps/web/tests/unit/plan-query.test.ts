@@ -147,6 +147,64 @@ describe('getMonthPlanQuery', () => {
     expect(catIds).toContain(ids.catRentId)
   })
 
+  /*
+   * A month still running is planned against what it will bring in.
+   *
+   * The salary lands around the 27th, so for most of a month the income
+   * received is a fraction of the truth and usually zero — which made the
+   * plan announce "sur 0 € de revenus" over an ordinary plan and call every
+   * assignment made before payday an overspend.
+   */
+  describe('income while the month is still running', () => {
+    /** The current month, and six complete months of salary before it. */
+    function seedRunningMonth(
+      ctx: ReturnType<typeof makeTestDb>,
+      ids: ReturnType<typeof seedPlanFixture>,
+    ) {
+      const now = new Date()
+      const rows: string[] = []
+      for (let back = 6; back >= 1; back--) {
+        const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - back, 5))
+        // One month carries a windfall, so a mean would drift and a median
+        // must not.
+        const amount = back === 1 ? 5200 : 3000
+        rows.push(
+          `('tx-hist-${back}', '${ids.accountId}', '${d.toISOString().slice(0, 10)}',` +
+            ` ${amount}, '${ids.catSalaryId}', 'manual', 'Employer')`,
+        )
+      }
+      ctx.raw.exec(
+        `INSERT INTO transactions (id, account_id, occurred_at, amount, category_id, source, payee)
+         VALUES ${rows.join(',')};`,
+      )
+    }
+
+    it('estimates from the six months before it when nothing has landed', () => {
+      const ctx = makeTestDb()
+      const ids = seedPlanFixture(ctx)
+      seedRunningMonth(ctx, ids)
+      const now = new Date()
+
+      const plan = getMonthPlanQuery(ctx.db, now.getUTCFullYear(), now.getUTCMonth() + 1)
+      expect(plan.income).toBe(0)
+      expect(plan.incomeIsEstimated).toBe(true)
+      // The median of five 3 000s and one 5 200 is 3 000 — the windfall does
+      // not raise what the next month is expected to earn.
+      expect(plan.expectedIncome).toBe(3000)
+      expect(plan.readyToAssign).toBe(3000 - plan.totalAssigned)
+    })
+
+    it('leaves a month that is over with the income it actually had', () => {
+      const ctx = makeTestDb()
+      const ids = seedPlanFixture(ctx)
+      seedRunningMonth(ctx, ids)
+
+      const plan = getMonthPlanQuery(ctx.db, 2026, 4)
+      expect(plan.incomeIsEstimated).toBe(false)
+      expect(plan.expectedIncome).toBe(plan.income)
+    })
+  })
+
   it('respects group display_order', () => {
     const ctx = makeTestDb()
     seedPlanFixture(ctx)
