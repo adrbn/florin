@@ -66,10 +66,9 @@ et le code sur GitHub pour les autres.
 
 ## Version
 
-La fiche annonce **1.0**, la build est **1.3.4**. La chaîne de version dans App
-Store Connect doit être exactement celle du `CFBundleShortVersionString`.
-
-→ Dans **Distribution**, renomme la version en `1.3.4` avant d'attacher la build.
+La fiche est sur **1.3.4**, ce qui est exactement le `CFBundleShortVersionString`
+de la build — App Store Connect refuse une build dont la chaîne diffère. À
+rehausser des deux côtés ensemble à chaque livraison.
 
 ---
 
@@ -84,7 +83,7 @@ Store Connect doit être exactement celle du `CFBundleShortVersionString`.
 | Langue principale | Français |
 | Droits relatifs au contenu | Non, l'app ne contient aucun contenu tiers |
 | Copyright | `2026 Adrien Robino` |
-| Classification par âge | 4+ — répondre « Aucun » à toutes les questions, et **Non** à « Accès web sans restriction » |
+| Classification par âge | déclarée : aucune question cochée, pas d'accès web sans restriction → 4+ |
 | Prix | Gratuit |
 | Disponibilité | Tous les pays (sous réserve du statut de commerçant pour l'UE) |
 
