@@ -782,6 +782,10 @@ enum LocalQueries {
             monthSpentFixed: round2(fixed),
             expectedMonthlySpend: try burnAverage(db, months: 6),
             expectedMonthlyFixed: try burnAverage(db, months: 6, fixedOnly: true),
+            // What a usual month gives back. Gross minus net over the same six
+            // months is exactly the reimbursements; the forecast projects them
+            // instead of counting only the ones already banked.
+            expectedMonthlyRefunds: try refundAverage(db, months: 6),
             monthRefunds: round2(max(0, spent - netSpent)),
             savedThisMonthToDate: kept,
             savedPrevMonthToDate: previous,
@@ -867,6 +871,22 @@ enum LocalQueries {
     /// other than the date.
     /// Complete months only — the current one is the thing this average
     /// exists to stand in for.
+    /// The average monthly reimbursement over complete months: what a month
+    /// spends gross, less what it costs net.
+    static func refundAverage(_ db: SQLiteDatabase, months: Int) throws -> Double {
+        let calendar = Calendar(identifier: .gregorian)
+        var total = 0.0
+        for offset in 1...months {
+            guard let date = calendar.date(byAdding: .month, value: -offset, to: Date())
+            else { continue }
+            let month = Self.monthFormatter.string(from: date)
+            let gross = try sum(db, month: month, kind: "expense")
+            let net = try netBurn(db, month: month, upto: nil)
+            total += max(0, gross - net)
+        }
+        return round2(total / Double(months))
+    }
+
     static func burnAverage(
         _ db: SQLiteDatabase, months: Int, fixedOnly: Bool = false
     ) throws -> Double {

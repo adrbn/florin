@@ -31,11 +31,29 @@ struct MonthPlan: Decodable, Sendable {
     let month: Int
     let groups: [PlanGroup]
     let income: Double
+    /*
+     * What the month is expected to bring in.
+     *
+     * A salary lands around the 27th, so for most of a month `income` is a
+     * fraction of the truth and usually zero — the hero read "sur 0 € de
+     * revenus" above a plan of 2 900 €, and called every assignment made
+     * before payday an overspend. While the month is still running the
+     * estimate is the median of the six complete months before it.
+     *
+     * Optional: a server that predates the field falls back to `income`.
+     */
+    var expectedIncome: Double?
+    var incomeIsEstimated: Bool?
     let totalAssigned: Double
     let readyToAssign: Double
     let overspentCount: Int
 
     var key: String { String(format: "%04d-%02d", year, month) }
+
+    /// What the hero counts against: the estimate while the month runs, what
+    /// actually landed once it is over.
+    var plannedAgainst: Double { expectedIncome ?? income }
+    var isEstimated: Bool { incomeIsEstimated ?? false }
 }
 
 @MainActor

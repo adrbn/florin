@@ -374,12 +374,12 @@ export async function getMonthBurn(db: PgDB, opts: BurnOptions = {}): Promise<nu
 export async function getAvgMonthlyBurn(
   db: PgDB,
   months = 6,
-  opts: { fixedOnly?: boolean } = {},
+  opts: { fixedOnly?: boolean; gross?: boolean } = {},
 ): Promise<number> {
   const end = endOfMonth(addMonths(new Date(), -1))
   const start = startOfMonth(addMonths(new Date(), -months))
   const rows = await db
-    .select({ total: burnAmountSql })
+    .select({ total: opts.gross ? grossBurnAmountSql : burnAmountSql })
     .from(transactions)
     .innerJoin(accounts, eq(transactions.accountId, accounts.id))
     .leftJoin(categories, eq(transactions.categoryId, categories.id))
@@ -884,7 +884,28 @@ export async function getLeftToSpendThisMonth(db: PgDB): Promise<LeftToSpend> {
   // dashboard burn card + tray; a reimbursement shouldn't zero it early-month.
   const monthSpent = await getMonthBurn(db, { gross: true })
   const monthSpentFixed = await getMonthBurn(db, { fixedOnly: true })
-  const expectedMonthlySpend = await getAvgMonthlyBurn(db, 6)
+  /*
+   * The prior has to be gross, because the forecast takes refunds off itself.
+   *
+   * It was net here and gross on the phone, and both were wrong in opposite
+   * directions: the web subtracted this month's reimbursements from a series
+   * that had already had six months of them removed, the phone subtracted
+   * them from a gross series and predicted none of the ones still to come.
+   * Gross in, refunds projected out — see computeMonthForecast.
+   */
+  const expectedMonthlySpend = await getAvgMonthlyBurn(db, 6, { gross: true })
+  /*
+   * Reimbursements are as regular as the spending they answer.
+   *
+   * Gross minus net over the same six months is exactly what came back. On a
+   * ledger where that averages 416 € a month, ignoring it read a margin of
+   * +86 € on the 3rd — every refund of the month still to come counted as
+   * money spent.
+   */
+  const expectedMonthlyRefunds = Math.max(
+    0,
+    (await getAvgMonthlyBurn(db, 6, { gross: true })) - (await getAvgMonthlyBurn(db, 6)),
+  )
   const expectedMonthlyFixed = await getAvgMonthlyBurn(db, 6, { fixedOnly: true })
   const leftToSpend = monthIncome - monthSpent
   // Saving is income minus spending NET of reimbursements — a refund really
@@ -912,6 +933,7 @@ export async function getLeftToSpendThisMonth(db: PgDB): Promise<LeftToSpend> {
     monthSpentFixed,
     expectedMonthlySpend,
     expectedMonthlyFixed,
+    expectedMonthlyRefunds,
     monthRefunds,
     savedThisMonthToDate,
     savedPrevMonthToDate,

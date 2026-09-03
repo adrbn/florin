@@ -752,3 +752,157 @@ struct BackupTests {
         #expect(LocalBackup.inspect(url) == nil)
     }
 }
+
+/*
+ * The same debit, arriving twice under two different names.
+ *
+ * La Banque Postale numbers entries by their rank in the day — "2026-08-31.0"
+ * means "the first row of the 31st" and nothing more — so a second fetch of a
+ * month already written renames every row in it. The ledger took the new names
+ * for new transactions and the plan showed two mensualités for a month with
+ * one.
+ */
+@Suite("Relabelled bank rows", .serialized)
+struct RelabelledDuplicateTests {
+    private func ledger() throws -> (LocalStore, account: String) {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("florin-relabel-\(UUID().uuidString).db")
+        let store = try LocalStore(url: url)
+        let account = UUID().uuidString
+        try store.database.exec("""
+        INSERT INTO accounts (id, name, kind, currency)
+          VALUES ('\(account)', 'CCP', 'checking', 'EUR');
+        """)
+        return (store, account)
+    }
+
+    @discardableResult
+    private func row(
+        _ store: LocalStore, on account: String, amount: Double, payee: String,
+        externalId: String, pair: String? = nil, day: String = "2026-08-31"
+    ) throws -> String {
+        let id = UUID().uuidString
+        try store.database.run(
+            """
+            INSERT INTO transactions
+                (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
+                 source, external_id, status, needs_review, transfer_pair_id)
+            VALUES (?, ?, ?, ?, 'EUR', ?, ?, 'enable_banking', ?, 'cleared', 0, ?)
+            """,
+            [
+                .text(id), .text(account), .text(day), .real(amount), .text(payee),
+                .text(payee.lowercased()), .text(externalId),
+                pair.map { SQLiteValue.text($0) } ?? .null,
+            ]
+        )
+        return id
+    }
+
+    private func live(_ store: LocalStore, on account: String) -> Int {
+        ((try? store.database.scalar(
+            "SELECT count(*) FROM transactions WHERE account_id = ? AND deleted_at IS NULL",
+            [.text(account)]
+        )?.int) as? Int ?? -1) ?? -1
+    }
+
+    @Test("a positional reference is not an identity")
+    func recognisesPositionalReferences() {
+        #expect(BankTransaction.isPositional("2026-08-31.0"))
+        #expect(BankTransaction.isPositional("2026-08-31.12"))
+        // A real identifier that merely contains a dot is not positional.
+        #expect(!BankTransaction.isPositional("TRX-2026-08-31.PAYPAL"))
+        #expect(!BankTransaction.isPositional("9c27f562-06ab-4d28-9914-f9064d8f4715"))
+        #expect(!BankTransaction.isPositional("2026-08-31"))
+    }
+
+    @Test("the row renamed by the bank is taken back, the first one kept")
+    func collapsesTheRelabelledTwin() throws {
+        let (store, account) = try ledger()
+        let kept = try row(
+            store, on: account, amount: -135.91, payee: "PREL DE LA BANQUE POSTALE",
+            externalId: "uid:2026-08-31T00:00:00Z:-135.91:PREL DE LA BANQUE POSTALE"
+        )
+        let stale = try row(
+            store, on: account, amount: -135.91, payee: "PRELEVEMENT DE LA BANQUE POSTALE",
+            externalId: "uid:2026-08-31.0"
+        )
+
+        #expect(try BankingSync.collapseRelabelledDuplicates(store: store) == 1)
+        #expect(live(store, on: account) == 1)
+
+        let gone = try store.database.scalar(
+            "SELECT deleted_at FROM transactions WHERE id = ?", [.text(stale)]
+        )?.string
+        #expect(gone != nil)
+        let survivor = try store.database.scalar(
+            "SELECT deleted_at FROM transactions WHERE id = ?", [.text(kept)]
+        )?.string
+        #expect(survivor == nil)
+    }
+
+    @Test("the survivor inherits the pairing that has a counterpart")
+    func movesTheLivePairing() throws {
+        let (store, account) = try ledger()
+        let loan = UUID().uuidString
+        try store.database.exec("""
+        INSERT INTO accounts (id, name, kind, currency)
+          VALUES ('\(loan)', 'Prêt', 'loan', 'EUR');
+        """)
+        // The row kept carries a pair id whose other half was never written;
+        // the row discarded is the one the mirror is actually attached to.
+        let kept = try row(
+            store, on: account, amount: -135.91, payee: "PREL DE LA BANQUE POSTALE",
+            externalId: "uid:2026-08-31T00:00:00Z:-135.91:PREL", pair: "orphan"
+        )
+        try row(
+            store, on: account, amount: -135.91, payee: "PRELEVEMENT DE LA BANQUE POSTALE",
+            externalId: "uid:2026-08-31.0", pair: "real"
+        )
+        try row(
+            store, on: loan, amount: 135.91, payee: "↳ PRELEVEMENT",
+            externalId: "uid:mirror", pair: "real"
+        )
+
+        #expect(try BankingSync.collapseRelabelledDuplicates(store: store) == 1)
+
+        let pair = try store.database.scalar(
+            "SELECT transfer_pair_id FROM transactions WHERE id = ?", [.text(kept)]
+        )?.string
+        #expect(pair == "real")
+    }
+
+    @Test("two genuine purchases of the same amount on one day are both kept")
+    func leavesGenuineTwinsAlone() throws {
+        let (store, account) = try ledger()
+        // Two train tickets, same price, same day — written under the same
+        // scheme, which is what says they are two transactions and not one
+        // renamed.
+        try row(
+            store, on: account, amount: -3.60, payee: "TRAINLINE",
+            externalId: "uid:2026-08-31.0"
+        )
+        try row(
+            store, on: account, amount: -3.60, payee: "TRAINLINE",
+            externalId: "uid:2026-08-31.1"
+        )
+
+        #expect(try BankingSync.collapseRelabelledDuplicates(store: store) == 0)
+        #expect(live(store, on: account) == 2)
+    }
+
+    @Test("a different day is a different transaction")
+    func leavesOtherDaysAlone() throws {
+        let (store, account) = try ledger()
+        try row(
+            store, on: account, amount: -9.99, payee: "PayPal",
+            externalId: "uid:2026-08-30T00:00:00Z:-9.99:PayPal", day: "2026-08-30"
+        )
+        try row(
+            store, on: account, amount: -9.99, payee: "PayPal",
+            externalId: "uid:2026-08-31.0", day: "2026-08-31"
+        )
+
+        #expect(try BankingSync.collapseRelabelledDuplicates(store: store) == 0)
+        #expect(live(store, on: account) == 2)
+    }
+}

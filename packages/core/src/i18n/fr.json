@@ -908,5 +908,12 @@
   "intro.budgetBody": "Vos transactions se rangent toutes seules. Vous confirmez les propositions une fois, et le plan reste à jour.",
   "intro.eyebrowBank": "Optionnel",
   "intro.bankTitle": "Reliez votre banque.\nUne seule fois.",
-  "intro.bankBody": "Trois étapes dans les Paramètres et vos transactions arrivent toutes seules. Pas envie ? Florin fonctionne très bien à la main ou avec un fichier CSV."
+  "intro.bankBody": "Trois étapes dans les Paramètres et vos transactions arrivent toutes seules. Pas envie ? Florin fonctionne très bien à la main ou avec un fichier CSV.",
+  "v2.plan.incomeExpected": "Revenus attendus",
+  "v2.plan.ofExpectedIncome": "sur environ {income} attendus",
+  "v2.analysis.tab.calendar": "Calendrier",
+  "v2.analysis.calendarCaption": "Dépenses par jour, sur {days} jours",
+  "v2.analysis.busiestDay": "Jour le plus lourd",
+  "v2.analysis.quietDays": "{count} jours sans dépense",
+  "v2.analysis.perActiveDay": "{amount} les jours de dépense"
 }

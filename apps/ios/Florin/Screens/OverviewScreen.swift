@@ -744,8 +744,27 @@ struct OverviewScreen: View {
          * ones are not predicted, which errs on the pessimistic side of a
          * margin — the harmless direction.
          */
+        /*
+         * And the refunds still to come are projected too.
+         *
+         * Counting only the ones already banked, against a gross prior, meant
+         * a month began by assuming every reimbursement it usually receives
+         * would not arrive. On this ledger that is 416 € a month: the margin
+         * read +86 € on the 3rd with the bar drawn nearly full, for a month
+         * that reliably ends near +500 €. Blended like the daily spend — habit
+         * leads early, what has landed decides late — and never below what has
+         * actually come back.
+         */
         let refunds = lts.monthRefunds ?? 0
-        let projected = max(lts.monthSpent - refunds, projectedGross - refunds)
+        let observedRefundDaily = elapsed > 0 ? refunds / elapsed : 0
+        let priorRefundDaily = daysInMonth > 0
+            ? max(0, lts.expectedMonthlyRefunds ?? 0) / daysInMonth
+            : 0
+        let blendedRefundDaily = weight > 0
+            ? (elapsed * observedRefundDaily + priorWeight * priorRefundDaily) / weight
+            : observedRefundDaily
+        let projectedRefunds = max(refunds, blendedRefundDaily * daysInMonth)
+        let projected = max(lts.monthSpent - refunds, projectedGross - projectedRefunds)
         let margin = lts.monthIncome > 0 ? lts.monthIncome - projected : nil
         let ratio = lts.monthIncome > 0 ? min(1, projected / lts.monthIncome) : 1
 

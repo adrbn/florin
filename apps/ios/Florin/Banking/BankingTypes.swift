@@ -176,6 +176,20 @@ struct TransactionsResponse: Decodable {
 }
 
 struct BankTransaction: Decodable {
+    /*
+     * The bank's own identifier, which is not the entry reference.
+     *
+     * La Banque Postale numbers entries by their rank in the day —
+     * "2026-08-31.0" — so a reference means "the first row of the 31st" and
+     * nothing more. Read as an identity it re-labels the same debit on every
+     * fetch, and the ledger takes the new label for a new transaction: the
+     * loan instalment and the Orange bill both landed twice on 1 September,
+     * three days after they had already been written.
+     *
+     * `transaction_id` is what the server has always keyed on, and the reason
+     * its ledger never grew those pairs.
+     */
+    let transactionId: String?
     let entryReference: String?
     let transactionAmount: BalancesResponse.Amount?
     let creditDebitIndicator: String?
@@ -188,6 +202,7 @@ struct BankTransaction: Decodable {
     let status: String?
 
     enum CodingKeys: String, CodingKey {
+        case transactionId = "transaction_id"
         case entryReference = "entry_reference"
         case transactionAmount = "transaction_amount"
         case creditDebitIndicator = "credit_debit_indicator"
@@ -198,6 +213,21 @@ struct BankTransaction: Decodable {
         case debtorName = "debtor_name"
         case remittanceInformation = "remittance_information"
         case status
+    }
+
+    /*
+     * A reference that is really a position in a list is not an identity.
+     *
+     * Shaped `2026-08-31.0`: the booking date and the row's rank that day.
+     * Anything of that form is refused, and the content of the transaction
+     * keys it instead — a key that says the same thing on every fetch.
+     */
+    static func isPositional(_ reference: String) -> Bool {
+        guard let dot = reference.lastIndex(of: ".") else { return false }
+        let head = reference[reference.startIndex..<dot]
+        let tail = reference[reference.index(after: dot)...]
+        guard !tail.isEmpty, tail.allSatisfy(\.isNumber) else { return false }
+        return head.count == 10 && head.allSatisfy { $0.isNumber || $0 == "-" }
     }
 
     /// Signed the way this ledger stores money: out is negative.

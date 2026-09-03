@@ -908,5 +908,12 @@
   "intro.budgetBody": "Transactions sort themselves into categories. You confirm the guesses once, and the plan keeps itself up to date.",
   "intro.eyebrowBank": "Optional",
   "intro.bankTitle": "Connect your bank.\nOnce.",
-  "intro.bankBody": "Three steps in Settings and your transactions arrive on their own. Prefer not to? Florin works perfectly by hand or from a CSV file."
+  "intro.bankBody": "Three steps in Settings and your transactions arrive on their own. Prefer not to? Florin works perfectly by hand or from a CSV file.",
+  "v2.plan.incomeExpected": "Income expected",
+  "v2.plan.ofExpectedIncome": "of about {income} expected",
+  "v2.analysis.tab.calendar": "Calendar",
+  "v2.analysis.calendarCaption": "Spending per day, over {days} days",
+  "v2.analysis.busiestDay": "Heaviest day",
+  "v2.analysis.quietDays": "{count} days without spending",
+  "v2.analysis.perActiveDay": "{amount} on days with spending"
 }

@@ -497,7 +497,11 @@ enum BankingSync {
          * key to the account is what stops one bank's counter colliding with
          * another's.
          */
-        let reference = transaction.entryReference
+        let stable = transaction.transactionId
+            ?? transaction.entryReference.flatMap {
+                BankTransaction.isPositional($0) ? nil : $0
+            }
+        let reference = stable
             ?? "\(date):\(transaction.signedAmount):\(transaction.counterparty)"
         let externalId = "\(uid):\(reference)"
 
@@ -574,9 +578,21 @@ enum BankingSync {
             WHERE account_id = ? AND deleted_at IS NULL
               AND abs(julianday(substr(occurred_at, 1, 10)) - julianday(?)) <= 1
               AND abs(amount - ?) < 0.005
-              AND (source <> 'enable_banking' OR external_id IS NULL
-                   OR is_pending = 1
-                   OR substr(occurred_at, 1, 10) > date('now'))
+              /*
+               * A settled bank row is no longer off limits either.
+               *
+               * It was, on the reasoning that the bank had already spoken and
+               * nothing should overwrite it. That held only while a reference
+               * meant one transaction for ever. It does not: La Banque Postale
+               * renumbers, this app has itself keyed rows two different ways,
+               * and every re-identification of an already-written row arrived
+               * here as a stranger and was filed as a second debit.
+               *
+               * Nothing is lost by allowing it. `adopted` keeps the match
+               * one-to-one, so two genuine purchases of the same amount on the
+               * same day still claim one row each; and a row whose twin never
+               * comes back simply keeps the key it had.
+               */
             ORDER BY drift
             """,
             [
@@ -765,5 +781,106 @@ extension BankingSync {
             )
         }
         return ghosts.count
+    }
+
+    /*
+     * The same debit, written twice because the bank renamed it.
+     *
+     * On 28 August the loan instalment and the Orange bill were fetched and
+     * keyed by their contents. On 1 September the same two came back carrying
+     * La Banque Postale's entry references — "2026-08-31.0", "2026-08-31.1",
+     * the row's rank in the day and nothing else — and were written again as
+     * strangers. The plan then showed two mensualités for a month with one.
+     *
+     * Refusing positional references stops it happening again; this takes back
+     * the four rows it already made. What identifies a pair here is not that
+     * two rows look alike — two identical train tickets on one day are two
+     * tickets — but that one of them is keyed by a scheme this app no longer
+     * writes and the other is not. Genuine twins share a scheme, so they are
+     * never touched.
+     *
+     * The survivor inherits the discarded row's transfer pairing, or a loan
+     * mirror would be left attached to a row that no longer exists and the
+     * debt would keep a step it never took.
+     */
+    private static func counterpartExists(
+        _ store: LocalStore, pair: String, excluding id: String
+    ) throws -> Bool {
+        guard !pair.isEmpty else { return false }
+        return try store.database.scalar(
+            """
+            SELECT 1 FROM transactions
+            WHERE transfer_pair_id = ? AND id <> ? AND deleted_at IS NULL
+            LIMIT 1
+            """,
+            [.text(pair), .text(id)]
+        ) != nil
+    }
+
+    static func collapseRelabelledDuplicates(store: LocalStore) throws -> Int {
+        let pairs = try store.database.query(
+            """
+            SELECT stale.id AS drop_id, stale.transfer_pair_id AS drop_pair,
+                   kept.id AS keep_id, kept.transfer_pair_id AS keep_pair,
+                   stale.account_id AS account_id
+            FROM transactions stale
+            JOIN transactions kept
+              ON kept.account_id = stale.account_id
+             AND kept.id <> stale.id
+             AND kept.deleted_at IS NULL
+             AND kept.source = 'enable_banking'
+             AND abs(kept.amount - stale.amount) < 0.005
+             AND substr(kept.occurred_at, 1, 10) = substr(stale.occurred_at, 1, 10)
+             AND kept.external_id NOT GLOB
+                 '*:[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].[0-9]*'
+            WHERE stale.deleted_at IS NULL
+              AND stale.source = 'enable_banking'
+              AND stale.external_id GLOB
+                  '*:[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].[0-9]*'
+            ORDER BY stale.created_at
+            """
+        )
+
+        var spent: Set<String> = []
+        var touched: Set<String> = []
+        var removed = 0
+        for pair in pairs {
+            guard let dropId = pair.string("drop_id"),
+                  let keepId = pair.string("keep_id"),
+                  !spent.contains(dropId), !spent.contains(keepId)
+            else { continue }
+            spent.insert(dropId)
+            spent.insert(keepId)
+
+            /*
+             * The survivor takes the pairing that still means something.
+             *
+             * Having a pair id is not the same as having a counterpart: the
+             * row kept here carries one whose other half was never written,
+             * while the row being discarded is the one the loan mirror is
+             * actually attached to. Comparing the ids alone would keep the
+             * empty pairing and leave the mirror hanging off a deleted row.
+             */
+            if let inherited = pair.string("drop_pair"),
+               try counterpartExists(store, pair: inherited, excluding: dropId),
+               try !counterpartExists(
+                   store, pair: pair.string("keep_pair") ?? "", excluding: keepId
+               ) {
+                try store.database.run(
+                    "UPDATE transactions SET transfer_pair_id = ? WHERE id = ?",
+                    [.text(inherited), .text(keepId)]
+                )
+            }
+            try store.database.run(
+                "UPDATE transactions SET deleted_at = datetime('now') WHERE id = ?",
+                [.text(dropId)]
+            )
+            if let account = pair.string("account_id") { touched.insert(account) }
+            removed += 1
+        }
+        for account in touched {
+            try recomputeBalanceFromOpening(store: store, accountId: account)
+        }
+        return removed
     }
 }

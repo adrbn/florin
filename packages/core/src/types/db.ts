@@ -228,6 +228,12 @@ export interface LeftToSpend {
    * being used to compensate for a partial month.
    */
   expectedMonthlySpend: number
+  /**
+   * What comes back in a usual month: the six-month gross burn minus the net
+   * one. The forecast projects it instead of assuming no refund will arrive
+   * after today. Optional so a payload from an older server still parses.
+   */
+  expectedMonthlyRefunds?: number
   leftToSpend: number
   /** Average daily spend so far this month (monthSpent / daysElapsed). */
   dailyAvgSpent: number
@@ -313,9 +319,23 @@ export interface MonthPlan {
   groups: PlanGroup[]
   /** Sum of all transactions in income-kind categories this month, transfers/soft-deletes excluded. */
   income: number
+  /**
+   * What the month is expected to bring in: what has landed, or — while the
+   * month is still running and has not been paid yet — the median of the six
+   * complete months before it.
+   *
+   * A salary arrives around the 27th, so for most of a month `income` is a
+   * fraction of the truth and often zero. Planning against it said "sur 0 €
+   * de revenus" under a plan of 2 900 €, and called every assignment made
+   * before payday an overspend. The plan is a forecast everywhere else; this
+   * is the same reading applied to the one figure that was not.
+   */
+  expectedIncome: number
+  /** True when `expectedIncome` is the estimate rather than money received. */
+  incomeIsEstimated: boolean
   /** Sum of .assigned across every PlanCategory. */
   totalAssigned: number
-  /** income - totalAssigned. Negative = "Assigned Too Much". */
+  /** expectedIncome - totalAssigned. Negative = "Assigned Too Much". */
   readyToAssign: number
   /** Total count of overspent categories across all expense groups. */
   overspentCount: number

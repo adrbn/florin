@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 /// Filters the Activité tab can apply, mirroring `/m/transactions`' search
 /// params one for one so a filter behaves the same in the app and the browser.
@@ -239,9 +240,33 @@ final class ActivityModel: ObservableObject {
     }
 
     func apply(_ patch: TxPatch, to id: String, t: Strings) async {
+        /*
+         * A verdict leaves the queue as it is given.
+         *
+         * Waiting for the round trip meant the row sat there looking exactly
+         * as it had before, and the queue only emptied on the next pull. The
+         * row is marked here, animated, and the server merely confirms it —
+         * the same optimism `approve(_:t:)` already applies in bulk.
+         */
+        var optimistic = false
+        if patch.approve == true, let index = rows.firstIndex(where: { $0.id == id }) {
+            withAnimation(.snappy(duration: 0.28)) {
+                // Under the "à vérifier" filter the row no longer belongs to
+                // the list at all; anywhere else it simply loses its badge and
+                // rejoins its day.
+                if filter.needsReview {
+                    rows.remove(at: index)
+                    total = max(0, total - 1)
+                } else {
+                    rows[index] = rows[index].approved()
+                }
+            }
+            reviewCount = max(0, reviewCount - 1)
+            optimistic = true
+        }
         do {
             try await client.patch(id, patch)
-            if patch.approve == true { reviewCount = max(0, reviewCount - 1) }
+            if patch.approve == true && !optimistic { reviewCount = max(0, reviewCount - 1) }
             await refreshRow(id)
         } catch {
             toast = ToastMessage(text: error.localizedDescription, kind: .failure)
@@ -257,8 +282,15 @@ final class ActivityModel: ObservableObject {
     func approve(_ ids: [String], t: Strings) async {
         guard !ids.isEmpty else { return }
         let marked = Set(ids)
-        for index in rows.indices where marked.contains(rows[index].id) {
-            rows[index] = rows[index].approved()
+        withAnimation(.snappy(duration: 0.28)) {
+            if filter.needsReview {
+                rows.removeAll { marked.contains($0.id) }
+                total = max(0, total - ids.count)
+            } else {
+                for index in rows.indices where marked.contains(rows[index].id) {
+                    rows[index] = rows[index].approved()
+                }
+            }
         }
         reviewCount = max(0, reviewCount - ids.count)
         do {
