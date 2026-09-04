@@ -70,7 +70,7 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: Florin/Info.plist
-        CURRENT_PROJECT_VERSION: 407
+        CURRENT_PROJECT_VERSION: 408
         MARKETING_VERSION: "1.3.4"
     dependencies:
       - target: FlorinWidgets
@@ -104,6 +104,14 @@ targets:
       path: FlorinWidgets/Info.plist
       properties:
         CFBundleDisplayName: Florin
+        # An extension must carry the container app's exact version, or the
+        # App Store rejects the upload as an invalid binary. XcodeGen writes
+        # "1.0 (1)" into a generated Info.plist unless told otherwise, so the
+        # widget shipped 1.0 (1) inside a 1.3.4 (407) app and 407 came back
+        # INVALID_BINARY. The app's own plist has always used these variables;
+        # the generated one has to as well.
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     settings:
@@ -114,6 +122,6 @@ targets:
         # file and not the Local folder it lives in.
         APPLICATION_EXTENSION_API_ONLY: YES
         SKIP_INSTALL: YES
-        CURRENT_PROJECT_VERSION: 407
+        CURRENT_PROJECT_VERSION: 408
         MARKETING_VERSION: "1.3.4"
         INFOPLIST_KEY_CFBundleDisplayName: Florin
