@@ -7,14 +7,10 @@ DerivedData/
 *.xcuserstate
 xcuserdata/
 
-# xcodegen writes the project from project.yml; the .xcodeproj is a build
-# product, not a source file.
-Florin.xcodeproj/
-# Except the shared scheme. Xcode Cloud clones this repository and builds a
-# scheme it finds in xcshareddata — it does not run xcodegen, so a scheme that
-# only exists after generation is a scheme it can never select. This one file
-# is the exception that lets a hosted build know what to build.
-!Florin.xcodeproj/
-Florin.xcodeproj/*
-!Florin.xcodeproj/xcshareddata/
-!Florin.xcodeproj/xcshareddata/**
+# xcodegen writes the project from project.yml, which stays the source of
+# truth — but the generated project is committed all the same. Xcode Cloud
+# clones this repository and opens the project directly; it does not run
+# xcodegen, so a project that only exists after generation is a project it can
+# never build. Regenerate with `xcodegen generate` and commit the result.
+Florin.xcodeproj/xcuserdata/
+Florin.xcodeproj/project.xcworkspace/xcuserdata/

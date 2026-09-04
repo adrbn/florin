@@ -1,0 +1,967 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		012BE24BDACB110AE8BBB323 /* Brand.swift in Sources */ = {isa = PBXBuildFile; fileRef = D01218C78CF2722622A51E5B /* Brand.swift */; };
+		02E0A5C7DD9F371326789EE1 /* TaskSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89E7EC2A6990567E31F4543F /* TaskSheet.swift */; };
+		097A9A7EE7645B3AA663D444 /* LocalSchema.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD643C2F44F11D71E2F7CA73 /* LocalSchema.swift */; };
+		0BD9FE3CFA72A3F04F4ED9F8 /* PlanModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64BDA3BB3A85D55389B90A43 /* PlanModel.swift */; };
+		0C0F0E087D436E275DA1A339 /* ServerProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = A430BB992FA1860E239C34C8 /* ServerProbe.swift */; };
+		0FC7475F516BDC8DA2821A95 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C815B4671E296193268EC13 /* WidgetSnapshot.swift */; };
+		13F221008AC2C8208BE2C62F /* ImportSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9002B8C0392D7D4BCEB2266 /* ImportSheet.swift */; };
+		157CD4668E4CE3E100509CC9 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1716DE308068FD596619F829 /* Theme.swift */; };
+		15892DA826788CC24B016B11 /* SettingsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED3157EAC79D41E85F3DF2EC /* SettingsScreen.swift */; };
+		162512FDDD1ED76892717E8D /* AppLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6801683A19B982925B586CB2 /* AppLock.swift */; };
+		17D4B2646AC31C7B1D3AF40D /* Backdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60BAF879368733AE7877D7B5 /* Backdrop.swift */; };
+		19DA625C08C8A4A12689A4ED /* LocalImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5F276D31E91FBE8D753978A /* LocalImport.swift */; };
+		20A3BBC6162F6CBA9229CD80 /* AddTransactionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94411516F56A17BA12CD1C5F /* AddTransactionSheet.swift */; };
+		2263CF54DED3472E4DEE5E68 /* BankLogo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1030F4E939DD8352B6EC5322 /* BankLogo.swift */; };
+		22CDB53123C3C03EEA6F09DD /* FlorinClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3AFD81B650F2340FC3E4131 /* FlorinClient.swift */; };
+		27C794850EBC13407EE98500 /* AccountEditSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4674A636DF0340B4297CF009 /* AccountEditSheet.swift */; };
+		27F31DEB70798F2FB1B73070 /* BankingFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21B52AD24C4960C3D8B9D2F /* BankingFlow.swift */; };
+		28E4CC7F63FD56AA6F810744 /* FlorinApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 366071F020F6449805F3FCF1 /* FlorinApp.swift */; };
+		2CA9FDE0367C105AA8112F1F /* BankingSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41EE180075A0455B6DA27E90 /* BankingSync.swift */; };
+		2D3A287A5CAD7B268445E55E /* EnableBanking.swift in Sources */ = {isa = PBXBuildFile; fileRef = D88841043DF911CC3CBE4B95 /* EnableBanking.swift */; };
+		302F4643CDA591613AD8B258 /* AmountText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75D28CE358FB2C14BF840725 /* AmountText.swift */; };
+		31B1D1DF613445C5C45A0568 /* LocalAnalysis.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72FE45643769E71AEFCDC7D4 /* LocalAnalysis.swift */; };
+		3342203CA12166B860659D6E /* TransactionDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDF4A709768A421F61F9223E /* TransactionDetailSheet.swift */; };
+		3BCEA79D2F2EA9DB9E6B4D7A /* TabRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECD89E78054CE99B6649A8C1 /* TabRoute.swift */; };
+		3DD25A73F3793CF67F645C69 /* BankAccountMapping.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBE8CAD1297A4EAF97189D6B /* BankAccountMapping.swift */; };
+		3E18BDAFAC60B0589BF66BE5 /* ServerStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B08B65B00C5393966C2613C /* ServerStore.swift */; };
+		3E8CC100EEDBF44277F78B0A /* ServerFieldsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84E153B45F8DCF03658782FF /* ServerFieldsCard.swift */; };
+		3E8CE733CADCA1B92FD9BDB9 /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39C44DE0A129ADBD45193B43 /* SplashView.swift */; };
+		3EBF8DD05E6E18D4E4DBE8D7 /* EmptyStart.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86665E5949173D99AC181418 /* EmptyStart.swift */; };
+		419FC8C120515D8F0F785D35 /* LocalCategories.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24A8CF18ACAA0CA5B471CD27 /* LocalCategories.swift */; };
+		49AC5ECF5EC98A3FEE7235FD /* SyncLogScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF76048AF929B992877341B9 /* SyncLogScreen.swift */; };
+		4F54575E6AAF15D53BA5E8CA /* LocalPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 869B56AA7F60C1AA6E636346 /* LocalPlan.swift */; };
+		50E09F59ECA9C36D7338B135 /* BankingTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AB3BB28F5C79A6CA7BB503F /* BankingTypes.swift */; };
+		5196C67AFB53DC1E360AD057 /* BackgroundRefresh.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1D62499D2405CFC7C953ABE /* BackgroundRefresh.swift */; };
+		54A82C3BA1798211069F622A /* ReviewCategorySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 754B34C99EE06AC065034351 /* ReviewCategorySheet.swift */; };
+		54D02C557DB83DB4B7610711 /* SettingsKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00E74566417801045AB5E9C7 /* SettingsKit.swift */; };
+		555A4A05C413690155026F1D /* Strings.json in Resources */ = {isa = PBXBuildFile; fileRef = 4BE4F540065C6E543C0B8A5D /* Strings.json */; };
+		563720ABC3A033BC1D4B4DBA /* AddAccountSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 608F7E010F694A6297EE66C4 /* AddAccountSheet.swift */; };
+		570B14EAF8BA2BB76436B76C /* LocalQueries.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37EF623AEA746C7A66D35F6B /* LocalQueries.swift */; };
+		579ACFFF81AA5E790B90DA13 /* Rows.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF9632D2BADE2A1BA9B98E7D /* Rows.swift */; };
+		5B4111C7309CCDDA821AD38E /* CategoryRemovalSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 772EFF8D3DF1CE1E2F3D2ADA /* CategoryRemovalSheet.swift */; };
+		5D6B883191B2CE941475E705 /* CategoryEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3043699DDFC45335EED6DED0 /* CategoryEditorSheet.swift */; };
+		62CDC847E44E16D5D812F977 /* SetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA781686F48030D4E2610C3F /* SetupView.swift */; };
+		69F07F669C9388276D512B8E /* PortfolioModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66BFF60356B227C9DB19C1F8 /* PortfolioModel.swift */; };
+		6F745D62D1B175FC8B574F8F /* BankingSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A70197CC43070B855A98008 /* BankingSettings.swift */; };
+		713F23992E64EEBA0EFFFA4A /* CategoryPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71F201A99DD3A95C05BBE836 /* CategoryPicker.swift */; };
+		73C22C43303F56E9DEA81E40 /* SnapshotCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10D904FFFE7E0B55E4CE28DD /* SnapshotCache.swift */; };
+		765E601F0C7A1186125D54F6 /* Scaffold.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACE82E4B69A59D03EC43D3F2 /* Scaffold.swift */; };
+		7707FFCA143FE2CC730A5432 /* FlorinWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 23E29CE538BC035660929769 /* FlorinWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		7882CB323999BB3ADDE66FD7 /* FlorinWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3527CE69DFA3185EE1A26AE /* FlorinWidgets.swift */; };
+		78E07C461F16F08FEBC1BE92 /* LocalLoan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 932CA5B579432866CCF8ED11 /* LocalLoan.swift */; };
+		811A082056C43D09BFBAB1A5 /* Toast.swift in Sources */ = {isa = PBXBuildFile; fileRef = B70C1BD2212D9DC6EBE54B14 /* Toast.swift */; };
+		899EA5BAEDF756101D5425F6 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C815B4671E296193268EC13 /* WidgetSnapshot.swift */; };
+		8B043232F67805B4D6D0C40E /* LocalWrites.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE123F70898FE546A5D1ACE0 /* LocalWrites.swift */; };
+		8F6443725DD79B98B0DF939F /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C17878447D95C0266AFAEB /* Models.swift */; };
+		915922155D4454202FDA87CE /* OnboardingFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54BBC64175156AE7D2F7FE08 /* OnboardingFlow.swift */; };
+		91C8FCE17A967B54AF404D1A /* SeedCategories.json in Resources */ = {isa = PBXBuildFile; fileRef = FAB80DF308FB7FBBFF1A0EDD /* SeedCategories.json */; };
+		9797DADBBC2793AD1AFE1D6F /* FloatingTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 263DE84037C85CC838A30F67 /* FloatingTabBar.swift */; };
+		9F70EE4441BACBA144150223 /* LocalCategoriser.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3F2754AF1FEBB2278A3EEBF /* LocalCategoriser.swift */; };
+		A216024B009501059D290009 /* LocalBackup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E3252C271F4E969AE64E84C /* LocalBackup.swift */; };
+		A245B073A9F74D0CF883D13D /* Privacy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 053C4FF9EB60FEF2D22C6F7A /* Privacy.swift */; };
+		A636000FF8D12DAA4D6FF8BC /* LoanSettingsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCA4B188AFA3350AE1C4604E /* LoanSettingsSheet.swift */; };
+		A6534357A58B3944CAAB747B /* ServerImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E9EB2FEBA4192B0854EB8D1 /* ServerImport.swift */; };
+		A7E771BF25C8C09D6D3DB941 /* SQLite.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB06E854E34FEC85DF405946 /* SQLite.swift */; };
+		A957B15150966C7A23D70AB5 /* LocalBootstrap.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFAEC9BA74039A089559CADF /* LocalBootstrap.swift */; };
+		AC5803FD0059E042429D5E3A /* FlorinAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = D819CCD023A8552EED3FEA54 /* FlorinAuth.swift */; };
+		AFCC622484E60DAA995E16EC /* BankMappingSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EC1B2C681E3E371E60A8E28 /* BankMappingSheet.swift */; };
+		B15C51D77EA7FE29F5EA552D /* NetWorthChart.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71F6A5D199B6FCCED78975D2 /* NetWorthChart.swift */; };
+		B7865848DCF5CB5807AE1B58 /* ActivityModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9A820FC9213E4493C163519 /* ActivityModel.swift */; };
+		BC3FB0255CBA4207B6992527 /* DataSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB92AC9E5814FF0A7879214E /* DataSource.swift */; };
+		C52FA928565DF7E67D100AB6 /* LocalOnboarding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F40F230793C30D443DAE5D6 /* LocalOnboarding.swift */; };
+		C54F2ABFFA475120C2C042DB /* ShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 226D9DC6516754A93B4095CB /* ShareSheet.swift */; };
+		C60EFBFFBE284311AA77BAE3 /* PlanScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22D62DF409CF3CE35918326F /* PlanScreen.swift */; };
+		CB6B4BA1CA00858BDDDA07A8 /* TrueDate.swift in Sources */ = {isa = PBXBuildFile; fileRef = D369E2149BEF0B494A2B5467 /* TrueDate.swift */; };
+		CEEB2E9E5B5218F9F2EC773D /* LocalStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5081BF68525A3FC3417DE71E /* LocalStore.swift */; };
+		D4E019863964058D703761CE /* BottomScrim.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1DD2E38FDF8F23D07715D59 /* BottomScrim.swift */; };
+		D5D6AB1AB9D03C62B8A127F6 /* WebContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACED395A385ABE8191A28BB7 /* WebContainer.swift */; };
+		D8C4A835B901DE7371E70C4D /* AccountsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA33E1BDF4ED187D578701D0 /* AccountsScreen.swift */; };
+		D8E717E2EFA4C2614DF87DA8 /* LedgerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39F2BEAF49AC9AD5ADF0E624 /* LedgerTests.swift */; };
+		E4D2995C390903037F10DDB7 /* OverviewScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CF3F5843E841E89E60775AB /* OverviewScreen.swift */; };
+		E6EDD1F8D6A3563A3B9726DB /* AnalysisModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6987D1BE572CB37E2BDA92EB /* AnalysisModel.swift */; };
+		EEB484F10F89B2DA71DD8A12 /* ActivityScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57359F03A6215282B0FBF364 /* ActivityScreen.swift */; };
+		F06E9AA0DD0E0EFB69EF51C6 /* Strings.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF64507C596294E339B78F6E /* Strings.swift */; };
+		F08D86FB9DC99E6E39A3FBFC /* PlanCopySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB3F998CC237E7B9ECD2FEF8 /* PlanCopySheet.swift */; };
+		F0E9D6A42524894D40D4FE68 /* FilterSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B9D688258E231DAD13B47A2 /* FilterSheet.swift */; };
+		F3DB702B3016719C3D372D3E /* LocalPricing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93B3D703EE8199BC49EFE5C2 /* LocalPricing.swift */; };
+		F4E643C1E71949E56583F2F7 /* BankingKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FA92C50BBA20A08158E13A9 /* BankingKey.swift */; };
+		F695F96F5A1961DD0A132CCE /* AnalysisScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5992709F9137A0FAABD05EB /* AnalysisScreen.swift */; };
+		F7664E873EF61DCD772C00D5 /* ServerFields.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E01B8AD2CC1890283839B9C /* ServerFields.swift */; };
+		FB68C376EEC17B22E8F62093 /* AttachTransferSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C6CBCEDF60B342FB4D8BC35 /* AttachTransferSheet.swift */; };
+		FBCB7E769DD50D3BB548C5E8 /* SQLiteValue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26287A1F7C976E83B6DDBF26 /* SQLiteValue.swift */; };
+		FD311ECCF233E41D8ECAB568 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B468D0C6054280C2520C30BA /* Assets.xcassets */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		8DF94D0AA0784F84BD26652B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 48E2E1B31B72D6741BB3CD48 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 144B0D8C8C886D6A9C754973;
+			remoteInfo = FlorinWidgets;
+		};
+		A6805BFA738B0E45EEDAD945 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 48E2E1B31B72D6741BB3CD48 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1691B4406A4C42B98C029A8E;
+			remoteInfo = Florin;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		118B1C2D7A663C1B64394FBD /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				7707FFCA143FE2CC730A5432 /* FlorinWidgets.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		00E74566417801045AB5E9C7 /* SettingsKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsKit.swift; sourceTree = "<group>"; };
+		053C4FF9EB60FEF2D22C6F7A /* Privacy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Privacy.swift; sourceTree = "<group>"; };
+		0E01B8AD2CC1890283839B9C /* ServerFields.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerFields.swift; sourceTree = "<group>"; };
+		1030F4E939DD8352B6EC5322 /* BankLogo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankLogo.swift; sourceTree = "<group>"; };
+		10D904FFFE7E0B55E4CE28DD /* SnapshotCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotCache.swift; sourceTree = "<group>"; };
+		1716DE308068FD596619F829 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		1EC1B2C681E3E371E60A8E28 /* BankMappingSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankMappingSheet.swift; sourceTree = "<group>"; };
+		1FA92C50BBA20A08158E13A9 /* BankingKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankingKey.swift; sourceTree = "<group>"; };
+		226D9DC6516754A93B4095CB /* ShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareSheet.swift; sourceTree = "<group>"; };
+		22D62DF409CF3CE35918326F /* PlanScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanScreen.swift; sourceTree = "<group>"; };
+		23E29CE538BC035660929769 /* FlorinWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = FlorinWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		24A8CF18ACAA0CA5B471CD27 /* LocalCategories.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalCategories.swift; sourceTree = "<group>"; };
+		26287A1F7C976E83B6DDBF26 /* SQLiteValue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SQLiteValue.swift; sourceTree = "<group>"; };
+		263DE84037C85CC838A30F67 /* FloatingTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingTabBar.swift; sourceTree = "<group>"; };
+		2B9D688258E231DAD13B47A2 /* FilterSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterSheet.swift; sourceTree = "<group>"; };
+		3043699DDFC45335EED6DED0 /* CategoryEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryEditorSheet.swift; sourceTree = "<group>"; };
+		366071F020F6449805F3FCF1 /* FlorinApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlorinApp.swift; sourceTree = "<group>"; };
+		37EF623AEA746C7A66D35F6B /* LocalQueries.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalQueries.swift; sourceTree = "<group>"; };
+		39C44DE0A129ADBD45193B43 /* SplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashView.swift; sourceTree = "<group>"; };
+		39F2BEAF49AC9AD5ADF0E624 /* LedgerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LedgerTests.swift; sourceTree = "<group>"; };
+		3F40F230793C30D443DAE5D6 /* LocalOnboarding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalOnboarding.swift; sourceTree = "<group>"; };
+		41EE180075A0455B6DA27E90 /* BankingSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankingSync.swift; sourceTree = "<group>"; };
+		4674A636DF0340B4297CF009 /* AccountEditSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountEditSheet.swift; sourceTree = "<group>"; };
+		4BE4F540065C6E543C0B8A5D /* Strings.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Strings.json; sourceTree = "<group>"; };
+		4C6CBCEDF60B342FB4D8BC35 /* AttachTransferSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachTransferSheet.swift; sourceTree = "<group>"; };
+		4C815B4671E296193268EC13 /* WidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshot.swift; sourceTree = "<group>"; };
+		5081BF68525A3FC3417DE71E /* LocalStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalStore.swift; sourceTree = "<group>"; };
+		54BBC64175156AE7D2F7FE08 /* OnboardingFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingFlow.swift; sourceTree = "<group>"; };
+		57359F03A6215282B0FBF364 /* ActivityScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityScreen.swift; sourceTree = "<group>"; };
+		608F7E010F694A6297EE66C4 /* AddAccountSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddAccountSheet.swift; sourceTree = "<group>"; };
+		60BAF879368733AE7877D7B5 /* Backdrop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Backdrop.swift; sourceTree = "<group>"; };
+		64BDA3BB3A85D55389B90A43 /* PlanModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanModel.swift; sourceTree = "<group>"; };
+		66BFF60356B227C9DB19C1F8 /* PortfolioModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortfolioModel.swift; sourceTree = "<group>"; };
+		6801683A19B982925B586CB2 /* AppLock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLock.swift; sourceTree = "<group>"; };
+		6987D1BE572CB37E2BDA92EB /* AnalysisModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalysisModel.swift; sourceTree = "<group>"; };
+		6A70197CC43070B855A98008 /* BankingSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankingSettings.swift; sourceTree = "<group>"; };
+		6CF3F5843E841E89E60775AB /* OverviewScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverviewScreen.swift; sourceTree = "<group>"; };
+		71F201A99DD3A95C05BBE836 /* CategoryPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryPicker.swift; sourceTree = "<group>"; };
+		71F6A5D199B6FCCED78975D2 /* NetWorthChart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetWorthChart.swift; sourceTree = "<group>"; };
+		72FE45643769E71AEFCDC7D4 /* LocalAnalysis.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalAnalysis.swift; sourceTree = "<group>"; };
+		754B34C99EE06AC065034351 /* ReviewCategorySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewCategorySheet.swift; sourceTree = "<group>"; };
+		75D28CE358FB2C14BF840725 /* AmountText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmountText.swift; sourceTree = "<group>"; };
+		772EFF8D3DF1CE1E2F3D2ADA /* CategoryRemovalSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryRemovalSheet.swift; sourceTree = "<group>"; };
+		7AB3BB28F5C79A6CA7BB503F /* BankingTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankingTypes.swift; sourceTree = "<group>"; };
+		84E153B45F8DCF03658782FF /* ServerFieldsCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerFieldsCard.swift; sourceTree = "<group>"; };
+		86665E5949173D99AC181418 /* EmptyStart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStart.swift; sourceTree = "<group>"; };
+		869B56AA7F60C1AA6E636346 /* LocalPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalPlan.swift; sourceTree = "<group>"; };
+		88868FF5D23E0BDBAB0F18DB /* FlorinWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FlorinWidgets.entitlements; sourceTree = "<group>"; };
+		89E7EC2A6990567E31F4543F /* TaskSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskSheet.swift; sourceTree = "<group>"; };
+		8B08B65B00C5393966C2613C /* ServerStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerStore.swift; sourceTree = "<group>"; };
+		8E9EB2FEBA4192B0854EB8D1 /* ServerImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerImport.swift; sourceTree = "<group>"; };
+		932CA5B579432866CCF8ED11 /* LocalLoan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalLoan.swift; sourceTree = "<group>"; };
+		93B3D703EE8199BC49EFE5C2 /* LocalPricing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalPricing.swift; sourceTree = "<group>"; };
+		94411516F56A17BA12CD1C5F /* AddTransactionSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTransactionSheet.swift; sourceTree = "<group>"; };
+		9E3252C271F4E969AE64E84C /* LocalBackup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalBackup.swift; sourceTree = "<group>"; };
+		A21B52AD24C4960C3D8B9D2F /* BankingFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankingFlow.swift; sourceTree = "<group>"; };
+		A430BB992FA1860E239C34C8 /* ServerProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerProbe.swift; sourceTree = "<group>"; };
+		AA33E1BDF4ED187D578701D0 /* AccountsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountsScreen.swift; sourceTree = "<group>"; };
+		AC7319F0B45751A9F8825149 /* Florin.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Florin.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		ACE82E4B69A59D03EC43D3F2 /* Scaffold.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scaffold.swift; sourceTree = "<group>"; };
+		ACED395A385ABE8191A28BB7 /* WebContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebContainer.swift; sourceTree = "<group>"; };
+		AD643C2F44F11D71E2F7CA73 /* LocalSchema.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalSchema.swift; sourceTree = "<group>"; };
+		AE123F70898FE546A5D1ACE0 /* LocalWrites.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalWrites.swift; sourceTree = "<group>"; };
+		AECD506601858C9A5FC3407A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		AFAEC9BA74039A089559CADF /* LocalBootstrap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalBootstrap.swift; sourceTree = "<group>"; };
+		B468D0C6054280C2520C30BA /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B70C1BD2212D9DC6EBE54B14 /* Toast.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Toast.swift; sourceTree = "<group>"; };
+		B9002B8C0392D7D4BCEB2266 /* ImportSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportSheet.swift; sourceTree = "<group>"; };
+		B9A820FC9213E4493C163519 /* ActivityModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityModel.swift; sourceTree = "<group>"; };
+		BEA17A0E3DE53B5E3A78DD42 /* FlorinTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = FlorinTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		BF64507C596294E339B78F6E /* Strings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Strings.swift; sourceTree = "<group>"; };
+		C3F2754AF1FEBB2278A3EEBF /* LocalCategoriser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalCategoriser.swift; sourceTree = "<group>"; };
+		C5F276D31E91FBE8D753978A /* LocalImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalImport.swift; sourceTree = "<group>"; };
+		CA781686F48030D4E2610C3F /* SetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupView.swift; sourceTree = "<group>"; };
+		CB06E854E34FEC85DF405946 /* SQLite.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SQLite.swift; sourceTree = "<group>"; };
+		CBE8CAD1297A4EAF97189D6B /* BankAccountMapping.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankAccountMapping.swift; sourceTree = "<group>"; };
+		CDF4A709768A421F61F9223E /* TransactionDetailSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionDetailSheet.swift; sourceTree = "<group>"; };
+		CF76048AF929B992877341B9 /* SyncLogScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncLogScreen.swift; sourceTree = "<group>"; };
+		D01218C78CF2722622A51E5B /* Brand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Brand.swift; sourceTree = "<group>"; };
+		D1D62499D2405CFC7C953ABE /* BackgroundRefresh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundRefresh.swift; sourceTree = "<group>"; };
+		D369E2149BEF0B494A2B5467 /* TrueDate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrueDate.swift; sourceTree = "<group>"; };
+		D819CCD023A8552EED3FEA54 /* FlorinAuth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlorinAuth.swift; sourceTree = "<group>"; };
+		D88841043DF911CC3CBE4B95 /* EnableBanking.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnableBanking.swift; sourceTree = "<group>"; };
+		DB92AC9E5814FF0A7879214E /* DataSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataSource.swift; sourceTree = "<group>"; };
+		DCA4B188AFA3350AE1C4604E /* LoanSettingsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoanSettingsSheet.swift; sourceTree = "<group>"; };
+		DEA94E1C0A6307106C6B8EAB /* Florin.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Florin.entitlements; sourceTree = "<group>"; };
+		DF9632D2BADE2A1BA9B98E7D /* Rows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Rows.swift; sourceTree = "<group>"; };
+		E1DD2E38FDF8F23D07715D59 /* BottomScrim.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BottomScrim.swift; sourceTree = "<group>"; };
+		E3527CE69DFA3185EE1A26AE /* FlorinWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlorinWidgets.swift; sourceTree = "<group>"; };
+		E5992709F9137A0FAABD05EB /* AnalysisScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalysisScreen.swift; sourceTree = "<group>"; };
+		E6252CEC5BF6CA2A47F805B2 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		EB3F998CC237E7B9ECD2FEF8 /* PlanCopySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanCopySheet.swift; sourceTree = "<group>"; };
+		ECD89E78054CE99B6649A8C1 /* TabRoute.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabRoute.swift; sourceTree = "<group>"; };
+		ED3157EAC79D41E85F3DF2EC /* SettingsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsScreen.swift; sourceTree = "<group>"; };
+		F2C17878447D95C0266AFAEB /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		F3AFD81B650F2340FC3E4131 /* FlorinClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlorinClient.swift; sourceTree = "<group>"; };
+		FAB80DF308FB7FBBFF1A0EDD /* SeedCategories.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = SeedCategories.json; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		0515BE1FC1D4E68EC8751010 /* Screens */ = {
+			isa = PBXGroup;
+			children = (
+				4674A636DF0340B4297CF009 /* AccountEditSheet.swift */,
+				AA33E1BDF4ED187D578701D0 /* AccountsScreen.swift */,
+				57359F03A6215282B0FBF364 /* ActivityScreen.swift */,
+				94411516F56A17BA12CD1C5F /* AddTransactionSheet.swift */,
+				E5992709F9137A0FAABD05EB /* AnalysisScreen.swift */,
+				4C6CBCEDF60B342FB4D8BC35 /* AttachTransferSheet.swift */,
+				3043699DDFC45335EED6DED0 /* CategoryEditorSheet.swift */,
+				71F201A99DD3A95C05BBE836 /* CategoryPicker.swift */,
+				772EFF8D3DF1CE1E2F3D2ADA /* CategoryRemovalSheet.swift */,
+				2B9D688258E231DAD13B47A2 /* FilterSheet.swift */,
+				B9002B8C0392D7D4BCEB2266 /* ImportSheet.swift */,
+				DCA4B188AFA3350AE1C4604E /* LoanSettingsSheet.swift */,
+				6CF3F5843E841E89E60775AB /* OverviewScreen.swift */,
+				EB3F998CC237E7B9ECD2FEF8 /* PlanCopySheet.swift */,
+				22D62DF409CF3CE35918326F /* PlanScreen.swift */,
+				754B34C99EE06AC065034351 /* ReviewCategorySheet.swift */,
+				ED3157EAC79D41E85F3DF2EC /* SettingsScreen.swift */,
+				CF76048AF929B992877341B9 /* SyncLogScreen.swift */,
+				CDF4A709768A421F61F9223E /* TransactionDetailSheet.swift */,
+			);
+			path = Screens;
+			sourceTree = "<group>";
+		};
+		0937106559E863AE98221F58 /* Design */ = {
+			isa = PBXGroup;
+			children = (
+				75D28CE358FB2C14BF840725 /* AmountText.swift */,
+				6801683A19B982925B586CB2 /* AppLock.swift */,
+				60BAF879368733AE7877D7B5 /* Backdrop.swift */,
+				D01218C78CF2722622A51E5B /* Brand.swift */,
+				053C4FF9EB60FEF2D22C6F7A /* Privacy.swift */,
+				ACE82E4B69A59D03EC43D3F2 /* Scaffold.swift */,
+				BF64507C596294E339B78F6E /* Strings.swift */,
+				ECD89E78054CE99B6649A8C1 /* TabRoute.swift */,
+				1716DE308068FD596619F829 /* Theme.swift */,
+			);
+			path = Design;
+			sourceTree = "<group>";
+		};
+		2604D425F797A9C5E754AB47 /* Florin */ = {
+			isa = PBXGroup;
+			children = (
+				B468D0C6054280C2520C30BA /* Assets.xcassets */,
+				DB92AC9E5814FF0A7879214E /* DataSource.swift */,
+				DEA94E1C0A6307106C6B8EAB /* Florin.entitlements */,
+				366071F020F6449805F3FCF1 /* FlorinApp.swift */,
+				AECD506601858C9A5FC3407A /* Info.plist */,
+				8B08B65B00C5393966C2613C /* ServerStore.swift */,
+				CA781686F48030D4E2610C3F /* SetupView.swift */,
+				ACED395A385ABE8191A28BB7 /* WebContainer.swift */,
+				7ED705FB4D18E181548568AD /* Api */,
+				EA13768EB13255CAC3A809B2 /* Banking */,
+				9A989DE3F156C0B779D8DDE8 /* Components */,
+				0937106559E863AE98221F58 /* Design */,
+				C110FFE60BA8A55CAC2FBA4E /* Local */,
+				8C7FB096140A4A12718C11A4 /* Onboarding */,
+				0515BE1FC1D4E68EC8751010 /* Screens */,
+			);
+			path = Florin;
+			sourceTree = "<group>";
+		};
+		57EB0432D753D5ABB05D740E /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				FAB80DF308FB7FBBFF1A0EDD /* SeedCategories.json */,
+				4BE4F540065C6E543C0B8A5D /* Strings.json */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		7ED705FB4D18E181548568AD /* Api */ = {
+			isa = PBXGroup;
+			children = (
+				B9A820FC9213E4493C163519 /* ActivityModel.swift */,
+				6987D1BE572CB37E2BDA92EB /* AnalysisModel.swift */,
+				D819CCD023A8552EED3FEA54 /* FlorinAuth.swift */,
+				F3AFD81B650F2340FC3E4131 /* FlorinClient.swift */,
+				F2C17878447D95C0266AFAEB /* Models.swift */,
+				64BDA3BB3A85D55389B90A43 /* PlanModel.swift */,
+				66BFF60356B227C9DB19C1F8 /* PortfolioModel.swift */,
+				A430BB992FA1860E239C34C8 /* ServerProbe.swift */,
+				10D904FFFE7E0B55E4CE28DD /* SnapshotCache.swift */,
+			);
+			path = Api;
+			sourceTree = "<group>";
+		};
+		882E2B07186C9FFB590C8990 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				AC7319F0B45751A9F8825149 /* Florin.app */,
+				BEA17A0E3DE53B5E3A78DD42 /* FlorinTests.xctest */,
+				23E29CE538BC035660929769 /* FlorinWidgets.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		8C7FB096140A4A12718C11A4 /* Onboarding */ = {
+			isa = PBXGroup;
+			children = (
+				608F7E010F694A6297EE66C4 /* AddAccountSheet.swift */,
+				3F40F230793C30D443DAE5D6 /* LocalOnboarding.swift */,
+				54BBC64175156AE7D2F7FE08 /* OnboardingFlow.swift */,
+			);
+			path = Onboarding;
+			sourceTree = "<group>";
+		};
+		9A989DE3F156C0B779D8DDE8 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				E1DD2E38FDF8F23D07715D59 /* BottomScrim.swift */,
+				86665E5949173D99AC181418 /* EmptyStart.swift */,
+				263DE84037C85CC838A30F67 /* FloatingTabBar.swift */,
+				71F6A5D199B6FCCED78975D2 /* NetWorthChart.swift */,
+				DF9632D2BADE2A1BA9B98E7D /* Rows.swift */,
+				0E01B8AD2CC1890283839B9C /* ServerFields.swift */,
+				84E153B45F8DCF03658782FF /* ServerFieldsCard.swift */,
+				00E74566417801045AB5E9C7 /* SettingsKit.swift */,
+				226D9DC6516754A93B4095CB /* ShareSheet.swift */,
+				39C44DE0A129ADBD45193B43 /* SplashView.swift */,
+				89E7EC2A6990567E31F4543F /* TaskSheet.swift */,
+				B70C1BD2212D9DC6EBE54B14 /* Toast.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		B5E69781886C3A2A77FD766A /* FlorinTests */ = {
+			isa = PBXGroup;
+			children = (
+				39F2BEAF49AC9AD5ADF0E624 /* LedgerTests.swift */,
+			);
+			path = FlorinTests;
+			sourceTree = "<group>";
+		};
+		C110FFE60BA8A55CAC2FBA4E /* Local */ = {
+			isa = PBXGroup;
+			children = (
+				D1D62499D2405CFC7C953ABE /* BackgroundRefresh.swift */,
+				72FE45643769E71AEFCDC7D4 /* LocalAnalysis.swift */,
+				9E3252C271F4E969AE64E84C /* LocalBackup.swift */,
+				AFAEC9BA74039A089559CADF /* LocalBootstrap.swift */,
+				24A8CF18ACAA0CA5B471CD27 /* LocalCategories.swift */,
+				C3F2754AF1FEBB2278A3EEBF /* LocalCategoriser.swift */,
+				C5F276D31E91FBE8D753978A /* LocalImport.swift */,
+				932CA5B579432866CCF8ED11 /* LocalLoan.swift */,
+				869B56AA7F60C1AA6E636346 /* LocalPlan.swift */,
+				93B3D703EE8199BC49EFE5C2 /* LocalPricing.swift */,
+				37EF623AEA746C7A66D35F6B /* LocalQueries.swift */,
+				AD643C2F44F11D71E2F7CA73 /* LocalSchema.swift */,
+				5081BF68525A3FC3417DE71E /* LocalStore.swift */,
+				AE123F70898FE546A5D1ACE0 /* LocalWrites.swift */,
+				8E9EB2FEBA4192B0854EB8D1 /* ServerImport.swift */,
+				CB06E854E34FEC85DF405946 /* SQLite.swift */,
+				26287A1F7C976E83B6DDBF26 /* SQLiteValue.swift */,
+				4C815B4671E296193268EC13 /* WidgetSnapshot.swift */,
+				57EB0432D753D5ABB05D740E /* Resources */,
+			);
+			path = Local;
+			sourceTree = "<group>";
+		};
+		D561C88281BADCC201D5A819 /* FlorinWidgets */ = {
+			isa = PBXGroup;
+			children = (
+				88868FF5D23E0BDBAB0F18DB /* FlorinWidgets.entitlements */,
+				E3527CE69DFA3185EE1A26AE /* FlorinWidgets.swift */,
+				E6252CEC5BF6CA2A47F805B2 /* Info.plist */,
+			);
+			path = FlorinWidgets;
+			sourceTree = "<group>";
+		};
+		D5734BF55873B642C290FFB5 = {
+			isa = PBXGroup;
+			children = (
+				2604D425F797A9C5E754AB47 /* Florin */,
+				B5E69781886C3A2A77FD766A /* FlorinTests */,
+				D561C88281BADCC201D5A819 /* FlorinWidgets */,
+				882E2B07186C9FFB590C8990 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		EA13768EB13255CAC3A809B2 /* Banking */ = {
+			isa = PBXGroup;
+			children = (
+				CBE8CAD1297A4EAF97189D6B /* BankAccountMapping.swift */,
+				A21B52AD24C4960C3D8B9D2F /* BankingFlow.swift */,
+				1FA92C50BBA20A08158E13A9 /* BankingKey.swift */,
+				6A70197CC43070B855A98008 /* BankingSettings.swift */,
+				41EE180075A0455B6DA27E90 /* BankingSync.swift */,
+				7AB3BB28F5C79A6CA7BB503F /* BankingTypes.swift */,
+				1030F4E939DD8352B6EC5322 /* BankLogo.swift */,
+				1EC1B2C681E3E371E60A8E28 /* BankMappingSheet.swift */,
+				D88841043DF911CC3CBE4B95 /* EnableBanking.swift */,
+				D369E2149BEF0B494A2B5467 /* TrueDate.swift */,
+			);
+			path = Banking;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		144B0D8C8C886D6A9C754973 /* FlorinWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6E8096C01AB7D75A87C01461 /* Build configuration list for PBXNativeTarget "FlorinWidgets" */;
+			buildPhases = (
+				B7EE93D2E65A335FD1048C2C /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = FlorinWidgets;
+			packageProductDependencies = (
+			);
+			productName = FlorinWidgets;
+			productReference = 23E29CE538BC035660929769 /* FlorinWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		1691B4406A4C42B98C029A8E /* Florin */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 190B230D00D1C6594FFF5045 /* Build configuration list for PBXNativeTarget "Florin" */;
+			buildPhases = (
+				40A73FC802D46A0E4A4E641E /* Sources */,
+				D7FD5CBF21786FA0BDD01851 /* Resources */,
+				118B1C2D7A663C1B64394FBD /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				0C1CDB990F10826CF3876CC4 /* PBXTargetDependency */,
+			);
+			name = Florin;
+			packageProductDependencies = (
+			);
+			productName = Florin;
+			productReference = AC7319F0B45751A9F8825149 /* Florin.app */;
+			productType = "com.apple.product-type.application";
+		};
+		8000882A93D9F3BB0038E284 /* FlorinTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FD18C93E9F73F34FFA197285 /* Build configuration list for PBXNativeTarget "FlorinTests" */;
+			buildPhases = (
+				9570DA2420E844DCE86228FB /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				10BAE23D4B5CBF20E60BD8CF /* PBXTargetDependency */,
+			);
+			name = FlorinTests;
+			packageProductDependencies = (
+			);
+			productName = FlorinTests;
+			productReference = BEA17A0E3DE53B5E3A78DD42 /* FlorinTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		48E2E1B31B72D6741BB3CD48 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					144B0D8C8C886D6A9C754973 = {
+						DevelopmentTeam = 2TWQF4T93E;
+						ProvisioningStyle = Automatic;
+					};
+					1691B4406A4C42B98C029A8E = {
+						DevelopmentTeam = 2TWQF4T93E;
+						ProvisioningStyle = Automatic;
+					};
+					8000882A93D9F3BB0038E284 = {
+						DevelopmentTeam = 2TWQF4T93E;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 34F3FD0B50DDEDB694E17A1E /* Build configuration list for PBXProject "Florin" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = D5734BF55873B642C290FFB5;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				1691B4406A4C42B98C029A8E /* Florin */,
+				8000882A93D9F3BB0038E284 /* FlorinTests */,
+				144B0D8C8C886D6A9C754973 /* FlorinWidgets */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		D7FD5CBF21786FA0BDD01851 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FD311ECCF233E41D8ECAB568 /* Assets.xcassets in Resources */,
+				91C8FCE17A967B54AF404D1A /* SeedCategories.json in Resources */,
+				555A4A05C413690155026F1D /* Strings.json in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		40A73FC802D46A0E4A4E641E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				27C794850EBC13407EE98500 /* AccountEditSheet.swift in Sources */,
+				D8C4A835B901DE7371E70C4D /* AccountsScreen.swift in Sources */,
+				B7865848DCF5CB5807AE1B58 /* ActivityModel.swift in Sources */,
+				EEB484F10F89B2DA71DD8A12 /* ActivityScreen.swift in Sources */,
+				563720ABC3A033BC1D4B4DBA /* AddAccountSheet.swift in Sources */,
+				20A3BBC6162F6CBA9229CD80 /* AddTransactionSheet.swift in Sources */,
+				302F4643CDA591613AD8B258 /* AmountText.swift in Sources */,
+				E6EDD1F8D6A3563A3B9726DB /* AnalysisModel.swift in Sources */,
+				F695F96F5A1961DD0A132CCE /* AnalysisScreen.swift in Sources */,
+				162512FDDD1ED76892717E8D /* AppLock.swift in Sources */,
+				FB68C376EEC17B22E8F62093 /* AttachTransferSheet.swift in Sources */,
+				17D4B2646AC31C7B1D3AF40D /* Backdrop.swift in Sources */,
+				5196C67AFB53DC1E360AD057 /* BackgroundRefresh.swift in Sources */,
+				3DD25A73F3793CF67F645C69 /* BankAccountMapping.swift in Sources */,
+				2263CF54DED3472E4DEE5E68 /* BankLogo.swift in Sources */,
+				AFCC622484E60DAA995E16EC /* BankMappingSheet.swift in Sources */,
+				27F31DEB70798F2FB1B73070 /* BankingFlow.swift in Sources */,
+				F4E643C1E71949E56583F2F7 /* BankingKey.swift in Sources */,
+				6F745D62D1B175FC8B574F8F /* BankingSettings.swift in Sources */,
+				2CA9FDE0367C105AA8112F1F /* BankingSync.swift in Sources */,
+				50E09F59ECA9C36D7338B135 /* BankingTypes.swift in Sources */,
+				D4E019863964058D703761CE /* BottomScrim.swift in Sources */,
+				012BE24BDACB110AE8BBB323 /* Brand.swift in Sources */,
+				5D6B883191B2CE941475E705 /* CategoryEditorSheet.swift in Sources */,
+				713F23992E64EEBA0EFFFA4A /* CategoryPicker.swift in Sources */,
+				5B4111C7309CCDDA821AD38E /* CategoryRemovalSheet.swift in Sources */,
+				BC3FB0255CBA4207B6992527 /* DataSource.swift in Sources */,
+				3EBF8DD05E6E18D4E4DBE8D7 /* EmptyStart.swift in Sources */,
+				2D3A287A5CAD7B268445E55E /* EnableBanking.swift in Sources */,
+				F0E9D6A42524894D40D4FE68 /* FilterSheet.swift in Sources */,
+				9797DADBBC2793AD1AFE1D6F /* FloatingTabBar.swift in Sources */,
+				28E4CC7F63FD56AA6F810744 /* FlorinApp.swift in Sources */,
+				AC5803FD0059E042429D5E3A /* FlorinAuth.swift in Sources */,
+				22CDB53123C3C03EEA6F09DD /* FlorinClient.swift in Sources */,
+				13F221008AC2C8208BE2C62F /* ImportSheet.swift in Sources */,
+				A636000FF8D12DAA4D6FF8BC /* LoanSettingsSheet.swift in Sources */,
+				31B1D1DF613445C5C45A0568 /* LocalAnalysis.swift in Sources */,
+				A216024B009501059D290009 /* LocalBackup.swift in Sources */,
+				A957B15150966C7A23D70AB5 /* LocalBootstrap.swift in Sources */,
+				419FC8C120515D8F0F785D35 /* LocalCategories.swift in Sources */,
+				9F70EE4441BACBA144150223 /* LocalCategoriser.swift in Sources */,
+				19DA625C08C8A4A12689A4ED /* LocalImport.swift in Sources */,
+				78E07C461F16F08FEBC1BE92 /* LocalLoan.swift in Sources */,
+				C52FA928565DF7E67D100AB6 /* LocalOnboarding.swift in Sources */,
+				4F54575E6AAF15D53BA5E8CA /* LocalPlan.swift in Sources */,
+				F3DB702B3016719C3D372D3E /* LocalPricing.swift in Sources */,
+				570B14EAF8BA2BB76436B76C /* LocalQueries.swift in Sources */,
+				097A9A7EE7645B3AA663D444 /* LocalSchema.swift in Sources */,
+				CEEB2E9E5B5218F9F2EC773D /* LocalStore.swift in Sources */,
+				8B043232F67805B4D6D0C40E /* LocalWrites.swift in Sources */,
+				8F6443725DD79B98B0DF939F /* Models.swift in Sources */,
+				B15C51D77EA7FE29F5EA552D /* NetWorthChart.swift in Sources */,
+				915922155D4454202FDA87CE /* OnboardingFlow.swift in Sources */,
+				E4D2995C390903037F10DDB7 /* OverviewScreen.swift in Sources */,
+				F08D86FB9DC99E6E39A3FBFC /* PlanCopySheet.swift in Sources */,
+				0BD9FE3CFA72A3F04F4ED9F8 /* PlanModel.swift in Sources */,
+				C60EFBFFBE284311AA77BAE3 /* PlanScreen.swift in Sources */,
+				69F07F669C9388276D512B8E /* PortfolioModel.swift in Sources */,
+				A245B073A9F74D0CF883D13D /* Privacy.swift in Sources */,
+				54A82C3BA1798211069F622A /* ReviewCategorySheet.swift in Sources */,
+				579ACFFF81AA5E790B90DA13 /* Rows.swift in Sources */,
+				A7E771BF25C8C09D6D3DB941 /* SQLite.swift in Sources */,
+				FBCB7E769DD50D3BB548C5E8 /* SQLiteValue.swift in Sources */,
+				765E601F0C7A1186125D54F6 /* Scaffold.swift in Sources */,
+				F7664E873EF61DCD772C00D5 /* ServerFields.swift in Sources */,
+				3E8CC100EEDBF44277F78B0A /* ServerFieldsCard.swift in Sources */,
+				A6534357A58B3944CAAB747B /* ServerImport.swift in Sources */,
+				0C0F0E087D436E275DA1A339 /* ServerProbe.swift in Sources */,
+				3E18BDAFAC60B0589BF66BE5 /* ServerStore.swift in Sources */,
+				54D02C557DB83DB4B7610711 /* SettingsKit.swift in Sources */,
+				15892DA826788CC24B016B11 /* SettingsScreen.swift in Sources */,
+				62CDC847E44E16D5D812F977 /* SetupView.swift in Sources */,
+				C54F2ABFFA475120C2C042DB /* ShareSheet.swift in Sources */,
+				73C22C43303F56E9DEA81E40 /* SnapshotCache.swift in Sources */,
+				3E8CE733CADCA1B92FD9BDB9 /* SplashView.swift in Sources */,
+				F06E9AA0DD0E0EFB69EF51C6 /* Strings.swift in Sources */,
+				49AC5ECF5EC98A3FEE7235FD /* SyncLogScreen.swift in Sources */,
+				3BCEA79D2F2EA9DB9E6B4D7A /* TabRoute.swift in Sources */,
+				02E0A5C7DD9F371326789EE1 /* TaskSheet.swift in Sources */,
+				157CD4668E4CE3E100509CC9 /* Theme.swift in Sources */,
+				811A082056C43D09BFBAB1A5 /* Toast.swift in Sources */,
+				3342203CA12166B860659D6E /* TransactionDetailSheet.swift in Sources */,
+				CB6B4BA1CA00858BDDDA07A8 /* TrueDate.swift in Sources */,
+				D5D6AB1AB9D03C62B8A127F6 /* WebContainer.swift in Sources */,
+				899EA5BAEDF756101D5425F6 /* WidgetSnapshot.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9570DA2420E844DCE86228FB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D8E717E2EFA4C2614DF87DA8 /* LedgerTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B7EE93D2E65A335FD1048C2C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7882CB323999BB3ADDE66FD7 /* FlorinWidgets.swift in Sources */,
+				0FC7475F516BDC8DA2821A95 /* WidgetSnapshot.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		0C1CDB990F10826CF3876CC4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 144B0D8C8C886D6A9C754973 /* FlorinWidgets */;
+			targetProxy = 8DF94D0AA0784F84BD26652B /* PBXContainerItemProxy */;
+		};
+		10BAE23D4B5CBF20E60BD8CF /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1691B4406A4C42B98C029A8E /* Florin */;
+			targetProxy = A6805BFA738B0E45EEDAD945 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		6380DB062F7FBE7F6700FDDB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Florin/Florin.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 408;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Florin/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Florin;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.3.4;
+				PRODUCT_BUNDLE_IDENTIFIER = com.adrbn.florin;
+				PRODUCT_NAME = Florin;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		A77213A853FF156B9DA5D8D6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = FlorinWidgets/FlorinWidgets.entitlements;
+				CURRENT_PROJECT_VERSION = 408;
+				INFOPLIST_FILE = FlorinWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Florin;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.3.4;
+				PRODUCT_BUNDLE_IDENTIFIER = com.adrbn.florin.widgets;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		A9CF8A53396E6C52EE5C99B8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 2TWQF4T93E;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.4;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		B4A8F8828FD4DAEC20C73519 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.adrbn.florin.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Florin.app/Florin";
+			};
+			name = Debug;
+		};
+		CFAB35DAF241626FECCE01F2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = FlorinWidgets/FlorinWidgets.entitlements;
+				CURRENT_PROJECT_VERSION = 408;
+				INFOPLIST_FILE = FlorinWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Florin;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.3.4;
+				PRODUCT_BUNDLE_IDENTIFIER = com.adrbn.florin.widgets;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		D798077A3BE5917E5533FC3A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 2TWQF4T93E;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.4;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		D7C411D1817C33001C8BA557 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Florin/Florin.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 408;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Florin/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Florin;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.3.4;
+				PRODUCT_BUNDLE_IDENTIFIER = com.adrbn.florin;
+				PRODUCT_NAME = Florin;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		E094C7819BBADB4C9439828C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.adrbn.florin.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Florin.app/Florin";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		190B230D00D1C6594FFF5045 /* Build configuration list for PBXNativeTarget "Florin" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6380DB062F7FBE7F6700FDDB /* Debug */,
+				D7C411D1817C33001C8BA557 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		34F3FD0B50DDEDB694E17A1E /* Build configuration list for PBXProject "Florin" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A9CF8A53396E6C52EE5C99B8 /* Debug */,
+				D798077A3BE5917E5533FC3A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		6E8096C01AB7D75A87C01461 /* Build configuration list for PBXNativeTarget "FlorinWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CFAB35DAF241626FECCE01F2 /* Debug */,
+				A77213A853FF156B9DA5D8D6 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		FD18C93E9F73F34FFA197285 /* Build configuration list for PBXNativeTarget "FlorinTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B4A8F8828FD4DAEC20C73519 /* Debug */,
+				E094C7819BBADB4C9439828C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 48E2E1B31B72D6741BB3CD48 /* Project object */;
+}
