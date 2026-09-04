@@ -20,6 +20,23 @@ settings:
     ENABLE_USER_SCRIPT_SANDBOXING: YES
     SWIFT_STRICT_CONCURRENCY: minimal
 
+schemes:
+  # Declared rather than autocreated: an autocreated scheme is never written to
+  # disk, so Xcode Cloud — which clones the repo and looks in xcshareddata —
+  # finds nothing to build. Declaring it puts a committed .xcscheme there.
+  Florin:
+    build:
+      targets:
+        Florin: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - FlorinTests
+    archive:
+      config: Release
+
 targets:
   Florin:
     type: application
