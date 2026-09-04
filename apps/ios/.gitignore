@@ -10,3 +10,11 @@ xcuserdata/
 # xcodegen writes the project from project.yml; the .xcodeproj is a build
 # product, not a source file.
 Florin.xcodeproj/
+# Except the shared scheme. Xcode Cloud clones this repository and builds a
+# scheme it finds in xcshareddata — it does not run xcodegen, so a scheme that
+# only exists after generation is a scheme it can never select. This one file
+# is the exception that lets a hosted build know what to build.
+!Florin.xcodeproj/
+Florin.xcodeproj/*
+!Florin.xcodeproj/xcshareddata/
+!Florin.xcodeproj/xcshareddata/**
