@@ -34,7 +34,20 @@ struct FlorinApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView().environmentObject(server)
+            RootView()
+                .environmentObject(server)
+                /*
+                 * The language chosen in settings has to reach UIKit too.
+                 *
+                 * Florin draws its own text from its own string tables, so
+                 * picking English in settings turned every label English —
+                 * except the controls it does not draw itself. The date picker
+                 * on the add-transaction sheet is SwiftUI's, and SwiftUI asks
+                 * the environment, which nobody had set, so it fell through to
+                 * the handset's language: "4 sept. 2026" sitting under Payee,
+                 * Account and Category on an otherwise English screen.
+                 */
+                .environment(\.locale, Locale(identifier: Strings.tag(for: Strings.preferredShortLocale)))
         }
         .onChange(of: scenePhase) { _, phase in
             // Leaving the foreground is the moment a backup is most likely to
