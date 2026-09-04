@@ -42,7 +42,20 @@ enum Money {
             let scaled = value / 1000
             f.maximumFractionDigits = 1
             let n = f.string(from: NSNumber(value: scaled)) ?? "—"
-            return n.replacingOccurrences(of: currencySymbol(locale: locale, currency: currency), with: "k " + currencySymbol(locale: locale, currency: currency))
+            /*
+             * Where the "k" goes depends on where the currency sign goes.
+             *
+             * French writes "12,3 k €" — sign trailing, so "k" slots in
+             * before it. English writes "€12.3k" — sign leading, so the same
+             * substitution produced "k €2.4", with the multiplier stranded in
+             * front of the whole amount. The sign's own position is what
+             * decides, not a hardcoded assumption about one locale.
+             */
+            let symbol = currencySymbol(locale: locale, currency: currency)
+            if n.hasPrefix(symbol) || n.hasPrefix("\u{2212}" + symbol) || n.hasPrefix("-" + symbol) {
+                return n + "k"
+            }
+            return n.replacingOccurrences(of: symbol, with: "k " + symbol)
         }
         return f.string(from: NSNumber(value: value)) ?? "—"
     }
