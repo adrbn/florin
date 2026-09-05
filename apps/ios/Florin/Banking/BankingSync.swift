@@ -250,9 +250,33 @@ enum BankingSync {
         let details = try await EnableBanking.accountDetails(config, uid: uid)
         let balance = try await EnableBanking.balances(config, uid: uid).preferred ?? 0
 
-        let existing = try store.database.scalar(
+        /*
+         * The uid first, then the IBAN.
+         *
+         * Enable Banking's account uid is scoped to the session that produced
+         * it: reconnecting the same bank hands back a different one for the
+         * same real account. Matching on the uid alone therefore finds nothing
+         * after a reconnection and the sync inserts a second account for money
+         * that is already tracked — a balance counted twice, and a duplicate
+         * that comes back on every sync after someone deletes it, because
+         * deleting the row removes the only thing the lookup matched on.
+         *
+         * The IBAN is the account, whoever is asking and whenever. It is
+         * written on every sync below, so an account synced once can always be
+         * recognised again; one synced before this existed adopts its IBAN the
+         * first time it is matched by uid.
+         */
+        let iban = details.accountId?.iban
+        var existing = try store.database.scalar(
             "SELECT id FROM accounts WHERE sync_external_id = ?", [.text(uid)]
         )?.string
+
+        if existing == nil, let iban, !iban.isEmpty {
+            existing = try store.database.scalar(
+                "SELECT id FROM accounts WHERE iban = ? AND is_archived = 0",
+                [.text(iban)]
+            )?.string
+        }
 
         if let existing {
             /*
@@ -266,10 +290,18 @@ enum BankingSync {
                 """
                 UPDATE accounts
                 SET current_balance = ?, last_synced_at = datetime('now'),
-                    updated_at = datetime('now')
+                    updated_at = datetime('now'),
+                    iban = COALESCE(?, iban),
+                    sync_provider = 'enable_banking',
+                    sync_external_id = ?,
+                    bank_connection_id = ?
                 WHERE id = ?
                 """,
-                [.real(balance), .text(existing)]
+                [
+                    .real(balance),
+                    iban.map { SQLiteValue.text($0) } ?? .null,
+                    .text(uid), .text(connectionId), .text(existing),
+                ]
             )
             return existing
         }
@@ -279,13 +311,15 @@ enum BankingSync {
             """
             INSERT INTO accounts
                 (id, name, kind, currency, current_balance, opening_balance,
-                 sync_provider, sync_external_id, bank_connection_id, last_synced_at)
-            VALUES (?, ?, ?, ?, ?, 0, 'enable_banking', ?, ?, datetime('now'))
+                 sync_provider, sync_external_id, bank_connection_id,
+                 last_synced_at, iban)
+            VALUES (?, ?, ?, ?, ?, 0, 'enable_banking', ?, ?, datetime('now'), ?)
             """,
             [
                 .text(id), .text(details.displayName), .text(kind(for: details)),
                 .text(details.currency ?? "EUR"), .real(balance),
                 .text(uid), .text(connectionId),
+                iban.map { SQLiteValue.text($0) } ?? .null,
             ]
         )
         return id
