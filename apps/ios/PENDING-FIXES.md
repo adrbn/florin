@@ -79,6 +79,24 @@ doublon n'apparaît plus, donc le cas devient rare — mais quelqu'un qui suppri
 délibérément un compte synchronisé le verra toujours réapparaître. À trancher :
 prévenir, ou détacher la connexion en même temps.
 
+## 5. Une zone de graphique vide au premier jour
+
+`Florin/Local/LocalQueries.swift` — pas encore écrit
+
+`netWorthSeries` remonte le temps depuis les soldes d'aujourd'hui jusqu'à la
+transaction la plus ancienne. C'est le bon sens de lecture : sommer vers l'avant
+depuis zéro dessinerait un patrimoine qui part de rien et grimpe, ce qui n'est
+jamais ce qui s'est passé.
+
+Mais quelqu'un qui vient de créer son compte et saisit deux transactions du jour
+n'a qu'une seule journée d'historique, donc un seul point, donc aucune ligne —
+et l'app lui montre une bande vide entre son patrimoine et les boutons de
+période, sans un mot d'explication. C'est visible sur la vidéo envoyée à Apple.
+
+Une ligne discrète à la place du blanc — « votre courbe apparaîtra après
+quelques jours » — dirait que l'app fonctionne plutôt que de laisser croire
+qu'elle a échoué.
+
 ## À faire
 
 Ces trois correctifs partiront dans la prochaine build Xcode Cloud. Rien ne
