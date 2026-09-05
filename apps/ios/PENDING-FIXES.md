@@ -47,6 +47,38 @@ elle-même. Traduit en/fr/nl.
 C'est exactement le genre de blocage qu'un examinateur Apple signale comme
 « app incomplète », donc à ne pas laisser passer une soumission de plus.
 
+## 4. Un compte bancaire dédoublé à chaque reconnexion
+
+`Florin/Banking/BankingSync.swift` — **écrit, pas encore compilé**
+
+Enable Banking donne à chaque compte un `uid` valable pour la session qui l'a
+produit : reconnecter la même banque en renvoie un autre pour le même compte
+réel. `upsertAccount` ne cherchait que sur cet uid, donc après une reconnexion
+il ne trouvait rien et insérait un second compte pour de l'argent déjà suivi.
+
+C'est arrivé le 5 septembre : le CCP et un « MR ROBINO ADRIEN » affichaient tous
+deux 3 001 €, et le patrimoine était surévalué d'autant.
+
+La feuille de rattachement ne pouvait pas sauver la situation : `candidates()`
+masque tout compte ayant déjà un `sync_external_id`, donc le CCP — le seul
+choix correct — était absent de la liste, et « Nouveau compte » restait la seule
+option.
+
+L'IBAN est le compte, quel que soit celui qui demande et quand. Enable Banking
+le renvoie (`AccountDetails.accountId.iban`) et la colonne existait déjà, mais
+la synchro ne l'écrivait jamais. Elle l'écrit maintenant, à l'insertion comme à
+la mise à jour, et le cherche en second recours quand l'uid ne trouve rien.
+
+### Ce qui reste ouvert
+
+Supprimer un compte synchronisé le fait revenir à la synchro suivante :
+`AccountsScreen` supprime la ligne et ses transactions, mais ne touche ni à
+`bank_account_map` ni à `bank_connections`, et la ligne supprimée était la seule
+chose sur laquelle la recherche s'appuyait. Avec le correctif ci-dessus le
+doublon n'apparaît plus, donc le cas devient rare — mais quelqu'un qui supprime
+délibérément un compte synchronisé le verra toujours réapparaître. À trancher :
+prévenir, ou détacher la connexion en même temps.
+
 ## À faire
 
 Ces trois correctifs partiront dans la prochaine build Xcode Cloud. Rien ne
