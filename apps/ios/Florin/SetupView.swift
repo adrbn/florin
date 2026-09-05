@@ -12,6 +12,9 @@ struct SetupView: View {
     @Environment(\.dismiss) private var dismiss
 
     let isFirstRun: Bool
+    /// The same preference RootView reads to decide which store to mount —
+    /// writing it here is what lets this screen hand the app back to itself.
+    @AppStorage("florin.dataSource") private var source = ""
     @State private var draft = ""
     @State private var token = ""
     @State private var status: ServerStatus = .unknown
@@ -41,6 +44,31 @@ struct SetupView: View {
                     .disabled(preview == nil)
                     .opacity(preview == nil ? 0.4 : 1)
                     .padding(.horizontal, Florin.gutter)
+
+                    /*
+                     * A way out of the first run.
+                     *
+                     * The close button below is drawn only when this screen is
+                     * pushed from settings; on a first run there was none, and
+                     * the one remaining button stays disabled until an address
+                     * parses. Anyone who picked "I already have a server" by
+                     * mistake — or who reinstalled and landed here because the
+                     * stored preference outlived the container — was left on a
+                     * screen with no server, no way back and no way forward,
+                     * and deleting the app was the only exit. The ledger lives
+                     * on the phone in that mode, so this is also the button
+                     * that reaches it.
+                     */
+                    if isFirstRun {
+                        Button {
+                            source = DataSource.device.rawValue
+                        } label: {
+                            Text(Strings.device("v2.setup.useDevice", "Utiliser cet appareil"))
+                                .font(.system(size: 15, weight: .medium))
+                                .foregroundStyle(Florin.accent)
+                        }
+                        .buttonStyle(.plain)
+                    }
 
                     HStack(spacing: 7) {
                         Image(systemName: "lock.fill").font(.system(size: 11, weight: .semibold))

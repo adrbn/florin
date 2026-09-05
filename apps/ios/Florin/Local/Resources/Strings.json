@@ -631,7 +631,8 @@
     "v2.analysis.tab.calendar": "Calendar",
     "v2.analysis.calendarCaption": "Spending per day, over {days} days",
     "v2.analysis.quietDays": "{count} days without spending",
-    "v2.analysis.perActiveDay": "{amount} on days with spending"
+    "v2.analysis.perActiveDay": "{amount} on days with spending",
+    "v2.setup.useDevice": "Use this device"
   },
   "fr": {
     "v2.a11y.back": "Retour",
@@ -1265,7 +1266,8 @@
     "v2.analysis.tab.calendar": "Calendrier",
     "v2.analysis.calendarCaption": "Dépenses par jour, sur {days} jours",
     "v2.analysis.quietDays": "{count} jours sans dépense",
-    "v2.analysis.perActiveDay": "{amount} les jours de dépense"
+    "v2.analysis.perActiveDay": "{amount} les jours de dépense",
+    "v2.setup.useDevice": "Utiliser cet appareil"
   },
   "nl": {
     "v2.a11y.back": "Terug",
@@ -1899,6 +1901,7 @@
     "v2.analysis.tab.calendar": "Kalender",
     "v2.analysis.calendarCaption": "Uitgaven per dag, over {days} dagen",
     "v2.analysis.quietDays": "{count} dagen zonder uitgaven",
-    "v2.analysis.perActiveDay": "{amount} op dagen met uitgaven"
+    "v2.analysis.perActiveDay": "{amount} op dagen met uitgaven",
+    "v2.setup.useDevice": "Dit apparaat gebruiken"
   }
 }

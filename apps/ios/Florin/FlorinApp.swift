@@ -32,6 +32,10 @@ struct FlorinApp: App {
 
     @Environment(\.scenePhase) private var scenePhase
 
+    /// Read here, not used here: touching the preference in this scope is what
+    /// makes the scene body re-evaluate when settings writes a new language.
+    @AppStorage("florin.locale") private var chosenLocale = ""
+
     var body: some Scene {
         WindowGroup {
             RootView()
@@ -48,6 +52,19 @@ struct FlorinApp: App {
                  * Account and Category on an otherwise English screen.
                  */
                 .environment(\.locale, Locale(identifier: Strings.tag(for: Strings.preferredShortLocale)))
+                /*
+                 * Remount the tree when the language changes.
+                 *
+                 * changeLocale writes the preference and clears the string
+                 * cache, but a view that has already rendered keeps the text it
+                 * was built with — so picking English turned Settings English
+                 * and left the five tabs behind it in French until something
+                 * happened to rebuild them. Closing and reopening Settings was
+                 * enough, which is what made it look intermittent rather than
+                 * broken. Reading the preference here is what makes this scene
+                 * re-evaluate at all; the id is what discards the stale tree.
+                 */
+                .id(chosenLocale)
         }
         .onChange(of: scenePhase) { _, phase in
             // Leaving the foreground is the moment a backup is most likely to
