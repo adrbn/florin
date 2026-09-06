@@ -67,6 +67,22 @@ final class AnalysisModel: ObservableObject {
 
     init(base: URL) { self.base = base }
 
+    /// Whether a square in the calendar can be opened.
+    ///
+    /// The day sheet reads the ledger directly; the server has no endpoint for
+    /// a single day and the calendar is its only caller. On a server-backed
+    /// install the squares stay inert rather than opening a sheet that would
+    /// have nothing to put in it.
+    var canOpenDays: Bool { base.scheme == "florin-local" }
+
+    /// The rows behind one square, read when it is tapped rather than with the
+    /// rest of the screen — thirty-five days of transactions is most of the
+    /// ledger, and all but one of them will never be asked for.
+    func day(_ key: String) -> DayDetail? {
+        guard canOpenDays, let store = LocalStore.shared else { return nil }
+        return try? LocalDay.detail(store: store, day: key)
+    }
+
     func load() async {
         guard !loading else { return }
         loading = true

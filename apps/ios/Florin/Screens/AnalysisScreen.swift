@@ -13,6 +13,9 @@ struct AnalysisScreen: View {
     var onOpenSettings: () -> Void = {}
 
     @StateObject private var model: AnalysisModel
+    /// The square being read. A wrapper because `sheet(item:)` wants identity
+    /// and a Date has none of its own.
+    @State private var openDay: OpenDay?
     @State private var tab: Tab = .where_
     @State private var drill: ActivityRoute?
     @State private var pickedMonth: MonthlyFlow?
@@ -55,6 +58,12 @@ struct AnalysisScreen: View {
         }
         .fullScreenCover(item: $drill) { target in
             AccountDetailScreen(model: overview, route: target)
+        }
+        .sheet(item: $openDay) { open in
+            DaySheet(
+                date: open.date, locale: locale, currency: currency, t: t,
+                load: { model.day($0) }
+            )
         }
         .task { if model.data == nil { await model.load() } }
     }
@@ -621,6 +630,11 @@ struct AnalysisScreen: View {
                                     ForEach(0..<7, id: \.self) { day in
                                         let cell = cells[week * 7 + day]
                                         dayCell(cell, peak: peak)
+                                            .contentShape(Rectangle())
+                                            .onTapGesture {
+                                                guard model.canOpenDays, !cell.future else { return }
+                                                openDay = OpenDay(date: cell.date)
+                                            }
                                     }
                                 }
                             }
@@ -1070,4 +1084,12 @@ struct DeltaChip: View {
             EmptyView()
         }
     }
+}
+
+/// A tapped square, given identity so `sheet(item:)` will carry it. The date
+/// alone cannot: two equal dates are the same value, and SwiftUI needs to tell
+/// one presentation from the next.
+private struct OpenDay: Identifiable {
+    let date: Date
+    var id: TimeInterval { date.timeIntervalSince1970 }
 }
