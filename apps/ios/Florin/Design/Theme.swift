@@ -38,6 +38,14 @@ enum Florin {
         dynamic(light: 0x4E6B8F, dark: 0x97AECC),
     ]
 
+    /// The Overview tab's ground, and the widget's.
+    ///
+    /// It lives here rather than beside its five siblings in `Backdrop` because
+    /// the widget target needs it and cannot take `TabRoute` with it. One
+    /// definition, two consumers: a widget that drifts from the screen it
+    /// mirrors is the kind of thing nobody notices until it looks cheap.
+    static let overviewTint = Color(red: 0.36, green: 0.33, blue: 0.90)
+
     static let cardRadius: CGFloat = 26
     static let rowRadius: CGFloat = 14
     static let gutter: CGFloat = 18
@@ -148,31 +156,5 @@ extension View {
             .background(tint ?? .clear, in: shape)
             .overlay(shape.strokeBorder(Florin.text.opacity(0.06), lineWidth: 0.5))
             .shadow(color: .black.opacity(0.10), radius: 8, x: 0, y: 3)
-    }
-}
-
-
-/// App appearance. Dark is the default — see RootView.
-enum Appearance: String, CaseIterable, Identifiable {
-    case dark
-    case light
-    case system
-
-    var id: String { rawValue }
-
-    var label: String {
-        switch self {
-        case .dark: return Strings.device("v2.settings.theme.dark", "Sombre")
-        case .light: return Strings.device("v2.settings.theme.light", "Clair")
-        case .system: return Strings.device("v2.settings.theme.system", "Système")
-        }
-    }
-
-    var colorScheme: ColorScheme? {
-        switch self {
-        case .dark: return .dark
-        case .light: return .light
-        case .system: return nil
-        }
     }
 }

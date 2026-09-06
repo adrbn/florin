@@ -36,7 +36,7 @@
     "v2.accounts.connect": "Connect a bank",
     "v2.accounts.connectHint": "Sync your transactions automatically",
     "v2.accounts.count": "{count} accounts",
-    "v2.accounts.deleteBody": "{name} and all its transactions will be deleted from this device. Your server and your bank are not affected.",
+    "v2.accounts.deleteBody": "{name} and all its transactions will be removed from this device. If it was synced, the link to your bank stops with it — nothing changes at the bank itself.",
     "v2.accounts.deleteConfirm": "Delete this account?",
     "v2.accounts.empty": "No accounts yet",
     "v2.accounts.emptyHint": "Add an account or connect your bank to get started.",
@@ -637,7 +637,16 @@
     "v2.day.byCategory": "By category",
     "v2.day.movements": "Movements",
     "v2.day.empty": "Nothing that day.",
-    "v2.day.scopeNote": "The total counts spending only — neither income nor transfers."
+    "v2.day.scopeNote": "The total counts spending only — neither income nor transfers.",
+    "v2.widget.leftToSpend": "Left to spend",
+    "v2.widget.daysLeft_one": "{count} day left",
+    "v2.widget.daysLeft": "{count} days left",
+    "v2.widget.asOf": "Figures from {date}",
+    "v2.widget.openApp": "Open Florin",
+    "v2.widget.openAppHint": "to show your figures here",
+    "v2.widget.perDay": "{amount} a day",
+    "v2.widget.youSpend": "you spend {amount}",
+    "v2.overview.curveComingSoon": "Your curve appears once you have a few days of history."
   },
   "fr": {
     "v2.a11y.back": "Retour",
@@ -676,7 +685,7 @@
     "v2.accounts.connect": "Connecter une banque",
     "v2.accounts.connectHint": "Synchronisez vos opérations automatiquement",
     "v2.accounts.count": "{count} comptes",
-    "v2.accounts.deleteBody": "{name} et toutes ses opérations seront supprimés de cet appareil. Votre serveur et votre banque ne sont pas touchés.",
+    "v2.accounts.deleteBody": "{name} et toutes ses opérations seront supprimés de cet appareil. S'il était synchronisé, le lien avec votre banque s'arrête avec lui — rien ne change du côté de la banque.",
     "v2.accounts.deleteConfirm": "Supprimer ce compte ?",
     "v2.accounts.empty": "Aucun compte pour l'instant",
     "v2.accounts.emptyHint": "Ajoutez un compte ou connectez votre banque pour démarrer.",
@@ -1277,7 +1286,16 @@
     "v2.day.byCategory": "Par catégorie",
     "v2.day.movements": "Opérations",
     "v2.day.empty": "Rien ce jour-là.",
-    "v2.day.scopeNote": "Le total ne compte que les dépenses : ni les entrées, ni les virements."
+    "v2.day.scopeNote": "Le total ne compte que les dépenses : ni les entrées, ni les virements.",
+    "v2.widget.leftToSpend": "Reste à vivre",
+    "v2.widget.daysLeft_one": "{count} jour restant",
+    "v2.widget.daysLeft": "{count} jours restants",
+    "v2.widget.asOf": "Chiffres du {date}",
+    "v2.widget.openApp": "Ouvrez Florin",
+    "v2.widget.openAppHint": "pour afficher vos chiffres ici",
+    "v2.widget.perDay": "{amount} par jour",
+    "v2.widget.youSpend": "vous dépensez {amount}",
+    "v2.overview.curveComingSoon": "Votre courbe apparaîtra après quelques jours."
   },
   "nl": {
     "v2.a11y.back": "Terug",
@@ -1316,7 +1334,7 @@
     "v2.accounts.connect": "Bank koppelen",
     "v2.accounts.connectHint": "Synchroniseer je transacties automatisch",
     "v2.accounts.count": "{count} rekeningen",
-    "v2.accounts.deleteBody": "{name} en alle bijbehorende transacties worden van dit apparaat verwijderd. Je server en je bank blijven ongemoeid.",
+    "v2.accounts.deleteBody": "{name} en al zijn transacties worden van dit apparaat verwijderd. Was hij gekoppeld, dan stopt de link met je bank ook — bij de bank zelf verandert niets.",
     "v2.accounts.deleteConfirm": "Deze rekening verwijderen?",
     "v2.accounts.empty": "Nog geen rekeningen",
     "v2.accounts.emptyHint": "Voeg een rekening toe of koppel je bank om te beginnen.",
@@ -1917,6 +1935,15 @@
     "v2.day.byCategory": "Per categorie",
     "v2.day.movements": "Bewegingen",
     "v2.day.empty": "Niets die dag.",
-    "v2.day.scopeNote": "Het totaal telt alleen uitgaven — geen inkomsten of overboekingen."
+    "v2.day.scopeNote": "Het totaal telt alleen uitgaven — geen inkomsten of overboekingen.",
+    "v2.widget.leftToSpend": "Nog te besteden",
+    "v2.widget.daysLeft_one": "nog {count} dag",
+    "v2.widget.daysLeft": "nog {count} dagen",
+    "v2.widget.asOf": "Cijfers van {date}",
+    "v2.widget.openApp": "Open Florin",
+    "v2.widget.openAppHint": "om je cijfers hier te tonen",
+    "v2.widget.perDay": "{amount} per dag",
+    "v2.widget.youSpend": "je geeft {amount} uit",
+    "v2.overview.curveComingSoon": "Je grafiek verschijnt na een paar dagen."
   }
 }

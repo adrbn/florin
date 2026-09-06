@@ -296,6 +296,18 @@ final class OverviewModel: ObservableObject {
                 dailySpent: data.leftToSpend.dailyAvgSpent,
                 currency: data.currency,
                 locale: data.localeTag,
+                /*
+                 * The app's default, not the absence of a preference.
+                 *
+                 * @AppStorage keeps its default in memory: until someone opens
+                 * the picker, UserDefaults holds nothing at all. Passing that
+                 * nothing straight through told the widget to follow the phone
+                 * while the app it belongs to was showing dark — the mismatch
+                 * this field exists to prevent, on precisely the installs that
+                 * never touched the setting.
+                 */
+                appearance: UserDefaults.standard.string(forKey: "florin.appearance")
+                    ?? Appearance.dark.rawValue,
                 updatedAt: Date()
             )
         )

@@ -112,6 +112,15 @@ targets:
     sources:
       - path: FlorinWidgets
       - path: Florin/Local/WidgetSnapshot.swift
+      # The palette itself, not a copy of it. Theme.swift warns that a drift
+      # between the web tokens and the native ones shows up as a phone that
+      # does not look like the browser; a widget with its own hex values is the
+      # same failure one step further out, and the one place nobody looks.
+      - path: Florin/Design/Theme.swift
+      # The widget speaks the language the app was last in — the snapshot
+      # carries the tag, and this is the table it resolves against. An
+      # extension has its own bundle, so the file has to be in it.
+      - path: Florin/Local/Resources/Strings.json
     entitlements:
       path: FlorinWidgets/FlorinWidgets.entitlements
       properties:
