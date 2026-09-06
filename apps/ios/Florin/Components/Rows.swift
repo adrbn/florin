@@ -141,6 +141,11 @@ struct TransactionRowView: View {
     /// and where only the rows the bank happens to flag would wear the chip,
     /// making two of three look different for no reason a reader could act on.
     var hideUpcomingChip = false
+    /// Set where every row is the same day and the header already says which.
+    /// Repeating the date under each payee is noise, and it is the half that
+    /// gets truncated — so the account takes its place, which is the thing a
+    /// reader of one day actually cannot infer.
+    var dateIsGiven = false
 
     let tx: Transaction
     let locale: String
@@ -149,7 +154,10 @@ struct TransactionRowView: View {
 
     private var subtitle: String {
         let category = tx.categoryName ?? t("v2.common.uncategorized", "Sans catégorie")
-        return "\(category) · \(DayLabel.string(tx.day, locale: locale, t: t))"
+        let second = dateIsGiven
+            ? tx.accountName
+            : DayLabel.string(tx.day, locale: locale, t: t)
+        return second.isEmpty ? category : "\(category) · \(second)"
     }
 
     var body: some View {
