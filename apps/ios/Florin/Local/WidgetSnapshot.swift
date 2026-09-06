@@ -18,6 +18,10 @@ import WidgetKit
  */
 struct WidgetSnapshot: Codable {
     var netWorth: Double
+    /// What it was a month ago, so the other face can say which way it moved.
+    /// A figure that only moves once a month says nothing on its own; the
+    /// direction is the whole reason to look.
+    var netMonthAgo: Double?
     var leftToSpend: Double?
     /// How long it has to last, and what that allows a day — the two figures
     /// that turn a number into an answer.

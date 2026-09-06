@@ -290,6 +290,7 @@ final class OverviewModel: ObservableObject {
         WidgetSnapshot.write(
             WidgetSnapshot(
                 netWorth: data.netWorth.net,
+                netMonthAgo: data.netWorth.netMonthAgo,
                 leftToSpend: data.leftToSpend.leftToSpend,
                 daysRemaining: data.leftToSpend.daysRemaining,
                 dailyBudget: data.leftToSpend.dailyBudgetRemaining,

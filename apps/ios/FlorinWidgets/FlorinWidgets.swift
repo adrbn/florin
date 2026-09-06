@@ -89,8 +89,6 @@ struct LeftToSpendView: View {
 
     private var snapshot: WidgetSnapshot? { entry.snapshot }
 
-    /// A snapshot older than a day and a half describes a month that has moved
-    /// on without it. Said, rather than shown as though it were current.
     /// The language the app was last in, carried by the snapshot. Before one
     /// exists there is nothing to translate but the "open Florin" prompt, and
     /// the handset's own language is the honest guess for that.
@@ -98,19 +96,51 @@ struct LeftToSpendView: View {
         WidgetStrings(locale: entry.snapshot?.locale ?? Locale.preferredLanguages.first ?? "en")
     }
 
+    /// A snapshot older than a day and a half describes a month that has moved
+    /// on without it. Said, rather than shown as though it were current.
     private var stale: Bool {
         guard let snapshot else { return false }
         return Date().timeIntervalSince(snapshot.updatedAt) > 36 * 3600
     }
 
     var body: some View {
-        if let snapshot, let left = snapshot.leftToSpend {
-            VStack(alignment: .leading, spacing: 0) {
-                Text(t("v2.widget.leftToSpend", "Reste à vivre"))
+        /*
+         * A tap turns the tile over rather than opening the app.
+         *
+         * Two views of one ledger do not deserve two tiles — nobody has the
+         * room, and choosing between them at install time is a choice made
+         * before knowing which one gets looked at. Interactive widgets landed
+         * in iOS 17 and the floor here is 17.4, so the answer changes in place.
+         */
+        Button(intent: ToggleWidgetFaceIntent()) { face }
+            .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var face: some View {
+        switch (snapshot, WidgetFace.current) {
+        case let (.some(snapshot), .netWorth):
+            netWorth(snapshot)
+        case let (.some(snapshot), .leftToSpend) where snapshot.leftToSpend != nil:
+            leftToSpend(snapshot, left: snapshot.leftToSpend ?? 0)
+        case let (.some(snapshot), _):
+            // No month to budget yet, but a net worth all the same — better the
+            // figure it does have than the padlock.
+            netWorth(snapshot)
+        case (.none, _):
+            locked
+        }
+    }
+
+    // MARK: - What is left for the month
+
+    private func leftToSpend(_ snapshot: WidgetSnapshot, left: Double) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(t("v2.widget.leftToSpend", "Reste à vivre"))
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(Florin.text2)
 
-                Text(money(left, snapshot, decimals: false))
+            Text(money(left, snapshot, decimals: false))
                     .font(.system(size: family == .systemSmall ? 28 : 34, weight: .semibold))
                     .foregroundStyle(left < 0 ? Florin.negative : Florin.text)
                     .monospacedDigit()
@@ -118,46 +148,96 @@ struct LeftToSpendView: View {
                     .lineLimit(1)
                     .padding(.top, 1)
 
-                if let days = snapshot.daysRemaining, days > 0 {
+            if let days = snapshot.daysRemaining, days > 0 {
                     Text(t("v2.widget.daysLeft", "{count} jours restants", ["count": days]))
                         .font(.system(size: 12))
                         .foregroundStyle(Florin.text2)
-                }
+            }
 
-                Spacer(minLength: 6)
+            Spacer(minLength: 6)
 
-                pace(snapshot, left: left)
+            pace(snapshot, left: left)
 
-                if stale {
+            if stale {
                     Text(t("v2.widget.asOf", "Chiffres du {date}",
                            ["date": day(snapshot.updatedAt)]))
                         .font(.system(size: 10))
                         .foregroundStyle(Florin.text3)
                         .padding(.top, 3)
-                }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        } else {
+            }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: - What it all adds up to
+
+    private func netWorth(_ snapshot: WidgetSnapshot) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(t("v2.widget.netWorth", "Patrimoine"))
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(Florin.text2)
+
+            Text(money(snapshot.netWorth, snapshot, decimals: false))
+                .font(.system(size: family == .systemSmall ? 28 : 34, weight: .semibold))
+                .foregroundStyle(Florin.text)
+                .monospacedDigit()
+                .minimumScaleFactor(0.5)
+                .lineLimit(1)
+                .padding(.top, 1)
+
             /*
-             * Never a zero.
+             * The direction, or nothing.
              *
-             * A widget confidently printing 0 € is indistinguishable from a real
-             * answer, and on an install with no shared container — every one
-             * signed with a free Apple ID — it would print it for ever.
+             * Net worth moves once a month, so the figure alone is the same
+             * every time it is glanced at — which is exactly why it was taken
+             * off the front. What makes it worth a look is which way it went,
+             * and a month is the shortest window in which that means anything.
              */
-            VStack(alignment: .leading, spacing: 4) {
-                Image(systemName: "lock.circle")
-                    .font(.system(size: 20))
-                    .foregroundStyle(Florin.text3)
-                Text(t("v2.widget.openApp", "Ouvrez Florin"))
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Florin.text)
-                Text(t("v2.widget.openAppHint", "pour afficher vos chiffres ici"))
-                    .font(.system(size: 11))
-                    .foregroundStyle(Florin.text2)
+            if let before = snapshot.netMonthAgo {
+                let delta = snapshot.netWorth - before
+                Text(t("v2.widget.overMonth", "{amount} sur un mois",
+                       ["amount": money(delta, snapshot, decimals: false, signed: true)]))
+                    .font(.system(size: 12))
+                    .foregroundStyle(delta < 0 ? Florin.negative : Florin.positive)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Spacer(minLength: 6)
+
+            if stale {
+                Text(t("v2.widget.asOf", "Chiffres du {date}",
+                       ["date": day(snapshot.updatedAt)]))
+                    .font(.system(size: 10))
+                    .foregroundStyle(Florin.text3)
+            }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: - Nothing to show
+
+    /*
+     * Never a zero.
+     *
+     * A widget confidently printing 0 € is indistinguishable from a real
+     * answer, and on an install with no shared container — every one signed
+     * with a free Apple ID — it would print it for ever.
+     */
+    private var locked: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Image(systemName: "lock.circle")
+                .font(.system(size: 20))
+                .foregroundStyle(Florin.text3)
+            Text(t("v2.widget.openApp", "Ouvrez Florin"))
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Florin.text)
+            Text(t("v2.widget.openAppHint", "pour afficher vos chiffres ici"))
+                .font(.system(size: 11))
+                .foregroundStyle(Florin.text2)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     /// The comparison that makes the number actionable: what is allowed a day,
@@ -206,12 +286,18 @@ struct LeftToSpendView: View {
         }
     }
 
-    private func money(_ value: Double, _ snapshot: WidgetSnapshot, decimals: Bool) -> String {
+    private func money(
+        _ value: Double, _ snapshot: WidgetSnapshot,
+        decimals: Bool, signed: Bool = false
+    ) -> String {
         let f = NumberFormatter()
         f.numberStyle = .currency
         f.locale = Locale(identifier: snapshot.locale)
         f.currencyCode = snapshot.currency
         f.maximumFractionDigits = decimals ? 2 : 0
+        // A rise needs its plus: without it "1 056 €" over a month could as
+        // easily be what was lost.
+        if signed, value > 0 { f.positivePrefix = "+" + (f.positivePrefix ?? "") }
         return f.string(from: NSNumber(value: value)) ?? "—"
     }
 

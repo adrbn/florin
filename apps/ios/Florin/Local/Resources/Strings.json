@@ -646,7 +646,9 @@
     "v2.widget.openAppHint": "to show your figures here",
     "v2.widget.perDay": "{amount} a day",
     "v2.widget.youSpend": "you spend {amount}",
-    "v2.overview.curveComingSoon": "Your curve appears once you have a few days of history."
+    "v2.overview.curveComingSoon": "Your curve appears once you have a few days of history.",
+    "v2.widget.netWorth": "Net worth",
+    "v2.widget.overMonth": "{amount} over a month"
   },
   "fr": {
     "v2.a11y.back": "Retour",
@@ -1295,7 +1297,9 @@
     "v2.widget.openAppHint": "pour afficher vos chiffres ici",
     "v2.widget.perDay": "{amount} par jour",
     "v2.widget.youSpend": "vous dépensez {amount}",
-    "v2.overview.curveComingSoon": "Votre courbe apparaîtra après quelques jours."
+    "v2.overview.curveComingSoon": "Votre courbe apparaîtra après quelques jours.",
+    "v2.widget.netWorth": "Patrimoine",
+    "v2.widget.overMonth": "{amount} sur un mois"
   },
   "nl": {
     "v2.a11y.back": "Terug",
@@ -1944,6 +1948,8 @@
     "v2.widget.openAppHint": "om je cijfers hier te tonen",
     "v2.widget.perDay": "{amount} per dag",
     "v2.widget.youSpend": "je geeft {amount} uit",
-    "v2.overview.curveComingSoon": "Je grafiek verschijnt na een paar dagen."
+    "v2.overview.curveComingSoon": "Je grafiek verschijnt na een paar dagen.",
+    "v2.widget.netWorth": "Vermogen",
+    "v2.widget.overMonth": "{amount} in een maand"
   }
 }
