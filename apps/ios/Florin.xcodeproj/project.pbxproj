@@ -20,6 +20,7 @@
 		162512FDDD1ED76892717E8D /* AppLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6801683A19B982925B586CB2 /* AppLock.swift */; };
 		17D4B2646AC31C7B1D3AF40D /* Backdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60BAF879368733AE7877D7B5 /* Backdrop.swift */; };
 		19DA625C08C8A4A12689A4ED /* LocalImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5F276D31E91FBE8D753978A /* LocalImport.swift */; };
+		1E83F30A9B7BE5AF6FE7D110 /* WidgetFace.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A014AEF341CF6BBB1C57A04 /* WidgetFace.swift */; };
 		20A3BBC6162F6CBA9229CD80 /* AddTransactionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94411516F56A17BA12CD1C5F /* AddTransactionSheet.swift */; };
 		2263CF54DED3472E4DEE5E68 /* BankLogo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1030F4E939DD8352B6EC5322 /* BankLogo.swift */; };
 		22CDB53123C3C03EEA6F09DD /* FlorinClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3AFD81B650F2340FC3E4131 /* FlorinClient.swift */; };
@@ -164,6 +165,7 @@
 		3F40F230793C30D443DAE5D6 /* LocalOnboarding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalOnboarding.swift; sourceTree = "<group>"; };
 		41EE180075A0455B6DA27E90 /* BankingSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankingSync.swift; sourceTree = "<group>"; };
 		4674A636DF0340B4297CF009 /* AccountEditSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountEditSheet.swift; sourceTree = "<group>"; };
+		4A014AEF341CF6BBB1C57A04 /* WidgetFace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetFace.swift; sourceTree = "<group>"; };
 		4BE4F540065C6E543C0B8A5D /* Strings.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Strings.json; sourceTree = "<group>"; };
 		4C6CBCEDF60B342FB4D8BC35 /* AttachTransferSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachTransferSheet.swift; sourceTree = "<group>"; };
 		4C815B4671E296193268EC13 /* WidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshot.swift; sourceTree = "<group>"; };
@@ -416,6 +418,7 @@
 				88868FF5D23E0BDBAB0F18DB /* FlorinWidgets.entitlements */,
 				E3527CE69DFA3185EE1A26AE /* FlorinWidgets.swift */,
 				E6252CEC5BF6CA2A47F805B2 /* Info.plist */,
+				4A014AEF341CF6BBB1C57A04 /* WidgetFace.swift */,
 				90E83F83B8A3FB9F4A92E25B /* WidgetGround.swift */,
 				B96B6367C0815D184665BA96 /* WidgetStrings.swift */,
 			);
@@ -683,6 +686,7 @@
 			files = (
 				7882CB323999BB3ADDE66FD7 /* FlorinWidgets.swift in Sources */,
 				272F65EA94D6718484FD4F86 /* Theme.swift in Sources */,
+				1E83F30A9B7BE5AF6FE7D110 /* WidgetFace.swift in Sources */,
 				1593C4A9E7F275C4785F6F0F /* WidgetGround.swift in Sources */,
 				0FC7475F516BDC8DA2821A95 /* WidgetSnapshot.swift in Sources */,
 				51F465E23999311A8D5F5A46 /* WidgetStrings.swift in Sources */,
