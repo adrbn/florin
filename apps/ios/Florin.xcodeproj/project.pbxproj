@@ -28,6 +28,7 @@
 		2CA9FDE0367C105AA8112F1F /* BankingSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41EE180075A0455B6DA27E90 /* BankingSync.swift */; };
 		2D3A287A5CAD7B268445E55E /* EnableBanking.swift in Sources */ = {isa = PBXBuildFile; fileRef = D88841043DF911CC3CBE4B95 /* EnableBanking.swift */; };
 		302F4643CDA591613AD8B258 /* AmountText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75D28CE358FB2C14BF840725 /* AmountText.swift */; };
+		30EB900C687EDBBC94DEC3E7 /* DaySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CF1EDFEA6B96F300B0E16EC /* DaySheet.swift */; };
 		31B1D1DF613445C5C45A0568 /* LocalAnalysis.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72FE45643769E71AEFCDC7D4 /* LocalAnalysis.swift */; };
 		3342203CA12166B860659D6E /* TransactionDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDF4A709768A421F61F9223E /* TransactionDetailSheet.swift */; };
 		3BCEA79D2F2EA9DB9E6B4D7A /* TabRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECD89E78054CE99B6649A8C1 /* TabRoute.swift */; };
@@ -82,6 +83,7 @@
 		C60EFBFFBE284311AA77BAE3 /* PlanScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22D62DF409CF3CE35918326F /* PlanScreen.swift */; };
 		CB6B4BA1CA00858BDDDA07A8 /* TrueDate.swift in Sources */ = {isa = PBXBuildFile; fileRef = D369E2149BEF0B494A2B5467 /* TrueDate.swift */; };
 		CEEB2E9E5B5218F9F2EC773D /* LocalStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5081BF68525A3FC3417DE71E /* LocalStore.swift */; };
+		D3718BFB4D4F07581CB58334 /* LocalDay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 526A3D81BB2ED5F736D5F2AE /* LocalDay.swift */; };
 		D4E019863964058D703761CE /* BottomScrim.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1DD2E38FDF8F23D07715D59 /* BottomScrim.swift */; };
 		D5D6AB1AB9D03C62B8A127F6 /* WebContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACED395A385ABE8191A28BB7 /* WebContainer.swift */; };
 		D8C4A835B901DE7371E70C4D /* AccountsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA33E1BDF4ED187D578701D0 /* AccountsScreen.swift */; };
@@ -153,6 +155,7 @@
 		37EF623AEA746C7A66D35F6B /* LocalQueries.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalQueries.swift; sourceTree = "<group>"; };
 		39C44DE0A129ADBD45193B43 /* SplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashView.swift; sourceTree = "<group>"; };
 		39F2BEAF49AC9AD5ADF0E624 /* LedgerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LedgerTests.swift; sourceTree = "<group>"; };
+		3CF1EDFEA6B96F300B0E16EC /* DaySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaySheet.swift; sourceTree = "<group>"; };
 		3F40F230793C30D443DAE5D6 /* LocalOnboarding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalOnboarding.swift; sourceTree = "<group>"; };
 		41EE180075A0455B6DA27E90 /* BankingSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankingSync.swift; sourceTree = "<group>"; };
 		4674A636DF0340B4297CF009 /* AccountEditSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountEditSheet.swift; sourceTree = "<group>"; };
@@ -160,6 +163,7 @@
 		4C6CBCEDF60B342FB4D8BC35 /* AttachTransferSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachTransferSheet.swift; sourceTree = "<group>"; };
 		4C815B4671E296193268EC13 /* WidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshot.swift; sourceTree = "<group>"; };
 		5081BF68525A3FC3417DE71E /* LocalStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalStore.swift; sourceTree = "<group>"; };
+		526A3D81BB2ED5F736D5F2AE /* LocalDay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalDay.swift; sourceTree = "<group>"; };
 		54BBC64175156AE7D2F7FE08 /* OnboardingFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingFlow.swift; sourceTree = "<group>"; };
 		57359F03A6215282B0FBF364 /* ActivityScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityScreen.swift; sourceTree = "<group>"; };
 		608F7E010F694A6297EE66C4 /* AddAccountSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddAccountSheet.swift; sourceTree = "<group>"; };
@@ -245,6 +249,7 @@
 				3043699DDFC45335EED6DED0 /* CategoryEditorSheet.swift */,
 				71F201A99DD3A95C05BBE836 /* CategoryPicker.swift */,
 				772EFF8D3DF1CE1E2F3D2ADA /* CategoryRemovalSheet.swift */,
+				3CF1EDFEA6B96F300B0E16EC /* DaySheet.swift */,
 				2B9D688258E231DAD13B47A2 /* FilterSheet.swift */,
 				B9002B8C0392D7D4BCEB2266 /* ImportSheet.swift */,
 				DCA4B188AFA3350AE1C4604E /* LoanSettingsSheet.swift */,
@@ -378,6 +383,7 @@
 				AFAEC9BA74039A089559CADF /* LocalBootstrap.swift */,
 				24A8CF18ACAA0CA5B471CD27 /* LocalCategories.swift */,
 				C3F2754AF1FEBB2278A3EEBF /* LocalCategoriser.swift */,
+				526A3D81BB2ED5F736D5F2AE /* LocalDay.swift */,
 				C5F276D31E91FBE8D753978A /* LocalImport.swift */,
 				932CA5B579432866CCF8ED11 /* LocalLoan.swift */,
 				869B56AA7F60C1AA6E636346 /* LocalPlan.swift */,
@@ -579,6 +585,7 @@
 				713F23992E64EEBA0EFFFA4A /* CategoryPicker.swift in Sources */,
 				5B4111C7309CCDDA821AD38E /* CategoryRemovalSheet.swift in Sources */,
 				BC3FB0255CBA4207B6992527 /* DataSource.swift in Sources */,
+				30EB900C687EDBBC94DEC3E7 /* DaySheet.swift in Sources */,
 				3EBF8DD05E6E18D4E4DBE8D7 /* EmptyStart.swift in Sources */,
 				2D3A287A5CAD7B268445E55E /* EnableBanking.swift in Sources */,
 				F0E9D6A42524894D40D4FE68 /* FilterSheet.swift in Sources */,
@@ -593,6 +600,7 @@
 				A957B15150966C7A23D70AB5 /* LocalBootstrap.swift in Sources */,
 				419FC8C120515D8F0F785D35 /* LocalCategories.swift in Sources */,
 				9F70EE4441BACBA144150223 /* LocalCategoriser.swift in Sources */,
+				D3718BFB4D4F07581CB58334 /* LocalDay.swift in Sources */,
 				19DA625C08C8A4A12689A4ED /* LocalImport.swift in Sources */,
 				78E07C461F16F08FEBC1BE92 /* LocalLoan.swift in Sources */,
 				C52FA928565DF7E67D100AB6 /* LocalOnboarding.swift in Sources */,

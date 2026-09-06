@@ -632,7 +632,12 @@
     "v2.analysis.calendarCaption": "Spending per day, over {days} days",
     "v2.analysis.quietDays": "{count} days without spending",
     "v2.analysis.perActiveDay": "{amount} on days with spending",
-    "v2.setup.useDevice": "Use this device"
+    "v2.setup.useDevice": "Use this device",
+    "v2.day.spent": "Spent",
+    "v2.day.byCategory": "By category",
+    "v2.day.movements": "Movements",
+    "v2.day.empty": "Nothing that day.",
+    "v2.day.scopeNote": "The total counts spending only — neither income nor transfers."
   },
   "fr": {
     "v2.a11y.back": "Retour",
@@ -1267,7 +1272,12 @@
     "v2.analysis.calendarCaption": "Dépenses par jour, sur {days} jours",
     "v2.analysis.quietDays": "{count} jours sans dépense",
     "v2.analysis.perActiveDay": "{amount} les jours de dépense",
-    "v2.setup.useDevice": "Utiliser cet appareil"
+    "v2.setup.useDevice": "Utiliser cet appareil",
+    "v2.day.spent": "Dépensé",
+    "v2.day.byCategory": "Par catégorie",
+    "v2.day.movements": "Opérations",
+    "v2.day.empty": "Rien ce jour-là.",
+    "v2.day.scopeNote": "Le total ne compte que les dépenses : ni les entrées, ni les virements."
   },
   "nl": {
     "v2.a11y.back": "Terug",
@@ -1902,6 +1912,11 @@
     "v2.analysis.calendarCaption": "Uitgaven per dag, over {days} dagen",
     "v2.analysis.quietDays": "{count} dagen zonder uitgaven",
     "v2.analysis.perActiveDay": "{amount} op dagen met uitgaven",
-    "v2.setup.useDevice": "Dit apparaat gebruiken"
+    "v2.setup.useDevice": "Dit apparaat gebruiken",
+    "v2.day.spent": "Uitgegeven",
+    "v2.day.byCategory": "Per categorie",
+    "v2.day.movements": "Bewegingen",
+    "v2.day.empty": "Niets die dag.",
+    "v2.day.scopeNote": "Het totaal telt alleen uitgaven — geen inkomsten of overboekingen."
   }
 }
