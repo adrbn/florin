@@ -85,7 +85,7 @@ struct AccountsScreen: View {
             // out afterwards is not a discovery anyone enjoys.
             Text(t(
                 "v2.accounts.deleteBody",
-                "{name} et toutes ses opérations seront supprimés de cet appareil. Votre serveur et votre banque ne sont pas touchés.",
+                "{name} et toutes ses opérations seront supprimés de cet appareil. S'il était synchronisé, le lien avec votre banque s'arrête avec lui — rien ne change du côté de la banque.",
                 ["name": account.name]
             ))
         }
@@ -112,10 +112,48 @@ struct AccountsScreen: View {
          * answer is that it is.
          */
         try? store.database.transaction {
+            /*
+             * The bank link goes with it, or the account comes back.
+             *
+             * The sync finds an account by the uid the bank gave it, and that
+             * uid lived on the row being deleted. With the row gone the next
+             * sync matches nothing and inserts the account again, with its
+             * transactions — so deleting a synced account looked like it worked
+             * and then quietly undid itself on the next refresh. Someone who
+             * deletes an account is saying they do not want it tracked; the
+             * connection that keeps re-adding it has to go too, but only if no
+             * other account still rides on it.
+             */
+            let connection = try store.database.scalar(
+                "SELECT bank_connection_id FROM accounts WHERE id = ?", [.text(account.id)]
+            )?.string
+
             try store.database.run(
                 "DELETE FROM transactions WHERE account_id = ?", [.text(account.id)]
             )
             try store.database.run("DELETE FROM accounts WHERE id = ?", [.text(account.id)])
+
+            if let connection {
+                let others = try store.database.scalar(
+                    "SELECT count(*) FROM accounts WHERE bank_connection_id = ?",
+                    [.text(connection)]
+                )?.int ?? 0
+                if others == 0 {
+                    try store.database.run(
+                        """
+                        DELETE FROM bank_sync_account_results
+                         WHERE run_id IN (SELECT id FROM bank_sync_runs WHERE connection_id = ?)
+                        """,
+                        [.text(connection)]
+                    )
+                    try store.database.run(
+                        "DELETE FROM bank_sync_runs WHERE connection_id = ?", [.text(connection)]
+                    )
+                    try store.database.run(
+                        "DELETE FROM bank_connections WHERE id = ?", [.text(connection)]
+                    )
+                }
+            }
         }
         Task { await model.load(showSpinner: false) }
     }
