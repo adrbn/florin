@@ -461,10 +461,19 @@ struct OverviewScreen: View {
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isButton)
 
-            // A ledger with no transactions draws a flat line at the opening
-            // balance, which is not a history — it is a horizontal rule with a
-            // date axis. Nothing is more honest than not drawing it.
-            if !data.recent.isEmpty {
+            /*
+             * A ledger with no transactions draws a flat line at the opening
+             * balance, which is not a history — it is a horizontal rule with a
+             * date axis. Nothing is more honest than not drawing it.
+             *
+             * One point is not a line either. The series is walked back from
+             * today's balances to the oldest transaction, so a ledger whose
+             * transactions are all from today has exactly one — and the chart
+             * rendered as an empty band between the figure and the range
+             * buttons, which reads as something broken rather than as a ledger
+             * that has not lived long enough yet. Say that instead.
+             */
+            if !data.recent.isEmpty, points.count > 1 {
                 NetWorthChart(
                     points: points,
                     selection: $scrubbed,
@@ -472,11 +481,18 @@ struct OverviewScreen: View {
                     tint: showGross ? Florin.series[3] : Florin.accent
                 )
                 .padding(.top, 22)
+            } else if !data.recent.isEmpty {
+                Text(data.t("v2.overview.curveComingSoon",
+                            "Votre courbe apparaîtra après quelques jours."))
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(Florin.text2)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 22)
             }
 
             // The range control picks a window over a history. With no
             // history it is four buttons that all do the same nothing.
-            if !data.recent.isEmpty {
+            if !data.recent.isEmpty, points.count > 1 {
                 Picker("", selection: animatedRange) {
                     ForEach(Range.allCases) { range in
                         let (key, fallback) = range.key
