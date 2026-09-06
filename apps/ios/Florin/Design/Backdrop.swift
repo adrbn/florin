@@ -86,7 +86,7 @@ extension TabRoute {
         // Saturated on purpose. A muted set was tried and it made the five
         // screens read as one long grey scroll; the whole point of the coloured
         // ground is that you know which room you are in before you read a word.
-        case .overview: return Color(red: 0.36, green: 0.33, blue: 0.90)
+        case .overview: return Florin.overviewTint
         case .accounts: return Color(red: 0.10, green: 0.42, blue: 0.78)
         case .plan: return Color(red: 0.62, green: 0.30, blue: 0.62)
         case .activity: return Color(red: 0.50, green: 0.22, blue: 0.82)

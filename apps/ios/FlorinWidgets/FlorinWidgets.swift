@@ -19,22 +19,38 @@ import WidgetKit
  * before the month does.
  */
 struct FlorinWidgets: Widget {
+    /// What WidgetKit already gave us. Read so that "follow the phone" can be
+    /// passed straight back rather than replaced by a guess.
+    @Environment(\.colorScheme) private var systemScheme
+
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "FlorinLeftToSpend", provider: Provider()) { entry in
             LeftToSpendView(entry: entry)
-                .containerBackground(for: .widget) {
-                    LinearGradient(
-                        colors: [
-                            Color(red: 0.13, green: 0.12, blue: 0.28),
-                            Color(red: 0.05, green: 0.05, blue: 0.09),
-                        ],
-                        startPoint: .top, endPoint: .bottom
-                    )
-                }
+                .containerBackground(for: .widget) { WidgetGround() }
+                /*
+                 * The app's choice, not the phone's.
+                 *
+                 * Florin has its own appearance setting, and someone running
+                 * iOS in light with the app set to dark had a pale tile sitting
+                 * under a dark app — the one comparison a home screen makes for
+                 * you. The snapshot carries the choice; nil means they asked to
+                 * follow the phone, and then so does this.
+                 */
+                .environment(\.colorScheme, scheme(entry) ?? systemScheme)
         }
         .configurationDisplayName("Reste à vivre")
         .description("Ce qu'il vous reste pour le mois, et le rythme que ça autorise.")
         .supportedFamilies([.systemSmall, .systemMedium])
+    }
+}
+
+/// `nil` when the app was left following the phone, in which case the widget
+/// should too — WidgetKit already hands it the system appearance.
+private func scheme(_ entry: Entry) -> ColorScheme? {
+    switch entry.snapshot?.appearance {
+    case "dark": .dark
+    case "light": .light
+    default: nil
     }
 }
 
@@ -75,6 +91,13 @@ struct LeftToSpendView: View {
 
     /// A snapshot older than a day and a half describes a month that has moved
     /// on without it. Said, rather than shown as though it were current.
+    /// The language the app was last in, carried by the snapshot. Before one
+    /// exists there is nothing to translate but the "open Florin" prompt, and
+    /// the handset's own language is the honest guess for that.
+    private var t: WidgetStrings {
+        WidgetStrings(locale: entry.snapshot?.locale ?? Locale.preferredLanguages.first ?? "en")
+    }
+
     private var stale: Bool {
         guard let snapshot else { return false }
         return Date().timeIntervalSince(snapshot.updatedAt) > 36 * 3600
@@ -83,21 +106,22 @@ struct LeftToSpendView: View {
     var body: some View {
         if let snapshot, let left = snapshot.leftToSpend {
             VStack(alignment: .leading, spacing: 0) {
-                Text("Reste à vivre")
+                Text(t("v2.widget.leftToSpend", "Reste à vivre"))
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.55))
+                    .foregroundStyle(Florin.text2)
 
                 Text(money(left, snapshot, decimals: false))
                     .font(.system(size: family == .systemSmall ? 28 : 34, weight: .semibold))
-                    .foregroundStyle(left < 0 ? .red.opacity(0.9) : .white)
+                    .foregroundStyle(left < 0 ? Florin.negative : Florin.text)
+                    .monospacedDigit()
                     .minimumScaleFactor(0.5)
                     .lineLimit(1)
                     .padding(.top, 1)
 
                 if let days = snapshot.daysRemaining, days > 0 {
-                    Text(days == 1 ? "1 jour restant" : "\(days) jours restants")
+                    Text(t("v2.widget.daysLeft", "{count} jours restants", ["count": days]))
                         .font(.system(size: 12))
-                        .foregroundStyle(.white.opacity(0.6))
+                        .foregroundStyle(Florin.text2)
                 }
 
                 Spacer(minLength: 6)
@@ -105,9 +129,10 @@ struct LeftToSpendView: View {
                 pace(snapshot, left: left)
 
                 if stale {
-                    Text("Chiffres du \(day(snapshot.updatedAt))")
+                    Text(t("v2.widget.asOf", "Chiffres du {date}",
+                           ["date": day(snapshot.updatedAt)]))
                         .font(.system(size: 10))
-                        .foregroundStyle(.white.opacity(0.4))
+                        .foregroundStyle(Florin.text3)
                         .padding(.top, 3)
                 }
             }
@@ -123,13 +148,13 @@ struct LeftToSpendView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Image(systemName: "lock.circle")
                     .font(.system(size: 20))
-                    .foregroundStyle(.white.opacity(0.5))
-                Text("Ouvrez Florin")
+                    .foregroundStyle(Florin.text3)
+                Text(t("v2.widget.openApp", "Ouvrez Florin"))
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.8))
-                Text("pour afficher vos chiffres ici")
+                    .foregroundStyle(Florin.text)
+                Text(t("v2.widget.openAppHint", "pour afficher vos chiffres ici"))
                     .font(.system(size: 11))
-                    .foregroundStyle(.white.opacity(0.45))
+                    .foregroundStyle(Florin.text2)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -148,10 +173,9 @@ struct LeftToSpendView: View {
                     // means the month runs out early.
                     GeometryReader { proxy in
                         ZStack(alignment: .leading) {
-                            Capsule().fill(.white.opacity(0.14))
+                            Capsule().fill(Florin.text.opacity(0.14))
                             Capsule()
-                                .fill(over ? Color.red.opacity(0.75)
-                                           : Color(red: 0.35, green: 0.86, blue: 0.6))
+                                .fill(over ? Florin.negative : Florin.positive)
                                 .frame(width: proxy.size.width * min(spent / budget, 1))
                         }
                     }
@@ -161,16 +185,20 @@ struct LeftToSpendView: View {
 
                 // What the remainder allows, then what is actually being
                 // spent. The colour carries the verdict; the words stay flat.
-                Text("\(money(budget, snapshot, decimals: false)) par jour")
+                Text(t("v2.widget.perDay", "{amount} par jour",
+                       ["amount": money(budget, snapshot, decimals: false)]))
                     .font(.system(size: 12.5, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.85))
+                    .foregroundStyle(Florin.text)
+                    .monospacedDigit()
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
 
                 if spent > 0 {
-                    Text("vous dépensez \(money(spent, snapshot, decimals: false))")
+                    Text(t("v2.widget.youSpend", "vous dépensez {amount}",
+                           ["amount": money(spent, snapshot, decimals: false)]))
                         .font(.system(size: 11))
-                        .foregroundStyle(over ? .red.opacity(0.85) : .white.opacity(0.5))
+                        .foregroundStyle(over ? Florin.negative : Florin.text2)
+                        .monospacedDigit()
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                 }

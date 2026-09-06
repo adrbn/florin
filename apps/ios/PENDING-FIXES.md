@@ -69,19 +69,20 @@ le renvoie (`AccountDetails.accountId.iban`) et la colonne existait déjà, mais
 la synchro ne l'écrivait jamais. Elle l'écrit maintenant, à l'insertion comme à
 la mise à jour, et le cherche en second recours quand l'uid ne trouve rien.
 
-### Ce qui reste ouvert
+### Suppression délibérée — tranché
 
-Supprimer un compte synchronisé le fait revenir à la synchro suivante :
-`AccountsScreen` supprime la ligne et ses transactions, mais ne touche ni à
-`bank_account_map` ni à `bank_connections`, et la ligne supprimée était la seule
-chose sur laquelle la recherche s'appuyait. Avec le correctif ci-dessus le
-doublon n'apparaît plus, donc le cas devient rare — mais quelqu'un qui supprime
-délibérément un compte synchronisé le verra toujours réapparaître. À trancher :
-prévenir, ou détacher la connexion en même temps.
+Supprimer un compte synchronisé le faisait revenir à la synchro suivante : la
+ligne supprimée portait l'uid, seule chose sur laquelle la recherche s'appuyait,
+donc la synchro ne trouvait rien et réinsérait.
 
-## 5. Une zone de graphique vide au premier jour
+`commitDelete` retire maintenant la connexion en même temps, mais seulement si
+plus aucun compte ne l'utilise. Quelqu'un qui supprime un compte dit qu'il ne
+veut plus le suivre ; la connexion qui le réajoute doit partir avec. La
+confirmation le dit désormais, et précise que rien ne change côté banque.
 
-`Florin/Local/LocalQueries.swift` — pas encore écrit
+## 5. Une zone de graphique vide au premier jour — fait
+
+`Florin/Screens/OverviewScreen.swift`
 
 `netWorthSeries` remonte le temps depuis les soldes d'aujourd'hui jusqu'à la
 transaction la plus ancienne. C'est le bon sens de lecture : sommer vers l'avant
@@ -93,9 +94,26 @@ n'a qu'une seule journée d'historique, donc un seul point, donc aucune ligne �
 et l'app lui montre une bande vide entre son patrimoine et les boutons de
 période, sans un mot d'explication. C'est visible sur la vidéo envoyée à Apple.
 
-Une ligne discrète à la place du blanc — « votre courbe apparaîtra après
-quelques jours » — dirait que l'app fonctionne plutôt que de laisser croire
-qu'elle a échoué.
+Le graphique n'était masqué que lorsqu'il n'y avait *aucune* transaction. Il est
+maintenant masqué aussi quand la série n'a qu'un point, et une ligne à sa place
+dit que la courbe viendra — plutôt que de laisser une bande vide passer pour une
+panne. Le sélecteur de période se masque avec lui.
+
+## 6. Le widget ne ressemblait pas à l'app
+
+`FlorinWidgets/` — fait
+
+Il était en français en dur alors que l'app parle trois langues, peignait deux
+violets qui lui étaient propres, restait sombre chez quelqu'un ayant choisi le
+thème clair, et écrivait ses montants sans chiffres à chasse fixe.
+
+Il lit maintenant le même `Strings.json` — inscrit dans les ressources de
+l'extension, résolu depuis la langue que le snapshot transporte, parce qu'une
+extension ne partage pas les préférences de l'app. Le fond reprend la
+construction de `Backdrop` sur un plus petit canevas, et la teinte de l'Aperçu a
+été remontée dans `Theme.swift` pour qu'il n'y en ait qu'une seule définition.
+`Appearance` en est sorti : il lisait la table de traductions, ce qui rendait la
+palette impartageable pour une raison qui n'avait rien à voir avec la couleur.
 
 ## À faire
 

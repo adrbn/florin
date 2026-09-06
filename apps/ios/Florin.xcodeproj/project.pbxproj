@@ -16,12 +16,14 @@
 		13F221008AC2C8208BE2C62F /* ImportSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9002B8C0392D7D4BCEB2266 /* ImportSheet.swift */; };
 		157CD4668E4CE3E100509CC9 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1716DE308068FD596619F829 /* Theme.swift */; };
 		15892DA826788CC24B016B11 /* SettingsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED3157EAC79D41E85F3DF2EC /* SettingsScreen.swift */; };
+		1593C4A9E7F275C4785F6F0F /* WidgetGround.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90E83F83B8A3FB9F4A92E25B /* WidgetGround.swift */; };
 		162512FDDD1ED76892717E8D /* AppLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6801683A19B982925B586CB2 /* AppLock.swift */; };
 		17D4B2646AC31C7B1D3AF40D /* Backdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60BAF879368733AE7877D7B5 /* Backdrop.swift */; };
 		19DA625C08C8A4A12689A4ED /* LocalImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5F276D31E91FBE8D753978A /* LocalImport.swift */; };
 		20A3BBC6162F6CBA9229CD80 /* AddTransactionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94411516F56A17BA12CD1C5F /* AddTransactionSheet.swift */; };
 		2263CF54DED3472E4DEE5E68 /* BankLogo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1030F4E939DD8352B6EC5322 /* BankLogo.swift */; };
 		22CDB53123C3C03EEA6F09DD /* FlorinClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3AFD81B650F2340FC3E4131 /* FlorinClient.swift */; };
+		272F65EA94D6718484FD4F86 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1716DE308068FD596619F829 /* Theme.swift */; };
 		27C794850EBC13407EE98500 /* AccountEditSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4674A636DF0340B4297CF009 /* AccountEditSheet.swift */; };
 		27F31DEB70798F2FB1B73070 /* BankingFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21B52AD24C4960C3D8B9D2F /* BankingFlow.swift */; };
 		28E4CC7F63FD56AA6F810744 /* FlorinApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 366071F020F6449805F3FCF1 /* FlorinApp.swift */; };
@@ -42,6 +44,7 @@
 		4F54575E6AAF15D53BA5E8CA /* LocalPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 869B56AA7F60C1AA6E636346 /* LocalPlan.swift */; };
 		50E09F59ECA9C36D7338B135 /* BankingTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AB3BB28F5C79A6CA7BB503F /* BankingTypes.swift */; };
 		5196C67AFB53DC1E360AD057 /* BackgroundRefresh.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1D62499D2405CFC7C953ABE /* BackgroundRefresh.swift */; };
+		51F465E23999311A8D5F5A46 /* WidgetStrings.swift in Sources */ = {isa = PBXBuildFile; fileRef = B96B6367C0815D184665BA96 /* WidgetStrings.swift */; };
 		54A82C3BA1798211069F622A /* ReviewCategorySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 754B34C99EE06AC065034351 /* ReviewCategorySheet.swift */; };
 		54D02C557DB83DB4B7610711 /* SettingsKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00E74566417801045AB5E9C7 /* SettingsKit.swift */; };
 		555A4A05C413690155026F1D /* Strings.json in Resources */ = {isa = PBXBuildFile; fileRef = 4BE4F540065C6E543C0B8A5D /* Strings.json */; };
@@ -78,6 +81,7 @@
 		B15C51D77EA7FE29F5EA552D /* NetWorthChart.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71F6A5D199B6FCCED78975D2 /* NetWorthChart.swift */; };
 		B7865848DCF5CB5807AE1B58 /* ActivityModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9A820FC9213E4493C163519 /* ActivityModel.swift */; };
 		BC3FB0255CBA4207B6992527 /* DataSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB92AC9E5814FF0A7879214E /* DataSource.swift */; };
+		BFA47E4D7AF9314C5E8EA77E /* Appearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84BAB9F84D78CB4801400265 /* Appearance.swift */; };
 		C52FA928565DF7E67D100AB6 /* LocalOnboarding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F40F230793C30D443DAE5D6 /* LocalOnboarding.swift */; };
 		C54F2ABFFA475120C2C042DB /* ShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 226D9DC6516754A93B4095CB /* ShareSheet.swift */; };
 		C60EFBFFBE284311AA77BAE3 /* PlanScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22D62DF409CF3CE35918326F /* PlanScreen.swift */; };
@@ -88,6 +92,7 @@
 		D5D6AB1AB9D03C62B8A127F6 /* WebContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACED395A385ABE8191A28BB7 /* WebContainer.swift */; };
 		D8C4A835B901DE7371E70C4D /* AccountsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA33E1BDF4ED187D578701D0 /* AccountsScreen.swift */; };
 		D8E717E2EFA4C2614DF87DA8 /* LedgerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39F2BEAF49AC9AD5ADF0E624 /* LedgerTests.swift */; };
+		E16667917102CE1271FB589A /* Strings.json in Resources */ = {isa = PBXBuildFile; fileRef = 4BE4F540065C6E543C0B8A5D /* Strings.json */; };
 		E4D2995C390903037F10DDB7 /* OverviewScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CF3F5843E841E89E60775AB /* OverviewScreen.swift */; };
 		E6EDD1F8D6A3563A3B9726DB /* AnalysisModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6987D1BE572CB37E2BDA92EB /* AnalysisModel.swift */; };
 		EEB484F10F89B2DA71DD8A12 /* ActivityScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57359F03A6215282B0FBF364 /* ActivityScreen.swift */; };
@@ -181,6 +186,7 @@
 		75D28CE358FB2C14BF840725 /* AmountText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmountText.swift; sourceTree = "<group>"; };
 		772EFF8D3DF1CE1E2F3D2ADA /* CategoryRemovalSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryRemovalSheet.swift; sourceTree = "<group>"; };
 		7AB3BB28F5C79A6CA7BB503F /* BankingTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankingTypes.swift; sourceTree = "<group>"; };
+		84BAB9F84D78CB4801400265 /* Appearance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Appearance.swift; sourceTree = "<group>"; };
 		84E153B45F8DCF03658782FF /* ServerFieldsCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerFieldsCard.swift; sourceTree = "<group>"; };
 		86665E5949173D99AC181418 /* EmptyStart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStart.swift; sourceTree = "<group>"; };
 		869B56AA7F60C1AA6E636346 /* LocalPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalPlan.swift; sourceTree = "<group>"; };
@@ -188,6 +194,7 @@
 		89E7EC2A6990567E31F4543F /* TaskSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskSheet.swift; sourceTree = "<group>"; };
 		8B08B65B00C5393966C2613C /* ServerStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerStore.swift; sourceTree = "<group>"; };
 		8E9EB2FEBA4192B0854EB8D1 /* ServerImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerImport.swift; sourceTree = "<group>"; };
+		90E83F83B8A3FB9F4A92E25B /* WidgetGround.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetGround.swift; sourceTree = "<group>"; };
 		932CA5B579432866CCF8ED11 /* LocalLoan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalLoan.swift; sourceTree = "<group>"; };
 		93B3D703EE8199BC49EFE5C2 /* LocalPricing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalPricing.swift; sourceTree = "<group>"; };
 		94411516F56A17BA12CD1C5F /* AddTransactionSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTransactionSheet.swift; sourceTree = "<group>"; };
@@ -205,6 +212,7 @@
 		B468D0C6054280C2520C30BA /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B70C1BD2212D9DC6EBE54B14 /* Toast.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Toast.swift; sourceTree = "<group>"; };
 		B9002B8C0392D7D4BCEB2266 /* ImportSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportSheet.swift; sourceTree = "<group>"; };
+		B96B6367C0815D184665BA96 /* WidgetStrings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetStrings.swift; sourceTree = "<group>"; };
 		B9A820FC9213E4493C163519 /* ActivityModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityModel.swift; sourceTree = "<group>"; };
 		BEA17A0E3DE53B5E3A78DD42 /* FlorinTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = FlorinTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		BF64507C596294E339B78F6E /* Strings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Strings.swift; sourceTree = "<group>"; };
@@ -268,6 +276,7 @@
 			isa = PBXGroup;
 			children = (
 				75D28CE358FB2C14BF840725 /* AmountText.swift */,
+				84BAB9F84D78CB4801400265 /* Appearance.swift */,
 				6801683A19B982925B586CB2 /* AppLock.swift */,
 				60BAF879368733AE7877D7B5 /* Backdrop.swift */,
 				D01218C78CF2722622A51E5B /* Brand.swift */,
@@ -407,6 +416,8 @@
 				88868FF5D23E0BDBAB0F18DB /* FlorinWidgets.entitlements */,
 				E3527CE69DFA3185EE1A26AE /* FlorinWidgets.swift */,
 				E6252CEC5BF6CA2A47F805B2 /* Info.plist */,
+				90E83F83B8A3FB9F4A92E25B /* WidgetGround.swift */,
+				B96B6367C0815D184665BA96 /* WidgetStrings.swift */,
 			);
 			path = FlorinWidgets;
 			sourceTree = "<group>";
@@ -446,6 +457,7 @@
 			buildConfigurationList = 6E8096C01AB7D75A87C01461 /* Build configuration list for PBXNativeTarget "FlorinWidgets" */;
 			buildPhases = (
 				B7EE93D2E65A335FD1048C2C /* Sources */,
+				24BD4DB6A3B14CA74934C6E0 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -541,6 +553,14 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		24BD4DB6A3B14CA74934C6E0 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E16667917102CE1271FB589A /* Strings.json in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		D7FD5CBF21786FA0BDD01851 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -568,6 +588,7 @@
 				E6EDD1F8D6A3563A3B9726DB /* AnalysisModel.swift in Sources */,
 				F695F96F5A1961DD0A132CCE /* AnalysisScreen.swift in Sources */,
 				162512FDDD1ED76892717E8D /* AppLock.swift in Sources */,
+				BFA47E4D7AF9314C5E8EA77E /* Appearance.swift in Sources */,
 				FB68C376EEC17B22E8F62093 /* AttachTransferSheet.swift in Sources */,
 				17D4B2646AC31C7B1D3AF40D /* Backdrop.swift in Sources */,
 				5196C67AFB53DC1E360AD057 /* BackgroundRefresh.swift in Sources */,
@@ -661,7 +682,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				7882CB323999BB3ADDE66FD7 /* FlorinWidgets.swift in Sources */,
+				272F65EA94D6718484FD4F86 /* Theme.swift in Sources */,
+				1593C4A9E7F275C4785F6F0F /* WidgetGround.swift in Sources */,
 				0FC7475F516BDC8DA2821A95 /* WidgetSnapshot.swift in Sources */,
+				51F465E23999311A8D5F5A46 /* WidgetStrings.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

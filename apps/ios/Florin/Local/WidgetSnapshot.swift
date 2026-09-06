@@ -28,6 +28,15 @@ struct WidgetSnapshot: Codable {
     var dailySpent: Double?
     var currency: String
     var locale: String
+    /// The appearance the app is actually showing — `dark`, `light`, or nil for
+    /// "follow the phone".
+    ///
+    /// A widget cannot read the app's choice: the setting lives in the app's
+    /// UserDefaults and an extension has its own, so the tile followed iOS
+    /// while the app beside it followed its owner. Someone running iOS in light
+    /// with Florin set to dark got a pale widget under a dark app, which is the
+    /// one comparison a home screen makes for you.
+    var appearance: String?
     var updatedAt: Date
 
     static let group = "group.com.adrbn.florin"
