@@ -140,7 +140,7 @@ struct DaySheet: View {
                     ForEach(Array(detail.transactions.enumerated()), id: \.element.id) { index, tx in
                         if index > 0 { Hairline() }
                         TransactionRowView(
-                            hideUpcomingChip: false, tx: tx,
+                            hideUpcomingChip: false, dateIsGiven: true, tx: tx,
                             locale: locale, currency: currency, t: t
                         )
                     }
