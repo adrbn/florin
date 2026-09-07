@@ -22,6 +22,12 @@ struct WidgetSnapshot: Codable {
     /// A figure that only moves once a month says nothing on its own; the
     /// direction is the whole reason to look.
     var netMonthAgo: Double?
+    /// The two halves behind the net figure: what is owned and what is owed.
+    /// A medium tile showing one number and half a screen of nothing is a tile
+    /// that has not earned its place; this is the same split the Accounts tab
+    /// leads with, so the widget says what the app would.
+    var gross: Double?
+    var liability: Double?
     var leftToSpend: Double?
     /// How long it has to last, and what that allows a day — the two figures
     /// that turn a number into an answer.

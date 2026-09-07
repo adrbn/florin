@@ -648,7 +648,9 @@
     "v2.widget.youSpend": "you spend {amount}",
     "v2.overview.curveComingSoon": "Your curve appears once you have a few days of history.",
     "v2.widget.netWorth": "Net worth",
-    "v2.widget.overMonth": "{amount} over a month"
+    "v2.widget.overMonth": "{amount} over a month",
+    "v2.widget.owned": "Owned",
+    "v2.widget.owed": "Owed"
   },
   "fr": {
     "v2.a11y.back": "Retour",
@@ -1299,7 +1301,9 @@
     "v2.widget.youSpend": "vous dépensez {amount}",
     "v2.overview.curveComingSoon": "Votre courbe apparaîtra après quelques jours.",
     "v2.widget.netWorth": "Patrimoine",
-    "v2.widget.overMonth": "{amount} sur un mois"
+    "v2.widget.overMonth": "{amount} sur un mois",
+    "v2.widget.owned": "Possédé",
+    "v2.widget.owed": "Dû"
   },
   "nl": {
     "v2.a11y.back": "Terug",
@@ -1950,6 +1954,8 @@
     "v2.widget.youSpend": "je geeft {amount} uit",
     "v2.overview.curveComingSoon": "Je grafiek verschijnt na een paar dagen.",
     "v2.widget.netWorth": "Vermogen",
-    "v2.widget.overMonth": "{amount} in een maand"
+    "v2.widget.overMonth": "{amount} in een maand",
+    "v2.widget.owned": "Bezit",
+    "v2.widget.owed": "Schuld"
   }
 }

@@ -291,6 +291,8 @@ final class OverviewModel: ObservableObject {
             WidgetSnapshot(
                 netWorth: data.netWorth.net,
                 netMonthAgo: data.netWorth.netMonthAgo,
+                gross: data.netWorth.gross,
+                liability: data.netWorth.liability,
                 leftToSpend: data.leftToSpend.leftToSpend,
                 daysRemaining: data.leftToSpend.daysRemaining,
                 dailyBudget: data.leftToSpend.dailyBudgetRemaining,

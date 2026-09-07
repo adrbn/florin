@@ -206,14 +206,70 @@ struct LeftToSpendView: View {
 
             Spacer(minLength: 6)
 
+            /*
+             * What the net figure is made of, where there is room for it.
+             *
+             * A medium tile with one number and half a screen of nothing has
+             * not earned its place beside five app icons. Owned against owed is
+             * the same split the Accounts tab leads with, and it is the part
+             * that actually moves: the net worth barely shifts in a month while
+             * the debt falls every time an instalment lands.
+             *
+             * Not on the small family, where there is room for one answer and
+             * this would be four.
+             */
+            if family != .systemSmall, let gross = snapshot.gross, gross > 0 {
+                split(snapshot, gross: gross)
+            }
+
             if stale {
                 Text(t("v2.widget.asOf", "Chiffres du {date}",
                        ["date": day(snapshot.updatedAt)]))
                     .font(.system(size: 10))
                     .foregroundStyle(Florin.text3)
+                    .padding(.top, 3)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func split(_ snapshot: WidgetSnapshot, gross: Double) -> some View {
+        let owed = max(snapshot.liability ?? 0, 0)
+        let share = min(owed / gross, 1)
+        return VStack(alignment: .leading, spacing: 5) {
+            // Owed drawn over owned, so the bar reads as the bite taken out.
+            GeometryReader { proxy in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Florin.accent.opacity(0.55))
+                    Capsule()
+                        .fill(Florin.negative.opacity(0.85))
+                        .frame(width: proxy.size.width * share)
+                }
+            }
+            .frame(height: 5)
+
+            HStack(spacing: 0) {
+                legend(t("v2.widget.owned", "Possédé"),
+                       money(gross, snapshot, decimals: false), Florin.text2)
+                Spacer(minLength: 8)
+                legend(t("v2.widget.owed", "Dû"),
+                       money(owed, snapshot, decimals: false), Florin.negative)
+            }
+        }
+    }
+
+    private func legend(_ label: String, _ value: String, _ tint: Color) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(label)
+                .font(.system(size: 10))
+                .foregroundStyle(Florin.text3)
+            Text(value)
+                .font(.system(size: 12.5, weight: .medium))
+                .foregroundStyle(tint)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
     }
 
     // MARK: - Nothing to show
