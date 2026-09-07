@@ -160,10 +160,23 @@ final class BankingFlow: NSObject, ObservableObject {
             let nonce = UUID().uuidString
             pendingNonce = nonce
 
-            // Ninety days is Enable Banking's usual ceiling for personal
-            // consent; asking for more is refused outright by some banks.
-            let validUntil = Calendar(identifier: .gregorian)
-                .date(byAdding: .day, value: 90, to: Date()) ?? Date()
+            /*
+             * Just under the ceiling, in absolute seconds.
+             *
+             * Ninety days is the usual PSD2 maximum for personal consent, and
+             * asking for exactly that is refused by at least one bank: Trade
+             * Republic answers 422 "ASPSP does not support consent validity
+             * more than 7776000 seconds in the future" — 7776000 being ninety
+             * days to the second. La Banque Postale accepts the same request,
+             * so the difference is in how strictly the boundary is read, and I
+             * do not know which side of it their clock sits on.
+             *
+             * A day of margin costs a day of consent every three months and
+             * removes the question. Seconds rather than calendar days, so a
+             * daylight-saving change inside the window cannot quietly add an
+             * hour to a figure being compared against a hard limit.
+             */
+            let validUntil = Date().addingTimeInterval(89 * 24 * 3600)
 
             let start = try await EnableBanking.startAuth(
                 config, aspsp: aspsp, state: nonce, validUntil: validUntil
