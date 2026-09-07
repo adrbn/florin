@@ -161,6 +161,7 @@ enum LocalLedger {
                     ]
                 )
                 try recomputeBalance(store, accountId: account)
+                try moveBrokerCash(store, accountId: account, by: value)
             }
         }
     }
@@ -242,7 +243,28 @@ enum LocalLedger {
                 ]
             )
             try recomputeBalance(store, accountId: toAccountId)
+            try moveBrokerCash(store, accountId: toAccountId, by: -amount)
         }
+    }
+
+    /// Cash actually landing on a broker, since `recomputeBalance` cannot
+    /// derive it — see the note there. A no-op on every other kind.
+    private static func moveBrokerCash(
+        _ store: LocalStore, accountId: String, by delta: Double
+    ) throws {
+        let kind = try store.database.scalar(
+            "SELECT kind FROM accounts WHERE id = ?", [.text(accountId)]
+        )?.string
+        guard kind == "broker_portfolio" else { return }
+        try store.database.run(
+            """
+            UPDATE accounts
+            SET current_balance = round((current_balance + ?) * 100) / 100.0,
+                updated_at = datetime('now')
+            WHERE id = ?
+            """,
+            [.real(delta), .text(accountId)]
+        )
     }
 
     enum TransferFailure: LocalizedError {
@@ -671,7 +693,34 @@ enum LocalLedger {
      * with nothing to compare it against. Scheduled rows are excluded because
      * they have not happened — they belong to the forecast, not the balance.
      */
+    /*
+     * `opening_balance` means two different things, and only one of them is an
+     * opening balance.
+     *
+     * On a current or savings account it is the cash the account held before
+     * the first row, so cash = opening + rows, which reconciles to the cent.
+     * On a broker it is the net contribution — money paid in over the years —
+     * while `current_balance` is the uninvested cash sitting beside the
+     * holdings, and `market_value` is the rest. Feeding a contribution into an
+     * opening-balance formula gives an answer that is not wrong by a rounding
+     * error but by the whole portfolio: on this ledger the PEA holds 0.40 EUR
+     * of cash against 3508.29 EUR contributed, so one recompute would have
+     * called its cash 3507.92 and, since a broker totals cash plus market
+     * value, added three and a half thousand euros to net worth out of
+     * nowhere.
+     *
+     * A broker's cash is therefore left alone here and moved explicitly by the
+     * callers that actually move it. The cost is that editing a hand-entered
+     * row on a broker no longer re-derives its cash — a figure the owner set by
+     * hand in the first place, and a far smaller wrong than inventing a
+     * portfolio.
+     */
     private static func recomputeBalance(_ store: LocalStore, accountId: String) throws {
+        let kind = try store.database.scalar(
+            "SELECT kind FROM accounts WHERE id = ?", [.text(accountId)]
+        )?.string
+        guard kind != "broker_portfolio" else { return }
+
         let opening = try store.database.scalar(
             "SELECT opening_balance FROM accounts WHERE id = ?", [.text(accountId)]
         )?.double ?? 0
