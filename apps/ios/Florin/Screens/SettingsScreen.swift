@@ -69,6 +69,7 @@ struct SettingsScreen: View {
                         backupSection
                         displaySection
                         privacySection
+                        serverEntrySection
                         aboutSection
                     }
                     .padding(.horizontal, Florin.gutter)
@@ -502,6 +503,13 @@ struct SettingsScreen: View {
         }
     }
 
+    /// Vrai quand basculer veut dire quelque chose : un serveur est configuré,
+    /// ou l'app en lit déjà un.
+    private var serverIsRelevant: Bool {
+        sourceBinding.wrappedValue == .server || server.resolvedURL != nil
+    }
+
+    @ViewBuilder
     private var sourceSection: some View {
         /*
          * Le sélecteur n'est pas dans une carte, et c'est délibéré.
@@ -516,27 +524,56 @@ struct SettingsScreen: View {
          * rien dire sur le grand livre local, et la configuration bancaire ne
          * veut rien dire sur un serveur qui fait la sienne.
          */
-        VStack(alignment: .leading, spacing: 8) {
-            Eyebrow(text: t("v2.settings.source", "Données"))
-                .padding(.horizontal, 4)
+        if serverIsRelevant {
+            VStack(alignment: .leading, spacing: 8) {
+                Eyebrow(text: t("v2.settings.source", "Données"))
+                    .padding(.horizontal, 4)
 
-            Picker("", selection: sourceBinding) {
-                ForEach(DataSource.allCases) { option in
-                    Text(option.label).tag(option)
+                Picker("", selection: sourceBinding) {
+                    ForEach(DataSource.allCases) { option in
+                        Text(option.label).tag(option)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+
+                Text(sourceBinding.wrappedValue.detail)
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(Florin.text3)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 4)
+
+                if sourceBinding.wrappedValue == .server {
+                    SettingsGroup { serverRows }
+                        .padding(.top, 4)
                 }
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
+        }
+    }
 
-            Text(sourceBinding.wrappedValue.detail)
-                .font(.system(size: 12.5))
-                .foregroundStyle(Florin.text3)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.horizontal, 4)
-
-            if sourceBinding.wrappedValue == .server {
-                SettingsGroup { serverRows }
-                    .padding(.top, 4)
+    /*
+     * Une porte, pas un carrefour.
+     *
+     * Le choix « mon serveur / cet appareil » était la toute première chose de
+     * l'écran. Quelqu'un qui vient d'installer Florin y rencontrait une
+     * question qu'il ne peut pas comprendre avant tout le reste — et le
+     * mauvais côté mène à un formulaire réclamant une URL et un jeton d'API.
+     *
+     * « Cet appareil » est le défaut, et c'est ce que la fiche App Store
+     * promet : rien à commander. Une commande ne sert qu'à en partir, donc
+     * elle vit en bas, sous forme d'une ligne, et ne devient un sélecteur que
+     * le jour où un serveur existe — c'est-à-dire le jour où basculer a un
+     * sens.
+     */
+    @ViewBuilder
+    private var serverEntrySection: some View {
+        if !serverIsRelevant {
+            SettingsGroup(footer: DataSource.server.detail) {
+                SettingsRow(
+                    label: t("v2.settings.useServer", "Utiliser mon serveur Florin"),
+                    symbol: "network",
+                    action: { sourceBinding.wrappedValue = .server }
+                )
             }
         }
     }

@@ -680,7 +680,8 @@
     "v2.loan.start": "First instalment",
     "v2.settings.manageCategories": "Manage categories",
     "v2.settings.categoriesHint": "Create, rename and delete your categories. The month's amounts are assigned in the Plan tab.",
-    "v2.categories.addTo": "Add to {group}"
+    "v2.categories.addTo": "Add to {group}",
+    "v2.settings.useServer": "Use my Florin server"
   },
   "fr": {
     "v2.a11y.back": "Retour",
@@ -1363,7 +1364,8 @@
     "v2.loan.start": "Première mensualité",
     "v2.settings.manageCategories": "Gérer les catégories",
     "v2.settings.categoriesHint": "Créez, renommez et supprimez vos catégories. Les montants du mois se répartissent dans l'onglet Plan.",
-    "v2.categories.addTo": "Ajouter dans {group}"
+    "v2.categories.addTo": "Ajouter dans {group}",
+    "v2.settings.useServer": "Utiliser mon serveur Florin"
   },
   "nl": {
     "v2.a11y.back": "Terug",
@@ -2046,7 +2048,8 @@
     "v2.loan.start": "Eerste termijn",
     "v2.settings.manageCategories": "Categorieën beheren",
     "v2.settings.categoriesHint": "Maak, hernoem en verwijder je categorieën. De bedragen van de maand verdeel je op het tabblad Plan.",
-    "v2.categories.addTo": "Toevoegen aan {group}"
+    "v2.categories.addTo": "Toevoegen aan {group}",
+    "v2.settings.useServer": "Mijn Florin-server gebruiken"
   },
   "it": {
     "v2.a11y.back": "Indietro",
@@ -2729,7 +2732,8 @@
     "v2.loan.start": "Prima rata",
     "v2.settings.manageCategories": "Gestire le categorie",
     "v2.settings.categoriesHint": "Crea, rinomina ed elimina le tue categorie. Gli importi del mese si ripartiscono nella scheda Piano.",
-    "v2.categories.addTo": "Aggiungi in {group}"
+    "v2.categories.addTo": "Aggiungi in {group}",
+    "v2.settings.useServer": "Usare il mio server Florin"
   },
   "es": {
     "v2.a11y.back": "Atrás",
@@ -3412,6 +3416,7 @@
     "v2.loan.start": "Primera cuota",
     "v2.settings.manageCategories": "Gestionar las categorías",
     "v2.settings.categoriesHint": "Crea, renombra y elimina tus categorías. Los importes del mes se reparten en la pestaña Plan.",
-    "v2.categories.addTo": "Añadir en {group}"
+    "v2.categories.addTo": "Añadir en {group}",
+    "v2.settings.useServer": "Usar mi servidor Florin"
   }
 }
