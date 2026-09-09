@@ -21,17 +21,11 @@ struct SettingsScreen: View {
      */
     @StateObject private var model: OverviewModel
 
-    init(
-        base: URL, onClose: (() -> Void)? = nil,
-        onOpenCategories: (() -> Void)? = nil
-    ) {
+    init(base: URL, onClose: (() -> Void)? = nil) {
         _model = StateObject(wrappedValue: OverviewModel(base: base))
         self.onClose = onClose
-        self.onOpenCategories = onOpenCategories
     }
     let onClose: (() -> Void)?
-    /// Renvoie vers l'onglet Plan, où les catégories se gèrent réellement.
-    let onOpenCategories: (() -> Void)?
     @EnvironmentObject private var server: ServerStore
     @ObservedObject private var privacy = Privacy.shared
 
@@ -48,6 +42,7 @@ struct SettingsScreen: View {
     @AppStorage("florin.notifications") private var notificationsOn = false
     @State private var readiness: BackgroundRefresh.Readiness?
     @State private var showingBanking = false
+    @State private var showingCategories = false
     @State private var showingSyncLog = false
     @State private var showingImport = false
     @State private var confirmingImport = false
@@ -86,6 +81,7 @@ struct SettingsScreen: View {
             .navigationTitle(t("v2.settings.title", "Réglages"))
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $showingBanking) { BankingSettings() }
+            .sheet(isPresented: $showingCategories) { CategoriesScreen(t: t) }
             .sheet(isPresented: $showingSyncLog) {
                 SyncLogScreen(t: t, locale: model.overview?.localeTag ?? "fr-FR")
             }
@@ -591,29 +587,30 @@ struct SettingsScreen: View {
     }
 
     /*
-     * Un panneau, pas un second éditeur.
+     * Un écran complet, pas un renvoi.
      *
-     * Les catégories se créent, se renomment et se suppriment dans l'onglet
-     * Plan, parce que c'est là qu'on leur donne un montant. Mais personne ne va
-     * chercher dans « Plan » comment renommer une catégorie — on va dans les
-     * réglages, on ne trouve rien, et on conclut que ce n'est pas possible.
-     * Cette ligne mène à l'écran existant plutôt que d'en dupliquer un second,
-     * qui divergerait du premier au premier changement.
+     * Cette ligne menait à l'onglet Plan, où les catégories se créaient par un
+     * « + » minuscule au bout d'un groupe et se supprimaient par un appui long.
+     * Des gestes qu'il faut déjà connaître pour les trouver, sur un écran où
+     * l'on vient répartir un budget — pas tenir une nomenclature.
+     *
+     * Le Plan garde les siens : c'est là qu'on donne un montant. Ici chaque
+     * geste porte son nom, et c'est la même base des deux côtés.
      */
     @ViewBuilder
     private var categoriesSection: some View {
-        if let onOpenCategories, sourceBinding.wrappedValue != .server {
+        if sourceBinding.wrappedValue != .server {
             SettingsGroup(
                 title: t("v2.nav.categories", "Catégories"),
                 footer: t(
                     "v2.settings.categoriesHint",
-                    "Elles se gèrent dans l'onglet Plan, à côté des montants que vous leur donnez."
+                    "Créez, renommez et supprimez vos catégories. Les montants du mois se répartissent dans l'onglet Plan."
                 )
             ) {
                 SettingsRow(
                     label: t("v2.settings.manageCategories", "Gérer les catégories"),
                     symbol: "tag",
-                    action: onOpenCategories
+                    action: { showingCategories = true }
                 )
             }
         }

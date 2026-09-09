@@ -679,7 +679,8 @@
     "v2.overview.paceOnTrack": "Your spending is keeping pace with the month.",
     "v2.loan.start": "First instalment",
     "v2.settings.manageCategories": "Manage categories",
-    "v2.settings.categoriesHint": "They are managed in the Plan tab, beside the amounts you assign them."
+    "v2.settings.categoriesHint": "Create, rename and delete your categories. The month's amounts are assigned in the Plan tab.",
+    "v2.categories.addTo": "Add to {group}"
   },
   "fr": {
     "v2.a11y.back": "Retour",
@@ -1361,7 +1362,8 @@
     "v2.overview.paceOnTrack": "Vos dépenses suivent le rythme du mois.",
     "v2.loan.start": "Première mensualité",
     "v2.settings.manageCategories": "Gérer les catégories",
-    "v2.settings.categoriesHint": "Elles se gèrent dans l'onglet Plan, à côté des montants que vous leur donnez."
+    "v2.settings.categoriesHint": "Créez, renommez et supprimez vos catégories. Les montants du mois se répartissent dans l'onglet Plan.",
+    "v2.categories.addTo": "Ajouter dans {group}"
   },
   "nl": {
     "v2.a11y.back": "Terug",
@@ -2043,7 +2045,8 @@
     "v2.overview.paceOnTrack": "Je uitgaven houden gelijke tred met de maand.",
     "v2.loan.start": "Eerste termijn",
     "v2.settings.manageCategories": "Categorieën beheren",
-    "v2.settings.categoriesHint": "Je beheert ze op het tabblad Plan, naast de bedragen die je eraan toekent."
+    "v2.settings.categoriesHint": "Maak, hernoem en verwijder je categorieën. De bedragen van de maand verdeel je op het tabblad Plan.",
+    "v2.categories.addTo": "Toevoegen aan {group}"
   },
   "it": {
     "v2.a11y.back": "Indietro",
@@ -2725,7 +2728,8 @@
     "v2.overview.paceOnTrack": "Le tue spese seguono il ritmo del mese.",
     "v2.loan.start": "Prima rata",
     "v2.settings.manageCategories": "Gestire le categorie",
-    "v2.settings.categoriesHint": "Si gestiscono nella scheda Piano, accanto agli importi che assegni loro."
+    "v2.settings.categoriesHint": "Crea, rinomina ed elimina le tue categorie. Gli importi del mese si ripartiscono nella scheda Piano.",
+    "v2.categories.addTo": "Aggiungi in {group}"
   },
   "es": {
     "v2.a11y.back": "Atrás",
@@ -3407,6 +3411,7 @@
     "v2.overview.paceOnTrack": "Tus gastos siguen el ritmo del mes.",
     "v2.loan.start": "Primera cuota",
     "v2.settings.manageCategories": "Gestionar las categorías",
-    "v2.settings.categoriesHint": "Se gestionan en la pestaña Plan, junto a los importes que les asignas."
+    "v2.settings.categoriesHint": "Crea, renombra y elimina tus categorías. Los importes del mes se reparten en la pestaña Plan.",
+    "v2.categories.addTo": "Añadir en {group}"
   }
 }
