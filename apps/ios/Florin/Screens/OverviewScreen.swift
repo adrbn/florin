@@ -29,6 +29,9 @@ struct OverviewScreen: View {
     @State private var showSaving = false
     /// The movement whose destination is being asked about.
     @State private var attaching: Transaction?
+    /// The row opened from the queue on this screen, rather than found again
+    /// in Activité.
+    @State private var detail: Transaction?
     /// Ids already offered this session, so the sheet asks once and the group
     /// below carries it from then on.
     @State private var asked: Set<String> = []
@@ -99,6 +102,23 @@ struct OverviewScreen: View {
         }
         .sheet(isPresented: $addingAccount) {
             AddAccountSheet(onSaved: { Task { await model.load(showSpinner: false) } })
+        }
+        .sheet(item: $detail) { tx in
+            if let data = model.overview {
+                TransactionDetailSheet(
+                    tx: tx,
+                    categories: data.categories,
+                    accounts: data.accounts,
+                    locale: data.localeTag,
+                    currency: data.currency,
+                    t: data.t,
+                    onPatch: { await model.patch($0, to: tx.id) },
+                    onDelete: { await model.delete(tx.id) },
+                    onAttachTransfer: { accountId in
+                        try? await model.attachTransfer(tx.id, to: accountId)
+                    }
+                )
+            }
         }
         .sheet(item: $attaching) { tx in
             AttachTransferSheet(
@@ -782,7 +802,6 @@ struct OverviewScreen: View {
         let projectedRefunds = max(refunds, blendedRefundDaily * daysInMonth)
         let projected = max(lts.monthSpent - refunds, projectedGross - projectedRefunds)
         let margin = lts.monthIncome > 0 ? lts.monthIncome - projected : nil
-        let ratio = lts.monthIncome > 0 ? min(1, projected / lts.monthIncome) : 1
 
         return section(data.t("v2.overview.forecast", "Fin de mois")) {
             Button { route(.plan, TabRoute.plan.rootPath) } label: {
@@ -804,8 +823,14 @@ struct OverviewScreen: View {
                         Text(data.t("v2.overview.daysLeft", "{count} j restants", ["count": lts.daysRemaining]))
                             .font(.system(size: 11.5)).foregroundStyle(Florin.text3)
                     }
-                    ProgressView(value: ratio)
-                        .tint((margin ?? 0) < 0 ? Florin.negative : Florin.accent)
+                    PaceBar(
+                        income: lts.monthIncome,
+                        fixed: fixedComponent,
+                        variableSpent: max(0, lts.monthSpent - lts.monthSpentFixed),
+                        elapsed: Double(lts.daysElapsed),
+                        days: daysInMonth,
+                        t: data.t
+                    )
                     HStack {
                         Text(Money.string(projected, locale: data.localeTag, currency: data.currency, decimals: false)
                              + " / " + Money.string(lts.monthIncome, locale: data.localeTag, currency: data.currency, decimals: false))
@@ -933,7 +958,7 @@ struct OverviewScreen: View {
                         ),
                         expanded: $reviewExpanded
                     ) { tx in
-                        Button { route(.activity, "/m/transactions?needsReview=1") } label: {
+                        Button { detail = tx } label: {
                             TransactionRowView(
                                 tx: tx, locale: data.localeTag,
                                 currency: data.currency, t: data.t
@@ -946,7 +971,7 @@ struct OverviewScreen: View {
                 RowGroup {
                     ForEach(Array(settled.prefix(6).enumerated()), id: \.element.id) { index, tx in
                         if index > 0 { Hairline() }
-                        Button { route(.activity, "/m/transactions") } label: {
+                        Button { detail = tx } label: {
                             TransactionRowView(
                                 tx: tx, locale: data.localeTag,
                                 currency: data.currency, t: data.t
@@ -1111,5 +1136,89 @@ private struct ScrollReporter: ViewModifier {
         } else {
             content
         }
+    }
+}
+
+/// Où en est le mois, contre où en est l'argent.
+///
+/// Cette piste montrait la dépense projetée sur les revenus — c'est-à-dire
+/// exactement ce que la ligne « 3 025 € / 3 000 € » disait déjà en chiffres,
+/// deux lignes plus bas. Redondante, donc, et pire : bornée à 100 %, elle était
+/// pleine à −25 € comme à −500 €. Elle cessait d'informer précisément quand la
+/// nouvelle devenait mauvaise.
+///
+/// Elle répond maintenant à la question qu'on se pose vraiment devant cette
+/// carte — *est-ce que je vais trop vite ?* — en posant côte à côte la part du
+/// budget déjà dépensée et la part du mois écoulée.
+///
+/// Les charges fixes occupent leur propre segment et **ne sont pas jugées**.
+/// Un loyer prélevé le 6 n'est pas un excès de rythme, et une simple
+/// comparaison dépense/temps aurait affiché « en retard » tous les mois entre
+/// le 6 et la paie. Elles gardent leur place dans la piste parce qu'un mois où
+/// le loyer occupe un tiers de la barre est une information en soi ; le repère
+/// et la couleur ne portent que sur le variable.
+private struct PaceBar: View {
+    let income: Double
+    let fixed: Double
+    let variableSpent: Double
+    let elapsed: Double
+    let days: Double
+    let t: Strings
+
+    /// Ce qui reste pour le quotidien une fois les charges du mois honorées.
+    private var room: Double { max(0, income - fixed) }
+    private var expected: Double { days > 0 ? room * min(1, elapsed / days) : 0 }
+    private var ahead: Bool { variableSpent > expected }
+
+    var body: some View {
+        GeometryReader { proxy in
+            let w = proxy.size.width
+            let unit = income > 0 ? w / income : 0
+            let fixedW = min(w, fixed * unit)
+            let varW = min(w - fixedW, variableSpent * unit)
+            let markX = min(w, fixedW + expected * unit)
+            let over = max(0, (fixed + variableSpent - income) * unit)
+
+            ZStack(alignment: .leading) {
+                Capsule().fill(Florin.surface2)
+                HStack(spacing: 0) {
+                    // Engagé, pas dépensé au fil de l'eau : un ton calme, qui
+                    // ne se lit pas comme une alerte.
+                    Rectangle().fill(Florin.text3.opacity(0.45)).frame(width: fixedW)
+                    Rectangle()
+                        .fill(ahead ? Florin.negative : Florin.accent)
+                        .frame(width: varW)
+                }
+                .clipShape(Capsule())
+
+                /*
+                 * Le dépassement, montré plutôt que borné.
+                 *
+                 * C'était tout le défaut de l'ancienne barre. Une piste pleine
+                 * ne dit pas de combien on a débordé, alors la part qui sort
+                 * s'affiche en bout, hachurée.
+                 */
+                if over > 0 {
+                    Capsule()
+                        .fill(Florin.negative.opacity(0.35))
+                        .frame(width: min(w * 0.3, over), height: 6)
+                        .offset(x: w - min(w * 0.3, over))
+                }
+
+                // Le repère : là où le variable devrait en être aujourd'hui.
+                if room > 0, elapsed > 0 {
+                    Capsule()
+                        .fill(Florin.text)
+                        .frame(width: 2, height: 12)
+                        .offset(x: max(0, min(w - 2, markX)))
+                }
+            }
+        }
+        .frame(height: 12)
+        .accessibilityLabel(
+            ahead
+                ? t("v2.overview.paceAhead", "Vous dépensez plus vite que le mois ne passe.")
+                : t("v2.overview.paceOnTrack", "Vos dépenses suivent le rythme du mois.")
+        )
     }
 }

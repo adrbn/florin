@@ -280,6 +280,33 @@ final class OverviewModel: ObservableObject {
         await load(showSpinner: false)
     }
 
+    /*
+     * Editing a row from the dashboard.
+     *
+     * The queue of rows to check is on the dashboard, but the sheet that
+     * settles them lived only in Activité — so answering the one question the
+     * screen asks meant leaving the screen, finding the row again in a longer
+     * list, and tapping it a second time. These two put the same sheet where
+     * the question is.
+     */
+    func patch(_ patch: TxPatch, to id: String) async {
+        do {
+            try await client.patch(id, patch)
+            await load(showSpinner: false)
+        } catch {
+            toast = ToastMessage(text: error.localizedDescription, kind: .failure)
+        }
+    }
+
+    func delete(_ id: String) async {
+        do {
+            try await client.delete(id)
+            await load(showSpinner: false)
+        } catch {
+            toast = ToastMessage(text: error.localizedDescription, kind: .failure)
+        }
+    }
+
     /// Called when the app comes to the foreground. Refreshes the figures every
     /// time — that is free — but only reaches out to the banks when the last
     /// attempt is stale.
