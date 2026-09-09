@@ -93,23 +93,11 @@ struct CategoriesScreen: View {
 
     private func section(_ group: Group) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Eyebrow(text: group.name)
-                Spacer()
-                /*
-                 * Le groupe dit ce qu'il compte.
-                 *
-                 * Une catégorie de dépense et une catégorie d'entrée ne se
-                 * comportent pas pareil — l'une pèse sur le reste à vivre,
-                 * l'autre l'alimente — et rien à l'écran ne le disait. C'est la
-                 * seule chose que le groupe décide, donc c'est la seule qu'il
-                 * annonce.
-                 */
-                Text(kindLabel(group.kind))
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Florin.text3)
-            }
-            .padding(.horizontal, Florin.gutter)
+            // Pas d'étiquette de genre à droite : « Revenus » sous un groupe
+            // nommé Revenus, puis quatre fois « Dépenses » d'affilée, disent
+            // ce que les noms disaient déjà.
+            Eyebrow(text: group.name)
+                .padding(.horizontal, Florin.gutter)
 
             RowGroup {
                 ForEach(Array(group.categories.enumerated()), id: \.element.id) { index, category in
@@ -185,14 +173,6 @@ struct CategoriesScreen: View {
         .padding(.leading, 14)
         .padding(.trailing, 4)
         .padding(.vertical, 8)
-    }
-
-    private func kindLabel(_ kind: String) -> String {
-        switch kind {
-        case "income": t("v2.analysis.income", "Revenus")
-        case "adjustment": t("v2.balance.adjustments", "Ajustements")
-        default: t("v2.analysis.expenses", "Dépenses")
-        }
     }
 
     // MARK: - Lecture
