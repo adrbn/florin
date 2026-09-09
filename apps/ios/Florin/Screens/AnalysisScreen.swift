@@ -849,6 +849,8 @@ struct FlowChart: View {
     @Binding var selection: MonthlyFlow?
     let locale: String
     let currency: String
+    /// Le mois sous le doigt, tel que Swift Charts le rapporte.
+    @State private var touched: String?
 
     var body: some View {
         Chart {
@@ -910,29 +912,17 @@ struct FlowChart: View {
                 }
             }
         }
-        .chartOverlay { proxy in
-            GeometryReader { geo in
-                Rectangle()
-                    .fill(.clear)
-                    .contentShape(Rectangle())
-                    .gesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { drag in
-                                guard let plot = proxy.plotFrame else { return }
-                                let x = drag.location.x - geo[plot].origin.x
-                                let width = geo[plot].width
-                                guard width > 0, !flows.isEmpty else { return }
-                                let index = min(
-                                    flows.count - 1,
-                                    max(0, Int(x / width * CGFloat(flows.count)))
-                                )
-                                if flows[index].id != selection?.id {
-                                    selection = flows[index]
-                                    UISelectionFeedbackGenerator().selectionChanged()
-                                }
-                            }
-                            .onEnded { _ in selection = nil }
-                    )
+        // Même correction que la courbe de l'Aperçu : un `DragGesture` sur un
+        // graphique posé dans une liste confisque le doigt et prive l'écran de
+        // son tirer-pour-rafraîchir. `chartXSelection` laisse le système
+        // arbitrer — appui maintenu pour scruter, balayage pour défiler.
+        .chartXSelection(value: $touched)
+        .onChange(of: touched) { _, label in
+            guard let label else { selection = nil; return }
+            let hit = flows.first { MonthLabel.short($0.month, locale: locale) == label }
+            if hit?.id != selection?.id {
+                selection = hit
+                UISelectionFeedbackGenerator().selectionChanged()
             }
         }
     }

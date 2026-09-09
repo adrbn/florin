@@ -14,12 +14,31 @@ struct NetWorthChart: View {
     var animationKey: String = ""
     var tint: Color = Florin.accent
 
-    private var bounds: (min: Double, max: Double) {
+    /// Calculées une fois par jeu de points, pas à chaque évaluation du corps.
+    /// Le corps est réévalué à chaque déplacement du doigt ; parcourir trois
+    /// cent soixante-cinq soldes soixante fois par seconde pour retrouver deux
+    /// nombres qui n'ont pas bougé est un travail que le scrub payait cher.
+    private let bounds: (min: Double, max: Double)
+    /// La date sous le doigt, telle que Swift Charts la rapporte.
+    @State private var touched: Date?
+
+    init(
+        points: [PatrimonyPoint], height: CGFloat = 150,
+        selection: Binding<PatrimonyPoint?>, animationKey: String = "",
+        tint: Color = Florin.accent
+    ) {
+        self.points = points
+        self.height = height
+        _selection = selection
+        self.animationKey = animationKey
+        self.tint = tint
         let values = points.map(\.balance)
         let lo = values.min() ?? 0
         let hi = values.max() ?? 1
         // A dead-flat series must not collapse onto one row of pixels.
-        return lo == hi ? (lo - max(1, abs(lo) * 0.02), hi + max(1, abs(hi) * 0.02)) : (lo, hi)
+        bounds = lo == hi
+            ? (lo - max(1, abs(lo) * 0.02), hi + max(1, abs(hi) * 0.02))
+            : (lo, hi)
     }
 
     var body: some View {
@@ -44,18 +63,6 @@ struct NetWorthChart: View {
                     .interpolationMethod(.monotone)
             }
 
-            if let selection {
-                RuleMark(x: .value("Date", selection.day))
-                    .foregroundStyle(Florin.text.opacity(0.18))
-                    .lineStyle(StrokeStyle(lineWidth: 1))
-
-                PointMark(x: .value("Date", selection.day), y: .value("Solde", selection.balance))
-                    .foregroundStyle(Florin.bg)
-                    .symbolSize(90)
-                PointMark(x: .value("Date", selection.day), y: .value("Solde", selection.balance))
-                    .foregroundStyle(tint)
-                    .symbolSize(38)
-            }
         }
         .chartYScale(domain: bounds.min...bounds.max)
         // The y-domain moves too: a shorter window is a much tighter range, so
@@ -66,30 +73,61 @@ struct NetWorthChart: View {
         .chartYAxis(.hidden)
         .chartPlotStyle { $0.padding(.vertical, 8) }
         .frame(height: height)
+        /*
+         * Le scrub passe par `chartXSelection`, pas par un `DragGesture`.
+         *
+         * Un `DragGesture` posé sur un graphique dans une liste réserve la
+         * séquence de touches dès le premier contact : le balayage vertical
+         * n'atteignait jamais le défilement, et le tirer-pour-rafraîchir était
+         * hors d'atteinte. Ni un seuil minimal ni `simultaneousGesture` n'y
+         * changent rien — SwiftUI a déjà décidé à qui appartient le doigt.
+         *
+         * `chartXSelection` est l'API qu'Apple a écrite pour ce cas exact, et
+         * qu'elle utilise dans Bourse et Santé : le scrub démarre sur un appui
+         * maintenu, donc un simple balayage vertical reste au défilement. Le
+         * geste est arbitré par le système au lieu d'être disputé.
+         */
+        .chartXSelection(value: $touched)
+        .onChange(of: touched) { _, date in
+            guard let date else { selection = nil; return }
+            // Snap to the nearest sample, not the one to the left — the dot
+            // should sit under the finger.
+            let hit = points.min {
+                abs($0.day.timeIntervalSince(date)) < abs($1.day.timeIntervalSince(date))
+            }
+            if hit?.id != selection?.id {
+                selection = hit
+                UISelectionFeedbackGenerator().selectionChanged()
+            }
+        }
         .chartOverlay { proxy in
             GeometryReader { geo in
-                Rectangle()
-                    .fill(.clear)
-                    .contentShape(Rectangle())
-                    .gesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { drag in
-                                guard let plot = proxy.plotFrame else { return }
-                                let x = drag.location.x - geo[plot].origin.x
-                                guard let date: Date = proxy.value(atX: x) else { return }
-                                // Snap to the nearest sample, not the one to the
-                                // left — the dot should sit under the finger.
-                                let hit = points.min {
-                                    abs($0.day.timeIntervalSince(date)) < abs($1.day.timeIntervalSince(date))
-                                }
-                                if hit?.id != selection?.id {
-                                    selection = hit
-                                    UISelectionFeedbackGenerator().selectionChanged()
-                                }
-                            }
-                            .onEnded { _ in selection = nil }
-                    )
+                /*
+                 * Le repère est dessiné par-dessus, plus dedans.
+                 *
+                 * `RuleMark` et `PointMark` vivaient dans le `Chart`, ce qui
+                 * paraît naturel et coûte tout : changer la sélection change le
+                 * contenu du graphique, et Swift Charts reconstruit alors ses
+                 * trois cent soixante-cinq marques — à chaque déplacement du
+                 * doigt. D'où l'à-coup. Deux formes posées en surcouche se
+                 * repositionnent sans que la courbe soit recalculée.
+                 */
+                if let selection, let plot = proxy.plotFrame,
+                   let x = proxy.position(forX: selection.day),
+                   let y = proxy.position(forY: selection.balance) {
+                    let frame = geo[plot]
+                    Rectangle()
+                        .fill(Florin.text.opacity(0.18))
+                        .frame(width: 1, height: frame.height)
+                        .position(x: frame.origin.x + x, y: frame.midY)
+                    Circle()
+                        .fill(Florin.bg)
+                        .frame(width: 11, height: 11)
+                        .overlay(Circle().fill(tint).frame(width: 7, height: 7))
+                        .position(x: frame.origin.x + x, y: frame.origin.y + y)
+                }
             }
+            .allowsHitTesting(false)
         }
     }
 }
