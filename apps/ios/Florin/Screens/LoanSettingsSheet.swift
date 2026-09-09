@@ -26,6 +26,17 @@ struct LoanSettingsSheet: View {
     @State private var rate = ""
     @State private var months = ""
     @State private var payment = ""
+    /*
+     * La date de la première mensualité.
+     *
+     * L'app n'en avait pas besoin : elle amortit en comptant les mensualités
+     * appariées sur le compte. Mais elle ne la stockait pas non plus, et le web
+     * — qui, lui, construit un échéancier daté — retombait sans elle sur « la
+     * dette vaut le capital emprunté ». Un miroir de ce téléphone vers le
+     * serveur a suffi pour effacer 3 500 € de patrimoine affiché.
+     */
+    @State private var startDate = Date()
+    @State private var hasStartDate = false
     @State private var categoryId: String?
     @State private var categories: [Category] = []
     @State private var saving = false
@@ -64,7 +75,8 @@ struct LoanSettingsSheet: View {
                             field(t("v2.loan.term", "Durée en mois"),
                                   "120", $months, .months, .numberPad)
                             Hairline()
-                            field(t("v2.loan.payment", "Mensualité"),
+                            startField
+                        field(t("v2.loan.payment", "Mensualité"),
                                   "200", $payment, .payment, .decimalPad)
                         }
                         .florinSurface()
@@ -215,6 +227,26 @@ struct LoanSettingsSheet: View {
         )
     }
 
+    private var startField: some View {
+        HStack {
+            Text(t("v2.loan.start", "Première mensualité"))
+                .font(.system(size: 15))
+                .foregroundStyle(Florin.text2)
+            Spacer(minLength: 8)
+            DatePicker(
+                "", selection: Binding(
+                    get: { startDate },
+                    set: { startDate = $0; hasStartDate = true }
+                ),
+                displayedComponents: .date
+            )
+            .labelsHidden()
+            .opacity(hasStartDate ? 1 : 0.55)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+
     private func field(
         _ label: String, _ placeholder: String, _ text: Binding<String>,
         _ which: Field, _ keyboard: UIKeyboardType
@@ -251,6 +283,10 @@ struct LoanSettingsSheet: View {
             if let v = row.double("loan_interest_rate"), v > 0 { rate = trimmed(v * 100) }
             if let v = row.int("loan_term_months"), v > 0 { months = String(v) }
             if let v = row.double("loan_monthly_payment"), v > 0 { payment = trimmed(v) }
+        if let raw = row.string("loan_start_date"), let parsed = Timestamp.parse(raw) {
+            startDate = parsed
+            hasStartDate = true
+        }
         }
         categoryId = try? store.database.scalar(
             "SELECT id FROM categories WHERE linked_loan_account_id = ? LIMIT 1",
@@ -274,6 +310,7 @@ struct LoanSettingsSheet: View {
                     UPDATE accounts
                     SET loan_original_principal = ?, loan_interest_rate = ?,
                         loan_term_months = ?, loan_monthly_payment = ?,
+                        loan_start_date = coalesce(?, loan_start_date),
                         updated_at = datetime('now')
                     WHERE id = ?
                     """,
@@ -282,6 +319,11 @@ struct LoanSettingsSheet: View {
                         (LocalImport.number(rate)).map { SQLiteValue.real($0 / 100) } ?? .null,
                         Int(months).map { SQLiteValue.integer(Int64($0)) } ?? .null,
                         (LocalImport.number(payment)).map { SQLiteValue.real($0) } ?? .null,
+                        // `coalesce` côté SQL : ne rien choisir n'efface pas ce
+                        // qui était là.
+                        hasStartDate
+                            ? .text(LocalQueries.dayFormatter.string(from: startDate) + " 00:00:00")
+                            : .null,
                         .text(account.id),
                     ]
                 )

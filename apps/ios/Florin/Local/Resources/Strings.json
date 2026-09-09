@@ -676,7 +676,8 @@
     "v2.balance.adjustments": "Adjustments",
     "v2.balance.willWrite": "An adjustment of {amount} will be recorded.",
     "v2.overview.paceAhead": "You are spending faster than the month is passing.",
-    "v2.overview.paceOnTrack": "Your spending is keeping pace with the month."
+    "v2.overview.paceOnTrack": "Your spending is keeping pace with the month.",
+    "v2.loan.start": "First instalment"
   },
   "fr": {
     "v2.a11y.back": "Retour",
@@ -1355,7 +1356,8 @@
     "v2.balance.adjustments": "Ajustements",
     "v2.balance.willWrite": "Une opération d'ajustement de {amount} sera ajoutée.",
     "v2.overview.paceAhead": "Vous dépensez plus vite que le mois ne passe.",
-    "v2.overview.paceOnTrack": "Vos dépenses suivent le rythme du mois."
+    "v2.overview.paceOnTrack": "Vos dépenses suivent le rythme du mois.",
+    "v2.loan.start": "Première mensualité"
   },
   "nl": {
     "v2.a11y.back": "Terug",
@@ -2034,6 +2036,7 @@
     "v2.balance.adjustments": "Correcties",
     "v2.balance.willWrite": "Er wordt een correctie van {amount} vastgelegd.",
     "v2.overview.paceAhead": "Je geeft sneller uit dan de maand verstrijkt.",
-    "v2.overview.paceOnTrack": "Je uitgaven houden gelijke tred met de maand."
+    "v2.overview.paceOnTrack": "Je uitgaven houden gelijke tred met de maand.",
+    "v2.loan.start": "Eerste termijn"
   }
 }
