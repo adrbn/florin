@@ -38,6 +38,12 @@ TABLES = [
     'balance_snapshots',
     'categorization_rules',
     'monthly_budgets',
+    # Ajoutées le 09/09/2026, en miroirant l'iPhone vers le web. Elles
+    # manquaient, et comme le script TRUNCATE avant de réinsérer, tout miroir
+    # effaçait silencieusement les titres du PEA et les règles récurrentes du
+    # côté destination. Leurs colonnes concordent avec Postgres.
+    'holdings',
+    'recurring_rules',
     'bank_sync_runs',
     'bank_sync_account_results',
 ]
@@ -48,12 +54,51 @@ BOOLEAN_COLS: dict[str, set[str]] = {
     'categories': {'is_fixed', 'is_archived'},
     'transactions': {'is_pending', 'needs_review'},
     'categorization_rules': {'is_active'},
+    'recurring_rules': {'is_active'},
     'bank_sync_account_results': {'balance_fetched'},
 }
 
 
-def quote(value, is_boolean: bool) -> str:
+# Valeurs que l'iPhone écrit et que Postgres ne connaît pas.
+#
+# L'app iOS marque `server` les comptes repris d'un import — une notion qui
+# n'existe que sur le téléphone, où elle distingue « venu du serveur » de
+# « saisi ici ». Côté web ces comptes sont manuels, et l'enum `sync_provider`
+# n'a pas de troisième mot pour eux.
+VALUE_MAP: dict[tuple[str, str], dict[str, str]] = {
+    ('accounts', 'sync_provider'): {'server': 'manual'},
+}
+
+
+# Préfixes que l'import iOS pose sur des identifiants et que Postgres, qui
+# type ces colonnes en uuid, refuse. Les deux jambes d'un virement partagent le
+# même identifiant préfixé, donc l'enlever conserve l'appariement.
+STRIP_PREFIXES = ('imported:',)
+
+
+def unprefix(value):
+    if isinstance(value, str):
+        for prefix in STRIP_PREFIXES:
+            if value.startswith(prefix):
+                return value[len(prefix):]
+    return value
+
+
+def is_temporal(column: str) -> bool:
+    """Colonnes que Postgres lit comme des dates ou des horodatages.
+
+    SQLite accepte la chaîne vide partout ; Postgres la refuse sur un
+    timestamp. Une connexion bancaire sans date de fin de consentement porte
+    exactement ça, et faisait échouer le miroir entier sur une seule ligne.
+    """
+    return column.endswith(('_at', '_date')) or column in {'valid_until'}
+
+
+def quote(value, is_boolean: bool, temporal: bool = False) -> str:
     if value is None:
+        return 'NULL'
+    # Vide veut dire « pas de date », pas « date vide ».
+    if temporal and isinstance(value, str) and not value.strip():
         return 'NULL'
     if is_boolean:
         return 'TRUE' if value else 'FALSE'
@@ -79,7 +124,15 @@ def dump_table(conn: sqlite3.Connection, table: str) -> str:
     col_list = ', '.join(f'"{c}"' for c in cols)
     out = [f'-- {table}: {len(rows)} rows']
     for row in rows:
-        vals = ', '.join(quote(row[i], cols[i] in bools) for i in range(len(cols)))
+        values = [
+            VALUE_MAP.get((table, cols[i]), {}).get(unprefix(row[i]), unprefix(row[i]))
+            if isinstance(row[i], str) else row[i]
+            for i in range(len(cols))
+        ]
+        vals = ', '.join(
+            quote(values[i], cols[i] in bools, is_temporal(cols[i]))
+            for i in range(len(cols))
+        )
         out.append(f'INSERT INTO "{table}" ({col_list}) VALUES ({vals});')
     return '\n'.join(out) + '\n'
 
