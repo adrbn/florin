@@ -21,11 +21,17 @@ struct SettingsScreen: View {
      */
     @StateObject private var model: OverviewModel
 
-    init(base: URL, onClose: (() -> Void)? = nil) {
+    init(
+        base: URL, onClose: (() -> Void)? = nil,
+        onOpenCategories: (() -> Void)? = nil
+    ) {
         _model = StateObject(wrappedValue: OverviewModel(base: base))
         self.onClose = onClose
+        self.onOpenCategories = onOpenCategories
     }
     let onClose: (() -> Void)?
+    /// Renvoie vers l'onglet Plan, où les catégories se gèrent réellement.
+    let onOpenCategories: (() -> Void)?
     @EnvironmentObject private var server: ServerStore
     @ObservedObject private var privacy = Privacy.shared
 
@@ -62,6 +68,7 @@ struct SettingsScreen: View {
                     VStack(spacing: 24) {
                         sourceSection
                         bankSection
+                        categoriesSection
                         importSection
                         notificationsSection
                         backupSection
@@ -450,7 +457,10 @@ struct SettingsScreen: View {
                 t("v2.settings.language", "Langue"),
                 symbol: "globe",
                 selection: localeBinding,
-                options: [("fr", "Français"), ("en", "English"), ("nl", "Nederlands")],
+                options: [
+                    ("fr", "Français"), ("en", "English"), ("nl", "Nederlands"),
+                    ("it", "Italiano"), ("es", "Español"),
+                ],
                 busy: changingLocale
             )
         }
@@ -576,6 +586,35 @@ struct SettingsScreen: View {
                         action: { showingSyncLog = true }
                     )
                 }
+            }
+        }
+    }
+
+    /*
+     * Un panneau, pas un second éditeur.
+     *
+     * Les catégories se créent, se renomment et se suppriment dans l'onglet
+     * Plan, parce que c'est là qu'on leur donne un montant. Mais personne ne va
+     * chercher dans « Plan » comment renommer une catégorie — on va dans les
+     * réglages, on ne trouve rien, et on conclut que ce n'est pas possible.
+     * Cette ligne mène à l'écran existant plutôt que d'en dupliquer un second,
+     * qui divergerait du premier au premier changement.
+     */
+    @ViewBuilder
+    private var categoriesSection: some View {
+        if let onOpenCategories, sourceBinding.wrappedValue != .server {
+            SettingsGroup(
+                title: t("v2.nav.categories", "Catégories"),
+                footer: t(
+                    "v2.settings.categoriesHint",
+                    "Elles se gèrent dans l'onglet Plan, à côté des montants que vous leur donnez."
+                )
+            ) {
+                SettingsRow(
+                    label: t("v2.settings.manageCategories", "Gérer les catégories"),
+                    symbol: "tag",
+                    action: onOpenCategories
+                )
             }
         }
     }

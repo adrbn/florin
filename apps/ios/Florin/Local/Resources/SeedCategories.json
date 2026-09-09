@@ -286,5 +286,197 @@
         }
       ]
     }
+  ],
+  "it": [
+    {
+      "name": "Entrate",
+      "kind": "income",
+      "color": "#22c55e",
+      "categories": [
+        {
+          "name": "Stipendi",
+          "emoji": "💸"
+        },
+        {
+          "name": "Entrate extra",
+          "emoji": "↩️"
+        },
+        {
+          "name": "Da ripartire",
+          "emoji": "🪙"
+        }
+      ]
+    },
+    {
+      "name": "Bollette",
+      "kind": "expense",
+      "color": "#3b82f6",
+      "categories": [
+        {
+          "name": "Affitto",
+          "emoji": "🏠",
+          "isFixed": true
+        },
+        {
+          "name": "Assicurazioni",
+          "emoji": "📄",
+          "isFixed": true
+        },
+        {
+          "name": "Abbonamenti",
+          "emoji": "🔄",
+          "isFixed": true
+        }
+      ]
+    },
+    {
+      "name": "Necessità",
+      "kind": "expense",
+      "color": "#06b6d4",
+      "categories": [
+        {
+          "name": "Spesa",
+          "emoji": "🛒"
+        },
+        {
+          "name": "Trasporti",
+          "emoji": "🚈"
+        }
+      ]
+    },
+    {
+      "name": "Voglie",
+      "kind": "expense",
+      "color": "#f59e0b",
+      "categories": [
+        {
+          "name": "Uscite e ristoranti",
+          "emoji": "🍿"
+        },
+        {
+          "name": "Viaggi",
+          "emoji": "🏝️"
+        },
+        {
+          "name": "Regali",
+          "emoji": "🎁"
+        },
+        {
+          "name": "Abbigliamento",
+          "emoji": "🧢"
+        },
+        {
+          "name": "Altro",
+          "emoji": "⚠️"
+        }
+      ]
+    },
+    {
+      "name": "Risparmio",
+      "kind": "expense",
+      "color": "#a855f7",
+      "categories": [
+        {
+          "name": "Risparmio",
+          "emoji": "💶"
+        }
+      ]
+    }
+  ],
+  "es": [
+    {
+      "name": "Ingresos",
+      "kind": "income",
+      "color": "#22c55e",
+      "categories": [
+        {
+          "name": "Nóminas",
+          "emoji": "💸"
+        },
+        {
+          "name": "Ingresos extra",
+          "emoji": "↩️"
+        },
+        {
+          "name": "Por repartir",
+          "emoji": "🪙"
+        }
+      ]
+    },
+    {
+      "name": "Facturas",
+      "kind": "expense",
+      "color": "#3b82f6",
+      "categories": [
+        {
+          "name": "Alquiler",
+          "emoji": "🏠",
+          "isFixed": true
+        },
+        {
+          "name": "Seguros",
+          "emoji": "📄",
+          "isFixed": true
+        },
+        {
+          "name": "Suscripciones",
+          "emoji": "🔄",
+          "isFixed": true
+        }
+      ]
+    },
+    {
+      "name": "Necesidades",
+      "kind": "expense",
+      "color": "#06b6d4",
+      "categories": [
+        {
+          "name": "Compra",
+          "emoji": "🛒"
+        },
+        {
+          "name": "Transporte",
+          "emoji": "🚈"
+        }
+      ]
+    },
+    {
+      "name": "Caprichos",
+      "kind": "expense",
+      "color": "#f59e0b",
+      "categories": [
+        {
+          "name": "Salidas y restaurantes",
+          "emoji": "🍿"
+        },
+        {
+          "name": "Viajes",
+          "emoji": "🏝️"
+        },
+        {
+          "name": "Regalos",
+          "emoji": "🎁"
+        },
+        {
+          "name": "Ropa",
+          "emoji": "🧢"
+        },
+        {
+          "name": "Otros",
+          "emoji": "⚠️"
+        }
+      ]
+    },
+    {
+      "name": "Ahorro",
+      "kind": "expense",
+      "color": "#a855f7",
+      "categories": [
+        {
+          "name": "Ahorro",
+          "emoji": "💶"
+        }
+      ]
+    }
   ]
 }

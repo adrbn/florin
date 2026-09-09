@@ -123,7 +123,18 @@ struct RootView: View {
 
     /// Where to land after the tree is rebuilt: settings if that is where the
     /// user was when they changed something that rebuilds it.
-    private var landingTab: TabRoute { switchedSource ? .settings : .overview }
+    /*
+     * L'onglet sur lequel on retombe en fermant les réglages.
+     *
+     * Il ne servait qu'au changement de source. Il porte aussi, maintenant, le
+     * renvoi vers les catégories : elles se gèrent dans l'onglet Plan, et
+     * Réglages est présenté *au-dessus* des onglets — il n'a donc aucun moyen
+     * d'en sélectionner un sans passer par ici.
+     */
+    @State private var requestedTab: TabRoute?
+    private var landingTab: TabRoute {
+        requestedTab ?? (switchedSource ? .settings : .overview)
+    }
 
     /// Falls back to whatever is actually configured, so an existing install
     /// keeps reading its server without being asked.
@@ -141,7 +152,7 @@ struct RootView: View {
                         initialTab: landingTab,
                         onRequestSettings: { showingSettings = true }
                     )
-                    .id(server.reloadToken)
+                    .id("\(server.reloadToken)-\(landingTab.rawValue)")
                 } else if source == .server {
                     SetupView(isFirstRun: true)
                 } else if LocalOnboarding.isComplete {
@@ -152,7 +163,7 @@ struct RootView: View {
                         initialTab: landingTab,
                         onRequestSettings: { showingSettings = true }
                     )
-                    .id(onboarded)
+                    .id("\(onboarded)-\(landingTab.rawValue)")
                 } else if wantsServerForm {
                     /*
                      * The form, for people who came looking for it.
@@ -202,8 +213,15 @@ struct RootView: View {
          * closed the screen where that switch is made. Every time.
          */
         .fullScreenCover(isPresented: $showingSettings) {
-            SettingsScreen(base: currentBase, onClose: { showingSettings = false })
-                .environmentObject(server)
+            SettingsScreen(
+                base: currentBase,
+                onClose: { showingSettings = false },
+                onOpenCategories: {
+                    requestedTab = .plan
+                    showingSettings = false
+                }
+            )
+            .environmentObject(server)
         }
         /*
          * Full screen, not a sheet.
