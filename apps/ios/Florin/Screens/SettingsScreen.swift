@@ -503,19 +503,23 @@ struct SettingsScreen: View {
     }
 
     private var sourceSection: some View {
-        SettingsGroup(
-            title: t("v2.settings.source", "Données"),
-            footer: sourceBinding.wrappedValue.detail
-        ) {
-            /*
-             * The choice owns what depends on it.
-             *
-             * A server address means nothing on the device ledger, and bank
-             * setup means nothing on a server that runs its own. These were
-             * three sibling sections — source, server, bank sync — so the
-             * screen showed settings for a mode you were not in and left the
-             * hierarchy to be guessed.
-             */
+        /*
+         * Le sélecteur n'est pas dans une carte, et c'est délibéré.
+         *
+         * `SettingsGroup` pose une surface autour de son contenu, et un
+         * `Picker` segmenté dessine déjà la sienne : deux boîtes emboîtées,
+         * dont l'intérieure était la seule à répondre au doigt. Les lignes du
+         * serveur, elles, gardent la leur — ce sont des lignes de réglage
+         * comme les autres.
+         *
+         * Le choix commande ce qui en dépend : une adresse de serveur ne veut
+         * rien dire sur le grand livre local, et la configuration bancaire ne
+         * veut rien dire sur un serveur qui fait la sienne.
+         */
+        VStack(alignment: .leading, spacing: 8) {
+            Eyebrow(text: t("v2.settings.source", "Données"))
+                .padding(.horizontal, 4)
+
             Picker("", selection: sourceBinding) {
                 ForEach(DataSource.allCases) { option in
                     Text(option.label).tag(option)
@@ -523,13 +527,16 @@ struct SettingsScreen: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            .padding(.horizontal, Florin.gutter)
-            .padding(.vertical, 12)
 
-            Hairline()
+            Text(sourceBinding.wrappedValue.detail)
+                .font(.system(size: 12.5))
+                .foregroundStyle(Florin.text3)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 4)
 
             if sourceBinding.wrappedValue == .server {
-                serverRows
+                SettingsGroup { serverRows }
+                    .padding(.top, 4)
             }
         }
     }

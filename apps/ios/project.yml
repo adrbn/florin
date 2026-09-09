@@ -62,7 +62,21 @@ targets:
           # https callback checks *this* service type, and says so only once it
           # has already refused: "Using HTTPS callbacks requires Associated
           # Domains using the webcredentials service type".
-          - webcredentials:florin-cpe.pages.dev
+          #
+          # `?mode=developer` earns its place here, having been argued against
+          # above. The association file on the domain was, for weeks, Apple's
+          # own documentation template — literal `string` placeholders, not
+          # even valid JSON — so the domain declared no app at all and every
+          # bank connection was refused. Fixing the file fixed the origin and
+          # not Apple's CDN, which goes on serving the broken copy for up to a
+          # day with no public way to purge it.
+          #
+          # This tells a development build to read the domain directly and skip
+          # that cache. It needs Réglages > Développeur > Domaines associés on
+          # the device, and it is ignored outright in an App Store build, which
+          # takes the CDN path like everyone else — so it costs release
+          # nothing and buys back the day the cache would otherwise cost.
+          - webcredentials:florin-cpe.pages.dev?mode=developer
         # Shared with the widget, and only ever a preference: App Groups need a
         # paid team, so a sideloaded build signed with a free Apple ID has no
         # container. Nothing depends on it — the widget says "ouvrez Florin"
