@@ -1,0 +1,76 @@
+# Surveille le fichier dont dépend toute connexion bancaire iOS.
+#
+# `apple-app-site-association` est servi à la racine de florin-cpe.pages.dev, et
+# c'est lui qui autorise l'app à recevoir la redirection de la banque. Sans lui,
+# `ASWebAuthenticationSession` refuse d'ouvrir la page — pour tous les
+# utilisateurs à la fois, puisque le domaine est câblé dans le binaire.
+#
+# Il a servi le modèle de la documentation d'Apple — des `string` littéraux, pas
+# même du JSON valide — pendant des semaines sans que personne ne le voie : une
+# connexion déjà établie continue de fonctionner, seule une nouvelle révèle la
+# panne. C'est exactement le genre d'incident qu'un humain ne remarque jamais et
+# qu'une requête par jour attrape en trois secondes.
+name: Domaine associé
+
+on:
+  schedule:
+    # Une fois par jour. Le fichier ne change qu'au déploiement du site.
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+  push:
+    paths:
+      - "apps/site/**"
+      - ".github/workflows/associated-domain.yml"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Le domaine déclare-t-il encore l'app ?
+        run: |
+          set -euo pipefail
+          URL="https://florin-cpe.pages.dev/.well-known/apple-app-site-association"
+          APP_ID="2TWQF4T93E.com.adrbn.florin"
+
+          # Cache-buster : Cloudflare a servi une copie périmée pendant que
+          # l'origine était déjà corrigée, ce qui rendait le diagnostic faux.
+          # Écrit dans un fichier plutôt que canalisé : un heredoc occupe déjà
+          # l'entrée standard du script, et Python y lirait son propre texte.
+          curl -fsSL -H 'Cache-Control: no-cache' "$URL?ci=$GITHUB_RUN_ID" -o aasa.json
+
+          python3 - "$APP_ID" aasa.json <<'PY'
+          import json, sys
+          app_id = sys.argv[1]
+          raw = open(sys.argv[2], encoding="utf-8").read()
+          try:
+              data = json.loads(raw)
+          except json.JSONDecodeError as e:
+              sys.exit(f"Le fichier n'est pas du JSON valide ({e}).\n{raw[:400]}")
+
+          # `webcredentials` est celui qu'ASWebAuthenticationSession vérifie, et
+          # celui qui manquait. `applinks` sert au retour de la banque.
+          creds = data.get("webcredentials", {}).get("apps", [])
+          if app_id not in creds:
+              sys.exit(f"webcredentials ne déclare pas {app_id} : {creds}")
+
+          ids = [
+              i
+              for d in data.get("applinks", {}).get("details", [])
+              for i in d.get("appIDs", [])
+          ]
+          if app_id not in ids:
+              sys.exit(f"applinks ne déclare pas {app_id} : {ids}")
+
+          print(f"OK — {app_id} déclaré dans webcredentials et applinks.")
+          PY
+
+      - name: Ce qu'Apple en a mis en cache
+        # Informatif seulement : leur CDN peut traîner d'une journée après un
+        # déploiement, et ce retard-là est normal. Il ne fait donc pas échouer
+        # la vérification — mais il explique un « not associated with domain »
+        # persistant alors que l'origine est bonne.
+        continue-on-error: true
+        run: |
+          set -uo pipefail
+          curl -fsS "https://app-site-association.cdn-apple.com/a/v1/florin-cpe.pages.dev" \
+            | head -c 400 || echo "(le CDN d'Apple n'a rien pour ce domaine)"
