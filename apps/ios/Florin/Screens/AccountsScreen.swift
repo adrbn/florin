@@ -67,8 +67,10 @@ struct AccountsScreen: View {
             AddAccountSheet(onSaved: { Task { await model.load(showSpinner: false) } })
         }
         .sheet(item: $renaming) { account in
-            AccountEditSheet(account: account, t: t) { name, icon in
-                await commitEdit(account, name: name, icon: icon)
+            AccountEditSheet(
+                account: account, t: t, balance: editableBalance(account)
+            ) { name, icon, balance in
+                await commitEdit(account, name: name, icon: icon, balance: balance)
             }
         }
         .alert(
@@ -91,13 +93,30 @@ struct AccountsScreen: View {
         }
     }
 
-    private func commitEdit(_ account: Account, name: String, icon: String) async {
+    private func commitEdit(
+        _ account: Account, name: String, icon: String, balance: Double?
+    ) async {
         guard let store = LocalStore.shared, !name.isEmpty else { return }
         try? store.database.run(
             "UPDATE accounts SET name = ?, display_icon = ?, updated_at = datetime('now') WHERE id = ?",
             [.text(name), .text(icon), .text(account.id)]
         )
+        if let balance {
+            try? LocalHoldings.setBalance(store: store, accountId: account.id, to: balance)
+        }
         await model.load(showSpinner: false)
+    }
+
+    /// Le solde n'est modifiable que là où il est à nous : pas sur un compte
+    /// que la banque réécrit à chaque sync, pas sur un prêt dont le restant dû
+    /// se déduit du contrat, pas sur un portefeuille valorisé par ses titres.
+    private func editableBalance(_ account: Account) -> Double? {
+        guard model.base.scheme == "florin-local",
+              account.isSynced != true,
+              !account.isLoan,
+              account.kind != "broker_portfolio"
+        else { return nil }
+        return account.total
     }
 
     private func commitDelete(_ account: Account) {
@@ -423,6 +442,9 @@ struct AccountDetailScreen: View {
 
     @StateObject private var portfolio: PortfolioModel
     @State private var editingLoan = false
+    @State private var renaming: Account?
+    @State private var adding = false
+    @State private var buying = false
 
     init(model: OverviewModel, route: ActivityRoute) {
         self.model = model
@@ -431,6 +453,15 @@ struct AccountDetailScreen: View {
     }
 
     private var t: Strings { model.overview?.t ?? .device }
+
+    private func editableBalance(_ account: Account) -> Double? {
+        guard model.base.scheme == "florin-local",
+              account.isSynced != true,
+              !account.isLoan,
+              account.kind != "broker_portfolio"
+        else { return nil }
+        return account.total
+    }
 
     private var account: Account? {
         guard let id = route.accountId else { return nil }
@@ -450,7 +481,8 @@ struct AccountDetailScreen: View {
             heroCaption: account.flatMap { a in
                 a.institution?.isEmpty == false ? a.institution : a.name
             } ?? route.title,
-            showsBack: true
+            showsBack: true,
+            extraActions: AnyView(headerActions)
         ) {
             portfolioBanner
             loanBanner
@@ -466,6 +498,82 @@ struct AccountDetailScreen: View {
                     locale: model.overview?.localeTag ?? "fr-FR",
                     onSaved: { await model.load(showSpinner: false) }
                 )
+            }
+        }
+        .sheet(isPresented: $adding) {
+            if let data = model.overview {
+                AddTransactionSheet(
+                    data: data,
+                    submit: { try await model.add($0) },
+                    onTransfer: { try await model.addTransfer($0) },
+                    presetAccountId: route.accountId
+                )
+            }
+        }
+        .sheet(isPresented: $buying) {
+            if let account {
+                BuySheet(
+                    account: account,
+                    locale: model.overview?.localeTag ?? "fr-FR",
+                    currency: model.overview?.currency ?? "EUR",
+                    t: t,
+                    onSaved: {
+                        await model.load(showSpinner: false)
+                        await portfolio.reload(accountId: account.id)
+                    }
+                )
+            }
+        }
+        .sheet(item: $renaming) { account in
+            AccountEditSheet(
+                account: account, t: t, balance: editableBalance(account)
+            ) { name, icon, balance in
+                guard let store = LocalStore.shared, !name.isEmpty else { return }
+                try? store.database.run(
+                    """
+                    UPDATE accounts SET name = ?, display_icon = ?, updated_at = datetime('now')
+                    WHERE id = ?
+                    """,
+                    [.text(name), .text(icon), .text(account.id)]
+                )
+                if let balance {
+                    try? LocalHoldings.setBalance(store: store, accountId: account.id, to: balance)
+                }
+                await model.load(showSpinner: false)
+            }
+        }
+    }
+
+    /*
+     * Ce qu'on peut faire de ce compte, dans le coin comme partout ailleurs.
+     *
+     * C'étaient trois puces posées entre le solde et la liste — une boîte dans
+     * une boîte, et surtout des étiquettes qui nommaient leur icône
+     * (« + Opération », « = Solde ») au lieu de nommer une action. Un « + » et
+     * un crayon à côté des filtres disent la même chose sans rien écrire, et
+     * laissent le contenu au contenu.
+     *
+     * Rien pour un compte synchronisé : la banque y fait autorité, et corriger
+     * un solde qu'elle réécrira à la prochaine sync n'est pas une action, c'est
+     * un malentendu.
+     */
+    @ViewBuilder
+    private var headerActions: some View {
+        if let account, model.base.scheme == "florin-local", !account.isArchived {
+            HStack(spacing: 8) {
+                if !account.isLoan {
+                    CircleButton(symbol: "plus", size: 44) { adding = true }
+                        .accessibilityLabel(t("v2.accounts.addTransaction", "Opération"))
+                }
+                if account.kind == "broker_portfolio" {
+                    CircleButton(symbol: "chart.line.uptrend.xyaxis", size: 44) { buying = true }
+                        .accessibilityLabel(t("v2.buy.title", "Enregistrer un achat"))
+                }
+                // Un crayon ouvre ce qu'il annonce. Le menu qu'il ouvrait avant
+                // ajoutait un geste pour choisir entre deux façons de modifier
+                // le même compte — c'est une seule chose, et c'est une feuille.
+                CircleButton(symbol: "pencil", size: 44) { renaming = account }
+                    .accessibilityLabel(t("v2.common.edit", "Modifier"))
             }
         }
     }

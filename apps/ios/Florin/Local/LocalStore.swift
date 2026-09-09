@@ -69,6 +69,49 @@ final class LocalStore {
             "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
             [.text("schema_version"), .text(String(LocalSchema.version))]
         )
+        try repairOpeningBalances()
+    }
+
+    /*
+     * Rendre vrai l'invariant dont tout le reste dépend.
+     *
+     * `LocalLedger.recomputeBalance` recalcule un solde comme
+     * `ouverture + Σ lignes` après chaque ajout, suppression ou appariement.
+     * C'est juste — à condition que l'ouverture soit le solde réel du compte
+     * au premier jour connu de son historique.
+     *
+     * Sur un grand livre repris d'ailleurs, elle ne l'est pas. Le Livret A
+     * porte quatorze lignes pour deux ans, dont la somme vaut −1 000 € face à
+     * une ouverture de 700 € et un solde réel de 250 €. Chacun de ces comptes
+     * était donc à **une seule opération** de s'effondrer sur un chiffre
+     * arbitraire — et l'un d'eux l'a fait, en tombant à −200,00 € après une
+     * correction d'un euro.
+     *
+     * Le solde affiché fait foi : c'est celui que la banque a posé, ou celui
+     * que son propriétaire a saisi. L'ouverture absorbe l'écart, c'est-à-dire
+     * la part de l'histoire que Florin n'a jamais vue — ce pour quoi elle
+     * existe. Une fois par ouverture de base, et sans effet là où les comptes
+     * étaient déjà cohérents.
+     */
+    private func repairOpeningBalances() throws {
+        try database.run(
+            """
+            UPDATE accounts
+            SET opening_balance = round((current_balance - coalesce((
+                    SELECT sum(t.amount) FROM transactions t
+                    WHERE t.account_id = accounts.id AND t.deleted_at IS NULL
+                      AND t.status = 'cleared'
+                ), 0)) * 100) / 100.0
+            WHERE kind <> 'broker_portfolio'
+              AND abs(
+                opening_balance + coalesce((
+                    SELECT sum(t.amount) FROM transactions t
+                    WHERE t.account_id = accounts.id AND t.deleted_at IS NULL
+                      AND t.status = 'cleared'
+                ), 0) - current_balance
+              ) > 0.005
+            """
+        )
     }
 
     // MARK: - Facts about what is here

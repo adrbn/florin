@@ -48,6 +48,14 @@ final class PortfolioModel: ObservableObject {
 
     init(base: URL) { self.base = base }
 
+    /// Re-reads after the ledger changed under it. `load` is a first-fetch
+    /// that returns early once it holds a payload, which is right for a screen
+    /// appearing — and wrong the moment a purchase is recorded on it.
+    func reload(accountId: String) async {
+        payload = nil
+        await load(accountId: accountId)
+    }
+
     func load(accountId: String) async {
         guard !loading, payload == nil else { return }
         loading = true

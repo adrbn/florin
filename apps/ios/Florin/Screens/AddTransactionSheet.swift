@@ -9,6 +9,11 @@ struct AddTransactionSheet: View {
     let data: Overview
     let submit: (NewTransaction) async throws -> Void
     var onTransfer: (NewTransfer) async throws -> Void = { _ in }
+    /// The account the sheet was opened from, when it was opened from one.
+    /// Without it the only entry point was the dashboard, which always started
+    /// on the first account in the list — so adding a row to anything else
+    /// meant knowing to open a menu three rows down.
+    var presetAccountId: String?
 
     @Environment(\.dismiss) private var dismiss
     private var t: Strings { data.t }
@@ -87,7 +92,9 @@ struct AddTransactionSheet: View {
         }
         .presentationBackground(.clear)
         .onAppear {
-            if accountId.isEmpty { accountId = usableAccounts.first?.id ?? "" }
+            if accountId.isEmpty {
+                accountId = presetAccountId ?? usableAccounts.first?.id ?? ""
+            }
             // Not on a transfer: there the two accounts are the decision and
             // the amount follows, so a keypad sitting over both pickers is in
             // the way rather than ahead of you.
