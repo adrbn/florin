@@ -101,7 +101,6 @@ struct FilterSheet: View {
                 }
             }
             .scrollContentBackground(.hidden)
-            .background(Backdrop(tint: TabRoute.activity.tint))
             .navigationTitle(t("v2.filters.title", "Filtres"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -117,6 +116,10 @@ struct FilterSheet: View {
                 }
             }
         }
+        // Le fond appartient à la feuille : posé sur le contenu, il
+        // s'arrêtait où le contenu s'arrête et laissait voir l'écran du
+        // dessous sous la dernière ligne.
+        .presentationBackground { Backdrop(tint: TabRoute.activity.tint) }
         .presentationDetents([.large])
     }
 

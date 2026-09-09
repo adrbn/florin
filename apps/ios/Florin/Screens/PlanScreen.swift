@@ -842,7 +842,6 @@ struct AssignSheet: View {
                 .padding(.bottom, 24)
             }
             .scrollDismissesKeyboard(.interactively)
-            .background(Backdrop(tint: TabRoute.plan.tint))
             .navigationTitle(t("v2.plan.assign", "Répartir"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -858,6 +857,10 @@ struct AssignSheet: View {
         }
         // Sized to the content rather than half the screen: a medium detent
         // left a void between the shortcuts and the keypad.
+        // Le fond appartient à la feuille : posé sur le contenu, il
+        // s'arrêtait où le contenu s'arrête et laissait voir l'écran du
+        // dessous sous la dernière ligne.
+        .presentationBackground { Backdrop(tint: TabRoute.plan.tint) }
         .presentationDetents([.height(430), .large])
         .presentationDragIndicator(.visible)
     }

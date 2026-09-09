@@ -78,7 +78,6 @@ struct CategoryRemovalSheet: View {
                     .padding(.bottom, 12)
                 }
             }
-            .background(Backdrop(tint: Florin.sheetTint, floor: true))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -92,6 +91,10 @@ struct CategoryRemovalSheet: View {
                 }
             }
         }
+        // Le fond appartient à la feuille : posé sur le contenu, il
+        // s'arrêtait où le contenu s'arrête et laissait voir l'écran du
+        // dessous sous la dernière ligne.
+        .presentationBackground { Backdrop(tint: Florin.sheetTint, floor: true) }
         .presentationDetents([.height(470), .large])
         .presentationDragIndicator(.visible)
     }

@@ -117,7 +117,6 @@ struct CategoryEditorSheet: View {
                 }
             }
             .scrollDismissesKeyboard(.interactively)
-            .background(Backdrop(tint: Florin.sheetTint, floor: true))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -145,6 +144,10 @@ struct CategoryEditorSheet: View {
              * the same shape and declines the same shortcut.
              */
         }
+        // Le fond appartient à la feuille : posé sur le contenu, il
+        // s'arrêtait où le contenu s'arrête et laissait voir l'écran du
+        // dessous sous la dernière ligne.
+        .presentationBackground { Backdrop(tint: Florin.sheetTint, floor: true) }
         .presentationDetents([.height(430), .large])
         .presentationDragIndicator(.visible)
     }
