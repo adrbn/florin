@@ -10,11 +10,14 @@ import SwiftUI
 struct TransactionDetailSheet: View {
     let tx: Transaction
     let categories: [Category]
+    /// Where the money could have gone, for the transfer question below.
+    let accounts: [Account]
     let locale: String
     let currency: String
     let t: Strings
     let onPatch: (TxPatch) async -> Void
     let onDelete: () async -> Void
+    let onAttachTransfer: (String) async -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var picking = false
@@ -27,6 +30,11 @@ struct TransactionDetailSheet: View {
     @State private var working = false
     @State private var contentHeight: CGFloat = 0
     @State private var filing = false
+    @State private var markingTransfer = false
+    /// Chosen inside the picker, acted on once the picker has closed: two
+    /// sheets cannot change places in the same frame, and asking for the
+    /// second one while the first is still dismissing silently drops it.
+    @State private var wantsTransfer = false
 
     var body: some View {
         NavigationStack {
@@ -77,12 +85,17 @@ struct TransactionDetailSheet: View {
         .presentationDetents([.height(min(contentHeight + 64, 720)), .large])
         .presentationDragIndicator(.visible)
         .presentationBackground(.clear)
-        .sheet(isPresented: $picking) {
+        .sheet(isPresented: $picking, onDismiss: {
+            if wantsTransfer {
+                wantsTransfer = false
+                markingTransfer = true
+            }
+        }) {
             CategoryPicker(
                 categories: categories,
                 selected: filed ?? tx.categoryName,
-                t: t
-            ) { id in
+                t: t,
+                onPick: { id in
                 /*
                  * Filing is not finishing.
                  *
@@ -93,13 +106,20 @@ struct TransactionDetailSheet: View {
                  * filed: the row it was handed cannot tell it, being a value
                  * from a list that has not refetched yet.
                  */
-                working = true
-                Task {
-                    await onPatch(TxPatch(categoryId: .some(id)))
-                    filed = categories.first { $0.id == id }?.name
-                    working = false
-                }
-            }
+                    working = true
+                    Task {
+                        await onPatch(TxPatch(categoryId: .some(id)))
+                        filed = categories.first { $0.id == id }?.name
+                        working = false
+                    }
+                },
+                // Outgoing rows only: the sheet it opens asks where the money
+                // went, and the far end of an incoming one is a question it
+                // does not know how to word.
+                onTransfer: (!tx.isTransfer && tx.amount < 0 && accounts.count > 1)
+                    ? { wantsTransfer = true }
+                    : nil
+            )
         }
         .sheet(isPresented: $filing) {
             ReviewCategorySheet(
@@ -117,15 +137,51 @@ struct TransactionDetailSheet: View {
                 }
             )
         }
+        /*
+         * Saying it is a transfer, from the row itself.
+         *
+         * The app could only ever ask this on its own, from the dashboard's
+         * "à rattacher" group — and that group only collects rows whose payee
+         * matches a list of bank wordings and which carry no category. A
+         * transfer the bank worded differently, or one the guesser had already
+         * filed, fell outside both conditions and there was no way left to
+         * say what it was: the review queue offers categories, and a category
+         * is precisely the wrong answer for money that never left.
+         */
+        .sheet(isPresented: $markingTransfer) {
+            AttachTransferSheet(
+                transaction: tx,
+                accounts: accounts,
+                locale: locale,
+                currency: currency,
+                t: t,
+                onAttach: { accountId in
+                    await onAttachTransfer(accountId)
+                    dismiss()
+                },
+                // Nothing to route to: the row is already spending, and the
+                // button here means "leave it alone".
+                onSpending: {}
+            )
+        }
         .sheet(isPresented: $editing) {
             TransactionEditor(tx: tx, locale: locale, currency: currency, t: t) { patch in
                 await onPatch(patch)
             }
         }
-        .confirmationDialog(
+        /*
+         * Une alerte, pas une feuille de confirmation.
+         *
+         * Depuis une feuille, iOS ancre un `confirmationDialog` sur ce qui l'a
+         * déclenché et le dessine en bulle avec une flèche — un objet qui a
+         * l'air d'un bug, et dont le bouton Annuler disparaît au passage : il
+         * ne restait qu'un « Supprimer » rouge flottant au-dessus de l'écran.
+         * Une alerte se centre, garde ses deux boutons, et se comporte pareil
+         * partout — c'est déjà ce que la suppression d'un compte utilise.
+         */
+        .alert(
             t("v2.activity.deleteConfirm", "Supprimer cette opération ?"),
-            isPresented: $confirmingDelete,
-            titleVisibility: .visible
+            isPresented: $confirmingDelete
         ) {
             Button(t("v2.common.delete", "Supprimer"), role: .destructive) {
                 Task {
@@ -134,6 +190,8 @@ struct TransactionDetailSheet: View {
                 }
             }
             Button(t("v2.common.cancel", "Annuler"), role: .cancel) {}
+        } message: {
+            Text(PayeeText.humanize(tx.payee))
         }
     }
 
@@ -316,7 +374,9 @@ struct FlowRow: Layout {
 
 
 /// The measured height of a sheet's content, for sizing its detent.
-private struct SheetContentHeight: PreferenceKey {
+/// Partagée : deux feuilles se dimensionnent maintenant sur leur contenu
+/// plutôt que sur une constante.
+struct SheetContentHeight: PreferenceKey {
     static let defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = max(value, nextValue())

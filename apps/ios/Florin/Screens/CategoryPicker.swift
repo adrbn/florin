@@ -1,15 +1,24 @@
 import SwiftUI
 
-/// Pick a category, or clear it.
+/// Pick a category, or clear it, or say it was never spending at all.
 ///
 /// Searchable because a real install has sixty of them across a dozen groups,
 /// and scrolling to "Abonnements & services" past "Auto" and "Assurance" is the
 /// slowest possible way to file one transaction.
+///
+/// "Virement interne" lives here rather than beside Modifier and Supprimer,
+/// where it first landed. Those are things you do *to* a row; this is an answer
+/// to the question the row is asking — the same question every category below
+/// it answers, and the right one when the honest answer is "none of them, the
+/// money only changed accounts".
 struct CategoryPicker: View {
     let categories: [Category]
     let selected: String?
     let t: Strings
     let onPick: (String?) -> Void
+    /// Absent when the row cannot be a transfer — one already paired, or an
+    /// incoming one, whose far end this flow does not know how to word.
+    var onTransfer: (() -> Void)?
 
     @Environment(\.dismiss) private var dismiss
     @State private var query = ""
@@ -34,6 +43,29 @@ struct CategoryPicker: View {
         NavigationStack {
             List {
                 Section {
+                    if let onTransfer {
+                        Button {
+                            onTransfer()
+                            dismiss()
+                        } label: {
+                            HStack(spacing: 10) {
+                                Image(systemName: "arrow.left.arrow.right")
+                                    .foregroundStyle(Florin.accent)
+                                    .frame(width: 22)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(t("v2.activity.transfer", "Virement interne"))
+                                        .foregroundStyle(Florin.text)
+                                    Text(t(
+                                        "v2.activity.transferHint",
+                                        "L'argent a changé de compte : ni dépense, ni entrée."
+                                    ))
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(Florin.text2)
+                                }
+                                Spacer()
+                            }
+                        }
+                    }
                     Button {
                         onPick(nil)
                         dismiss()

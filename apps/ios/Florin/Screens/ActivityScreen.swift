@@ -74,6 +74,11 @@ struct TransactionList<Banner: View>: View {
     var startNeedsReview = false
     var showsBack = false
     var onProfile: () -> Void = {}
+    /// Boutons propres à l'écran qui héberge la liste, posés à gauche des
+    /// filtres. Une page de compte a des gestes que la page Activité n'a pas —
+    /// ajouter une opération sur ce compte-là, le modifier — et ils appartiennent
+    /// au coin, avec les autres commandes, pas au contenu.
+    var extraActions: AnyView?
     /// Optional block between the hero and the filters — a portfolio summary on
     /// a broker account, nothing at all everywhere else.
     @ViewBuilder var banner: Banner
@@ -102,6 +107,7 @@ struct TransactionList<Banner: View>: View {
         startNeedsReview: Bool = false,
         showsBack: Bool = false,
         onProfile: @escaping () -> Void = {},
+        extraActions: AnyView? = nil,
         @ViewBuilder banner: () -> Banner = { EmptyView() }
     ) {
         self.base = base
@@ -117,6 +123,7 @@ struct TransactionList<Banner: View>: View {
         self.startNeedsReview = startNeedsReview
         self.showsBack = showsBack
         self.onProfile = onProfile
+        self.extraActions = extraActions
         self.banner = banner()
         _model = StateObject(wrappedValue: ActivityModel(base: base))
     }
@@ -174,8 +181,18 @@ struct TransactionList<Banner: View>: View {
             }
             ChipBar(options: chips, selection: scope)
             if scope.wrappedValue == .review, !pending.isEmpty { learningHint }
-            summary
-            list
+            /*
+             * Le compte et la liste ne font qu'un.
+             *
+             * `TabScaffold` espace ses blocs de 30 points, ce qui est le bon
+             * rythme entre deux idées — et le mauvais entre une liste et sa
+             * propre légende. « 8 opérations » flottait à mi-chemin, plus près
+             * des filtres au-dessus que des lignes qu'il compte.
+             */
+            VStack(alignment: .leading, spacing: 8) {
+                summary
+                list
+            }
         }
         /*
          * A floating pill, clear of the tab bar.
@@ -279,6 +296,7 @@ struct TransactionList<Banner: View>: View {
             TransactionDetailSheet(
                 tx: tx,
                 categories: model.categories,
+                accounts: model.accounts,
                 locale: locale,
                 currency: currency,
                 t: t,
@@ -288,6 +306,10 @@ struct TransactionList<Banner: View>: View {
                 },
                 onDelete: {
                     await model.delete(tx.id, t: t)
+                    await onLedgerChanged()
+                },
+                onAttachTransfer: { accountId in
+                    await model.attachTransfer(tx.id, to: accountId, t: t)
                     await onLedgerChanged()
                 }
             )
@@ -402,7 +424,10 @@ struct TransactionList<Banner: View>: View {
                     withAnimation(.snappy(duration: 0.2)) { selection = nil }
                 }
             } else {
-                filterButton
+                HStack(spacing: 8) {
+                    if let extraActions { extraActions }
+                    filterButton
+                }
             }
         }
         .padding(.bottom, heroValue == nil ? 14 : 24)

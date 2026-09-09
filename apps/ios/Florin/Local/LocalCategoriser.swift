@@ -51,6 +51,10 @@ enum LocalCategoriser {
         fileprivate let signatures: [String: [String: Int]]
         /// An exact amount, in cents → how rows of that amount were filed.
         fileprivate let amounts: [Int: [String: Int]]
+        /// category id → the kind of the group holding it ("expense", "income").
+        /// A guess that contradicts the sign of the row is not a weak guess,
+        /// it is a wrong one — see `fits`.
+        fileprivate let kinds: [String: String]
 
         var isEmpty: Bool { rows.isEmpty }
     }
@@ -62,7 +66,36 @@ enum LocalCategoriser {
         let accountId: String
     }
 
+    /*
+     * A category whose group runs the other way is not a candidate.
+     *
+     * The scoring is built entirely on words, and a person's own name is a
+     * word like any other: a 500 € instant transfer to himself matched the
+     * salary and refund rows that carry the same name and was filed under
+     * "Gains additionnels" — an income category, on money going out. It looked
+     * like a bad guess and was worse than that. A filed row leaves the
+     * transfer detector (which only offers uncategorised rows), so the one
+     * question worth asking about it was never asked, and the review queue
+     * offered categories and nothing else. The sign is the one thing about a
+     * transaction that is never ambiguous; nothing should be allowed to
+     * contradict it.
+     */
+    fileprivate static func fits(_ categoryId: String, _ amount: Double, _ kinds: [String: String]) -> Bool {
+        switch kinds[categoryId] {
+        case "income": amount >= 0
+        case "expense": amount <= 0
+        default: true
+        }
+    }
+
     static func remember(store: LocalStore) throws -> Memory {
+        var kinds: [String: String] = [:]
+        for row in try store.database.query(
+            "SELECT c.id, g.kind FROM categories c JOIN category_groups g ON g.id = c.group_id"
+        ) {
+            if let id = row.string("id"), let kind = row.string("kind") { kinds[id] = kind }
+        }
+
         let rows = try store.database.query(
             """
             SELECT payee, category_id, amount, account_id
@@ -125,7 +158,7 @@ enum LocalCategoriser {
 
         return Memory(
             weights: weights, rows: entries, postings: postings,
-            signatures: signatures, amounts: amounts
+            signatures: signatures, amounts: amounts, kinds: kinds
         )
     }
 
@@ -144,7 +177,8 @@ enum LocalCategoriser {
          * changes every time — the words are identical, so the past is a
          * direct answer and there is nothing to weigh.
          */
-        if let past = memory.signatures[signature(of: tokens)], !past.isEmpty {
+        if let past = memory.signatures[signature(of: tokens)]?
+            .filter({ fits($0.key, amount, memory.kinds) }), !past.isEmpty {
             let ranked = past.sorted { $0.value > $1.value }
             let best = ranked[0]
             let runnerUp = ranked.count > 1 ? ranked[1].value : 0
@@ -177,7 +211,7 @@ enum LocalCategoriser {
         for index in visiting {
             let row = memory.rows[index]
             let shared = known.intersection(row.tokens)
-            guard !shared.isEmpty else { continue }
+            guard !shared.isEmpty, fits(row.categoryId, amount, memory.kinds) else { continue }
             var score = shared.reduce(0.0) { $0 + (memory.weights[$1] ?? 0) } / mass
             // A short label swallowed whole by a long one is a weaker match
             // than two labels that agree on most of their words.

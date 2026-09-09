@@ -239,6 +239,18 @@ final class ActivityModel: ObservableObject {
         if token == generation { loading = false }
     }
 
+    /// Pairs a row with the account the money reached. The ledger writes the
+    /// far leg — or adopts one already sitting there — so the whole list is
+    /// reloaded rather than one row patched.
+    func attachTransfer(_ txId: String, to accountId: String, t: Strings) async {
+        do {
+            try await client.attachTransfer(txId, to: accountId)
+            await reload()
+        } catch {
+            toast = ToastMessage(text: error.localizedDescription, kind: .failure)
+        }
+    }
+
     func apply(_ patch: TxPatch, to id: String, t: Strings) async {
         /*
          * A verdict leaves the queue as it is given.

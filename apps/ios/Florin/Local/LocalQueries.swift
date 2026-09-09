@@ -333,7 +333,15 @@ enum LocalQueries {
               AND (upper(t.payee) LIKE 'VIREMENT %' OR upper(t.payee) LIKE 'VIR %'
                    OR upper(t.payee) LIKE 'SEPA %' OR upper(t.payee) LIKE 'TRANSFER %'
                    OR upper(t.payee) LIKE 'UEBERWEISUNG %' OR upper(t.payee) LIKE 'BONIFICO %'
-                   OR upper(t.payee) LIKE 'TRANSFERENCIA %')
+                   OR upper(t.payee) LIKE 'TRANSFERENCIA %'
+                   -- La Banque Postale writes an instant credit transfer as
+                   -- "INSTANTANE A <name>" and never uses the word virement,
+                   -- so the sweep to a broker read as an ordinary payment and
+                   -- was never offered. Only added here, where the app *asks*
+                   -- — not to the predicate that drops a row from spending on
+                   -- its own, because an instant transfer to a friend is a
+                   -- real expense and far more common than the classic kind.
+                   OR upper(t.payee) LIKE 'INSTANTANE %')
               -- Money that came straight back. An account that is both the
               -- source and the stop on the way somewhere else shows the sum
               -- leaving and landing within days; nothing left the patrimoine,

@@ -225,8 +225,21 @@ enum LocalLedger {
         }
 
         try store.database.transaction {
+            /*
+             * The category goes with it, exactly as in the branch above.
+             *
+             * A transfer has no category — the app says so wherever one is
+             * entered by hand — but this branch left whatever the guess had
+             * put there. A row could end up paired *and* filed under an
+             * expense, which is the one combination that counts money as spent
+             * and moved at the same time.
+             */
             try store.database.run(
-                "UPDATE transactions SET transfer_pair_id = ?, updated_at = datetime('now') WHERE id = ?",
+                """
+                UPDATE transactions SET transfer_pair_id = ?, category_id = NULL,
+                       needs_review = 0, updated_at = datetime('now')
+                WHERE id = ?
+                """,
                 [.text(pair), .text(txId)]
             )
             let mirror = amount < 0 ? "Transfer from \(label)" : "Transfer to \(label)"
