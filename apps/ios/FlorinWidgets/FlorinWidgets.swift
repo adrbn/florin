@@ -38,8 +38,11 @@ struct FlorinWidgets: Widget {
                  */
                 .environment(\.colorScheme, scheme(entry) ?? systemScheme)
         }
-        .configurationDisplayName("Reste à vivre")
-        .description("Ce qu'il vous reste pour le mois, et le rythme que ça autorise.")
+        // Named for the app rather than for one of its two faces: the tile
+        // starts on the patrimoine and turns over on a tap, so a gallery entry
+        // called "Reste à vivre" was describing the side you might never see.
+        .configurationDisplayName("Florin")
+        .description("Votre patrimoine, et d'un toucher ce qu'il vous reste pour le mois.")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }

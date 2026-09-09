@@ -276,13 +276,23 @@ final class BankingFlow: NSObject, ObservableObject {
             }
             session.presentationContextProvider = self
             /*
-             * A private session, deliberately.
+             * Safari's cookie jar, not a blank one.
              *
-             * Sharing Safari's cookies would let a bank recognise a session the
-             * user opened for something else, and would leave this one behind
-             * afterwards. Bank consent should start and end here.
+             * This was a private session, on the reasoning that a bank should
+             * not recognise a tab opened for something else and should leave
+             * nothing behind. Both true, and both worth very little: the person
+             * is about to authenticate to that bank as themselves, so the only
+             * thing the cookie can tell it is what the login already did.
+             *
+             * What it cost was the banks whose sign-in leaves the browser and
+             * comes back — Trade Republic sends you to its own app to approve,
+             * then returns you to the page. An ephemeral session has no storage
+             * for the page to come back to, so the round trip lands on a blank
+             * visitor and the bank serves its "install the app and start over"
+             * notice again. Forever, however many times you start over, which
+             * is exactly what it did.
              */
-            session.prefersEphemeralWebBrowserSession = true
+            session.prefersEphemeralWebBrowserSession = false
             self.session = session
 
             /*

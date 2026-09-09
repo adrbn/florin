@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		012BE24BDACB110AE8BBB323 /* Brand.swift in Sources */ = {isa = PBXBuildFile; fileRef = D01218C78CF2722622A51E5B /* Brand.swift */; };
 		02E0A5C7DD9F371326789EE1 /* TaskSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89E7EC2A6990567E31F4543F /* TaskSheet.swift */; };
+		0721A4ADB20B964A866C3EF8 /* BuySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BA7D5761878CB027DA9A53E /* BuySheet.swift */; };
 		097A9A7EE7645B3AA663D444 /* LocalSchema.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD643C2F44F11D71E2F7CA73 /* LocalSchema.swift */; };
 		0BD9FE3CFA72A3F04F4ED9F8 /* PlanModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64BDA3BB3A85D55389B90A43 /* PlanModel.swift */; };
 		0C0F0E087D436E275DA1A339 /* ServerProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = A430BB992FA1860E239C34C8 /* ServerProbe.swift */; };
@@ -30,6 +31,7 @@
 		28E4CC7F63FD56AA6F810744 /* FlorinApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 366071F020F6449805F3FCF1 /* FlorinApp.swift */; };
 		2CA9FDE0367C105AA8112F1F /* BankingSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41EE180075A0455B6DA27E90 /* BankingSync.swift */; };
 		2D3A287A5CAD7B268445E55E /* EnableBanking.swift in Sources */ = {isa = PBXBuildFile; fileRef = D88841043DF911CC3CBE4B95 /* EnableBanking.swift */; };
+		2ED83E4E75DB0DBEA0A037F4 /* LocalHoldings.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD8D00CFBF99A69C1BC612F8 /* LocalHoldings.swift */; };
 		302F4643CDA591613AD8B258 /* AmountText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75D28CE358FB2C14BF840725 /* AmountText.swift */; };
 		30EB900C687EDBBC94DEC3E7 /* DaySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CF1EDFEA6B96F300B0E16EC /* DaySheet.swift */; };
 		31B1D1DF613445C5C45A0568 /* LocalAnalysis.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72FE45643769E71AEFCDC7D4 /* LocalAnalysis.swift */; };
@@ -180,6 +182,7 @@
 		6801683A19B982925B586CB2 /* AppLock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLock.swift; sourceTree = "<group>"; };
 		6987D1BE572CB37E2BDA92EB /* AnalysisModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalysisModel.swift; sourceTree = "<group>"; };
 		6A70197CC43070B855A98008 /* BankingSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankingSettings.swift; sourceTree = "<group>"; };
+		6BA7D5761878CB027DA9A53E /* BuySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuySheet.swift; sourceTree = "<group>"; };
 		6CF3F5843E841E89E60775AB /* OverviewScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverviewScreen.swift; sourceTree = "<group>"; };
 		71F201A99DD3A95C05BBE836 /* CategoryPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryPicker.swift; sourceTree = "<group>"; };
 		71F6A5D199B6FCCED78975D2 /* NetWorthChart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetWorthChart.swift; sourceTree = "<group>"; };
@@ -216,6 +219,7 @@
 		B9002B8C0392D7D4BCEB2266 /* ImportSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportSheet.swift; sourceTree = "<group>"; };
 		B96B6367C0815D184665BA96 /* WidgetStrings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetStrings.swift; sourceTree = "<group>"; };
 		B9A820FC9213E4493C163519 /* ActivityModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityModel.swift; sourceTree = "<group>"; };
+		BD8D00CFBF99A69C1BC612F8 /* LocalHoldings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalHoldings.swift; sourceTree = "<group>"; };
 		BEA17A0E3DE53B5E3A78DD42 /* FlorinTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = FlorinTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		BF64507C596294E339B78F6E /* Strings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Strings.swift; sourceTree = "<group>"; };
 		C3F2754AF1FEBB2278A3EEBF /* LocalCategoriser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalCategoriser.swift; sourceTree = "<group>"; };
@@ -256,6 +260,7 @@
 				94411516F56A17BA12CD1C5F /* AddTransactionSheet.swift */,
 				E5992709F9137A0FAABD05EB /* AnalysisScreen.swift */,
 				4C6CBCEDF60B342FB4D8BC35 /* AttachTransferSheet.swift */,
+				6BA7D5761878CB027DA9A53E /* BuySheet.swift */,
 				3043699DDFC45335EED6DED0 /* CategoryEditorSheet.swift */,
 				71F201A99DD3A95C05BBE836 /* CategoryPicker.swift */,
 				772EFF8D3DF1CE1E2F3D2ADA /* CategoryRemovalSheet.swift */,
@@ -395,6 +400,7 @@
 				24A8CF18ACAA0CA5B471CD27 /* LocalCategories.swift */,
 				C3F2754AF1FEBB2278A3EEBF /* LocalCategoriser.swift */,
 				526A3D81BB2ED5F736D5F2AE /* LocalDay.swift */,
+				BD8D00CFBF99A69C1BC612F8 /* LocalHoldings.swift */,
 				C5F276D31E91FBE8D753978A /* LocalImport.swift */,
 				932CA5B579432866CCF8ED11 /* LocalLoan.swift */,
 				869B56AA7F60C1AA6E636346 /* LocalPlan.swift */,
@@ -605,6 +611,7 @@
 				50E09F59ECA9C36D7338B135 /* BankingTypes.swift in Sources */,
 				D4E019863964058D703761CE /* BottomScrim.swift in Sources */,
 				012BE24BDACB110AE8BBB323 /* Brand.swift in Sources */,
+				0721A4ADB20B964A866C3EF8 /* BuySheet.swift in Sources */,
 				5D6B883191B2CE941475E705 /* CategoryEditorSheet.swift in Sources */,
 				713F23992E64EEBA0EFFFA4A /* CategoryPicker.swift in Sources */,
 				5B4111C7309CCDDA821AD38E /* CategoryRemovalSheet.swift in Sources */,
@@ -625,6 +632,7 @@
 				419FC8C120515D8F0F785D35 /* LocalCategories.swift in Sources */,
 				9F70EE4441BACBA144150223 /* LocalCategoriser.swift in Sources */,
 				D3718BFB4D4F07581CB58334 /* LocalDay.swift in Sources */,
+				2ED83E4E75DB0DBEA0A037F4 /* LocalHoldings.swift in Sources */,
 				19DA625C08C8A4A12689A4ED /* LocalImport.swift in Sources */,
 				78E07C461F16F08FEBC1BE92 /* LocalLoan.swift in Sources */,
 				C52FA928565DF7E67D100AB6 /* LocalOnboarding.swift in Sources */,
