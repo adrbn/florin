@@ -1,0 +1,44 @@
+name: CI
+
+# The release workflow only runs on a tag, so until now nothing checked a push
+# or a pull request. This does — the typecheck and the shared test suite, the
+# two things a change to a query or a schema can break without anyone seeing.
+#
+# The iOS app is built and tested by Xcode Cloud, which has the signing and the
+# Xcode version it needs; a GitHub runner would duplicate it on a slower image.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Typecheck & tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      # Node 22, not newer: better-sqlite3 ships no prebuilt binary for later
+      # majors and does not compile against them.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: |
+          pnpm --filter @florin/db-pg exec tsc --noEmit -p .
+          pnpm --filter @florin/db-sqlite exec tsc --noEmit -p .
+          pnpm --filter @florin/web exec tsc --noEmit -p .
+
+      - name: Tests
+        run: pnpm --filter @florin/web exec vitest run

@@ -11,9 +11,18 @@
 
 <p align="center">
   <a href="https://github.com/adrbn/florin/releases/latest"><img src="https://img.shields.io/github/v/release/adrbn/florin?sort=semver&filter=Florin-v*&label=release&color=6c5ce7" alt="Latest release"></a>
-  <a href="https://github.com/adrbn/florin/actions/workflows/florin-release.yml"><img src="https://img.shields.io/github/actions/workflow/status/adrbn/florin/florin-release.yml?label=build" alt="Build"></a>
+  <a href="https://github.com/adrbn/florin/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/adrbn/florin/ci.yml?branch=main&label=tests" alt="Tests"></a>
+  <a href="https://github.com/adrbn/florin/actions/workflows/florin-release.yml"><img src="https://img.shields.io/github/actions/workflow/status/adrbn/florin/florin-release.yml?label=release%20build" alt="Release build"></a>
   <img src="https://img.shields.io/badge/platforms-macOS%20%C2%B7%20iOS%20%C2%B7%20self--hosted-111" alt="Platforms">
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-green" alt="License"></a>
+</p>
+
+<p align="center">
+  <img src=".github/assets/screenshots/01-overview.jpg" width="19%" alt="Overview: net worth, its curve, and the latest transactions">
+  <img src=".github/assets/screenshots/02-your-money.jpg" width="19%" alt="Your money. Finally clear. — everything stays on the device">
+  <img src=".github/assets/screenshots/03-net-worth.jpg" width="19%" alt="Accounts: what you own and what you owe, with the allocation">
+  <img src=".github/assets/screenshots/04-review-queue.jpg" width="19%" alt="The review queue: every expense filed in one tap">
+  <img src=".github/assets/screenshots/05-analysis.jpg" width="19%" alt="Analysis: spending per day over the month">
 </p>
 
 ---
@@ -23,7 +32,7 @@
 | | |
 | --- | --- |
 | **macOS** | [`Florin-*-arm64.dmg`](https://github.com/adrbn/florin/releases/latest) — signed, notarised, auto-updating |
-| **iPhone** | [`Florin-*-unsigned.ipa`](https://github.com/adrbn/florin/releases/latest) — sideload with [AltStore](https://altstore.io), [SideStore](https://sidestore.io) or [Sideloadly](https://sideloadly.io); see [iPhone](#iphone-appsios) |
+| **iPhone** | App Store — in review. Until it is out: [TestFlight](apps/ios/TESTFLIGHT.md), or [`Florin-*-unsigned.ipa`](https://github.com/adrbn/florin/releases/latest) to sideload; see [iPhone](#iphone-appsios) |
 | **Self-hosted** | [`Florin-*-server.tar.gz`](https://github.com/adrbn/florin/releases/latest) — `docker compose up -d`; see [Install — Web](#install--web-self-host) |
 
 Nothing to sign up for, on any of them. There is no Florin account, because there is no
@@ -52,23 +61,27 @@ Florin server.
 - A month-end projection that widens when the month is young and narrows as it fills, rather than pretending to know on the 3rd
 - A plan in category groups, with a review queue that learns from how you file your own history — and offers its guess rather than filing silently when it is unsure
 - Bring last month's amounts forward instead of retyping them
+- Categories you create, rename and remove from one screen; a new install starts from a ready-made set
 
 **Money that is not cash**
 - Loans on a real amortisation schedule: the periodic rate is recovered from your contract, so *capital restant dû* matches the bank rather than approximating it, and every instalment moves it
 - Holdings with cost basis and unrealised gain, contributed-versus-market split, live quotes fetched by symbol alone
+- A monthly DCA recorded in three fields — quantity, unit price, total paid — the three the broker's confirmation prints
 - Net worth over time, asset allocation, rolling savings rate over complete months
 
 **Getting money in**
 - PSD2 bank sync through your own Enable Banking application
 - CSV and OFX import that reads what French, German and English banks actually export — preamble lines, semicolons, comma decimals, and a date order it works out from the file
 - Manual entry, transfers between your own accounts, and a prompt when money leaves for an account the bank does not sync
+- Correct a balance and Florin books the difference as a visible adjustment, rather than quietly rewriting history
+- Rename a merchant once — the bank's "ACHAT CB SARL LE COMPTOIR 07.09.26" becomes the café you actually call it — across its whole history and every transaction still to come
 
 **Living with it**
 - Face ID over the whole ledger; shake to hide every amount
 - A home-screen widget with what is left and the daily pace it allows
 - One notification a morning, after the bank has published overnight — never one per transaction
 - Export a copy you can read with any SQLite tool, and restore it onto a new phone
-- English, French and Dutch throughout
+- English, French, Dutch, Italian and Spanish on the iPhone; English, French and Dutch on the Mac and the web
 
 ## Platforms
 
@@ -98,10 +111,15 @@ in Settings.
 - Background refresh with one summary notification, not one per transaction
 - Ledger in `Library/Application Support/Florin/florin.db`, included in the
   iPhone's iCloud backup, plus an export/restore pair for moving to a new phone
-- No App Store build: AGPL-3.0 and the App Store terms do not mix, and Enable
-  Banking requires one registered application per person.
+- Bank sync through your own Enable Banking application, like everywhere else:
+  the app asks for your App ID and never uses a shared one
 
-**Install it.** Every release carries `Florin-<version>-unsigned.ipa`. It is
+**App Store.** Version 1.3.4 is in App Store review; the link goes here when it
+is out. It will be the simplest way in: like the TestFlight build below, it
+carries the Associated Domains entitlement that bank sync needs and that a
+sideloaded build cannot.
+
+**Sideload it.** Every release carries `Florin-<version>-unsigned.ipa`. It is
 unsigned on purpose — a build signed with someone else's certificate installs on
 nobody else's phone — so it is re-signed on the way in, with your own Apple ID,
 by [AltStore](https://altstore.io), [SideStore](https://sidestore.io) or
@@ -292,8 +310,8 @@ the iPhone app has its own. The figures that would be embarrassing to get wrong 
 remaining capital, a savings rate, a month-end projection — are checked against real bank
 statements rather than against themselves.
 
-What it is not: a product with support, a hosted service, or an App Store download. See
-[Licence](#licence) for why the last one is unlikely.
+What it is not: a product with support, or a hosted service. There is no Florin server
+holding anyone's data, and there will not be one.
 
 ## Repo layout
 
@@ -306,10 +324,12 @@ apps/
   ios/              SwiftUI + raw SQLite, XcodeGen project
     Florin/Local/   On-device ledger: schema, queries, categoriser, backup
     Florin/Banking/ Enable Banking client, key generation, consent flow
+  site/             Static pages + the Associated Domain file the bank redirect needs
 packages/
   core/             Shared UI, types, i18n, formatters
   db-pg/            Postgres client, queries, mutations
   db-sqlite/        SQLite client, queries, mutations
+scripts/            Mirror one ledger onto another (SQLite ⇄ Postgres)
 compose.yaml
 ```
 
@@ -330,14 +350,10 @@ cd apps/desktop && pnpm dev
 
 ## Contributing
 
-Issues and pull requests are welcome. Two things worth knowing before you open one:
-
-- `packages/db-pg` and `packages/db-sqlite` are deliberate twins. A query or sync fix
-  almost always belongs in **both**, and a version bump belongs in web, desktop and iOS
-  together — a test fails the build otherwise.
-- Figures are expected to be checked against something real. A change to how a number is
-  computed should come with a test that pins it to a statement, a documented case, or an
-  independent calculation.
+Issues and pull requests are welcome — [CONTRIBUTING.md](CONTRIBUTING.md) has the setup
+for each platform and the two rules that matter most here: the Postgres and SQLite
+packages are twins that change together, and a computed figure is tested against
+something real. Security problems go through [SECURITY.md](SECURITY.md), privately.
 
 ## Licence
 
@@ -345,7 +361,8 @@ Issues and pull requests are welcome. Two things worth knowing before you open o
 derivative must publish its source, which is the point: a Florin someone runs for you
 should be a Florin you can read.
 
-This is also why there is no App Store build. The App Store's terms and the GPL family do
-not mix for redistributors, and Enable Banking expects one registered application per
-person rather than a shared one. Build it yourself, or take the signed Mac app and the
-sideloadable iPhone build from [Releases](https://github.com/adrbn/florin/releases).
+The App Store build is published by Florin's author, who holds its copyright. Whether a
+fork may do the same is contested — the usual reading is that the App Store's usage rules
+add restrictions the AGPL forbids — so a fork is safest shipping its source, a sideloadable
+build, or its own TestFlight. Your data is covered separately, and simply: Florin collects
+none of it. See [PRIVACY.md](PRIVACY.md).

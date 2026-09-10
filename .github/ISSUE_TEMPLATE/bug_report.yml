@@ -1,0 +1,42 @@
+name: Bug report
+description: Something is wrong — a crash, a broken screen, or a figure that does not match your bank.
+labels: [bug]
+body:
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - iPhone
+        - Mac
+        - Self-hosted web
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Settings → About.
+      placeholder: 1.3.4 (408)
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you saw instead. Screenshots help — hide the amounts first if you prefer (shake the iPhone).
+    validations:
+      required: true
+  - type: textarea
+    id: figures
+    attributes:
+      label: If a figure is wrong
+      description: The figure Florin shows, the figure your bank shows, and the transactions involved. Round or alter real amounts if you like — the arithmetic is what matters.
+  - type: dropdown
+    id: bank
+    attributes:
+      label: Bank sync involved?
+      options:
+        - "No"
+        - Yes — through Enable Banking
+        - Yes — CSV / OFX import

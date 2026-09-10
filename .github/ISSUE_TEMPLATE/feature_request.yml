@@ -1,0 +1,25 @@
+name: Feature request
+description: Something Florin should do, or do differently.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you are trying to do
+      description: The situation, in your own words — what you did by hand, or what another app did for you.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help
+      description: How you imagine it working. Optional — describing the problem well is enough.
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Where
+      multiple: true
+      options:
+        - iPhone
+        - Mac
+        - Self-hosted web
