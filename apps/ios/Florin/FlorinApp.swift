@@ -14,16 +14,13 @@ struct FlorinApp: App {
 
     init() {
         /*
-         * Open the on-device ledger at launch, and say so.
+         * Ranger le grand livre, sans retenir le premier frame.
          *
-         * Nothing reads from it yet — the app is still a thin client and every
-         * figure on screen still comes from the server. This runs so that the
-         * store's schema migration is exercised on a real device on every
-         * build, rather than being discovered to be broken on the day a query
-         * finally depends on it. When a port lands, the failure it prevents is
-         * already behind us.
+         * Lancé ici pour partir le plus tôt possible, mais sur un fil à lui :
+         * la première lecture de l'aperçu l'attend, pas l'écran de lancement.
+         * Voir `LocalStore.launchPass`.
          */
-        LocalStore.probeAtLaunch()
+        _ = LocalStore.launchPass
         // Registered before the first frame, as iOS requires: a handler added
         // later is never called, and the app is simply never woken again.
         BackgroundRefresh.register()

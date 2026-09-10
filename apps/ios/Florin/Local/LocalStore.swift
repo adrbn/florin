@@ -204,7 +204,32 @@ extension LocalStore {
         try? store.database.exec("PRAGMA wal_checkpoint(TRUNCATE)")
     }
 
-    static func probeAtLaunch() {
+    /*
+     * Le rangement du lancement, hors du premier frame.
+     *
+     * Il tournait dans `App.init()`, donc avant que SwiftUI ait dessiné quoi
+     * que ce soit : migration, amorçage, cinq réparations et une passe du
+     * catégoriseur, pendant lesquelles iOS n'avait rien d'autre à montrer que
+     * l'aplat noir de l'écran de lancement. On le voyait flasher.
+     *
+     * Rien ne justifiait cet ordre. La pièce du splash tourne deux secondes et
+     * l'aperçu se charge derrière elle ; le rangement tient largement dedans.
+     * Il part donc au lancement sur un fil à lui, avec sa propre connexion —
+     * la base est en WAL avec un délai d'attente, deux connexions s'y
+     * côtoient — et la première lecture de l'aperçu l'attend, pour ne jamais
+     * afficher un doublon que la passe allait retirer.
+     */
+    static let launchPass = Task.detached(priority: .userInitiated) {
+        probeAtLaunch()
+    }
+
+    /// Rend la main une fois le rangement du lancement terminé. Immédiat
+    /// ensuite : une tâche finie rend sa valeur sans attendre.
+    static func settled() async {
+        await launchPass.value
+    }
+
+    private static func probeAtLaunch() {
         do {
             probeBankingKey()
             let store = try LocalStore()

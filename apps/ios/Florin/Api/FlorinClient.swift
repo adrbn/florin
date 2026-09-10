@@ -184,6 +184,7 @@ struct FlorinClient: Sendable {
 
     func overview() async throws -> Overview {
         if isLocal {
+            await LocalStore.settled()
             guard let store = LocalStore.shared else {
                 throw FlorinError.rejected(
                 Strings.device("v2.common.errorNoDatabase", "Florin n'a pas pu ouvrir sa base de données sur cet appareil.")
