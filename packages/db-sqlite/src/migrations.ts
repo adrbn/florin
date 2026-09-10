@@ -239,6 +239,15 @@ export function ensureSchema(db: SqliteDB) {
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS holdings_account_idx ON holdings(account_id);
+
+    CREATE TABLE IF NOT EXISTS payee_aliases (
+      id TEXT PRIMARY KEY NOT NULL,
+      match_key TEXT NOT NULL,
+      display_name TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS payee_aliases_match_key_unique ON payee_aliases(match_key);
   `)
 
   addMissingColumns(sqlite)

@@ -172,6 +172,25 @@ export const holdings = pgTable(
   (t) => [index('holdings_account_idx').on(t.accountId)],
 )
 
+// ============ payee_aliases ============
+/**
+ * Names given to merchants on the phone ("SARL LE COMPTOIR" → "Chez Marco").
+ * `match_key` is the payee reduced to what stays the same from one visit to
+ * the next — see MerchantNames.key in the iOS app. Carried here so mirroring
+ * the phone onto the server does not drop them.
+ */
+export const payeeAliases = pgTable(
+  'payee_aliases',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    matchKey: text('match_key').notNull(),
+    displayName: text('display_name').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('payee_aliases_match_key_unique').on(t.matchKey)],
+)
+
 // ============ category_groups ============
 export const categoryGroups = pgTable('category_groups', {
   id: uuid('id').primaryKey().defaultRandom(),

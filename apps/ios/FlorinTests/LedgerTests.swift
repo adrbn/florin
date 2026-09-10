@@ -906,3 +906,60 @@ struct RelabelledDuplicateTests {
         #expect(live(store, on: account) == 2)
     }
 }
+
+// MARK: - Naming merchants
+
+@Suite("Merchant names")
+struct MerchantNameTests {
+    /*
+     * La Banque Postale's label format, with made-up merchants. The key has to survive everything that
+     * changes from one visit to the next — the date, the amount, "APPLE PAY",
+     * a mandate reference — and nothing else, or a rename would stick to one
+     * row, or spill onto another merchant.
+     */
+    @Test("a card merchant keeps one key across dates, amounts and Apple Pay", arguments: [
+        "ACHAT CB SARL LE COMPTOIR 07.09.26 EUR          4,10 CARTE NO  123 OC",
+        "ACHAT CB SARL LE COMPTOIR 02.09.26 EUR          6,20 CARTE NO  123 OC",
+        "ACHAT CB SARL LE COMPTOIR 06.07.26 EUR          6,20 CARTE NO  123 OC APPLE PAY",
+    ])
+    func card(_ payee: String) {
+        #expect(MerchantNames.key(payee) == "sarl le comptoir")
+    }
+
+    @Test("a direct debit is cut at its reference")
+    func directDebit() {
+        #expect(MerchantNames.key(
+            "PRELEVEMENT DE TELECOM SA REF : 9876543210987654321012345 0 Votre abonnement mobile: 06XXXXX"
+        ) == "telecom sa")
+        #expect(MerchantNames.key(
+            "PRELEVEMENT DE BOX INTERNET REF : abcd-12345678 IDENT : FR00ZZZ000000 MANDAT : BOX-ABCDEF-1"
+        ) == "box internet")
+    }
+
+    @Test("an instant transfer is cut at its transaction number")
+    func instantTransfer() {
+        #expect(MerchantNames.key(
+            "VIREMENT INSTANTANE DE PAYPAL 12345678901234567 INSTANT TRANSFER"
+        ) == "paypal")
+        #expect(MerchantNames.key(
+            "VIREMENT INSTANTANE DE PAYPAL 76543210987654321 INSTANT TRANSFER"
+        ) == "paypal")
+    }
+
+    @Test("two merchants never share a key")
+    func distinct() {
+        #expect(MerchantNames.key("ACHAT CB SARL LE COMPTOIR 07.09.26 EUR 4,10")
+            != MerchantNames.key("ACHAT CB BOULANGERIE DU PARC 27.08.26 EUR 4,50"))
+    }
+
+    @Test("case and accents do not split a merchant")
+    func folding() {
+        #expect(MerchantNames.key("ACHAT CB CAFÉ DU PARC 01.09.26")
+            == MerchantNames.key("ACHAT CB Cafe du Parc 02.09.26"))
+    }
+
+    @Test("a name made only of a reference still has a key")
+    func neverEmpty() {
+        #expect(!MerchantNames.key("VIREMENT 12345678901234567").isEmpty)
+    }
+}

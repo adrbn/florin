@@ -43,7 +43,7 @@ enum LocalBackup {
     private static let tables = [
         "category_groups", "accounts", "categories", "transactions",
         "holdings", "monthly_budgets", "categorization_rules",
-        "recurring_rules", "balance_snapshots",
+        "recurring_rules", "balance_snapshots", "payee_aliases",
     ]
 
     // MARK: - Writing one
@@ -263,6 +263,8 @@ enum LocalBackup {
             }
         }
 
+        // Les noms de marchands viennent d'être remplacés sous le cache.
+        MerchantNames.shared.invalidate()
         let after = summary(of: store.database)
         log.notice("restored — \(after.transactions, privacy: .public) transactions on file")
         return after

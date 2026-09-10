@@ -681,7 +681,18 @@
     "v2.settings.manageCategories": "Manage categories",
     "v2.settings.categoriesHint": "Create, rename and delete your categories. The month's amounts are assigned in the Plan tab.",
     "v2.categories.addTo": "Add to {group}",
-    "v2.settings.useServer": "Use my Florin server"
+    "v2.settings.useServer": "Use my Florin server",
+    "v2.merchant.title": "Rename merchant",
+    "v2.merchant.name": "Display name",
+    "v2.merchant.bankLabel": "Bank label: {label}",
+    "v2.merchant.reach": "Applies to its {count} transactions, and to the ones still to come.",
+    "v2.merchant.reach_one": "Applies to its one transaction, and to the ones still to come.",
+    "v2.merchant.save": "Rename",
+    "v2.merchant.reset": "Go back to the bank's name",
+    "v2.merchants.title": "Renamed merchants",
+    "v2.merchants.empty": "No merchant renamed yet. Tap the name on a transaction to give it your own.",
+    "v2.settings.naming": "Categories and merchants",
+    "v2.settings.merchantsHint": "Tap the name on a transaction to rename its merchant."
   },
   "fr": {
     "v2.a11y.back": "Retour",
@@ -1365,7 +1376,18 @@
     "v2.settings.manageCategories": "Gérer les catégories",
     "v2.settings.categoriesHint": "Créez, renommez et supprimez vos catégories. Les montants du mois se répartissent dans l'onglet Plan.",
     "v2.categories.addTo": "Ajouter dans {group}",
-    "v2.settings.useServer": "Utiliser mon serveur Florin"
+    "v2.settings.useServer": "Utiliser mon serveur Florin",
+    "v2.merchant.title": "Renommer le marchand",
+    "v2.merchant.name": "Nom affiché",
+    "v2.merchant.bankLabel": "Libellé de la banque : {label}",
+    "v2.merchant.reach": "S'applique à ses {count} opérations, et à celles qui arriveront.",
+    "v2.merchant.reach_one": "S'applique à son opération, et à celles qui arriveront.",
+    "v2.merchant.save": "Renommer",
+    "v2.merchant.reset": "Revenir au nom de la banque",
+    "v2.merchants.title": "Marchands renommés",
+    "v2.merchants.empty": "Aucun marchand renommé. Touchez le nom d'une opération pour lui donner le vôtre.",
+    "v2.settings.naming": "Catégories et marchands",
+    "v2.settings.merchantsHint": "Touchez le nom d'une opération pour renommer son marchand."
   },
   "nl": {
     "v2.a11y.back": "Terug",
@@ -2049,7 +2071,18 @@
     "v2.settings.manageCategories": "Categorieën beheren",
     "v2.settings.categoriesHint": "Maak, hernoem en verwijder je categorieën. De bedragen van de maand verdeel je op het tabblad Plan.",
     "v2.categories.addTo": "Toevoegen aan {group}",
-    "v2.settings.useServer": "Mijn Florin-server gebruiken"
+    "v2.settings.useServer": "Mijn Florin-server gebruiken",
+    "v2.merchant.title": "Handelaar hernoemen",
+    "v2.merchant.name": "Weergavenaam",
+    "v2.merchant.bankLabel": "Omschrijving van de bank: {label}",
+    "v2.merchant.reach": "Geldt voor de {count} transacties, en voor de transacties die nog komen.",
+    "v2.merchant.reach_one": "Geldt voor die ene transactie, en voor de transacties die nog komen.",
+    "v2.merchant.save": "Hernoemen",
+    "v2.merchant.reset": "Terug naar de naam van de bank",
+    "v2.merchants.title": "Hernoemde handelaren",
+    "v2.merchants.empty": "Nog geen handelaar hernoemd. Tik op de naam van een transactie om er je eigen naam aan te geven.",
+    "v2.settings.naming": "Categorieën en handelaren",
+    "v2.settings.merchantsHint": "Tik op de naam van een transactie om de handelaar te hernoemen."
   },
   "it": {
     "v2.a11y.back": "Indietro",
@@ -2733,7 +2766,18 @@
     "v2.settings.manageCategories": "Gestire le categorie",
     "v2.settings.categoriesHint": "Crea, rinomina ed elimina le tue categorie. Gli importi del mese si ripartiscono nella scheda Piano.",
     "v2.categories.addTo": "Aggiungi in {group}",
-    "v2.settings.useServer": "Usare il mio server Florin"
+    "v2.settings.useServer": "Usare il mio server Florin",
+    "v2.merchant.title": "Rinomina esercente",
+    "v2.merchant.name": "Nome visualizzato",
+    "v2.merchant.bankLabel": "Descrizione della banca: {label}",
+    "v2.merchant.reach": "Vale per i suoi {count} movimenti, e per quelli che arriveranno.",
+    "v2.merchant.reach_one": "Vale per il suo unico movimento, e per quelli che arriveranno.",
+    "v2.merchant.save": "Rinomina",
+    "v2.merchant.reset": "Torna al nome della banca",
+    "v2.merchants.title": "Esercenti rinominati",
+    "v2.merchants.empty": "Nessun esercente rinominato. Tocca il nome di un movimento per dargli il tuo.",
+    "v2.settings.naming": "Categorie ed esercenti",
+    "v2.settings.merchantsHint": "Tocca il nome di un movimento per rinominarne l’esercente."
   },
   "es": {
     "v2.a11y.back": "Atrás",
@@ -3417,6 +3461,17 @@
     "v2.settings.manageCategories": "Gestionar las categorías",
     "v2.settings.categoriesHint": "Crea, renombra y elimina tus categorías. Los importes del mes se reparten en la pestaña Plan.",
     "v2.categories.addTo": "Añadir en {group}",
-    "v2.settings.useServer": "Usar mi servidor Florin"
+    "v2.settings.useServer": "Usar mi servidor Florin",
+    "v2.merchant.title": "Renombrar comercio",
+    "v2.merchant.name": "Nombre mostrado",
+    "v2.merchant.bankLabel": "Concepto del banco: {label}",
+    "v2.merchant.reach": "Se aplica a sus {count} movimientos, y a los que lleguen.",
+    "v2.merchant.reach_one": "Se aplica a su único movimiento, y a los que lleguen.",
+    "v2.merchant.save": "Renombrar",
+    "v2.merchant.reset": "Volver al nombre del banco",
+    "v2.merchants.title": "Comercios renombrados",
+    "v2.merchants.empty": "Ningún comercio renombrado. Toca el nombre de un movimiento para darle el tuyo.",
+    "v2.settings.naming": "Categorías y comercios",
+    "v2.settings.merchantsHint": "Toca el nombre de un movimiento para renombrar su comercio."
   }
 }

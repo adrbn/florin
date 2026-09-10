@@ -43,6 +43,7 @@ struct SettingsScreen: View {
     @State private var readiness: BackgroundRefresh.Readiness?
     @State private var showingBanking = false
     @State private var showingCategories = false
+    @State private var showingMerchants = false
     @State private var showingSyncLog = false
     @State private var showingImport = false
     @State private var confirmingImport = false
@@ -83,6 +84,7 @@ struct SettingsScreen: View {
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $showingBanking) { BankingSettings() }
             .sheet(isPresented: $showingCategories) { CategoriesScreen(t: t) }
+            .sheet(isPresented: $showingMerchants) { MerchantsScreen(t: t) }
             .sheet(isPresented: $showingSyncLog) {
                 SyncLogScreen(t: t, locale: model.overview?.localeTag ?? "fr-FR")
             }
@@ -641,22 +643,40 @@ struct SettingsScreen: View {
      * Le Plan garde les siens : c'est là qu'on donne un montant. Ici chaque
      * geste porte son nom, et c'est la même base des deux côtés.
      */
-    @ViewBuilder
+    /*
+     * Les marchands vivent ici avec les catégories : deux façons de dire ce
+     * qu'est une opération. Ils restent visibles face à un serveur, parce que
+     * les noms donnés sont gardés sur le téléphone et s'appliquent quelle que
+     * soit la source — les catégories, elles, appartiennent au serveur.
+     */
     private var categoriesSection: some View {
-        if sourceBinding.wrappedValue != .server {
-            SettingsGroup(
-                title: t("v2.nav.categories", "Catégories"),
-                footer: t(
+        let local = sourceBinding.wrappedValue != .server
+        return SettingsGroup(
+            title: t("v2.settings.naming", "Catégories et marchands"),
+            footer: (local
+                ? t(
                     "v2.settings.categoriesHint",
                     "Créez, renommez et supprimez vos catégories. Les montants du mois se répartissent dans l'onglet Plan."
+                ) + " "
+                : "")
+                + t(
+                    "v2.settings.merchantsHint",
+                    "Touchez le nom d'une opération pour renommer son marchand."
                 )
-            ) {
+        ) {
+            if local {
                 SettingsRow(
                     label: t("v2.settings.manageCategories", "Gérer les catégories"),
                     symbol: "tag",
                     action: { showingCategories = true }
                 )
+                Hairline()
             }
+            SettingsRow(
+                label: t("v2.merchants.title", "Marchands renommés"),
+                symbol: "storefront",
+                action: { showingMerchants = true }
+            )
         }
     }
 

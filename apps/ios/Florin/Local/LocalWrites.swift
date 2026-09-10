@@ -21,9 +21,18 @@ enum LocalLedger {
         if !filter.search.trimmingCharacters(in: .whitespaces).isEmpty {
             // Matched on the normalized payee as well as the raw one: bank
             // labels carry case and punctuation nobody types.
-            clauses.append("(lower(t.payee) LIKE ? OR t.normalized_payee LIKE ? OR lower(coalesce(t.memo,'')) LIKE ?)")
+            // And on the name given to the merchant: someone who renamed "SARL LE
+            // COMPTOIR" to "Chez Marco" searches for Chez Marco. The key is contained
+            // in the lower-cased label, which is what `instr` checks.
+            clauses.append(
+                """
+                (lower(t.payee) LIKE ? OR t.normalized_payee LIKE ? OR lower(coalesce(t.memo,'')) LIKE ?
+                 OR EXISTS (SELECT 1 FROM payee_aliases a
+                            WHERE lower(a.display_name) LIKE ? AND instr(lower(t.payee), a.match_key) > 0))
+                """
+            )
             let needle = "%" + filter.search.lowercased().trimmingCharacters(in: .whitespaces) + "%"
-            values.append(contentsOf: [.text(needle), .text(needle), .text(needle)])
+            values.append(contentsOf: [.text(needle), .text(needle), .text(needle), .text(needle)])
         }
         switch filter.direction {
         case .expense: clauses.append("t.amount < 0")

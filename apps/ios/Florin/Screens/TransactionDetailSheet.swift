@@ -34,6 +34,9 @@ struct TransactionDetailSheet: View {
     /// sheets cannot change places in the same frame, and asking for the
     /// second one while the first is still dismissing silently drops it.
     @State private var wantsTransfer = false
+    @State private var naming = false
+    /// Observed so the title changes the moment the merchant is renamed.
+    @ObservedObject private var names = MerchantNames.shared
 
     /*
      * La hauteur est calculée, pas mesurée.
@@ -92,6 +95,31 @@ struct TransactionDetailSheet: View {
             .navigationTitle(PayeeText.humanize(tx.payee))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                /*
+                 * Le titre est le nom du marchand, et c'est là qu'on le change.
+                 *
+                 * Un bouton de plus dans la liste d'actions aurait allongé la
+                 * feuille pour un geste rare ; « Modifier », lui, touche le
+                 * libellé de cette seule opération. Toucher le nom pour le
+                 * renommer est l'endroit où on le chercherait, et le crayon
+                 * dit qu'on peut.
+                 */
+                ToolbarItem(placement: .principal) {
+                    Button { naming = true } label: {
+                        HStack(spacing: 6) {
+                            Text(PayeeText.humanize(tx.payee))
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(Florin.text)
+                                .lineLimit(1)
+                            Image(systemName: "pencil")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(Florin.text3)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint(t("v2.merchant.title", "Renommer le marchand"))
+                }
                 ToolbarItem(placement: .cancellationAction) {
                     // A glyph, not the word. "Fermer" in a toolbar draws a
                     // capsule wide enough to read as the sheet's main action,
@@ -208,6 +236,13 @@ struct TransactionDetailSheet: View {
                 // Nothing to route to: the row is already spending, and the
                 // button here means "leave it alone".
                 onSpending: {}
+            )
+        }
+        .sheet(isPresented: $naming) {
+            MerchantNameSheet(
+                key: MerchantNames.key(tx.payee),
+                bankLabel: PayeeText.clean(tx.payee),
+                t: t
             )
         }
         .sheet(isPresented: $editing) {

@@ -44,6 +44,8 @@ TABLES = [
     # côté destination. Leurs colonnes concordent avec Postgres.
     'holdings',
     'recurring_rules',
+    # Les noms donnés aux marchands sur l'iPhone (10/09/2026).
+    'payee_aliases',
     'bank_sync_runs',
     'bank_sync_account_results',
 ]
@@ -113,7 +115,18 @@ def quote(value, is_boolean: bool, temporal: bool = False) -> str:
     return f"'{s}'"
 
 
+def has_table(conn: sqlite3.Connection, table: str) -> bool:
+    return conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (table,)
+    ).fetchone() is not None
+
+
 def dump_table(conn: sqlite3.Connection, table: str) -> str:
+    # Une base écrite par une version plus ancienne n'a pas toutes les tables :
+    # la destination est vidée quand même, et reste vide — c'est ce que la
+    # source contient.
+    if not has_table(conn, table):
+        return f'-- {table}: absent from source\n'
     cols = [r[1] for r in conn.execute(f'PRAGMA table_info({table})').fetchall()]
     rows = conn.execute(f'SELECT * FROM {table}').fetchall()
     bools = BOOLEAN_COLS.get(table, set())
@@ -169,7 +182,7 @@ def main() -> int:
 
         print(f'Wrote {out_path}:')
         for t in TABLES:
-            count = conn.execute(f'SELECT COUNT(*) FROM {t}').fetchone()[0]
+            count = conn.execute(f'SELECT COUNT(*) FROM {t}').fetchone()[0] if has_table(conn, t) else '—'
             print(f'  {t}: {count}')
     finally:
         conn.close()

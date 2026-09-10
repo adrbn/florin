@@ -221,5 +221,13 @@ enum LocalSchema {
         CREATE INDEX IF NOT EXISTS transactions_status_idx ON transactions(status, occurred_at) WHERE deleted_at IS NULL;
         CREATE INDEX IF NOT EXISTS transactions_recurring_rule_idx ON transactions(recurring_rule_id) WHERE recurring_rule_id IS NOT NULL;
         CREATE UNIQUE INDEX IF NOT EXISTS transactions_recurrence_key_unique ON transactions(recurrence_key, account_id) WHERE recurrence_key IS NOT NULL;
+        CREATE TABLE IF NOT EXISTS payee_aliases (
+              id TEXT PRIMARY KEY NOT NULL,
+              match_key TEXT NOT NULL,
+              display_name TEXT NOT NULL,
+              created_at TEXT NOT NULL DEFAULT (datetime('now')),
+              updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+        CREATE UNIQUE INDEX IF NOT EXISTS payee_aliases_match_key_unique ON payee_aliases(match_key);
         """
 }

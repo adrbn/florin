@@ -85,6 +85,13 @@
       "when": 1782810820845,
       "tag": "0011_invest_phase2_holdings",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1789071542468,
+      "tag": "0012_payee_aliases",
+      "breakpoints": true
     }
   ]
 }

@@ -30,7 +30,8 @@ struct Bubble: View {
     }
 
     static func initials(_ label: String) -> String {
-        let words = PayeeText.clean(label).split(whereSeparator: { " -_/".contains($0) })
+        let base = MerchantNames.shared.name(for: label) ?? PayeeText.clean(label)
+        let words = base.split(whereSeparator: { " -_/".contains($0) })
         guard let first = words.first else { return "·" }
         if words.count == 1 { return String(first.prefix(2)).uppercased() }
         return (String(first.prefix(1)) + String(words[1].prefix(1))).uppercased()
@@ -62,7 +63,14 @@ enum PayeeText {
     }
 
     /// De-shout token by token; keep acronyms (≤3 chars, or ≤5 with no vowel).
+    /// A merchant given a name of its own is shown by that name instead.
     static func humanize(_ payee: String) -> String {
+        MerchantNames.shared.name(for: payee) ?? bankName(payee)
+    }
+
+    /// The bank's own label, de-shouted — what a merchant is called before
+    /// anyone renames it.
+    static func bankName(_ payee: String) -> String {
         clean(payee)
             .split(separator: " ")
             .map { word -> String in
@@ -151,6 +159,9 @@ struct TransactionRowView: View {
     let locale: String
     let currency: String
     var t: Strings = .empty
+    /// Observed so a merchant renamed from its sheet is renamed in every list
+    /// behind it at once, not at the next reload.
+    @ObservedObject private var names = MerchantNames.shared
 
     private var subtitle: String {
         let category = tx.categoryName ?? t("v2.common.uncategorized", "Sans catégorie")

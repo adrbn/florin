@@ -57,6 +57,7 @@ TABLES_DELETE_ORDER = [
     'monthly_budgets',
     'categorization_rules',
     'holdings',
+    'payee_aliases',
     'transactions',
     'categories',
     'category_groups',

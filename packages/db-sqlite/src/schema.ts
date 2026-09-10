@@ -148,6 +148,26 @@ export const holdings = sqliteTable(
   (t) => [index('holdings_account_idx').on(t.accountId)],
 )
 
+// ============ payee_aliases ============
+/** Names given to merchants — same shape as the iOS ledger's table. */
+export const payeeAliases = sqliteTable(
+  'payee_aliases',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    matchKey: text('match_key').notNull(),
+    displayName: text('display_name').notNull(),
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text('updated_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (t) => [uniqueIndex('payee_aliases_match_key_unique').on(t.matchKey)],
+)
+
 // ============ category_groups ============
 export const categoryGroups = sqliteTable('category_groups', {
   id: text('id')

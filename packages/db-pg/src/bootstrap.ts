@@ -152,4 +152,19 @@ export async function ensurePgRuntimePatches(db: PgDB): Promise<void> {
       AND "deleted_at" IS NULL
       AND "payee" ILIKE '%Balance Adjustment%'
   `)
+
+  // Names given to merchants on the phone. The server does not apply them
+  // yet; it keeps them so mirroring the phone onto it does not drop them.
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS "payee_aliases" (
+      "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+      "match_key" text NOT NULL,
+      "display_name" text NOT NULL,
+      "created_at" timestamp with time zone DEFAULT now() NOT NULL,
+      "updated_at" timestamp with time zone DEFAULT now() NOT NULL
+    )
+  `)
+  await db.execute(
+    sql`CREATE UNIQUE INDEX IF NOT EXISTS "payee_aliases_match_key_unique" ON "payee_aliases" ("match_key")`,
+  )
 }
