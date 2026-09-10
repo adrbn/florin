@@ -28,13 +28,55 @@ struct TransactionDetailSheet: View {
     @State private var editing = false
     @State private var confirmingDelete = false
     @State private var working = false
-    @State private var contentHeight: CGFloat = 0
     @State private var filing = false
     @State private var markingTransfer = false
     /// Chosen inside the picker, acted on once the picker has closed: two
     /// sheets cannot change places in the same frame, and asking for the
     /// second one while the first is still dismissing silently drops it.
     @State private var wantsTransfer = false
+
+    /*
+     * La hauteur est calculée, pas mesurée.
+     *
+     * Un `GeometryReader` en fond du contenu rapportait deux cent cinquante
+     * points de trop : la feuille se calait sur son plafond avec autant de
+     * vide sous le dernier bouton. Trois tentatives pour arriver à cette
+     * conclusion, et une seule expérience l'a tranchée — remplacer la valeur
+     * mesurée par une constante a immédiatement donné la bonne feuille, donc
+     * le mécanisme n'était pas en cause, seule la mesure l'était.
+     *
+     * Le contenu de cette feuille est entièrement connu à l'avance : un
+     * montant, une date, deux à quatre pastilles, un libellé de banque, et de
+     * trois à cinq actions. On l'additionne. C'est approximatif de quelques
+     * points et toujours juste à l'œil, là où la mesure était exacte en
+     * théorie et fausse en pratique.
+     */
+    private var sheetHeight: CGFloat {
+        var height: CGFloat = 8 + 48 + 12 + 18 + 12   // marge, montant, date
+        height += pillRows * 30 + 12
+        if let memo = tx.memo, !memo.isEmpty {
+            // Le libellé brut d'une banque tient rarement sur une ligne.
+            height += CGFloat(min(4, memo.count / 38 + 1)) * 18 + 10
+        }
+        height += 22                                   // entre le résumé et les actions
+        height += CGFloat(actionCount) * 50 + CGFloat(actionCount - 1) * 10
+        height += 20 + 16                              // marge basse et poignée
+        return min(height, 720)
+    }
+
+    /// Compte, catégorie, « à vérifier », « virement » — la rangée passe à deux
+    /// lignes dès la troisième.
+    private var pillRows: CGFloat {
+        let pills = 2 + (tx.needsReview ? 1 : 0) + (tx.isTransfer ? 1 : 0)
+        return pills > 2 ? 2 : 1
+    }
+
+    private var actionCount: Int {
+        var n = 3   // catégoriser, modifier, supprimer
+        if tx.needsReview { n += 1 }
+        if !tx.isTransfer, tx.amount < 0, accounts.count > 1 { n += 1 }
+        return n
+    }
 
     var body: some View {
         NavigationStack {
@@ -45,17 +87,8 @@ struct TransactionDetailSheet: View {
                 }
                 .padding(.top, 8)
                 .padding(.bottom, 20)
-                .background(
-                    GeometryReader { proxy in
-                        Color.clear.preference(
-                            key: SheetContentHeight.self, value: proxy.size.height
-                        )
-                    }
-                )
             }
-            .onPreferenceChange(SheetContentHeight.self) { contentHeight = $0 }
             .scrollBounceBehavior(.basedOnSize)
-            .background(Backdrop(tint: TabRoute.activity.tint))
             .navigationTitle(PayeeText.humanize(tx.payee))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -82,9 +115,22 @@ struct TransactionDetailSheet: View {
          * height is the content's, plus the navigation bar and the home
          * indicator; `.large` stays available for a long memo.
          */
-        .presentationDetents([.height(min(contentHeight + 64, 720)), .large])
+        .presentationDetents([.height(sheetHeight), .large])
         .presentationDragIndicator(.visible)
-        .presentationBackground(.clear)
+        /*
+         * Le fond passe à la feuille, comme dans les six autres.
+         *
+         * Il était posé sur le ScrollView — donc sur la vue même dont on
+         * mesure le contenu pour dimensionner le volet. La feuille se calait
+         * pile sur son plafond de 720 points, signature d'une boucle : la
+         * mesure nourrit la hauteur, la hauteur renourrit la mesure, et
+         * l'ensemble se stabilise au maximum autorisé avec trois cents points
+         * de vide sous le dernier bouton.
+         *
+         * `presentationBackground` peint la surface présentée sans participer
+         * à la mise en page du contenu, ce qui sort la mesure de la boucle.
+         */
+        .presentationBackground { Backdrop(tint: TabRoute.activity.tint, floor: true) }
         .sheet(isPresented: $picking, onDismiss: {
             if wantsTransfer {
                 wantsTransfer = false

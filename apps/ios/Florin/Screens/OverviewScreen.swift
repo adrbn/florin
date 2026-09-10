@@ -103,22 +103,35 @@ struct OverviewScreen: View {
         .sheet(isPresented: $addingAccount) {
             AddAccountSheet(onSaved: { Task { await model.load(showSpinner: false) } })
         }
+        /*
+         * Pas de `if let` autour de la feuille.
+         *
+         * Elle y était, et la feuille s'ouvrait en pleine hauteur avec trois
+         * cents points de vide sous le dernier bouton. Une condition à la
+         * racine du contenu d'un `.sheet` empêche SwiftUI de lire les
+         * `presentationDetents` déclarés à l'intérieur — il n'a rien à
+         * interroger au premier passage, retombe sur `.large` et n'y revient
+         * plus quand le contenu apparaît.
+         *
+         * Le même écran ouvert depuis Activité se dimensionnait correctement,
+         * et la seule différence entre les deux était cette condition. Les
+         * valeurs de repli remplacent donc le `if let` : la vue est
+         * inconditionnelle, et ses détents sont lus.
+         */
         .sheet(item: $detail) { tx in
-            if let data = model.overview {
-                TransactionDetailSheet(
-                    tx: tx,
-                    categories: data.categories,
-                    accounts: data.accounts,
-                    locale: data.localeTag,
-                    currency: data.currency,
-                    t: data.t,
-                    onPatch: { await model.patch($0, to: tx.id) },
-                    onDelete: { await model.delete(tx.id) },
-                    onAttachTransfer: { accountId in
-                        try? await model.attachTransfer(tx.id, to: accountId)
-                    }
-                )
-            }
+            TransactionDetailSheet(
+                tx: tx,
+                categories: model.overview?.categories ?? [],
+                accounts: model.overview?.accounts ?? [],
+                locale: model.overview?.localeTag ?? "fr-FR",
+                currency: model.overview?.currency ?? "EUR",
+                t: t,
+                onPatch: { await model.patch($0, to: tx.id) },
+                onDelete: { await model.delete(tx.id) },
+                onAttachTransfer: { accountId in
+                    try? await model.attachTransfer(tx.id, to: accountId)
+                }
+            )
         }
         .sheet(item: $attaching) { tx in
             AttachTransferSheet(
