@@ -107,7 +107,7 @@ describe('computeMonthForecast', () => {
      */
     const early = {
       ...base,
-      monthIncome: 2500.00,
+      monthIncome: 3000.00,
       monthSpent: 53.5,
       monthSpentFixed: 0,
       expectedMonthlySpend: 3046.17,
@@ -132,7 +132,7 @@ describe('computeMonthForecast', () => {
     // told to expect one, however regular they usually are.
     const f = computeMonthForecast({
       ...base,
-      monthIncome: 2500.00,
+      monthIncome: 3000.00,
       monthSpent: 2900,
       monthSpentFixed: 0,
       expectedMonthlySpend: 3046.17,

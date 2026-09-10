@@ -325,7 +325,7 @@ describe('getPortfolioValuation', () => {
     // UNPAIRED sweep-back to CCP — nets against verse.
     seedTransferLeg(ctx, {
       accountId: broker,
-      amount: -5.69,
+      amount: -10.00,
       payee: 'Transfer to CCP',
       transferPairId: null,
       status: 'cleared',
@@ -344,8 +344,8 @@ describe('getPortfolioValuation', () => {
     })
 
     const v = await q.getPortfolioValuation(broker)
-    // 500 + 2500 − 5.69 = 2500.00 (the buy is excluded).
-    expect(v.verse).toBeCloseTo(2500.00, 2)
+    // 500 + 2500 − 10 = 2990 (the buy is excluded).
+    expect(v.verse).toBeCloseTo(2990.00, 2)
   })
 
   it('empty broker → all zeros', async () => {

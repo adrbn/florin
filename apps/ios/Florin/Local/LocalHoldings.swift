@@ -72,10 +72,9 @@ enum LocalHoldings {
              *
              * La première version faisait `solde = ouverture + Σ lignes`, ce qui
              * suppose que l'historique du compte est complet. Sur un compte
-             * repris d'un autre grand livre il ne l'est pas : le Livret A porte
-             * quatorze lignes pour deux ans, et cette somme valait −1 000 € face
-             * à un solde réel de 250 €. Corriger de +1 € l'a donc fait tomber à
-             * −200,00 €. Le calcul était juste ; sa prémisse était fausse.
+             * repris d'un autre grand livre il ne l'est pas : un livret porte
+             * quelques lignes pour deux ans, dont la somme est loin du solde
+             * réel. Corriger ce solde d'un euro l'a donc fait passer sous zéro. Le calcul était juste ; sa prémisse était fausse.
              *
              * L'annoncé fait foi — c'est son propriétaire qui vient de le lire
              * sur son relevé — et l'ouverture absorbe la part que Florin n'a

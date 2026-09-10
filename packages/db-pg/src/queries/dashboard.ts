@@ -787,7 +787,7 @@ const SALARY_MIN_AMOUNT = 500
  * category every single month; a one-off inflow — a cheque paid in, a tax
  * refund, a friend repaying a big shared holiday booking — lands once. Ranking
  * on "most recent single transaction" let any such one-off hijack the salary
- * category: a 500€ cheque booked to "Gains additionnels" outranked a 2 500,00€
+ * category: a 500€ cheque booked to "Gains additionnels" outranked the
  * monthly salary, dropping the ceiling to that category's few hundred euros
  * and turning both the monthly margin and the month forecast deeply negative
  * overnight. Distinct months with a hit is the discriminator; total is the

@@ -80,12 +80,11 @@ final class LocalStore {
      * C'est juste — à condition que l'ouverture soit le solde réel du compte
      * au premier jour connu de son historique.
      *
-     * Sur un grand livre repris d'ailleurs, elle ne l'est pas. Le Livret A
-     * porte quatorze lignes pour deux ans, dont la somme vaut −1 000 € face à
-     * une ouverture de 700 € et un solde réel de 250 €. Chacun de ces comptes
-     * était donc à **une seule opération** de s'effondrer sur un chiffre
-     * arbitraire — et l'un d'eux l'a fait, en tombant à −200,00 € après une
-     * correction d'un euro.
+     * Sur un grand livre repris d'ailleurs, elle ne l'est pas. Un livret
+     * repris peut porter quelques lignes pour deux ans, dont la somme n'a rien
+     * à voir avec l'ouverture ni avec le solde réel. Un tel compte est à **une
+     * seule opération** de s'effondrer sur un chiffre arbitraire — et c'est
+     * arrivé, sous zéro après une correction d'un euro.
      *
      * Le solde affiché fait foi : c'est celui que la banque a posé, ou celui
      * que son propriétaire a saisi. L'ouverture absorbe l'écart, c'est-à-dire

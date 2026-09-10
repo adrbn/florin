@@ -650,7 +650,7 @@ enum LocalQueries {
      *
      * This ranking is not a detail. On the server it once picked the category
      * of the single most recent income over 500, which let a one-off 500 EUR
-     * cheque booked to a side-income category outrank a 2998 EUR monthly wage
+     * cheque booked to a side-income category outrank the monthly wage
      * and collapse the whole month's margin. Distinct months with a hit is the
      * discriminator; the total is the tie-break for someone with one month of
      * history. Only income-kind categories qualify, or a large inbound

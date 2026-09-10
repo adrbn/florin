@@ -60,7 +60,7 @@ describe('getLeftToSpendThisMonth — salary category detection', () => {
     seedTx(ctx, {
       accountId: acc,
       occurredAt: todayIso(),
-      amount: 87.21,
+      amount: 60.00,
       payee: 'VIREMENT INSTANTANE CREDIT',
       categoryId: CAT_MISC_INCOME,
     })
