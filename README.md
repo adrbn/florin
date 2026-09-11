@@ -1,368 +1,229 @@
 <p align="center">
-  <img src="apps/desktop/public/icon.png" width="128" alt="Florin" />
+  <img src="apps/desktop/public/icon.png" width="112" alt="Florin" />
 </p>
 
 <h1 align="center">Florin</h1>
 
 <p align="center">
-  <strong>Personal finance that stays on your own machines.</strong><br>
-  A native Mac app, a native iPhone app, and a self-hostable web app — one codebase, no SaaS in the middle.
+  <b>Personal finance that stays on your own devices.</b><br>
+  Budget, bank sync, net worth and investments — on iPhone, Mac and your own server.
 </p>
 
 <p align="center">
-  <a href="https://github.com/adrbn/florin/releases/latest"><img src="https://img.shields.io/github/v/release/adrbn/florin?sort=semver&filter=Florin-v*&label=release&color=6c5ce7" alt="Latest release"></a>
-  <a href="https://github.com/adrbn/florin/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/adrbn/florin/ci.yml?branch=main&label=tests" alt="Tests"></a>
-  <a href="https://github.com/adrbn/florin/actions/workflows/florin-release.yml"><img src="https://img.shields.io/github/actions/workflow/status/adrbn/florin/florin-release.yml?label=release%20build" alt="Release build"></a>
-  <img src="https://img.shields.io/badge/platforms-macOS%20%C2%B7%20iOS%20%C2%B7%20self--hosted-111" alt="Platforms">
-  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-green" alt="License"></a>
+  <a href="https://github.com/adrbn/florin/releases/latest"><img src="https://img.shields.io/github/v/release/adrbn/florin?sort=semver&filter=Florin-v*&label=release&style=for-the-badge&color=6c5ce7&labelColor=1e1e2e" alt="Latest release"></a>
+  <a href="https://github.com/adrbn/florin/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/adrbn/florin/ci.yml?branch=main&label=tests&style=for-the-badge&labelColor=1e1e2e" alt="Tests"></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-2ea44f?style=for-the-badge&labelColor=1e1e2e" alt="License: AGPL-3.0"></a>
+  <img src="https://img.shields.io/badge/iOS%20·%20macOS%20·%20Docker-111?style=for-the-badge&labelColor=1e1e2e" alt="Platforms">
 </p>
 
 <p align="center">
   <img src=".github/assets/screenshots/01-overview.jpg" width="19%" alt="Overview: net worth, its curve, and the latest transactions">
-  <img src=".github/assets/screenshots/02-your-money.jpg" width="19%" alt="Your money. Finally clear. — everything stays on the device">
-  <img src=".github/assets/screenshots/03-net-worth.jpg" width="19%" alt="Accounts: what you own and what you owe, with the allocation">
+  <img src=".github/assets/screenshots/02-your-money.jpg" width="19%" alt="Your money. Finally clear.">
+  <img src=".github/assets/screenshots/03-net-worth.jpg" width="19%" alt="Accounts: what you own and what you owe">
   <img src=".github/assets/screenshots/04-review-queue.jpg" width="19%" alt="The review queue: every expense filed in one tap">
   <img src=".github/assets/screenshots/05-analysis.jpg" width="19%" alt="Analysis: spending per day over the month">
 </p>
 
+<p align="center">
+  <a href="#download">Download</a> ·
+  <a href="#features">Features</a> ·
+  <a href="#get-started">Get started</a> ·
+  <a href="#connect-a-bank">Connect a bank</a> ·
+  <a href="#contributing">Contributing</a>
+</p>
+
 ---
+
+## Why Florin
+
+- 🔒 **Your data never leaves your devices.** No Florin account, no Florin server, no analytics, no tracking SDK.
+- 🏦 **Real bank sync, under your own credentials.** PSD2 access to 2 000+ European banks through [Enable Banking](https://enablebanking.com/) — your own free registration, not a shared key.
+- 🎯 **Figures that match the bank.** Loans follow a real amortisation schedule; savings rates count complete months only; when a number cannot be computed honestly, Florin says so instead of showing zero.
+- 🗂️ **A budgeting workflow, not a chart gallery.** A monthly plan in category groups and a review queue that learns from how you file your own history.
+- 📈 **Everything in one place.** Current accounts, savings, loans and a stock portfolio, in one net worth.
+- 🧾 **Open source, AGPL-3.0.** Read it, run it, fork it.
 
 ## Download
 
-| | |
-| --- | --- |
-| **macOS** | [`Florin-*-arm64.dmg`](https://github.com/adrbn/florin/releases/latest) — signed, notarised, auto-updating |
-| **iPhone** | App Store — in review. Until it is out: [TestFlight](apps/ios/TESTFLIGHT.md), or [`Florin-*-unsigned.ipa`](https://github.com/adrbn/florin/releases/latest) to sideload; see [iPhone](#iphone-appsios) |
-| **Self-hosted** | [`Florin-*-server.tar.gz`](https://github.com/adrbn/florin/releases/latest) — `docker compose up -d`; see [Install — Web](#install--web-self-host) |
+| Platform | Get it | Notes |
+| --- | --- | --- |
+| **iPhone** | App Store — *in review* | Meanwhile: [TestFlight](apps/ios/TESTFLIGHT.md) or the [sideloadable `.ipa`](#iphone) |
+| **Mac** | [`Florin-*-arm64.dmg`](https://github.com/adrbn/florin/releases/latest) | Signed, notarised, updates itself |
+| **Self-hosted** | [`Florin-*-server.tar.gz`](https://github.com/adrbn/florin/releases/latest) | `docker compose up -d` — see [below](#self-hosted) |
 
-Nothing to sign up for, on any of them. There is no Florin account, because there is no
-Florin server.
-
-## Why
-
-- **Your data stays on your machines.** No SaaS middleman, no analytics, no telemetry, no
-  account to create. The Mac and the iPhone hold their own SQLite ledger; the web build
-  runs on hardware you control.
-- **Real bank sync, under your own credentials.** PSD2 access to 2 000+ European banks via
-  [Enable Banking](https://enablebanking.com/) — you register your own free application, so
-  the consent is between you and your bank rather than through anyone's shared key.
-- **Arithmetic that matches the bank.** A loan's *capital restant dû* comes from a real
-  amortisation schedule, on the periodic rate recovered from your contract rather than the
-  advertised one — to the euro. A savings rate counts complete months only. When a figure
-  cannot be computed honestly, the app says so instead of showing a zero.
-- **A budgeting workflow, not a chart gallery.** Category groups, a review queue that learns
-  from how you file your own history, monthly plan, and a month-end projection that widens
-  when it should.
+Nothing to sign up for, anywhere. Want to look around first? The iPhone app has a **demo** on its first screen, with invented accounts you can erase from Settings.
 
 ## Features
 
-**The month you are in**
-- A dashboard that leads with what is left to spend, and how long it has to last
-- A month-end projection that widens when the month is young and narrows as it fills, rather than pretending to know on the 3rd
-- A plan in category groups, with a review queue that learns from how you file your own history — and offers its guess rather than filing silently when it is unsure
-- Bring last month's amounts forward instead of retyping them
-- Categories you create, rename and remove from one screen; a new install starts from a ready-made set
+|  | iPhone | Mac | Web |
+| --- | :---: | :---: | :---: |
+| **Budgeting** | | | |
+| What's left to spend this month, and the daily pace it allows | ✅ | ✅ | ✅ |
+| Month-end projection that narrows as the month fills | ✅ | ✅ | ✅ |
+| Monthly plan in category groups, carried over from last month | ✅ | ✅ | ✅ |
+| Review queue that learns from your own filing | ✅ | ✅ | ✅ |
+| Create, rename and remove categories | ✅ | ✅ | ✅ |
+| Rename a merchant once — the bank's label, shown your way | ✅ | — | — |
+| **Money in** | | | |
+| PSD2 bank sync through your own Enable Banking app | ✅ | ✅ | ✅ |
+| CSV / OFX import that reads real French, German and English exports | ✅ | ✅ | ✅ |
+| Manual entry and transfers between your own accounts | ✅ | ✅ | ✅ |
+| YNAB-style spreadsheet import | — | — | ✅ |
+| **Wealth** | | | |
+| Loans on a real amortisation schedule | ✅ | ✅ | ✅ |
+| Holdings with cost basis, gain, and opt-in live quotes | ✅ | ✅ | ✅ |
+| Net worth over time, allocation, rolling savings rate | ✅ | ✅ | ✅ |
+| Balance corrections booked as visible adjustments | ✅ | ✅ | ✅ |
+| **Living with it** | | | |
+| Hide every amount in one gesture | ✅ | ✅ | ✅ |
+| Face ID / PIN lock | ✅ | ✅ | — |
+| Home-screen widget / menu-bar widget | ✅ | ✅ | — |
+| One morning notification, never one per transaction | ✅ | — | — |
+| Languages | 6 | 3 | 3 |
 
-**Money that is not cash**
-- Loans on a real amortisation schedule: the periodic rate is recovered from your contract, so *capital restant dû* matches the bank rather than approximating it, and every instalment moves it
-- Holdings with cost basis and unrealised gain, contributed-versus-market split, live quotes fetched by symbol alone
-- A monthly DCA recorded in three fields — quantity, unit price, total paid — the three the broker's confirmation prints
-- Net worth over time, asset allocation, rolling savings rate over complete months
+iPhone: English, French, Dutch, Italian, Spanish, Catalan. Mac and web: English, French, Dutch.
 
-**Getting money in**
-- PSD2 bank sync through your own Enable Banking application
-- CSV and OFX import that reads what French, German and English banks actually export — preamble lines, semicolons, comma decimals, and a date order it works out from the file
-- Manual entry, transfers between your own accounts, and a prompt when money leaves for an account the bank does not sync
-- Correct a balance and Florin books the difference as a visible adjustment, rather than quietly rewriting history
-- Rename a merchant once — the bank's "ACHAT CB SARL LE COMPTOIR 07.09.26" becomes the café you actually call it — across its whole history and every transaction still to come
+## Get started
 
-**Living with it**
-- Face ID over the whole ledger; shake to hide every amount
-- A home-screen widget with what is left and the daily pace it allows
-- One notification a morning, after the bank has published overnight — never one per transaction
-- Export a copy you can read with any SQLite tool, and restore it onto a new phone
-- English, French, Dutch, Italian and Spanish on the iPhone; English, French and Dutch on the Mac and the web
+### iPhone
 
-## Platforms
+Open the app and pick how to start: connect a bank, enter accounts by hand, import a statement, restore a backup — or **Try the demo**. Everything lives in a SQLite ledger on the phone, included in its iCloud backup. It can also act as a client of your own Florin server (Settings → *Use my Florin server*).
 
-### Desktop (`apps/desktop`)
+<details>
+<summary><b>Sideload, TestFlight, or build it yourself</b></summary>
 
-Native macOS app. Zero config, one-click install.
+- **Sideload.** Each release carries `Florin-<version>-unsigned.ipa`, re-signed on the way in with your own Apple ID by [AltStore](https://altstore.io), [SideStore](https://sidestore.io) or [Sideloadly](https://sideloadly.io). A free Apple ID re-signs for seven days at a time.
+  - Bank sync needs an Associated Domains entitlement, which a free Apple ID cannot declare: host your own `apps/site/.well-known/apple-app-site-association` and point `BankingFlow.redirectHost` and `project.yml` at it.
+  - Notifications and background refresh are gated the same way.
+- **TestFlight.** Properly signed, no seven-day expiry, bank sync works. The steps and the review note are in [`apps/ios/TESTFLIGHT.md`](apps/ios/TESTFLIGHT.md).
+- **Build it** with Xcode 26+ and [XcodeGen](https://github.com/yonaskolb/XcodeGen):
+  ```bash
+  cd apps/ios && xcodegen generate && open Florin.xcodeproj
+  ```
+  Pick your team in *Signing & Capabilities*. Deployment floor: iOS 17.4.
 
-- Menu bar tray widget (net worth, burn rate, recent transactions)
-- PIN lock, onboarding wizard
-- Signed, notarized, and auto-updating via GitHub Releases
-- All data in `~/Library/Application Support/@florin/desktop/florin.db`
+</details>
 
-### iPhone (`apps/ios`)
+### Mac
 
-Native SwiftUI app. Runs entirely on the phone — its own SQLite ledger, its own
-bank sync, no server required — or as a client of your Florin server, switched
-in Settings.
+Download the `.dmg`, drag Florin to Applications, launch — onboarding covers language, categories and your first account. Updates arrive on their own (checked at launch and every 6 hours). Data lives in `~/Library/Application Support/@florin/desktop/florin.db`.
 
-- The full app on device: dashboard, plan, activity, analysis, transfers between
-  your own accounts, manual entry
-- Bank sync straight from the phone: the RSA key is generated in the iOS
-  keychain as `WhenUnlockedThisDeviceOnly`, so it never syncs and never travels
-  to another device, and the bank's consent screen opens in
-  `ASWebAuthenticationSession`
-- Categorises new transactions from how you have filed your own history — no
-  rules to write, no data sent anywhere
-- Background refresh with one summary notification, not one per transaction
-- Ledger in `Library/Application Support/Florin/florin.db`, included in the
-  iPhone's iCloud backup, plus an export/restore pair for moving to a new phone
-- Bank sync through your own Enable Banking application, like everywhere else:
-  the app asks for your App ID and never uses a shared one
+<details>
+<summary><b>Build the Mac app from source</b></summary>
 
-**App Store.** Version 1.3.4 is in App Store review; the link goes here when it
-is out. It will be the simplest way in: like the TestFlight build below, it
-carries the Associated Domains entitlement that bank sync needs and that a
-sideloaded build cannot.
-
-**Sideload it.** Every release carries `Florin-<version>-unsigned.ipa`. It is
-unsigned on purpose — a build signed with someone else's certificate installs on
-nobody else's phone — so it is re-signed on the way in, with your own Apple ID,
-by [AltStore](https://altstore.io), [SideStore](https://sidestore.io) or
-[Sideloadly](https://sideloadly.io). Nothing to pay and no developer account
-needed; a free Apple ID re-signs for seven days at a time, a paid one for a year.
-
-Two things a sideloaded build will not do, both because of what a free Apple ID
-is allowed to declare rather than anything in the app:
-
-- **Bank sync needs a domain you control.** The consent screen returns through an
-  `https` callback, which iOS only routes to an app whose Associated Domains
-  entitlement matches a file hosted on that domain — and that entitlement needs a
-  paid account. The file also names one team and one bundle id, so it must be
-  yours: host your own (see `apps/site/.well-known/apple-app-site-association`)
-  and point `BankingFlow.redirectHost` and `project.yml` at it. You are
-  registering your own Enable Banking application with your own redirect URL
-  anyway.
-- **Notifications and background refresh** are similarly gated behind
-  capabilities a personal team cannot declare.
-
-Everything else works: manual entry, transfers, categories, budgets, the
-dashboard, import/export — or point it at your own Florin server, and the phone
-becomes a client of it.
-
-**TestFlight.** The signed route, and the better one if you have an Apple
-Developer membership: properly signed, no seven-day expiry, updates arrive on
-their own — and bank sync actually works, because the build carries the
-Associated Domains entitlement a re-signed one cannot. External testers join by
-link, up to 10 000, without joining your developer team; each build passes a
-Beta App Review and expires after 90 days. The steps, the answers App Store
-Connect asks for, and the review note that keeps a first submission from being
-rejected are in [`apps/ios/TESTFLIGHT.md`](apps/ios/TESTFLIGHT.md).
-
-**Build it yourself** with Xcode 26 or newer:
-
-```bash
-cd apps/ios && xcodegen generate && open Florin.xcodeproj
-```
-
-Select your own team in Signing & Capabilities and run it on a device. The
-deployment floor is iOS 17.4; the glass material is behind `#available(iOS 26)`.
-
-### Web (`apps/web`)
-
-Single-admin Next.js 15 + Postgres stack behind a reverse proxy of your choice.
-
-- One `docker compose up -d`
-- PWA-installable on mobile
-- Legacy YNAB-style XLSX importer for migrations
-
-## Install — Desktop
-
-Download the latest `.dmg` from [Releases](https://github.com/adrbn/florin/releases), drag Florin to Applications, launch. Onboarding walks you through language, categories, and your first account.
-
-Released builds are **signed with a Developer ID certificate and notarized by Apple**, so they open without Gatekeeper warnings and update in place — no `xattr` dance. Updates arrive automatically: Florin checks GitHub Releases on launch and every 6 hours, downloads in the background, and shows a "Restart to install" pill in the sidebar. (Quitting the app also installs a pending update.)
-
-### Build the desktop app from source
-
-Requires **Node 22** — `better-sqlite3` has no prebuilt binary for newer Node majors and its native build fails there. CI pins 22 too.
+Requires **Node 22** — `better-sqlite3` has no prebuilt binary for newer majors.
 
 ```bash
 pnpm install
-pnpm --filter @florin/desktop run pack
+pnpm --filter @florin/desktop run pack   # → apps/desktop/dist/Florin-<version>-<arch>.dmg
 ```
 
-`pack` builds the Electron main process (esbuild) and the Next.js app, then runs `electron-builder`, which rebuilds the `better-sqlite3` native module against Electron for the target arch before packaging. The `.dmg` lands in `apps/desktop/dist/` (`Florin-<version>-<arch>.dmg`).
+Local builds are unsigned: right-click → **Open**, or `xattr -dr com.apple.quarantine /Applications/Florin.app`. Releases are cut by pushing a `Florin-v*` tag; CI builds both architectures, signs and notarises. Forking? Point `publish.owner`/`publish.repo` in `apps/desktop/electron-builder.yml` at your repo, or your users will auto-update onto upstream builds.
 
-Local builds are **unsigned** — signing and notarization only happen in CI, where the `CSC_*` / `APPLE_*` secrets exist. To run an unsigned local build, right-click → **Open**, or `xattr -dr com.apple.quarantine /Applications/Florin.app`.
+</details>
 
-Releases are cut by pushing a `Florin-v*` tag (matching the `version` in **both** `apps/web/package.json` and `apps/desktop/package.json`); the workflow builds both arches, signs, notarizes, and attaches them to a GitHub Release. Wait for the run to finish before expecting auto-update to see it — a release whose `latest-mac.yml` hasn't uploaded yet shadows the previous one and update checks fail until it does.
+### Self-hosted
 
-### Forking / self-distributing
+A single-admin Next.js + Postgres stack, installable as a PWA. Needs Docker, plus Node 22 and pnpm for the setup scripts.
 
-If you fork Florin and ship your own desktop builds, change `publish.owner` and `publish.repo` in `apps/desktop/electron-builder.yml` to point at **your** GitHub repo before distributing. Otherwise the built-in auto-updater will check the upstream `adrbn/florin` releases and try to update users onto the upstream binaries.
-
-## Install — Web (self-host)
-
-Needs Docker, plus **Node 22** + pnpm for the password-hash and migrate steps (`pnpm install` resolves the whole workspace, and `better-sqlite3` won't compile on newer Node majors).
+<details>
+<summary><b>Install steps</b></summary>
 
 ```bash
-git clone https://github.com/adrbn/florin.git
-cd florin
+git clone https://github.com/adrbn/florin.git && cd florin
 cp .env.example .env
 openssl rand -base64 32   # → DB_PASSWORD
 openssl rand -base64 32   # → NEXTAUTH_SECRET
-```
-
-Hash your admin password, then edit `.env`:
-
-```bash
 cd apps/web && pnpm install
-pnpm tsx scripts/hash-password.ts "your-strong-password"
+pnpm tsx scripts/hash-password.ts "your-strong-password"   # → ADMIN_PASSWORD_HASH
 ```
 
-Copy the hash into `.env` as `ADMIN_PASSWORD_HASH` — escape every `$` with `\$` so Docker Compose doesn't expand them.
+Paste the hash into `.env`, escaping every `$` as `\$`, then:
 
 ```bash
-cd ..
-docker compose up -d
+cd .. && docker compose up -d
 cd apps/web && pnpm drizzle-kit migrate && pnpm tsx src/db/seed.ts
 ```
 
-Visit `http://localhost:3000`. **Do not expose Florin to the public internet without a reverse proxy** (Caddy, Traefik, Tailscale Serve, etc.) — put TLS in front.
+Open `http://localhost:3000`. **Put a reverse proxy with TLS in front** (Caddy, Traefik, Tailscale Serve) before exposing it anywhere.
 
-## Link a bank (Enable Banking)
+</details>
 
-1. Register at <https://enablebanking.com/>, create an application.
-2. Generate an RSA key pair and upload the public key:
-   ```bash
-   openssl genrsa -out enablebanking-private.pem 2048
-   openssl rsa -in enablebanking-private.pem -pubout -out enablebanking-public.pem
-   ```
-3. Add the redirect URI in Enable Banking:
-   - Desktop: `https://127.0.0.1:3847/api/banking/callback`
-   - Web: `https://florin.yourdomain.tld/api/banking/callback`
-4. Configure credentials:
-   - **Desktop:** Settings → Bank Sync → enter App ID and import the `.pem`. The key is copied into Application Support and never leaves your machine.
-   - **Web:** set `ENABLE_BANKING_APP_ID`, `ENABLE_BANKING_PRIVATE_KEY_PATH`, `ENABLE_BANKING_REDIRECT_URL` in `.env`.
+## Connect a bank
 
-### Desktop: connect your bank (no self-hosting, no terminal)
+Florin has no shared bank connection. You register your own **free** [Enable Banking](https://enablebanking.com/) application once; the private key never leaves your device.
 
-Running the `.dmg`? You don't self-host anything, and you don't need a terminal. Florin has no shared bank connection, so each person registers their own **free** Enable Banking application once — it stays entirely yours: the private key is generated and kept on your Mac, and your bank consents run through your own account, not anyone else's.
+| | iPhone | Mac | Web |
+| --- | --- | --- | --- |
+| **1. Key** | Settings → Bank connection → *Create a key* | Settings → Bank Sync → *Generate a key* | `openssl genrsa -out enablebanking-private.pem 2048` |
+| **2. App** | Create a *Production* app, paste the certificate | Create an app, paste the public key | Create an app, upload the public key |
+| **Redirect URI** | shown in the app | `https://127.0.0.1:3847/api/banking/callback` | `https://<your-domain>/api/banking/callback` |
+| **3. App ID** | Paste it back in Settings | Paste it back in Settings | `ENABLE_BANKING_*` in `.env` |
 
-1. In Florin: **Settings → Bank Sync → Generate a key**. Florin creates the key pair on your machine and shows the **public** key — click **Copy**.
-2. Sign up at <https://enablebanking.com/> and **create an application** (the free tier is enough). Paste the copied **public key** into it, and add this **redirect URI**:
-   `https://127.0.0.1:3847/api/banking/callback`
-3. Copy the application's **App ID**, paste it back into Florin's Bank Sync screen, and **Save**.
-
-That's it — "Synchroniser" now links your bank. Prefer not to bother? Skip it and use Florin with **manual entry + CSV/OFX import** ([below](#import-data)) — everything works without Enable Banking.
+No bank? Manual entry and CSV/OFX import cover everything else.
 
 ## Configure
 
-Florin's defaults are France/EUR-first. Every assumption is a knob — on **web** they're env vars in `.env`, on **desktop** the same settings live in Settings → App (no env needed).
+France/EUR-first defaults, every one a setting — environment variables on the web, *Settings → App* on the Mac.
 
 | Setting | Default | What it does |
 | --- | --- | --- |
-| `APP_CURRENCY` | `EUR` | Display currency + number formatting |
+| `APP_CURRENCY` | `EUR` | Display currency and number formatting |
 | `APP_GOAL_TARGET` | `100000` | Long-term wealth target on the goal card |
 | `APP_GOAL_RETURN_PCT` | `7` | Assumed net annual return for the projection |
-| `APP_PEA_CEILING` | `150000` | Contribution cap for a tax wrapper (France's PEA). **Set `0` to hide the gauge** if your country has no such cap |
-| `APP_DCA_MONTHLY` | *(blank)* | Planned monthly investment. Blank = inferred from your history |
-| `PRICE_PROVIDER` | `none` | `yahoo` opts into live quotes for holdings. Off by default — no outbound calls unless you ask |
+| `APP_PEA_CEILING` | `150000` | Contribution cap for a tax wrapper (France's PEA); `0` hides it |
+| `APP_DCA_MONTHLY` | *(blank)* | Planned monthly investment; blank = inferred from history |
+| `PRICE_PROVIDER` | `none` | `yahoo` opts into live quotes; off by default, no outbound calls |
 
-Live prices are **opt-in**: with `PRICE_PROVIDER=none` the refresh job is a no-op and Florin never talks to a quote API. Set `yahoo` and give each holding a symbol (e.g. `CW8.PA`) to have market values refresh in the background.
+## Import & backup
 
-## Import data
+| | iPhone | Mac | Web |
+| --- | --- | --- | --- |
+| **Import** | Settings → *Import a statement* | Drop a CSV/OFX on an account | Drop a CSV/OFX on an account |
+| **Backup** | iCloud backup, plus *Export a copy* (plain SQLite) | Copy `florin.db`, or JSON export | `pg_dump` (below) |
+| **Move to a new device** | *Restore a copy*, also offered at first launch | Copy the file across | Restore the dump |
 
-Drag-and-drop CSV / OFX / QFX onto an account's detail page — column mapping, European date and number formats are auto-detected.
-
-For migrations from a YNAB-style spreadsheet (web only):
-
-```bash
-cd apps/web
-node --env-file=.env --import tsx scripts/import-legacy-xlsx.ts /path/to/finances.xlsx
-```
-
-Idempotent — safe to re-run.
-
-## Backup
-
-**Web (Postgres):**
+<details>
+<summary><b>Commands</b></summary>
 
 ```bash
+# Web — a timestamped Postgres dump
 docker exec florin-db pg_dump -U florin -d florin --no-owner --no-privileges \
   | gzip -9 > "backups/florin-$(date -u +%Y%m%dT%H%M%SZ).sql.gz"
+
+# Web — import a YNAB-style spreadsheet (idempotent)
+cd apps/web && node --env-file=.env --import tsx scripts/import-legacy-xlsx.ts /path/to/finances.xlsx
 ```
 
-**Desktop (SQLite):** copy `~/Library/Application Support/@florin/desktop/florin.db` — single file, best taken with the app closed. JSON export also available in Settings → Data.
+A restored iPhone copy does not carry the bank connection: a PSD2 session restored onto another phone is a dead session, and the signing key is marked `ThisDeviceOnly`. Reconnect the bank on the new phone.
 
-**iPhone:** the ledger is part of the iPhone's iCloud backup, which covers losing
-the phone and is invisible from inside the app — iOS tells apps neither whether
-backups are on nor when the last one ran. For a copy you can see, Settings →
-Sauvegarde → **Exporter une copie** writes a plain SQLite file (readable by any
-SQLite tool) into the app's Documents folder, visible in Files under "Florin" and
-offered to the share sheet. **Restaurer une copie** replaces the ledger with a
-file's contents — that is what moves everything to a new phone, and it is offered
-during onboarding so a fresh install does not have to invent an account first.
-The bank connection is deliberately not in the file — a PSD2 session restored
-onto another phone is a dead session — and the signing key could not be there
-anyway: it lives in the keychain marked `ThisDeviceOnly`, which is precisely a
-promise never to appear on a second device. Reconnect the bank on the new phone.
+</details>
 
-## Status
-
-Built and used daily by one person on their own money, which is the only test bed it has
-and a fairly demanding one. Web and desktop ship from the same tag and share a test suite;
-the iPhone app has its own. The figures that would be embarrassing to get wrong — a loan's
-remaining capital, a savings rate, a month-end projection — are checked against real bank
-statements rather than against themselves.
-
-What it is not: a product with support, or a hosted service. There is no Florin server
-holding anyone's data, and there will not be one.
-
-## Repo layout
+## Project structure
 
 ```
 apps/
-  web/              Next.js 15 + Drizzle + Postgres (Docker)
-  desktop/          Electron 35 + Next.js 15 + SQLite
-    main/           Main process (TS → esbuild → CJS)
-    tray-ui/        Menu bar widget (static HTML)
-  ios/              SwiftUI + raw SQLite, XcodeGen project
-    Florin/Local/   On-device ledger: schema, queries, categoriser, backup
-    Florin/Banking/ Enable Banking client, key generation, consent flow
-  site/             Static pages + the Associated Domain file the bank redirect needs
+  ios/          SwiftUI app with its own SQLite ledger (XcodeGen)
+  desktop/      Electron + Next.js + SQLite, menu-bar widget
+  web/          Next.js 15 + Postgres, Docker
+  site/         Static pages and the Associated Domain file for bank redirects
 packages/
-  core/             Shared UI, types, i18n, formatters
-  db-pg/            Postgres client, queries, mutations
-  db-sqlite/        SQLite client, queries, mutations
-scripts/            Mirror one ledger onto another (SQLite ⇄ Postgres)
-compose.yaml
+  core/         Shared UI, i18n, bank client, categorisation
+  db-pg/        Postgres schema and queries    ┐ deliberate twins —
+  db-sqlite/    SQLite schema and queries      ┘ change them together
+scripts/        Mirror one ledger onto another (SQLite ⇄ Postgres)
 ```
-
-## Development
-
-**Node 22 + pnpm.** `better-sqlite3` ships no prebuilt binary for newer Node majors and fails to compile against them, so `pnpm install` breaks the whole workspace on Node 26. CI pins 22.
-
-```bash
-# Web
-make install && make dev
-make test   lint   migrate   seed
-
-# Desktop
-cd apps/desktop && pnpm dev
-```
-
-`packages/db-pg` and `packages/db-sqlite` are deliberate twins — same schema shape and query surface over different drivers. A query or sync fix almost always has to land in **both**, and likewise for the `apps/web` / `apps/desktop` server actions that wrap them.
 
 ## Contributing
 
-Issues and pull requests are welcome — [CONTRIBUTING.md](CONTRIBUTING.md) has the setup
-for each platform and the two rules that matter most here: the Postgres and SQLite
-packages are twins that change together, and a computed figure is tested against
-something real. Security problems go through [SECURITY.md](SECURITY.md), privately.
+Issues and pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) covers the setup for each platform and the two rules that matter most:
+- the Postgres and SQLite packages change together;
+- a computed figure is tested against something real.
 
-## Licence
+Security issues go through [SECURITY.md](SECURITY.md), privately. If Florin is useful to you, you can [buy me a coffee](https://ko-fi.com/adrbn).
 
-[AGPL-3.0](./LICENSE). Self-host, fork, modify and redistribute freely — any hosted
-derivative must publish its source, which is the point: a Florin someone runs for you
-should be a Florin you can read.
+## License
 
-The App Store build is published by Florin's author, who holds its copyright. Whether a
-fork may do the same is contested — the usual reading is that the App Store's usage rules
-add restrictions the AGPL forbids — so a fork is safest shipping its source, a sideloadable
-build, or its own TestFlight. Your data is covered separately, and simply: Florin collects
-none of it. See [PRIVACY.md](PRIVACY.md).
+[AGPL-3.0](LICENSE). Self-host, fork, modify and redistribute freely. Any hosted derivative must publish its source: a Florin someone runs for you should be a Florin you can read.
+
+The App Store build is published by Florin's author, who holds the copyright. Whether a fork may do the same is contested, so a fork is safest shipping its source, a sideloadable build or its own TestFlight. Florin collects no data at all — see [PRIVACY.md](PRIVACY.md).
