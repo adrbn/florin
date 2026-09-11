@@ -985,7 +985,7 @@ struct DemoLedgerTests {
      * accounts, a year of history filed into categories, a plan and a
      * portfolio — in whatever language the categories were seeded in.
      */
-    @Test("fills a fresh ledger in every language", arguments: ["fr_FR", "en_US", "it_IT", "es_ES", "nl_NL"])
+    @Test("fills a fresh ledger in every language", arguments: ["fr_FR", "en_US", "it_IT", "es_ES", "nl_NL", "ca_ES"])
     func fills(_ locale: String) throws {
         let store = try freshStore(locale: locale)
         try LocalDemo.seed(into: store)

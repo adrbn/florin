@@ -45,7 +45,7 @@ struct Strings: Sendable {
     }
 
     static func tag(for short: String) -> String {
-        ["fr": "fr-FR", "nl": "nl-NL", "it": "it-IT", "es": "es-ES"][short] ?? "en-US"
+        ["fr": "fr-FR", "nl": "nl-NL", "it": "it-IT", "es": "es-ES", "ca": "ca-ES"][short] ?? "en-US"
     }
 
     /*

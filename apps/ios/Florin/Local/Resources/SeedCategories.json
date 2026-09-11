@@ -478,5 +478,101 @@
         }
       ]
     }
+  ],
+  "ca": [
+    {
+      "name": "Ingressos",
+      "kind": "income",
+      "color": "#22c55e",
+      "categories": [
+        {
+          "name": "Nòmines",
+          "emoji": "💸"
+        },
+        {
+          "name": "Ingressos extra",
+          "emoji": "↩️"
+        },
+        {
+          "name": "Per repartir",
+          "emoji": "🪙"
+        }
+      ]
+    },
+    {
+      "name": "Factures",
+      "kind": "expense",
+      "color": "#3b82f6",
+      "categories": [
+        {
+          "name": "Lloguer",
+          "emoji": "🏠",
+          "isFixed": true
+        },
+        {
+          "name": "Assegurances",
+          "emoji": "📄",
+          "isFixed": true
+        },
+        {
+          "name": "Subscripcions",
+          "emoji": "🔄",
+          "isFixed": true
+        }
+      ]
+    },
+    {
+      "name": "Necessitats",
+      "kind": "expense",
+      "color": "#06b6d4",
+      "categories": [
+        {
+          "name": "Compra",
+          "emoji": "🛒"
+        },
+        {
+          "name": "Transport",
+          "emoji": "🚈"
+        }
+      ]
+    },
+    {
+      "name": "Capricis",
+      "kind": "expense",
+      "color": "#f59e0b",
+      "categories": [
+        {
+          "name": "Restaurants i sortides",
+          "emoji": "🍿"
+        },
+        {
+          "name": "Viatges",
+          "emoji": "🏝️"
+        },
+        {
+          "name": "Regals",
+          "emoji": "🎁"
+        },
+        {
+          "name": "Roba",
+          "emoji": "🧢"
+        },
+        {
+          "name": "Altres",
+          "emoji": "⚠️"
+        }
+      ]
+    },
+    {
+      "name": "Estalvi",
+      "kind": "expense",
+      "color": "#a855f7",
+      "categories": [
+        {
+          "name": "Estalvi",
+          "emoji": "💶"
+        }
+      ]
+    }
   ]
 }
