@@ -963,3 +963,72 @@ struct MerchantNameTests {
         #expect(!MerchantNames.key("VIREMENT 12345678901234567").isEmpty)
     }
 }
+
+// MARK: - Demo ledger
+
+@Suite("Demo ledger", .serialized)
+struct DemoLedgerTests {
+    private func freshStore(locale: String) throws -> LocalStore {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("florin-demo-\(UUID().uuidString).db")
+        let store = try LocalStore(url: url)
+        _ = try LocalBootstrap.run(on: store, locale: locale)
+        return store
+    }
+
+    private func count(_ store: LocalStore, _ sql: String) throws -> Int {
+        try store.database.scalar(sql)?.int ?? 0
+    }
+
+    /*
+     * What App Review lands on after "Explore with sample data": four
+     * accounts, a year of history filed into categories, a plan and a
+     * portfolio — in whatever language the categories were seeded in.
+     */
+    @Test("fills a fresh ledger in every language", arguments: ["fr_FR", "en_US", "it_IT", "es_ES", "nl_NL"])
+    func fills(_ locale: String) throws {
+        let store = try freshStore(locale: locale)
+        try LocalDemo.seed(into: store)
+
+        #expect(try count(store, "SELECT count(*) FROM accounts") == 4)
+        #expect(try count(store, "SELECT count(*) FROM transactions") > 150)
+        #expect(try count(store, "SELECT count(*) FROM holdings") == 2)
+        #expect(try count(store, "SELECT count(*) FROM monthly_budgets") == 10)
+        // Every row but the two left for the review queue has a category —
+        // transfers aside, which have none by design.
+        #expect(try count(store, "SELECT count(*) FROM transactions WHERE category_id IS NULL AND transfer_pair_id IS NULL") == 2)
+        // The loan's instalments are paired, so its remaining capital moves.
+        #expect(try count(store, "SELECT count(*) FROM transactions t JOIN accounts a ON a.id = t.account_id WHERE a.kind = 'loan' AND t.transfer_pair_id IS NOT NULL") >= 12)
+        #expect(try count(store, "SELECT count(*) FROM transactions WHERE substr(occurred_at, 1, 10) > date('now')") == 0)
+        #expect(LocalDemo.isActive(in: store))
+    }
+
+    @Test("keeps the balance invariant every write relies on")
+    func invariant() throws {
+        let store = try freshStore(locale: "fr_FR")
+        try LocalDemo.seed(into: store)
+        let broken = try count(store, """
+            SELECT count(*) FROM accounts a
+            WHERE a.kind IN ('checking', 'savings')
+              AND abs(a.opening_balance + coalesce((SELECT sum(amount) FROM transactions t
+                     WHERE t.account_id = a.id AND t.deleted_at IS NULL), 0) - a.current_balance) > 0.005
+            """)
+        #expect(broken == 0)
+        #expect(try store.database.scalar(
+            "SELECT current_balance FROM accounts WHERE kind = 'checking'"
+        )?.double == 2418.63)
+    }
+
+    @Test("leaving the demo empties the ledger and keeps the categories")
+    func erase() throws {
+        let store = try freshStore(locale: "fr_FR")
+        let categories = try count(store, "SELECT count(*) FROM categories")
+        try LocalDemo.seed(into: store)
+        try LocalDemo.erase(from: store)
+
+        #expect(try count(store, "SELECT count(*) FROM accounts") == 0)
+        #expect(try count(store, "SELECT count(*) FROM transactions") == 0)
+        #expect(try count(store, "SELECT count(*) FROM categories") == categories)
+        #expect(!LocalDemo.isActive(in: store))
+    }
+}

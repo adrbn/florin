@@ -692,7 +692,15 @@
     "v2.merchants.title": "Renamed merchants",
     "v2.merchants.empty": "No merchant renamed yet. Tap the name on a transaction to give it your own.",
     "v2.settings.naming": "Categories and merchants",
-    "v2.settings.merchantsHint": "Tap the name on a transaction to rename its merchant."
+    "v2.settings.merchantsHint": "Tap the name on a transaction to rename its merchant.",
+    "v2.onboard.demoTitle": "Try the demo",
+    "v2.demo.title": "Demo",
+    "v2.demo.hint": "These accounts and transactions are made up. Remove them to start with your own.",
+    "v2.demo.exit": "Leave the demo",
+    "v2.demo.exitConfirm": "Remove the sample data?",
+    "v2.setup.open": "Open Florin",
+    "v2.setup.server": "Server",
+    "v2.setup.noServer": "I don't have a server"
   },
   "fr": {
     "v2.a11y.back": "Retour",
@@ -1387,7 +1395,15 @@
     "v2.merchants.title": "Marchands renommés",
     "v2.merchants.empty": "Aucun marchand renommé. Touchez le nom d'une opération pour lui donner le vôtre.",
     "v2.settings.naming": "Catégories et marchands",
-    "v2.settings.merchantsHint": "Touchez le nom d'une opération pour renommer son marchand."
+    "v2.settings.merchantsHint": "Touchez le nom d'une opération pour renommer son marchand.",
+    "v2.onboard.demoTitle": "Essayer la démo",
+    "v2.demo.title": "Démonstration",
+    "v2.demo.hint": "Ces comptes et ces opérations sont inventés. Effacez-les pour commencer avec les vôtres.",
+    "v2.demo.exit": "Quitter la démo",
+    "v2.demo.exitConfirm": "Effacer les données de démonstration ?",
+    "v2.setup.open": "Ouvrir Florin",
+    "v2.setup.server": "Serveur",
+    "v2.setup.noServer": "Je n'ai pas de serveur"
   },
   "nl": {
     "v2.a11y.back": "Terug",
@@ -2082,7 +2098,15 @@
     "v2.merchants.title": "Hernoemde handelaren",
     "v2.merchants.empty": "Nog geen handelaar hernoemd. Tik op de naam van een transactie om er je eigen naam aan te geven.",
     "v2.settings.naming": "Categorieën en handelaren",
-    "v2.settings.merchantsHint": "Tik op de naam van een transactie om de handelaar te hernoemen."
+    "v2.settings.merchantsHint": "Tik op de naam van een transactie om de handelaar te hernoemen.",
+    "v2.onboard.demoTitle": "Demo proberen",
+    "v2.demo.title": "Demo",
+    "v2.demo.hint": "Deze rekeningen en transacties zijn verzonnen. Verwijder ze om met je eigen te beginnen.",
+    "v2.demo.exit": "Demo verlaten",
+    "v2.demo.exitConfirm": "Voorbeeldgegevens verwijderen?",
+    "v2.setup.open": "Florin openen",
+    "v2.setup.server": "Server",
+    "v2.setup.noServer": "Ik heb geen server"
   },
   "it": {
     "v2.a11y.back": "Indietro",
@@ -2777,7 +2801,15 @@
     "v2.merchants.title": "Esercenti rinominati",
     "v2.merchants.empty": "Nessun esercente rinominato. Tocca il nome di un movimento per dargli il tuo.",
     "v2.settings.naming": "Categorie ed esercenti",
-    "v2.settings.merchantsHint": "Tocca il nome di un movimento per rinominarne l’esercente."
+    "v2.settings.merchantsHint": "Tocca il nome di un movimento per rinominarne l’esercente.",
+    "v2.onboard.demoTitle": "Prova la demo",
+    "v2.demo.title": "Demo",
+    "v2.demo.hint": "Questi conti e movimenti sono inventati. Eliminali per iniziare con i tuoi.",
+    "v2.demo.exit": "Esci dalla demo",
+    "v2.demo.exitConfirm": "Eliminare i dati di esempio?",
+    "v2.setup.open": "Apri Florin",
+    "v2.setup.server": "Server",
+    "v2.setup.noServer": "Non ho un server"
   },
   "es": {
     "v2.a11y.back": "Atrás",
@@ -3472,6 +3504,14 @@
     "v2.merchants.title": "Comercios renombrados",
     "v2.merchants.empty": "Ningún comercio renombrado. Toca el nombre de un movimiento para darle el tuyo.",
     "v2.settings.naming": "Categorías y comercios",
-    "v2.settings.merchantsHint": "Toca el nombre de un movimiento para renombrar su comercio."
+    "v2.settings.merchantsHint": "Toca el nombre de un movimiento para renombrar su comercio.",
+    "v2.onboard.demoTitle": "Probar la demo",
+    "v2.demo.title": "Demo",
+    "v2.demo.hint": "Estas cuentas y movimientos son inventados. Bórralos para empezar con los tuyos.",
+    "v2.demo.exit": "Salir de la demo",
+    "v2.demo.exitConfirm": "¿Borrar los datos de ejemplo?",
+    "v2.setup.open": "Abrir Florin",
+    "v2.setup.server": "Servidor",
+    "v2.setup.noServer": "No tengo servidor"
   }
 }

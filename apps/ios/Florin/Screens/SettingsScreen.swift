@@ -47,6 +47,9 @@ struct SettingsScreen: View {
     @State private var showingSyncLog = false
     @State private var showingImport = false
     @State private var confirmingImport = false
+    @State private var confirmingDemoExit = false
+    /// Read once: the demo can only end from here, and ending it closes this.
+    @State private var demoActive = LocalDemo.isActive
     @AppStorage("florin.lastExport") private var lastExport = 0.0
     @State private var exported: URL?
     @State private var picking = false
@@ -62,6 +65,7 @@ struct SettingsScreen: View {
 
                 ScrollView {
                     VStack(spacing: 24) {
+                        demoSection
                         sourceSection
                         bankSection
                         categoriesSection
@@ -677,6 +681,40 @@ struct SettingsScreen: View {
                 symbol: "storefront",
                 action: { showingMerchants = true }
             )
+        }
+    }
+
+    /*
+     * La sortie de la démo, en tête : c'est la première chose à trouver pour
+     * qui l'a lancée et veut maintenant ses propres comptes.
+     */
+    @ViewBuilder
+    private var demoSection: some View {
+        if demoActive, sourceBinding.wrappedValue != .server {
+            SettingsGroup(
+                title: t("v2.demo.title", "Démonstration"),
+                footer: t(
+                    "v2.demo.hint",
+                    "Ces comptes et ces opérations sont inventés. Effacez-les pour commencer avec les vôtres."
+                )
+            ) {
+                SettingsRow(
+                    label: t("v2.demo.exit", "Quitter la démo"),
+                    symbol: "xmark.circle",
+                    action: { confirmingDemoExit = true },
+                    destructive: true
+                )
+            }
+            .alert(
+                t("v2.demo.exitConfirm", "Effacer les données de démonstration ?"),
+                isPresented: $confirmingDemoExit
+            ) {
+                Button(t("v2.demo.exit", "Quitter la démo"), role: .destructive) {
+                    try? LocalDemo.erase()
+                    NotificationCenter.default.post(name: .florinLedgerErased, object: nil)
+                }
+                Button(t("v2.common.cancel", "Annuler"), role: .cancel) {}
+            }
         }
     }
 

@@ -56,6 +56,7 @@
 		579ACFFF81AA5E790B90DA13 /* Rows.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF9632D2BADE2A1BA9B98E7D /* Rows.swift */; };
 		5B4111C7309CCDDA821AD38E /* CategoryRemovalSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 772EFF8D3DF1CE1E2F3D2ADA /* CategoryRemovalSheet.swift */; };
 		5D6B883191B2CE941475E705 /* CategoryEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3043699DDFC45335EED6DED0 /* CategoryEditorSheet.swift */; };
+		5F31D9308988DE98A0E17BB0 /* LocalDemo.swift in Sources */ = {isa = PBXBuildFile; fileRef = C262DD02E4EF484E010874E8 /* LocalDemo.swift */; };
 		62CDC847E44E16D5D812F977 /* SetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA781686F48030D4E2610C3F /* SetupView.swift */; };
 		69F07F669C9388276D512B8E /* PortfolioModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66BFF60356B227C9DB19C1F8 /* PortfolioModel.swift */; };
 		6F745D62D1B175FC8B574F8F /* BankingSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A70197CC43070B855A98008 /* BankingSettings.swift */; };
@@ -228,6 +229,7 @@
 		BD8D00CFBF99A69C1BC612F8 /* LocalHoldings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalHoldings.swift; sourceTree = "<group>"; };
 		BEA17A0E3DE53B5E3A78DD42 /* FlorinTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = FlorinTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		BF64507C596294E339B78F6E /* Strings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Strings.swift; sourceTree = "<group>"; };
+		C262DD02E4EF484E010874E8 /* LocalDemo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalDemo.swift; sourceTree = "<group>"; };
 		C3387D3C48B7DDAE07F4F27A /* MerchantNames.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MerchantNames.swift; sourceTree = "<group>"; };
 		C3F2754AF1FEBB2278A3EEBF /* LocalCategoriser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalCategoriser.swift; sourceTree = "<group>"; };
 		C5F276D31E91FBE8D753978A /* LocalImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalImport.swift; sourceTree = "<group>"; };
@@ -411,6 +413,7 @@
 				24A8CF18ACAA0CA5B471CD27 /* LocalCategories.swift */,
 				C3F2754AF1FEBB2278A3EEBF /* LocalCategoriser.swift */,
 				526A3D81BB2ED5F736D5F2AE /* LocalDay.swift */,
+				C262DD02E4EF484E010874E8 /* LocalDemo.swift */,
 				BD8D00CFBF99A69C1BC612F8 /* LocalHoldings.swift */,
 				C5F276D31E91FBE8D753978A /* LocalImport.swift */,
 				932CA5B579432866CCF8ED11 /* LocalLoan.swift */,
@@ -645,6 +648,7 @@
 				419FC8C120515D8F0F785D35 /* LocalCategories.swift in Sources */,
 				9F70EE4441BACBA144150223 /* LocalCategoriser.swift in Sources */,
 				D3718BFB4D4F07581CB58334 /* LocalDay.swift in Sources */,
+				5F31D9308988DE98A0E17BB0 /* LocalDemo.swift in Sources */,
 				2ED83E4E75DB0DBEA0A037F4 /* LocalHoldings.swift in Sources */,
 				19DA625C08C8A4A12689A4ED /* LocalImport.swift in Sources */,
 				78E07C461F16F08FEBC1BE92 /* LocalLoan.swift in Sources */,

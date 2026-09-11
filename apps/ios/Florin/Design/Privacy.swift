@@ -3,6 +3,8 @@ import UIKit
 
 extension Notification.Name {
     static let florinShake = Notification.Name("florin.shake")
+    /// The ledger was emptied from settings; the app goes back to its welcome.
+    static let florinLedgerErased = Notification.Name("florin.ledgerErased")
 }
 
 /// Hide every figure on screen, instantly.

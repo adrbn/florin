@@ -161,7 +161,7 @@ struct RootView: View {
                      * It stays one tap from the welcome screen, and it is what
                      * you get back to once onboarding is behind you.
                      */
-                    SetupView(isFirstRun: true)
+                    SetupView(isFirstRun: true, onUseDevice: { wantsServerForm = false })
                 } else {
                     OnboardingFlow(
                         onFinish: { onboarded = UUID() },
@@ -190,6 +190,12 @@ struct RootView: View {
         .preferredColorScheme(appearance.colorScheme)
         .onReceive(NotificationCenter.default.publisher(for: .florinShake)) { _ in
             Privacy.shared.toggle()
+        }
+        // Back to the welcome once the demo ledger is gone: no account left
+        // means the onboarding branch is the one RootView now picks.
+        .onReceive(NotificationCenter.default.publisher(for: .florinLedgerErased)) { _ in
+            showingSettings = false
+            onboarded = UUID()
         }
         /*
          * Presented here, above the view that the source switch replaces.

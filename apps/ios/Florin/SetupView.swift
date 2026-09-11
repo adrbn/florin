@@ -12,6 +12,10 @@ struct SetupView: View {
     @Environment(\.dismiss) private var dismiss
 
     let isFirstRun: Bool
+    /// Taken when the form was opened from the welcome screen: the way back to
+    /// it. RootView shows this form for as long as it was asked for, so
+    /// switching the source alone left the same screen on display.
+    var onUseDevice: (() -> Void)? = nil
     /// The same preference RootView reads to decide which store to mount —
     /// writing it here is what lets this screen hand the app back to itself.
     @AppStorage("florin.dataSource") private var source = ""
@@ -33,7 +37,9 @@ struct SetupView: View {
                         .padding(.horizontal, Florin.gutter)
 
                     Button(action: save) {
-                        Text(isFirstRun ? "Ouvrir Florin" : "Enregistrer")
+                        Text(isFirstRun
+                            ? Strings.device("v2.setup.open", "Ouvrir Florin")
+                            : Strings.device("v2.common.save", "Enregistrer"))
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundStyle(.black)
                             .frame(maxWidth: .infinity)
@@ -59,15 +65,29 @@ struct SetupView: View {
                      * on the phone in that mode, so this is also the button
                      * that reaches it.
                      */
+                    /*
+                     * A button, not a footnote.
+                     *
+                     * It was a line of small text under the disabled primary,
+                     * and App Review — with no server, reasonably — did not
+                     * find it and reported the app as unusable. It is the
+                     * answer for everyone who has no server, so it is drawn
+                     * like one.
+                     */
                     if isFirstRun {
                         Button {
                             source = DataSource.device.rawValue
+                            onUseDevice?()
                         } label: {
-                            Text(Strings.device("v2.setup.useDevice", "Utiliser cet appareil"))
-                                .font(.system(size: 15, weight: .medium))
-                                .foregroundStyle(Florin.accent)
+                            Text(Strings.device("v2.setup.noServer", "Je n'ai pas de serveur"))
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(Florin.text)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 50)
+                                .florinGlass(in: Capsule())
                         }
                         .buttonStyle(.plain)
+                        .padding(.horizontal, Florin.gutter)
                     }
 
                     HStack(spacing: 7) {
@@ -110,7 +130,9 @@ struct SetupView: View {
                 .foregroundStyle(Florin.accent)
                 .padding(.bottom, 2)
 
-            Text(isFirstRun ? Strings.device("v2.setup.title", "Votre serveur Florin") : "Serveur")
+            Text(isFirstRun
+                ? Strings.device("v2.setup.title", "Votre serveur Florin")
+                : Strings.device("v2.setup.server", "Serveur"))
                 .font(.system(size: 26, weight: .semibold))
                 .foregroundStyle(Florin.text)
 

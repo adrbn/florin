@@ -134,8 +134,9 @@ struct OnboardingFlow: View {
                     .padding(.horizontal, Florin.gutter)
                     .padding(.bottom, 10)
 
+                // At least a line, and as tall as the welcome's two actions.
                 secondaryAction
-                    .frame(height: 30)
+                    .frame(minHeight: 30)
 
                 backAction
                     .frame(height: 30)
@@ -225,31 +226,20 @@ struct OnboardingFlow: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 28)
 
-            VStack(spacing: 10) {
-                choice(
-                    .bank,
-                    emoji: "🏛️",
-                    title: Strings.device("v2.onboard.bankTitle", "Connecter ma banque"),
-                    detail: Strings.device("v2.onboard.bankDetail", "Vos comptes, vos soldes et vos opérations arrivent tout seuls.")
-                )
-                choice(
-                    .manual,
-                    emoji: "✍️",
-                    title: Strings.device("v2.onboard.manualTitle", "Saisir mes comptes"),
-                    detail: Strings.device("v2.onboard.manualDetail", "Vous entrez ce que vous avez, et vous ajoutez vos opérations vous-même.")
-                )
-                choice(
-                    .importFile,
-                    emoji: "📄",
-                    title: Strings.device("v2.onboard.importTitle", "Importer un relevé"),
-                    detail: Strings.device("v2.onboard.importDetail", "Le fichier CSV ou OFX téléchargé chez votre banque.")
-                )
-                choice(
-                    .restore,
-                    emoji: "📦",
-                    title: Strings.device("v2.onboard.restoreTitle", "J'ai une sauvegarde"),
-                    detail: Strings.device("v2.onboard.restoreDetail", "Reprenez tout depuis un fichier exporté d'un autre téléphone.")
-                )
+            /*
+             * Five starts do not fit every screen.
+             *
+             * Centred when they fit; scrolling when they do not, rather than
+             * pushing the question up under the status bar and truncating the
+             * last choice — which is what an iPad in iPhone mode showed.
+             */
+            ViewThatFits(in: .vertical) {
+                startChoices
+                ScrollView {
+                    startChoices.padding(.vertical, 4)
+                }
+                .scrollBounceBehavior(.basedOnSize)
+                .scrollIndicators(.hidden)
             }
             .padding(.horizontal, Florin.gutter)
             .padding(.top, 4)
@@ -271,6 +261,35 @@ struct OnboardingFlow: View {
                     .padding(.horizontal, 30)
                     .transition(.opacity)
             }
+        }
+    }
+
+    private var startChoices: some View {
+        VStack(spacing: 10) {
+            choice(
+                .bank,
+                emoji: "🏛️",
+                title: Strings.device("v2.onboard.bankTitle", "Connecter ma banque"),
+                detail: Strings.device("v2.onboard.bankDetail", "Vos comptes, vos soldes et vos opérations arrivent tout seuls.")
+            )
+            choice(
+                .manual,
+                emoji: "✍️",
+                title: Strings.device("v2.onboard.manualTitle", "Saisir mes comptes"),
+                detail: Strings.device("v2.onboard.manualDetail", "Vous entrez ce que vous avez, et vous ajoutez vos opérations vous-même.")
+            )
+            choice(
+                .importFile,
+                emoji: "📄",
+                title: Strings.device("v2.onboard.importTitle", "Importer un relevé"),
+                detail: Strings.device("v2.onboard.importDetail", "Le fichier CSV ou OFX téléchargé chez votre banque.")
+            )
+            choice(
+                .restore,
+                emoji: "📦",
+                title: Strings.device("v2.onboard.restoreTitle", "J'ai une sauvegarde"),
+                detail: Strings.device("v2.onboard.restoreDetail", "Reprenez tout depuis un fichier exporté d'un autre téléphone.")
+            )
         }
     }
 
@@ -489,6 +508,7 @@ struct OnboardingFlow: View {
                         ? Strings.device("v2.onboard.importPick", "Choisir le relevé")
                         : path == .restore && step == 1
                         ? Strings.device("v2.onboard.restorePick", "Choisir le fichier")
+
                         : isNotifyStep
                         ? Strings.device("v2.onboard.notifyEnable", "Me tenir au courant")
                         : step == lastStep
@@ -564,12 +584,36 @@ struct OnboardingFlow: View {
             }
             .buttonStyle(.plain)
         } else if step == 0 {
-            Button(action: onUseServer) {
-                Text(Strings.device("v2.onboard.haveServer", "J'ai déjà un serveur Florin"))
-                    .font(.system(size: 13.5, weight: .medium))
-                    .foregroundStyle(Florin.text3)
+            VStack(spacing: 16) {
+                /*
+                 * Looking around first, from the first screen.
+                 *
+                 * Every other start asks for something real — a bank, a
+                 * balance, a file. Someone deciding whether Florin is worth
+                 * their money, App Review included, gets a ledger of invented
+                 * accounts instead, and takes it away again from Settings. It
+                 * sits here rather than fifth in the list of starts, where it
+                 * fell below the fold and nobody would have scrolled to it.
+                 */
+                Button(action: startDemo) {
+                    Text(Strings.device("v2.onboard.demoTitle", "Essayer la démo"))
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Florin.text)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
+                        .florinGlass(in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .disabled(saving)
+                .padding(.horizontal, Florin.gutter)
+
+                Button(action: onUseServer) {
+                    Text(Strings.device("v2.onboard.haveServer", "J'ai déjà un serveur Florin"))
+                        .font(.system(size: 13.5, weight: .medium))
+                        .foregroundStyle(Florin.text3)
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
     }
 
@@ -597,6 +641,7 @@ struct OnboardingFlow: View {
             picking = true
             return
         }
+
         if path == .importFile {
             // The account first: a statement has to land somewhere, and the
             // balance is the one figure the file does not carry.
@@ -633,6 +678,19 @@ struct OnboardingFlow: View {
                 kind: kind,
                 balance: Self.parse(balanceText)
             )
+            saving = false
+            onFinish()
+        } catch {
+            saving = false
+            failure = error.localizedDescription
+        }
+    }
+
+    /// Fills the ledger with the invented one and opens it.
+    private func startDemo() {
+        saving = true
+        do {
+            try LocalDemo.seed()
             saving = false
             onFinish()
         } catch {
