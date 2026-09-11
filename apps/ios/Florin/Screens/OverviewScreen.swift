@@ -20,6 +20,8 @@ struct OverviewScreen: View {
     @State private var addingAccount = false
     @State private var connectingBank = false
     @State private var upcomingExpanded = false
+    /// Set by "C'était une dépense", opened once the attach sheet has closed.
+    @State private var spendingAfterAttach: Transaction?
     @State private var attachExpanded = false
     @State private var reviewExpanded = false
     @State private var scrubbed: PatrimonyPoint?
@@ -133,7 +135,20 @@ struct OverviewScreen: View {
                 }
             )
         }
-        .sheet(item: $attaching) { tx in
+        /*
+         * "C'était une dépense" opens the row here, not Activité.
+         *
+         * It jumped to the review list in the other tab — the only way out of
+         * the Aperçu for a row the Aperçu shows in full. The sheet that files
+         * it is the detail sheet; it opens once this one has gone, since two
+         * sheets cannot change places in the same frame.
+         */
+        .sheet(item: $attaching, onDismiss: {
+            if let tx = spendingAfterAttach {
+                spendingAfterAttach = nil
+                detail = tx
+            }
+        }) { tx in
             AttachTransferSheet(
                 transaction: tx,
                 accounts: model.overview?.accounts ?? [],
@@ -141,7 +156,7 @@ struct OverviewScreen: View {
                 currency: model.overview?.currency ?? "EUR",
                 t: t,
                 onAttach: { await attach(tx, to: $0) },
-                onSpending: { route(.activity, "/m/transactions?needsReview=1") }
+                onSpending: { spendingAfterAttach = tx }
             )
         }
         /*
@@ -910,10 +925,12 @@ struct OverviewScreen: View {
                         t: data.t,
                         expanded: $upcomingExpanded
                     ) { tx in
-                        // Same destination as every other row on this screen.
-                        // A line you can tap everywhere except inside one
-                        // collapsible group reads as broken, not as special.
-                        Button { route(.activity, "/m/transactions") } label: {
+                        // The same sheet as every other row on this screen. It
+                        // sent you to Activité, which left the Aperçu to show
+                        // one line the sheet shows in place — and a payment
+                        // recorded from Apple Pay is exactly the row someone
+                        // taps here to check or delete.
+                        Button { detail = tx } label: {
                             TransactionRowView(
                                 hideUpcomingChip: true,
                                 tx: tx, locale: data.localeTag,
