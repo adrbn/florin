@@ -113,6 +113,8 @@ struct HeroBlock<Sub: View>: View {
     /// question and a different type size made them look unrelated.
     var size: CGFloat = 60
     var onTap: (() -> Void)?
+    /// A bank sync is running: the figure spins (`SlotAmount`).
+    var spinning = false
     @ViewBuilder var sub: Sub
 
     var body: some View {
@@ -121,8 +123,7 @@ struct HeroBlock<Sub: View>: View {
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(Florin.text2)
 
-            HeroAmount(value: value, locale: locale, currency: currency, size: size)
-                .contentTransition(.numericText())
+            SlotAmount(value: value, spinning: spinning, locale: locale, currency: currency, size: size)
 
             sub.frame(minHeight: 20)
         }

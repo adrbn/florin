@@ -178,7 +178,7 @@ struct AccountsScreen: View {
     }
 
     private func loaded(_ data: Overview) -> some View {
-        TabScaffold(tint: TabRoute.accounts.tint, refresh: { await model.refresh() }) {
+        TabScaffold(tint: TabRoute.accounts.tint, refresh: { model.refresh() }) {
             TopBar(onProfile: onOpenSettings, centersMiddle: true) {
                 Text(t("v2.nav.accounts", "Comptes"))
                     .font(.system(size: 17, weight: .semibold))
@@ -213,7 +213,8 @@ struct AccountsScreen: View {
                         size: 44,
                         spinning: model.syncing
                     ) {
-                        Task { await model.sync() }
+                        // The figure spinning is the answer; no "À jour" pill.
+                        Task { await model.sync(confirmCurrent: false) }
                     }
                     .disabled(model.syncing || !data.bankSyncConfigured)
                 }
@@ -227,7 +228,8 @@ struct AccountsScreen: View {
                 value: showNet ? data.netWorth.net : data.netWorth.gross,
                 locale: data.localeTag,
                 currency: data.currency,
-                onTap: { withAnimation(.easeInOut(duration: 0.18)) { showNet.toggle() } }
+                onTap: { withAnimation(.easeInOut(duration: 0.18)) { showNet.toggle() } },
+                spinning: model.syncing
             ) {
                 Text(
                     showNet
