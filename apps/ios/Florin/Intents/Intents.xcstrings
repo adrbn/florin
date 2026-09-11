@@ -1,0 +1,377 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "intent.entity.account": {
+      "extractionState": "manual",
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compte"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Konto"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Account"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuenta"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compte"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conto"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rekening"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conta"
+          }
+        }
+      }
+    },
+    "intent.payment.account": {
+      "extractionState": "manual",
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compte"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Konto"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Account"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuenta"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compte"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conto"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rekening"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conta"
+          }
+        }
+      }
+    },
+    "intent.payment.amount": {
+      "extractionState": "manual",
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Betrag"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amount"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importe"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Montant"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importo"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bedrag"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Montante"
+          }
+        }
+      }
+    },
+    "intent.payment.card": {
+      "extractionState": "manual",
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Targeta"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Karte"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Card"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tarjeta"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carte"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carta"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaart"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cartão"
+          }
+        }
+      }
+    },
+    "intent.payment.description": {
+      "extractionState": "manual",
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Registra un pagament amb targeta com a previst a Florin. Quan el teu banc el comptabilitzi, la seva operació substitueix aquesta."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erfasst eine Kartenzahlung in Florin als anstehend. Sobald deine Bank sie bucht, ersetzt ihr Umsatz diesen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Records a card payment as upcoming in Florin. When your bank books it, the bank's transaction replaces this one."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Registra un pago con tarjeta como previsto en Florin. Cuando tu banco lo contabiliza, su movimiento sustituye a este."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enregistre un paiement par carte comme opération à venir dans Florin. Quand votre banque le comptabilise, son opération remplace celle-ci."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Registra un pagamento con carta come in arrivo in Florin. Quando la tua banca lo contabilizza, il suo movimento sostituisce questo."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Legt een kaartbetaling in Florin vast als aankomend. Zodra je bank hem boekt, vervangt de transactie van de bank deze."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regista um pagamento com cartão como previsto no Florin. Quando o seu banco o contabilizar, o movimento do banco substitui este."
+          }
+        }
+      }
+    },
+    "intent.payment.merchant": {
+      "extractionState": "manual",
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comerç"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Händler"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Merchant"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comercio"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marchand"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esercente"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Handelaar"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comerciante"
+          }
+        }
+      }
+    },
+    "intent.payment.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ca": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afegeix un pagament previst"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anstehende Zahlung hinzufügen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add an upcoming payment"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadir un pago previsto"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter une opération à venir"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aggiungi un pagamento in arrivo"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aankomende betaling toevoegen"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adicionar um pagamento previsto"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

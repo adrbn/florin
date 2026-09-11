@@ -259,6 +259,8 @@ extension LocalStore {
                 log.notice("dropped \(dropped, privacy: .public) settled duplicates")
             }
 
+            _ = try LocalWallet.settle(store: store)
+
             let relabelled = try BankingSync.collapseRelabelledDuplicates(store: store)
             if relabelled > 0 {
                 log.notice("dropped \(relabelled, privacy: .public) relabelled duplicates")

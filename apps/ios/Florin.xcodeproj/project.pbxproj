@@ -10,6 +10,7 @@
 		012BE24BDACB110AE8BBB323 /* Brand.swift in Sources */ = {isa = PBXBuildFile; fileRef = D01218C78CF2722622A51E5B /* Brand.swift */; };
 		02E0A5C7DD9F371326789EE1 /* TaskSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89E7EC2A6990567E31F4543F /* TaskSheet.swift */; };
 		0721A4ADB20B964A866C3EF8 /* BuySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BA7D5761878CB027DA9A53E /* BuySheet.swift */; };
+		0938BB07A60E7EC99C6E54F2 /* LocalWallet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE9DE8AEC99BB029D9DE5C4C /* LocalWallet.swift */; };
 		097A9A7EE7645B3AA663D444 /* LocalSchema.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD643C2F44F11D71E2F7CA73 /* LocalSchema.swift */; };
 		0BD9FE3CFA72A3F04F4ED9F8 /* PlanModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64BDA3BB3A85D55389B90A43 /* PlanModel.swift */; };
 		0C0F0E087D436E275DA1A339 /* ServerProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = A430BB992FA1860E239C34C8 /* ServerProbe.swift */; };
@@ -69,6 +70,7 @@
 		811A082056C43D09BFBAB1A5 /* Toast.swift in Sources */ = {isa = PBXBuildFile; fileRef = B70C1BD2212D9DC6EBE54B14 /* Toast.swift */; };
 		81FD555E5E6D1971BE3D29D8 /* MerchantNames.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3387D3C48B7DDAE07F4F27A /* MerchantNames.swift */; };
 		899EA5BAEDF756101D5425F6 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C815B4671E296193268EC13 /* WidgetSnapshot.swift */; };
+		8AA369E3069804A986597C94 /* RecordPaymentIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 541D3A0530EEE314419A9990 /* RecordPaymentIntent.swift */; };
 		8B043232F67805B4D6D0C40E /* LocalWrites.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE123F70898FE546A5D1ACE0 /* LocalWrites.swift */; };
 		8F6443725DD79B98B0DF939F /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C17878447D95C0266AFAEB /* Models.swift */; };
 		915922155D4454202FDA87CE /* OnboardingFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54BBC64175156AE7D2F7FE08 /* OnboardingFlow.swift */; };
@@ -80,6 +82,7 @@
 		A245B073A9F74D0CF883D13D /* Privacy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 053C4FF9EB60FEF2D22C6F7A /* Privacy.swift */; };
 		A636000FF8D12DAA4D6FF8BC /* LoanSettingsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCA4B188AFA3350AE1C4604E /* LoanSettingsSheet.swift */; };
 		A6534357A58B3944CAAB747B /* ServerImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E9EB2FEBA4192B0854EB8D1 /* ServerImport.swift */; };
+		A72703AD04324329F7E13BAD /* Intents.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 20032485ADB9B3A5B1DD7938 /* Intents.xcstrings */; };
 		A7E771BF25C8C09D6D3DB941 /* SQLite.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB06E854E34FEC85DF405946 /* SQLite.swift */; };
 		A957B15150966C7A23D70AB5 /* LocalBootstrap.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFAEC9BA74039A089559CADF /* LocalBootstrap.swift */; };
 		AC5803FD0059E042429D5E3A /* FlorinAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = D819CCD023A8552EED3FEA54 /* FlorinAuth.swift */; };
@@ -157,6 +160,7 @@
 		18030E300AC0E1F0F5D92D52 /* MerchantNameSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MerchantNameSheet.swift; sourceTree = "<group>"; };
 		1EC1B2C681E3E371E60A8E28 /* BankMappingSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankMappingSheet.swift; sourceTree = "<group>"; };
 		1FA92C50BBA20A08158E13A9 /* BankingKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankingKey.swift; sourceTree = "<group>"; };
+		20032485ADB9B3A5B1DD7938 /* Intents.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Intents.xcstrings; sourceTree = "<group>"; };
 		226D9DC6516754A93B4095CB /* ShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareSheet.swift; sourceTree = "<group>"; };
 		22D62DF409CF3CE35918326F /* PlanScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanScreen.swift; sourceTree = "<group>"; };
 		23E29CE538BC035660929769 /* FlorinWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = FlorinWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -179,6 +183,7 @@
 		4C815B4671E296193268EC13 /* WidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshot.swift; sourceTree = "<group>"; };
 		5081BF68525A3FC3417DE71E /* LocalStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalStore.swift; sourceTree = "<group>"; };
 		526A3D81BB2ED5F736D5F2AE /* LocalDay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalDay.swift; sourceTree = "<group>"; };
+		541D3A0530EEE314419A9990 /* RecordPaymentIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordPaymentIntent.swift; sourceTree = "<group>"; };
 		54BBC64175156AE7D2F7FE08 /* OnboardingFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingFlow.swift; sourceTree = "<group>"; };
 		57359F03A6215282B0FBF364 /* ActivityScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityScreen.swift; sourceTree = "<group>"; };
 		608F7E010F694A6297EE66C4 /* AddAccountSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddAccountSheet.swift; sourceTree = "<group>"; };
@@ -219,6 +224,7 @@
 		ACED395A385ABE8191A28BB7 /* WebContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebContainer.swift; sourceTree = "<group>"; };
 		AD643C2F44F11D71E2F7CA73 /* LocalSchema.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalSchema.swift; sourceTree = "<group>"; };
 		AE123F70898FE546A5D1ACE0 /* LocalWrites.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalWrites.swift; sourceTree = "<group>"; };
+		AE9DE8AEC99BB029D9DE5C4C /* LocalWallet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalWallet.swift; sourceTree = "<group>"; };
 		AECD506601858C9A5FC3407A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		AFAEC9BA74039A089559CADF /* LocalBootstrap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalBootstrap.swift; sourceTree = "<group>"; };
 		B468D0C6054280C2520C30BA /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -324,6 +330,7 @@
 				EA13768EB13255CAC3A809B2 /* Banking */,
 				9A989DE3F156C0B779D8DDE8 /* Components */,
 				0937106559E863AE98221F58 /* Design */,
+				9CD4BAB11FA3A8521D6C32E5 /* Intents */,
 				C110FFE60BA8A55CAC2FBA4E /* Local */,
 				8C7FB096140A4A12718C11A4 /* Onboarding */,
 				0515BE1FC1D4E68EC8751010 /* Screens */,
@@ -395,6 +402,15 @@
 			path = Components;
 			sourceTree = "<group>";
 		};
+		9CD4BAB11FA3A8521D6C32E5 /* Intents */ = {
+			isa = PBXGroup;
+			children = (
+				20032485ADB9B3A5B1DD7938 /* Intents.xcstrings */,
+				541D3A0530EEE314419A9990 /* RecordPaymentIntent.swift */,
+			);
+			path = Intents;
+			sourceTree = "<group>";
+		};
 		B5E69781886C3A2A77FD766A /* FlorinTests */ = {
 			isa = PBXGroup;
 			children = (
@@ -422,6 +438,7 @@
 				37EF623AEA746C7A66D35F6B /* LocalQueries.swift */,
 				AD643C2F44F11D71E2F7CA73 /* LocalSchema.swift */,
 				5081BF68525A3FC3417DE71E /* LocalStore.swift */,
+				AE9DE8AEC99BB029D9DE5C4C /* LocalWallet.swift */,
 				AE123F70898FE546A5D1ACE0 /* LocalWrites.swift */,
 				C3387D3C48B7DDAE07F4F27A /* MerchantNames.swift */,
 				8E9EB2FEBA4192B0854EB8D1 /* ServerImport.swift */,
@@ -561,7 +578,14 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				Base,
+				ca,
+				de,
 				en,
+				es,
+				fr,
+				it,
+				nl,
+				pt,
 			);
 			mainGroup = D5734BF55873B642C290FFB5;
 			minimizedProjectReferenceProxies = 1;
@@ -590,6 +614,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				FD311ECCF233E41D8ECAB568 /* Assets.xcassets in Resources */,
+				A72703AD04324329F7E13BAD /* Intents.xcstrings in Resources */,
 				91C8FCE17A967B54AF404D1A /* SeedCategories.json in Resources */,
 				555A4A05C413690155026F1D /* Strings.json in Resources */,
 			);
@@ -658,6 +683,7 @@
 				570B14EAF8BA2BB76436B76C /* LocalQueries.swift in Sources */,
 				097A9A7EE7645B3AA663D444 /* LocalSchema.swift in Sources */,
 				CEEB2E9E5B5218F9F2EC773D /* LocalStore.swift in Sources */,
+				0938BB07A60E7EC99C6E54F2 /* LocalWallet.swift in Sources */,
 				8B043232F67805B4D6D0C40E /* LocalWrites.swift in Sources */,
 				9D3CB646828477BDB7C85E65 /* MerchantNameSheet.swift in Sources */,
 				81FD555E5E6D1971BE3D29D8 /* MerchantNames.swift in Sources */,
@@ -671,6 +697,7 @@
 				C60EFBFFBE284311AA77BAE3 /* PlanScreen.swift in Sources */,
 				69F07F669C9388276D512B8E /* PortfolioModel.swift in Sources */,
 				A245B073A9F74D0CF883D13D /* Privacy.swift in Sources */,
+				8AA369E3069804A986597C94 /* RecordPaymentIntent.swift in Sources */,
 				54A82C3BA1798211069F622A /* ReviewCategorySheet.swift in Sources */,
 				579ACFFF81AA5E790B90DA13 /* Rows.swift in Sources */,
 				A7E771BF25C8C09D6D3DB941 /* SQLite.swift in Sources */,

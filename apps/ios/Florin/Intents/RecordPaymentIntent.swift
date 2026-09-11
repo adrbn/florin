@@ -1,0 +1,99 @@
+import AppIntents
+import Foundation
+
+/*
+ * A Shortcuts action: a card payment, recorded as upcoming.
+ *
+ * Meant for a personal automation on the Wallet "transaction" trigger, which
+ * runs when a card is presented and hands over the merchant, the amount and
+ * the card. Florin records the payment under "upcoming" without opening, and
+ * the bank's own row replaces it when it arrives — see `LocalWallet`.
+ *
+ * Every text here is read by iOS rather than by the app, so it comes from the
+ * `Intents` string catalog instead of the app's own tables.
+ */
+struct RecordPaymentIntent: AppIntent {
+    static let title = LocalizedStringResource(
+        "intent.payment.title", defaultValue: "Add an upcoming payment", table: "Intents"
+    )
+    static let description = IntentDescription(LocalizedStringResource(
+        "intent.payment.description",
+        defaultValue: "Records a card payment as upcoming in Florin. When your bank books it, the bank's transaction replaces this one.",
+        table: "Intents"
+    ))
+    /// Nothing to show: the point is that paying does not mean opening an app.
+    static let openAppWhenRun = false
+
+    @Parameter(title: LocalizedStringResource("intent.payment.amount", defaultValue: "Amount", table: "Intents"))
+    var amount: String
+
+    @Parameter(title: LocalizedStringResource("intent.payment.merchant", defaultValue: "Merchant", table: "Intents"))
+    var merchant: String
+
+    @Parameter(title: LocalizedStringResource("intent.payment.card", defaultValue: "Card", table: "Intents"))
+    var card: String?
+
+    @Parameter(title: LocalizedStringResource("intent.payment.account", defaultValue: "Account", table: "Intents"))
+    var account: FlorinAccountEntity?
+
+    func perform() async throws -> some IntentResult & ReturnsValue<String> & ProvidesDialog {
+        // Against a server the ledger on screen is the server's; a row written
+        // on the phone would be invisible there.
+        if UserDefaults.standard.string(forKey: "florin.dataSource") == DataSource.server.rawValue {
+            throw LocalWallet.Failure.serverMode
+        }
+        guard let store = LocalStore.shared else { throw LocalWallet.Failure.noStore }
+        let recorded = try LocalWallet.record(
+            store: store,
+            amountText: amount,
+            merchant: merchant,
+            card: card,
+            accountId: account?.id
+        )
+        let name = PayeeText.humanize(recorded.payee)
+        let figure = Money.string(-recorded.amount, locale: Strings.device.localeTag, currency: "EUR")
+        let summary = "\(name) \(figure) · \(recorded.accountName)"
+        return .result(value: summary, dialog: IntentDialog(stringLiteral: summary))
+    }
+}
+
+/// An account, as Shortcuts lists it for the action's "Account" parameter.
+struct FlorinAccountEntity: AppEntity {
+    static let typeDisplayRepresentation = TypeDisplayRepresentation(
+        name: LocalizedStringResource("intent.entity.account", defaultValue: "Account", table: "Intents")
+    )
+    static let defaultQuery = FlorinAccountQuery()
+
+    let id: String
+    let name: String
+
+    var displayRepresentation: DisplayRepresentation {
+        DisplayRepresentation(title: "\(name)")
+    }
+}
+
+struct FlorinAccountQuery: EntityQuery {
+    func entities(for identifiers: [String]) async throws -> [FlorinAccountEntity] {
+        accounts().filter { identifiers.contains($0.id) }
+    }
+
+    func suggestedEntities() async throws -> [FlorinAccountEntity] {
+        accounts()
+    }
+
+    /// The accounts a card can draw on: current accounts first, then cash.
+    private func accounts() -> [FlorinAccountEntity] {
+        guard let store = LocalStore.shared,
+              let rows = try? store.database.query(
+                  """
+                  SELECT id, name FROM accounts
+                  WHERE is_archived = 0 AND kind IN ('checking', 'cash')
+                  ORDER BY kind = 'cash', display_order, name
+                  """
+              ) else { return [] }
+        return rows.compactMap { row in
+            guard let id = row.string("id"), let name = row.string("name") else { return nil }
+            return FlorinAccountEntity(id: id, name: name)
+        }
+    }
+}

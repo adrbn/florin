@@ -1052,3 +1052,133 @@ struct MonthNameTests {
         #expect(label.lowercased().contains(expected.lowercased()), "\(language): \(label)")
     }
 }
+
+// MARK: - Payments recorded at the till
+
+@Suite("Wallet payments", .serialized)
+struct WalletPaymentTests {
+    private func ledger() throws -> (LocalStore, checking: String, other: String) {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("florin-wallet-\(UUID().uuidString).db")
+        let store = try LocalStore(url: url)
+        let checking = UUID().uuidString, other = UUID().uuidString
+        try store.database.exec("""
+        INSERT INTO accounts (id, name, kind, currency, current_balance, opening_balance, display_order)
+          VALUES ('\(checking)', 'Compte courant', 'checking', 'EUR', 500, 500, 0);
+        INSERT INTO accounts (id, name, kind, currency, current_balance, opening_balance, display_order)
+          VALUES ('\(other)', 'Autre', 'checking', 'EUR', 100, 100, 1);
+        """)
+        return (store, checking, other)
+    }
+
+    private func day(_ iso: String) -> Date {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let parts = iso.split(separator: "-").compactMap { Int($0) }
+        return calendar.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2]))!
+    }
+
+    private func bankRow(_ store: LocalStore, _ account: String, _ iso: String, _ amount: Double) throws -> String {
+        let id = UUID().uuidString
+        try store.database.run(
+            """
+            INSERT INTO transactions (id, account_id, occurred_at, amount, payee, normalized_payee,
+                source, status, is_pending)
+            VALUES (?, ?, ?, ?, 'ACHAT CB SARL LE COMPTOIR', 'achat cb sarl le comptoir',
+                'enable_banking', 'cleared', 0)
+            """,
+            [.text(id), .text(account), .text("\(iso)T00:00:00Z"), .real(amount)]
+        )
+        return id
+    }
+
+    private func live(_ store: LocalStore, source: String) throws -> Int {
+        try store.database.scalar(
+            "SELECT count(*) FROM transactions WHERE source = ? AND deleted_at IS NULL", [.text(source)]
+        )?.int ?? 0
+    }
+
+    @Test("reads the amount the way Wallet writes it", arguments: [
+        ("4,10 €", 4.10), ("€4.10", 4.10), ("1 234,56 €", 1234.56),
+        ("1\u{202F}234,56 €", 1234.56), ("$1,234.56", 1234.56), ("12", 12.0),
+    ])
+    func amounts(_ text: String, _ expected: Double) {
+        #expect(LocalWallet.parseAmount(text) == expected)
+    }
+
+    @Test("an unreadable amount is refused, not recorded as zero")
+    func unreadable() throws {
+        let (store, _, _) = try ledger()
+        #expect(throws: LocalWallet.Failure.self) {
+            try LocalWallet.record(store: store, amountText: "gratuit", merchant: "Café", card: nil, accountId: nil)
+        }
+        #expect(try live(store, source: LocalWallet.source) == 0)
+    }
+
+    @Test("records an upcoming, pending debit on the first current account, outside the balance")
+    func records() throws {
+        let (store, checking, _) = try ledger()
+        let recorded = try LocalWallet.record(
+            store: store, amountText: "4,10 €", merchant: "Café du Parc", card: "Visa", accountId: nil
+        )
+        #expect(recorded.accountName == "Compte courant")
+        let row = try store.database.query(
+            "SELECT account_id, amount, status, is_pending, memo FROM transactions WHERE source = 'ios_shortcut'"
+        ).first
+        #expect(row?.string("account_id") == checking)
+        #expect(row?.double("amount") == -4.10)
+        #expect(row?.string("status") == "scheduled")
+        #expect(row?.int("is_pending") == 1)
+        #expect(row?.string("memo") == "Apple Pay · Visa")
+        #expect(try store.database.scalar(
+            "SELECT current_balance FROM accounts WHERE id = ?", [.text(checking)]
+        )?.double == 500)
+    }
+
+    @Test("the bank's row replaces the payment and takes its category")
+    func settles() throws {
+        let (store, checking, _) = try ledger()
+        try LocalWallet.record(
+            store: store, amountText: "4,10", merchant: "Café", card: nil, accountId: checking, on: day("2026-09-07")
+        )
+        let group = UUID().uuidString, category = UUID().uuidString
+        try store.database.exec("""
+        INSERT INTO category_groups (id, name, kind) VALUES ('\(group)', 'Sorties', 'expense');
+        INSERT INTO categories (id, group_id, name) VALUES ('\(category)', '\(group)', 'Cafés');
+        UPDATE transactions SET category_id = '\(category)' WHERE source = 'ios_shortcut';
+        """)
+        let bank = try bankRow(store, checking, "2026-09-09", -4.10)
+
+        #expect(try LocalWallet.settle(store: store) == 1)
+        #expect(try live(store, source: LocalWallet.source) == 0)
+        #expect(try store.database.scalar(
+            "SELECT category_id FROM transactions WHERE id = ?", [.text(bank)]
+        )?.string == category)
+    }
+
+    @Test("one bank row settles one payment, even across syncs")
+    func oneToOne() throws {
+        let (store, checking, _) = try ledger()
+        try LocalWallet.record(store: store, amountText: "4,10", merchant: "Café", card: nil, accountId: checking, on: day("2026-09-07"))
+        _ = try bankRow(store, checking, "2026-09-08", -4.10)
+        #expect(try LocalWallet.settle(store: store) == 1)
+
+        // The next day, the same coffee at the same price — its bank row has
+        // not arrived yet, so it must stay.
+        try LocalWallet.record(store: store, amountText: "4,10", merchant: "Café", card: nil, accountId: checking, on: day("2026-09-08"))
+        #expect(try LocalWallet.settle(store: store) == 0)
+        #expect(try live(store, source: LocalWallet.source) == 1)
+    }
+
+    @Test("another amount, another account or an earlier row does not settle it")
+    func noFalseMatch() throws {
+        let (store, checking, other) = try ledger()
+        try LocalWallet.record(store: store, amountText: "4,10", merchant: "Café", card: nil, accountId: checking, on: day("2026-09-07"))
+        _ = try bankRow(store, checking, "2026-09-08", -4.20)   // different amount
+        _ = try bankRow(store, other, "2026-09-08", -4.10)      // different account
+        _ = try bankRow(store, checking, "2026-09-06", -4.10)   // the day before the tap
+        _ = try bankRow(store, checking, "2026-09-20", -4.10)   // too late
+        #expect(try LocalWallet.settle(store: store) == 0)
+        #expect(try live(store, source: LocalWallet.source) == 1)
+    }
+}

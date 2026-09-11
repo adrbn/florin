@@ -162,6 +162,11 @@ enum BankingSync {
                 if dropped > 0 {
                     log.notice("dropped \(dropped, privacy: .public) settled duplicates")
                 }
+                // A payment recorded at the till gives way to the bank's row.
+                let settledWallet = try LocalWallet.settle(store: store)
+                if settledWallet > 0 {
+                    log.notice("settled \(settledWallet, privacy: .public) wallet payments")
+                }
 
                 let named = try LocalCategoriser.backfill(store: store)
                 if named > 0 { log.notice("categorised \(named, privacy: .public) rows") }
