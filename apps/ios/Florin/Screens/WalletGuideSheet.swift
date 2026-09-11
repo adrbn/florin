@@ -56,7 +56,7 @@ struct WalletGuideSheet: View {
     }
 
     private var content: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 16) {
             // What the screen is for, said plainly — a sentence, not a tagline.
             Text(t("v2.wallet.guide.intro", "Florin ajoute vos paiements Apple Pay dès que vous payez, sans attendre la banque"))
                 .font(.system(size: 15))
@@ -71,7 +71,7 @@ struct WalletGuideSheet: View {
             Spacer(minLength: 0)
         }
         .padding(.horizontal, Florin.gutter)
-        .padding(.top, 20)
+        .padding(.top, 16)
         .padding(.bottom, 16)
     }
 
@@ -87,17 +87,17 @@ struct WalletGuideSheet: View {
             flowArrow
             flowStep("checkmark.seal.fill", t("v2.wallet.guide.flowBank", "Confirmé"))
         }
-        .padding(.vertical, 16)
+        .padding(.vertical, 12)
         .padding(.horizontal, 8)
         .florinSurface()
     }
 
     private func flowStep(_ symbol: String, _ label: String) -> some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 6) {
             Image(systemName: symbol)
-                .font(.system(size: 18, weight: .semibold))
+                .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(Florin.accent)
-                .frame(width: 44, height: 44)
+                .frame(width: 38, height: 38)
                 .background(Florin.accent.opacity(0.16), in: Circle())
             Text(label)
                 .font(.system(size: 12.5, weight: .medium))
@@ -112,30 +112,26 @@ struct WalletGuideSheet: View {
         Image(systemName: "chevron.right")
             .font(.system(size: 12, weight: .bold))
             .foregroundStyle(Florin.text3)
-            .padding(.top, 16)
+            .padding(.top, 13)
     }
 
-    /// Proof it works: the last payment the automation recorded.
+    /// Proof it works: the last payment the automation recorded. One line —
+    /// on two, it pushed the button below the fold.
     private func activeBadge(_ payment: (payee: String, day: Date)) -> some View {
-        HStack(spacing: 11) {
+        let day = DayLabel.string(payment.day, locale: t.localeTag, t: t).lowercased()
+        return HStack(spacing: 9) {
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 18))
+                .font(.system(size: 16))
                 .foregroundStyle(Florin.positive)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(t("v2.wallet.guide.active", "C'est actif"))
-                    .font(.system(size: 14.5, weight: .semibold))
-                    .foregroundStyle(Florin.text)
-                Text(t(
-                    "v2.wallet.guide.lastPayment", "Dernier paiement : {payee}, {day}",
-                    ["payee": PayeeText.humanize(payment.payee),
-                     "day": DayLabel.string(payment.day, locale: t.localeTag, t: t).lowercased()]
-                ))
-                .font(.system(size: 13))
-                .foregroundStyle(Florin.text2)
-            }
+            (Text(t("v2.wallet.guide.active", "C'est actif")).fontWeight(.semibold).foregroundStyle(Florin.text)
+             + Text("  ·  \(PayeeText.humanize(payment.payee)), \(day)").foregroundStyle(Florin.text2))
+                .font(.system(size: 14))
+                .lineLimit(1)
+                .truncationMode(.middle)
             Spacer(minLength: 0)
         }
-        .padding(14)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
         .florinSurface(tint: Florin.positive)
     }
 
@@ -201,7 +197,7 @@ struct WalletGuideSheet: View {
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 11)
+        .padding(.vertical, 9)
     }
 
     /// "Montant ← Montant": the action's field on the left, what Wallet hands
