@@ -703,7 +703,8 @@
     "v2.setup.noServer": "I don't have a server",
     "v2.wallet.noAccount": "No current account in Florin to add this payment to.",
     "v2.wallet.badAmount": "Unreadable amount: {amount}",
-    "v2.wallet.serverMode": "Florin is showing your server: payments can only be added to this device's accounts."
+    "v2.wallet.serverMode": "Florin is showing your server: payments can only be added to this device's accounts.",
+    "v2.wallet.notifyTitle": "Payment added to upcoming"
   },
   "fr": {
     "v2.a11y.back": "Retour",
@@ -1409,7 +1410,8 @@
     "v2.setup.noServer": "Je n'ai pas de serveur",
     "v2.wallet.noAccount": "Aucun compte courant dans Florin pour y ajouter ce paiement.",
     "v2.wallet.badAmount": "Montant illisible : {amount}",
-    "v2.wallet.serverMode": "Florin affiche votre serveur : les paiements ne peuvent être ajoutés qu'aux comptes de cet appareil."
+    "v2.wallet.serverMode": "Florin affiche votre serveur : les paiements ne peuvent être ajoutés qu'aux comptes de cet appareil.",
+    "v2.wallet.notifyTitle": "Paiement ajouté aux opérations à venir"
   },
   "nl": {
     "v2.a11y.back": "Terug",
@@ -2115,7 +2117,8 @@
     "v2.setup.noServer": "Ik heb geen server",
     "v2.wallet.noAccount": "Geen betaalrekening in Florin om deze betaling aan toe te voegen.",
     "v2.wallet.badAmount": "Onleesbaar bedrag: {amount}",
-    "v2.wallet.serverMode": "Florin toont je server: betalingen kunnen alleen aan de rekeningen op dit apparaat worden toegevoegd."
+    "v2.wallet.serverMode": "Florin toont je server: betalingen kunnen alleen aan de rekeningen op dit apparaat worden toegevoegd.",
+    "v2.wallet.notifyTitle": "Betaling toegevoegd aan aankomend"
   },
   "it": {
     "v2.a11y.back": "Indietro",
@@ -2821,7 +2824,8 @@
     "v2.setup.noServer": "Non ho un server",
     "v2.wallet.noAccount": "Nessun conto corrente in Florin a cui aggiungere questo pagamento.",
     "v2.wallet.badAmount": "Importo illeggibile: {amount}",
-    "v2.wallet.serverMode": "Florin mostra il tuo server: i pagamenti si possono aggiungere solo ai conti di questo dispositivo."
+    "v2.wallet.serverMode": "Florin mostra il tuo server: i pagamenti si possono aggiungere solo ai conti di questo dispositivo.",
+    "v2.wallet.notifyTitle": "Pagamento aggiunto ai movimenti in arrivo"
   },
   "es": {
     "v2.a11y.back": "Atrás",
@@ -3527,7 +3531,8 @@
     "v2.setup.noServer": "No tengo servidor",
     "v2.wallet.noAccount": "Ninguna cuenta corriente en Florin a la que añadir este pago.",
     "v2.wallet.badAmount": "Importe ilegible: {amount}",
-    "v2.wallet.serverMode": "Florin muestra tu servidor: los pagos solo se pueden añadir a las cuentas de este dispositivo."
+    "v2.wallet.serverMode": "Florin muestra tu servidor: los pagos solo se pueden añadir a las cuentas de este dispositivo.",
+    "v2.wallet.notifyTitle": "Pago añadido a los previstos"
   },
   "ca": {
     "v2.a11y.back": "Enrere",
@@ -4233,7 +4238,8 @@
     "v2.setup.noServer": "No tinc servidor",
     "v2.wallet.noAccount": "Cap compte corrent a Florin on afegir aquest pagament.",
     "v2.wallet.badAmount": "Import il·legible: {amount}",
-    "v2.wallet.serverMode": "Florin mostra el teu servidor: els pagaments només es poden afegir als comptes d'aquest dispositiu."
+    "v2.wallet.serverMode": "Florin mostra el teu servidor: els pagaments només es poden afegir als comptes d'aquest dispositiu.",
+    "v2.wallet.notifyTitle": "Pagament afegit als previstos"
   },
   "de": {
     "v2.a11y.back": "Zurück",
@@ -4939,7 +4945,8 @@
     "v2.setup.noServer": "Ich habe keinen Server",
     "v2.wallet.noAccount": "Kein Girokonto in Florin, dem diese Zahlung hinzugefügt werden kann.",
     "v2.wallet.badAmount": "Betrag nicht lesbar: {amount}",
-    "v2.wallet.serverMode": "Florin zeigt deinen Server: Zahlungen lassen sich nur zu den Konten dieses Geräts hinzufügen."
+    "v2.wallet.serverMode": "Florin zeigt deinen Server: Zahlungen lassen sich nur zu den Konten dieses Geräts hinzufügen.",
+    "v2.wallet.notifyTitle": "Zahlung zu den anstehenden hinzugefügt"
   },
   "pt": {
     "v2.a11y.back": "Voltar",
@@ -5645,6 +5652,7 @@
     "v2.setup.noServer": "Não tenho servidor",
     "v2.wallet.noAccount": "Nenhuma conta à ordem no Florin para adicionar este pagamento.",
     "v2.wallet.badAmount": "Montante ilegível: {amount}",
-    "v2.wallet.serverMode": "O Florin está a mostrar o seu servidor: os pagamentos só podem ser adicionados às contas deste dispositivo."
+    "v2.wallet.serverMode": "O Florin está a mostrar o seu servidor: os pagamentos só podem ser adicionados às contas deste dispositivo.",
+    "v2.wallet.notifyTitle": "Pagamento adicionado aos previstos"
   }
 }

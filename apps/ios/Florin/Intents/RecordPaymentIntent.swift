@@ -1,5 +1,6 @@
 import AppIntents
 import Foundation
+import UserNotifications
 
 /*
  * A Shortcuts action: a card payment, recorded as upcoming.
@@ -53,7 +54,29 @@ struct RecordPaymentIntent: AppIntent {
         let name = PayeeText.humanize(recorded.payee)
         let figure = Money.string(-recorded.amount, locale: Strings.device.localeTag, currency: "EUR")
         let summary = "\(name) \(figure) · \(recorded.accountName)"
+        await Self.notify(summary)
         return .result(value: summary, dialog: IntentDialog(stringLiteral: summary))
+    }
+
+    /*
+     * Said by Florin, not by Shortcuts.
+     *
+     * An automation's own confirmation arrives under the Shortcuts icon, which
+     * says that something ran rather than what was recorded. When Florin may
+     * notify, it says it itself; the automation's "show when run" can then be
+     * switched off. Without permission nothing is posted — the action still
+     * returns the same line for the shortcut to show.
+     */
+    private static func notify(_ summary: String) async {
+        let centre = UNUserNotificationCenter.current()
+        guard await centre.notificationSettings().authorizationStatus == .authorized else { return }
+        let content = UNMutableNotificationContent()
+        content.title = Strings.device("v2.wallet.notifyTitle", "Paiement ajouté aux opérations à venir")
+        content.body = summary
+        content.sound = nil
+        try? await centre.add(
+            UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+        )
     }
 }
 
