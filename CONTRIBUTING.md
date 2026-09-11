@@ -71,4 +71,5 @@ French, German, Dutch, Italian, Spanish, Portuguese and Catalan. A new key goes 
   fails the build when they drift.
 
 By contributing you agree that your work is released under the project's
-[AGPL-3.0](LICENSE) licence.
+[AGPL-3.0](LICENSE) licence, with the additional terms in [NOTICE.md](NOTICE.md). The
+Florin name and logo stay with the project — see [TRADEMARK.md](TRADEMARK.md).

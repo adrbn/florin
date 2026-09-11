@@ -224,6 +224,6 @@ Security issues go through [SECURITY.md](SECURITY.md), privately. If Florin is u
 
 ## License
 
-[AGPL-3.0](LICENSE). Self-host, fork, modify and redistribute freely. Any hosted derivative must publish its source: a Florin someone runs for you should be a Florin you can read.
+Florin is open source under the [AGPL-3.0](LICENSE): self-host it, fork it, modify it, redistribute it. Any hosted or distributed derivative must publish its source — a Florin someone runs for you should be a Florin you can read.
 
-The App Store build is published by Florin's author, who holds the copyright. Whether a fork may do the same is contested, so a fork is safest shipping its source, a sideloadable build or its own TestFlight. Florin collects no data at all — see [PRIVACY.md](PRIVACY.md).
+The **name and logo** are not part of that grant. A modified version ships under its own name and icon; see [TRADEMARK.md](TRADEMARK.md) and the section 7 terms in [NOTICE.md](NOTICE.md). Florin collects no data at all — see [PRIVACY.md](PRIVACY.md).
