@@ -24,6 +24,7 @@
 		19DA625C08C8A4A12689A4ED /* LocalImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5F276D31E91FBE8D753978A /* LocalImport.swift */; };
 		1A857813EE96447B68DBA4E0 /* TransactionMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4642F3C7EF8D098B7163D639 /* TransactionMenu.swift */; };
 		1E83F30A9B7BE5AF6FE7D110 /* WidgetFace.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A014AEF341CF6BBB1C57A04 /* WidgetFace.swift */; };
+		1F8C944DC9ED8E28E5976A1A /* SyncShimmer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F789D5CE344FF6DB89C1AC2 /* SyncShimmer.swift */; };
 		20A3BBC6162F6CBA9229CD80 /* AddTransactionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94411516F56A17BA12CD1C5F /* AddTransactionSheet.swift */; };
 		2263CF54DED3472E4DEE5E68 /* BankLogo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1030F4E939DD8352B6EC5322 /* BankLogo.swift */; };
 		22CDB53123C3C03EEA6F09DD /* FlorinClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3AFD81B650F2340FC3E4131 /* FlorinClient.swift */; };
@@ -205,6 +206,7 @@
 		75D28CE358FB2C14BF840725 /* AmountText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmountText.swift; sourceTree = "<group>"; };
 		772EFF8D3DF1CE1E2F3D2ADA /* CategoryRemovalSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryRemovalSheet.swift; sourceTree = "<group>"; };
 		7AB3BB28F5C79A6CA7BB503F /* BankingTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankingTypes.swift; sourceTree = "<group>"; };
+		7F789D5CE344FF6DB89C1AC2 /* SyncShimmer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncShimmer.swift; sourceTree = "<group>"; };
 		84BAB9F84D78CB4801400265 /* Appearance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Appearance.swift; sourceTree = "<group>"; };
 		84E153B45F8DCF03658782FF /* ServerFieldsCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerFieldsCard.swift; sourceTree = "<group>"; };
 		86665E5949173D99AC181418 /* EmptyStart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStart.swift; sourceTree = "<group>"; };
@@ -314,6 +316,7 @@
 				053C4FF9EB60FEF2D22C6F7A /* Privacy.swift */,
 				ACE82E4B69A59D03EC43D3F2 /* Scaffold.swift */,
 				BF64507C596294E339B78F6E /* Strings.swift */,
+				7F789D5CE344FF6DB89C1AC2 /* SyncShimmer.swift */,
 				ECD89E78054CE99B6649A8C1 /* TabRoute.swift */,
 				1716DE308068FD596619F829 /* Theme.swift */,
 			);
@@ -722,6 +725,7 @@
 				3E8CE733CADCA1B92FD9BDB9 /* SplashView.swift in Sources */,
 				F06E9AA0DD0E0EFB69EF51C6 /* Strings.swift in Sources */,
 				49AC5ECF5EC98A3FEE7235FD /* SyncLogScreen.swift in Sources */,
+				1F8C944DC9ED8E28E5976A1A /* SyncShimmer.swift in Sources */,
 				3BCEA79D2F2EA9DB9E6B4D7A /* TabRoute.swift in Sources */,
 				02E0A5C7DD9F371326789EE1 /* TaskSheet.swift in Sources */,
 				157CD4668E4CE3E100509CC9 /* Theme.swift in Sources */,

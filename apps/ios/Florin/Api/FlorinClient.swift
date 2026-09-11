@@ -366,15 +366,19 @@ final class OverviewModel: ObservableObject {
      * runs in a task of its own and always finishes.
      *
      * Starting the work unstructured breaks the parent-child link: cancelling
-     * this refresh no longer reaches the sync, and awaiting its result keeps
-     * the spinner honest about how long the bank actually takes.
+     * this refresh no longer reaches the sync.
+     *
+     * Nor is it awaited. Held until the bank answered, the pull kept the whole
+     * screen dragged down under a spinner; it now springs back at once and the
+     * balance shows the wait (`syncShimmer`). For the same reason a pull that
+     * finds nothing new says nothing — the figure settling is the answer, and
+     * "À jour" landed on top of the search field.
      */
-    func refresh() async {
-        let work = Task { await sync() }
-        _ = await work.result
+    func refresh() {
+        Task { await sync(confirmCurrent: false) }
     }
 
-    func sync(announce: Bool = true, announceOnlyIfNew: Bool = false) async {
+    func sync(announce: Bool = true, announceOnlyIfNew: Bool = false, confirmCurrent: Bool = true) async {
         guard !syncing else { return }
         syncing = true
         // Stamp before the call, not after: a failing bank must not turn into a
@@ -385,7 +389,7 @@ final class OverviewModel: ObservableObject {
             await load(showSpinner: false)
             publishSnapshot()
             let inserted = result.transactionsInserted
-            if announce || (announceOnlyIfNew && inserted > 0) {
+            if (announce && (inserted > 0 || confirmCurrent)) || (announceOnlyIfNew && inserted > 0) {
                 toast = ToastMessage(
                     text: inserted > 0
                         ? overview?.t(

@@ -374,7 +374,7 @@ struct OverviewScreen: View {
             // iOS 26 fades content into the bars instead of hard-clipping it.
             .modifier(SoftScrollEdge())
             // Pull down to actually pull the banks, not just re-read the server.
-            .refreshable { await model.refresh() }
+            .refreshable { model.refresh() }
         )
     }
 
@@ -408,7 +408,11 @@ struct OverviewScreen: View {
                 .foregroundStyle(Florin.text2)
 
                 HeroAmount(value: shown, locale: data.localeTag, currency: data.currency, size: 60)
-                    .contentTransition(.numericText())
+                    .contentTransition(.numericText(value: shown))
+                    // A new balance rolls in; a finger scrubbing the chart
+                    // must not lag behind an animation.
+                    .animation(scrubbed == nil ? .smooth(duration: 0.7) : nil, value: shown)
+                    .syncShimmer(model.syncing)
 
                 HStack(spacing: 6) {
                     if showGross && scrubbed == nil {
