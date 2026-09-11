@@ -370,7 +370,7 @@ final class OverviewModel: ObservableObject {
      *
      * Nor is it awaited. Held until the bank answered, the pull kept the whole
      * screen dragged down under a spinner; it now springs back at once and the
-     * balance shows the wait (`syncShimmer`). For the same reason a pull that
+     * balance shows the wait (`SlotAmount`). For the same reason a pull that
      * finds nothing new says nothing — the figure settling is the answer, and
      * "À jour" landed on top of the search field.
      */

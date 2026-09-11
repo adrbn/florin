@@ -2,8 +2,8 @@ import SwiftUI
 
 /// The launch animation: the app's coin, flicked and left to settle.
 ///
-/// Two seconds, once per cold start, over the same gradient the dashboard
-/// stands on — so the app never cuts from a static launch image to a
+/// A little over a second, once per cold start — it was two, which read as
+/// waiting — over the same gradient the dashboard stands on — so the app never cuts from a static launch image to a
 /// different-looking screen.
 ///
 /// Making a flat picture read as a coin takes more than a rotation:
@@ -15,7 +15,7 @@ import SwiftUI
 ///  - a contact shadow that tightens as the coin drops toward it, which is what
 ///    puts the coin in a place rather than on a layer.
 ///
-/// The rotation is a flick, not a motor: a steep ease-out over three and a half
+/// The rotation is a flick, not a motor: a steep ease-out over two and a half
 /// turns, landing square. Small on purpose — a launch mark is a punctuation
 /// mark, and the wordmark that used to sit under it only repeated what the
 /// Home Screen already said.
@@ -27,9 +27,9 @@ struct SplashView: View {
     @State private var leaving = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private static let turns: Double = 3.5
-    private static let spinDuration: Double = 1.55
-    private static let total: Double = 2.0
+    private static let turns: Double = 2.5
+    private static let spinDuration: Double = 0.95
+    private static let total: Double = 1.15
     private static let size: CGFloat = 62
 
     private var angle: Double { Double(spin) * 360 * Self.turns }
@@ -60,20 +60,20 @@ struct SplashView: View {
             // No spin, but the same beat: an app that flashes past its own
             // launch screen reads as broken rather than fast.
             withAnimation(.easeOut(duration: 0.3)) { dropped = true }
-            try? await Task.sleep(for: .milliseconds(700))
-            withAnimation(.easeIn(duration: 0.3)) { leaving = true }
+            try? await Task.sleep(for: .milliseconds(450))
+            withAnimation(.easeIn(duration: 0.25)) { leaving = true }
             onFinish()
             return
         }
 
-        withAnimation(.spring(response: 0.62, dampingFraction: 0.58)) { dropped = true }
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) { dropped = true }
         withAnimation(.timingCurve(0.06, 0.78, 0.12, 1, duration: Self.spinDuration)) { spin = 1 }
 
-        try? await Task.sleep(for: .seconds(Self.total - 0.32))
+        try? await Task.sleep(for: .seconds(Self.total - 0.25))
         // Leaves toward the viewer rather than fading in place: the app arrives
         // *through* the mark instead of after it.
-        withAnimation(.easeIn(duration: 0.32)) { leaving = true }
-        try? await Task.sleep(for: .milliseconds(320))
+        withAnimation(.easeIn(duration: 0.25)) { leaving = true }
+        try? await Task.sleep(for: .milliseconds(250))
         onFinish()
     }
 

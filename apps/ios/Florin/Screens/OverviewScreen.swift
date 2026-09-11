@@ -407,12 +407,13 @@ struct OverviewScreen: View {
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(Florin.text2)
 
-                HeroAmount(value: shown, locale: data.localeTag, currency: data.currency, size: 60)
-                    .contentTransition(.numericText(value: shown))
-                    // A new balance rolls in; a finger scrubbing the chart
-                    // must not lag behind an animation.
-                    .animation(scrubbed == nil ? .smooth(duration: 0.7) : nil, value: shown)
-                    .syncShimmer(model.syncing)
+                // Spins while the bank is asked. Not under a finger scrubbing
+                // the chart, which must never lag behind an animation.
+                SlotAmount(
+                    value: shown, spinning: model.syncing && scrubbed == nil,
+                    locale: data.localeTag, currency: data.currency, size: 60
+                )
+                .animation(scrubbed == nil ? .smooth(duration: 0.7) : nil, value: shown)
 
                 HStack(spacing: 6) {
                     if showGross && scrubbed == nil {

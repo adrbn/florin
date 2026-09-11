@@ -181,7 +181,7 @@ struct RootView: View {
             // loading behind the animation instead of starting after it.
             if splashing {
                 SplashView {
-                    withAnimation(.easeOut(duration: 0.42)) { splashing = false }
+                    withAnimation(.easeOut(duration: 0.3)) { splashing = false }
                 }
                 .zIndex(10)
             }
