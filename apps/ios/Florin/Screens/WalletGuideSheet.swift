@@ -10,9 +10,10 @@ import UserNotifications
 /// amount and merchant the action needs. So this is the recipe, in the words
 /// Shortcuts itself uses.
 ///
-/// Laid out to be followed with the other app open: what it does in three
-/// pictures, whether it already works, then one line per step with the words
-/// to tap in bold, and the way into Shortcuts pinned where the thumb is. No
+/// Laid out to be followed with the other app open, and written plainly: no
+/// tagline above it — the title bar already names it — and no slogan. What it
+/// does in three pictures, whether it already works, then one line per step with the words
+/// to tap in bold, and the way into Shortcuts right under them. No
 /// full stops and no second lines — these are labels, not paragraphs.
 struct WalletGuideSheet: View {
     let t: Strings
@@ -24,19 +25,17 @@ struct WalletGuideSheet: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    hero
-                    flow
-                    if let lastPayment { activeBadge(lastPayment) }
-                    setup
-                }
-                .padding(.horizontal, Florin.gutter)
-                .padding(.top, 6)
-                .padding(.bottom, 24)
+            /*
+             * Still, not scrolling.
+             *
+             * It all fits on a phone, and a sheet that moves under the thumb
+             * reads as longer than it is. Only a screen too short for it — an
+             * SE — gets the scroll view, rather than a clipped step six.
+             */
+            ViewThatFits(in: .vertical) {
+                content
+                ScrollView { content }
             }
-            .scrollBounceBehavior(.basedOnSize)
-            .safeAreaInset(edge: .bottom) { actions }
             .navigationTitle(t("v2.wallet.guide.title", "Paiements Apple Pay"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -45,6 +44,8 @@ struct WalletGuideSheet: View {
                 }
             }
         }
+        // The bar sat against the sheet's top edge, under the grabber.
+        .safeAreaPadding(.top, 14)
         .presentationBackground { Backdrop(tint: TabRoute.settings.tint, floor: true) }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
@@ -54,15 +55,27 @@ struct WalletGuideSheet: View {
         }
     }
 
-    // MARK: - What it does
-
-    private var hero: some View {
-        Text(t("v2.wallet.guide.hero", "Vos paiements, dès la caisse"))
-            .font(.system(size: 26, weight: .semibold))
-            .foregroundStyle(Florin.text)
-            .lineLimit(1)
-            .minimumScaleFactor(0.75)
+    private var content: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            // What the screen is for, said plainly — a sentence, not a tagline.
+            Text(t("v2.wallet.guide.intro", "Florin ajoute vos paiements Apple Pay dès que vous payez, sans attendre la banque"))
+                .font(.system(size: 15))
+                .foregroundStyle(Florin.text2)
+                .fixedSize(horizontal: false, vertical: true)
+            flow
+            if let lastPayment { activeBadge(lastPayment) }
+            setup
+            // Right under the steps, not pinned to the bottom edge: pinned, it
+            // left a band of nothing between the last step and itself.
+            actions
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, Florin.gutter)
+        .padding(.top, 20)
+        .padding(.bottom, 16)
     }
+
+    // MARK: - What it does
 
     /// Pay, it waits under "upcoming", the bank confirms it — three pictures
     /// instead of the paragraph that said so.
@@ -136,7 +149,13 @@ struct WalletGuideSheet: View {
                 Hairline()
                 step(2, t("v2.wallet.guide.step2", "**Transaction** → cochez vos cartes"))
                 Hairline()
-                step(3, t("v2.wallet.guide.step3", "**Exécuter immédiatement**"))
+                // The bare option name read as a label, not something to pick —
+                // hence the verb, and why it matters.
+                step(3, t("v2.wallet.guide.step3", "Choisissez **Exécuter immédiatement**")) {
+                    Text(t("v2.wallet.guide.step3Why", "Sinon iOS vous demande à chaque paiement"))
+                        .font(.system(size: 13))
+                        .foregroundStyle(Florin.text2)
+                }
                 Hairline()
                 step(4, t("v2.wallet.guide.step4", "Action **Ajouter une opération à venir**"))
                 Hairline()
@@ -170,11 +189,13 @@ struct WalletGuideSheet: View {
                 .frame(width: 24, height: 24)
                 .background(Florin.accent, in: Circle())
             VStack(alignment: .leading, spacing: 8) {
+                // Same size on every line: a shrink-to-fit made some steps
+                // smaller than their neighbours inside the fixed layout. A
+                // longer language wraps instead.
                 Self.markdown(text)
                     .font(.system(size: 15))
                     .foregroundStyle(Florin.text)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.78)
+                    .fixedSize(horizontal: false, vertical: true)
                 extra()
             }
             Spacer(minLength: 0)
@@ -248,9 +269,7 @@ struct WalletGuideSheet: View {
             }
             .buttonStyle(.plain)
         }
-        .padding(.horizontal, Florin.gutter)
-        .padding(.top, 10)
-        .padding(.bottom, 6)
+        .padding(.top, 4)
     }
 
     // MARK: - Reading

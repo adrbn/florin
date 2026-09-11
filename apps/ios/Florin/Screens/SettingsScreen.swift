@@ -602,7 +602,7 @@ struct SettingsScreen: View {
         if sourceBinding.wrappedValue != .server {
             SettingsGroup(
                 title: "Apple Pay",
-                footer: t("v2.wallet.settingsFooter", "Chaque paiement par carte enregistré dès que vous payez, avant même la banque.")
+                footer: t("v2.wallet.settingsFooter", "Ajoute vos paiements Apple Pay aux opérations à venir.")
             ) {
                 SettingsRow(
                     label: t("v2.wallet.guide.title", "Paiements Apple Pay"),
