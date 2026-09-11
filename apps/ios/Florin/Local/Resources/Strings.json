@@ -705,7 +705,8 @@
     "v2.wallet.badAmount": "Unreadable amount: {amount}",
     "v2.wallet.serverMode": "Florin is showing your server: payments can only be added to this device's accounts.",
     "v2.wallet.dialog": "{merchant}: {amount} upcoming",
-    "v2.wallet.notifyTitle": "Payment added"
+    "v2.wallet.notifyTitle": "Payment added",
+    "v2.menu.copyAmount": "Copy amount"
   },
   "fr": {
     "v2.a11y.back": "Retour",
@@ -1413,7 +1414,8 @@
     "v2.wallet.badAmount": "Montant illisible : {amount}",
     "v2.wallet.serverMode": "Florin affiche votre serveur : les paiements ne peuvent être ajoutés qu'aux comptes de cet appareil.",
     "v2.wallet.dialog": "{merchant} : {amount} à venir",
-    "v2.wallet.notifyTitle": "Paiement ajouté"
+    "v2.wallet.notifyTitle": "Paiement ajouté",
+    "v2.menu.copyAmount": "Copier le montant"
   },
   "nl": {
     "v2.a11y.back": "Terug",
@@ -2121,7 +2123,8 @@
     "v2.wallet.badAmount": "Onleesbaar bedrag: {amount}",
     "v2.wallet.serverMode": "Florin toont je server: betalingen kunnen alleen aan de rekeningen op dit apparaat worden toegevoegd.",
     "v2.wallet.dialog": "{merchant}: {amount} aankomend",
-    "v2.wallet.notifyTitle": "Betaling toegevoegd"
+    "v2.wallet.notifyTitle": "Betaling toegevoegd",
+    "v2.menu.copyAmount": "Bedrag kopiëren"
   },
   "it": {
     "v2.a11y.back": "Indietro",
@@ -2829,7 +2832,8 @@
     "v2.wallet.badAmount": "Importo illeggibile: {amount}",
     "v2.wallet.serverMode": "Florin mostra il tuo server: i pagamenti si possono aggiungere solo ai conti di questo dispositivo.",
     "v2.wallet.dialog": "{merchant}: {amount} in arrivo",
-    "v2.wallet.notifyTitle": "Pagamento aggiunto"
+    "v2.wallet.notifyTitle": "Pagamento aggiunto",
+    "v2.menu.copyAmount": "Copia importo"
   },
   "es": {
     "v2.a11y.back": "Atrás",
@@ -3537,7 +3541,8 @@
     "v2.wallet.badAmount": "Importe ilegible: {amount}",
     "v2.wallet.serverMode": "Florin muestra tu servidor: los pagos solo se pueden añadir a las cuentas de este dispositivo.",
     "v2.wallet.dialog": "{merchant}: {amount} previsto",
-    "v2.wallet.notifyTitle": "Pago añadido"
+    "v2.wallet.notifyTitle": "Pago añadido",
+    "v2.menu.copyAmount": "Copiar importe"
   },
   "ca": {
     "v2.a11y.back": "Enrere",
@@ -4245,7 +4250,8 @@
     "v2.wallet.badAmount": "Import il·legible: {amount}",
     "v2.wallet.serverMode": "Florin mostra el teu servidor: els pagaments només es poden afegir als comptes d'aquest dispositiu.",
     "v2.wallet.dialog": "{merchant}: {amount} previst",
-    "v2.wallet.notifyTitle": "Pagament afegit"
+    "v2.wallet.notifyTitle": "Pagament afegit",
+    "v2.menu.copyAmount": "Copia l'import"
   },
   "de": {
     "v2.a11y.back": "Zurück",
@@ -4953,7 +4959,8 @@
     "v2.wallet.badAmount": "Betrag nicht lesbar: {amount}",
     "v2.wallet.serverMode": "Florin zeigt deinen Server: Zahlungen lassen sich nur zu den Konten dieses Geräts hinzufügen.",
     "v2.wallet.dialog": "{merchant}: {amount} anstehend",
-    "v2.wallet.notifyTitle": "Zahlung hinzugefügt"
+    "v2.wallet.notifyTitle": "Zahlung hinzugefügt",
+    "v2.menu.copyAmount": "Betrag kopieren"
   },
   "pt": {
     "v2.a11y.back": "Voltar",
@@ -5661,6 +5668,7 @@
     "v2.wallet.badAmount": "Montante ilegível: {amount}",
     "v2.wallet.serverMode": "O Florin está a mostrar o seu servidor: os pagamentos só podem ser adicionados às contas deste dispositivo.",
     "v2.wallet.dialog": "{merchant}: {amount} previsto",
-    "v2.wallet.notifyTitle": "Pagamento adicionado"
+    "v2.wallet.notifyTitle": "Pagamento adicionado",
+    "v2.menu.copyAmount": "Copiar montante"
   }
 }

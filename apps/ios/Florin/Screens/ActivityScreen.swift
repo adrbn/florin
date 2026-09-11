@@ -87,6 +87,8 @@ struct TransactionList<Banner: View>: View {
     @StateObject private var model: ActivityModel
     @State private var draft = ""
     @State private var detail: Transaction?
+    /// What a long press on a row asked for; see `TransactionMenu`.
+    @State private var menuRequest: TxActionRequest?
     @State private var filtering = false
     /// Non-nil while picking rows to approve in one go.
     @State private var selection: Set<String>?
@@ -292,6 +294,26 @@ struct TransactionList<Banner: View>: View {
             }
             if model.rows.isEmpty { await model.reload() }
         }
+        .transactionActions(
+            request: $menuRequest,
+            categories: model.categories,
+            accounts: model.accounts,
+            locale: locale,
+            currency: currency,
+            t: t,
+            onPatch: { tx, patch in
+                await model.apply(patch, to: tx.id, t: t)
+                await onLedgerChanged()
+            },
+            onDelete: { tx in
+                await model.delete(tx.id, t: t)
+                await onLedgerChanged()
+            },
+            onAttach: { tx, accountId in
+                await model.attachTransfer(tx.id, to: accountId, t: t)
+                await onLedgerChanged()
+            }
+        )
         .sheet(item: $detail) { tx in
             TransactionDetailSheet(
                 tx: tx,
@@ -713,6 +735,11 @@ struct TransactionList<Banner: View>: View {
                 }
         }
         .buttonStyle(.plain)
+        .transactionMenu(
+            tx, t: t, locale: locale, currency: currency,
+            canTransfer: !tx.isTransfer && tx.amount < 0 && model.accounts.count > 1,
+            request: $menuRequest
+        )
         .animation(.snappy(duration: 0.2), value: picking)
     }
 

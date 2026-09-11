@@ -22,6 +22,8 @@ struct OverviewScreen: View {
     @State private var upcomingExpanded = false
     /// Set by "C'était une dépense", opened once the attach sheet has closed.
     @State private var spendingAfterAttach: Transaction?
+    /// What a long press on a row asked for; see `TransactionMenu`.
+    @State private var menuRequest: TxActionRequest?
     @State private var attachExpanded = false
     @State private var reviewExpanded = false
     @State private var scrubbed: PatrimonyPoint?
@@ -120,6 +122,17 @@ struct OverviewScreen: View {
          * valeurs de repli remplacent donc le `if let` : la vue est
          * inconditionnelle, et ses détents sont lus.
          */
+        .transactionActions(
+            request: $menuRequest,
+            categories: model.overview?.categories ?? [],
+            accounts: model.overview?.accounts ?? [],
+            locale: model.overview?.localeTag ?? "fr-FR",
+            currency: model.overview?.currency ?? "EUR",
+            t: t,
+            onPatch: { tx, patch in await model.patch(patch, to: tx.id) },
+            onDelete: { tx in await model.delete(tx.id) },
+            onAttach: { tx, accountId in try? await model.attachTransfer(tx.id, to: accountId) }
+        )
         .sheet(item: $detail) { tx in
             TransactionDetailSheet(
                 tx: tx,
@@ -938,6 +951,11 @@ struct OverviewScreen: View {
                             )
                         }
                         .buttonStyle(.plain)
+                        .transactionMenu(
+                            tx, t: data.t, locale: data.localeTag, currency: data.currency,
+                            canTransfer: !tx.isTransfer && tx.amount < 0 && data.accounts.count > 1,
+                            request: $menuRequest
+                        )
                     }
                 }
 
@@ -971,6 +989,11 @@ struct OverviewScreen: View {
                             )
                         }
                         .buttonStyle(.plain)
+                        .transactionMenu(
+                            tx, t: data.t, locale: data.localeTag, currency: data.currency,
+                            canTransfer: !tx.isTransfer && tx.amount < 0 && data.accounts.count > 1,
+                            request: $menuRequest
+                        )
                     }
                 }
 
@@ -995,6 +1018,11 @@ struct OverviewScreen: View {
                             )
                         }
                         .buttonStyle(.plain)
+                        .transactionMenu(
+                            tx, t: data.t, locale: data.localeTag, currency: data.currency,
+                            canTransfer: !tx.isTransfer && tx.amount < 0 && data.accounts.count > 1,
+                            request: $menuRequest
+                        )
                     }
                 }
 
@@ -1008,6 +1036,11 @@ struct OverviewScreen: View {
                             )
                         }
                         .buttonStyle(.plain)
+                        .transactionMenu(
+                            tx, t: data.t, locale: data.localeTag, currency: data.currency,
+                            canTransfer: !tx.isTransfer && tx.amount < 0 && data.accounts.count > 1,
+                            request: $menuRequest
+                        )
                     }
                 }
             }

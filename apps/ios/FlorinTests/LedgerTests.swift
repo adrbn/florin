@@ -1092,6 +1092,44 @@ struct WalletPaymentTests {
         return id
     }
 
+    /*
+     * Filed from history the moment it is recorded.
+     *
+     * Wallet hands over the merchant as the shop calls itself — "Boulangerie
+     * du Parc" — while the bank wrote "ACHAT CB BOULANGERIE DU PARC 01.09.26
+     * EUR 4,10 CARTE NO 123 OC" every other time. The categoriser has to see
+     * the same merchant through both, or every tap arrives unfiled.
+     */
+    @Test("a payment arrives already filed when its merchant has a history")
+    func filedFromHistory() throws {
+        let (store, checking, _) = try ledger()
+        let group = UUID().uuidString, groceries = UUID().uuidString
+        try store.database.exec("""
+        INSERT INTO category_groups (id, name, kind) VALUES ('\(group)', 'Besoins', 'expense');
+        INSERT INTO categories (id, group_id, name) VALUES ('\(groceries)', '\(group)', 'Courses');
+        """)
+        for (n, iso) in ["2026-08-04", "2026-08-11", "2026-08-18"].enumerated() {
+            try store.database.run(
+                """
+                INSERT INTO transactions (id, account_id, occurred_at, amount, payee, normalized_payee,
+                    category_id, source, status, is_pending)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'enable_banking', 'cleared', 0)
+                """,
+                [.text(UUID().uuidString), .text(checking), .text("\(iso)T00:00:00Z"), .real(-4.1 - Double(n)),
+                 .text("ACHAT CB BOULANGERIE DU PARC \(iso.suffix(2)).08.26 EUR 4,10 CARTE NO 123 OC"),
+                 .text("achat cb boulangerie du parc"), .text(groceries)]
+            )
+        }
+
+        try LocalWallet.record(store: store, amountText: "3,80", merchant: "Boulangerie du Parc", card: nil, accountId: nil)
+
+        let filed = try store.database.scalar(
+            "SELECT category_id FROM transactions WHERE source = ? AND deleted_at IS NULL",
+            [.text(LocalWallet.source)]
+        )?.string
+        #expect(filed == groceries)
+    }
+
     private func live(_ store: LocalStore, source: String) throws -> Int {
         try store.database.scalar(
             "SELECT count(*) FROM transactions WHERE source = ? AND deleted_at IS NULL", [.text(source)]
