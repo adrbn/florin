@@ -38,12 +38,15 @@ apps/web/drizzle/meta/_journal.json.bak
 data/
 backups/
 
-# Desktop (Electron) build artifacts & local DB
+# Desktop (Electron) build artifacts
 apps/desktop/dist-main/
 apps/desktop/main.cjs
-apps/desktop/*.db
-apps/desktop/*.db-shm
-apps/desktop/*.db-wal
+
+# Local ledgers — a database file is somebody's money, never source
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
 
 # Superpowers brainstorm state
 .superpowers/
