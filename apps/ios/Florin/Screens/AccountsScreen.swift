@@ -508,7 +508,8 @@ struct AccountDetailScreen: View {
                     data: data,
                     submit: { try await model.add($0) },
                     onTransfer: { try await model.addTransfer($0) },
-                    presetAccountId: route.accountId
+                    presetAccountId: route.accountId,
+                    canWaitForBank: model.base.scheme == "florin-local"
                 )
             }
         }

@@ -121,23 +121,50 @@ enum LocalWallet {
         let parts = calendar.dateComponents([.year, .month, .day], from: day)
         let occurred = String(format: "%04d-%02d-%02dT00:00:00Z", parts.year!, parts.month!, parts.day!)
 
+        try insertUpcoming(
+            store: store, accountId: account.id, occurredAt: occurred,
+            amount: -amount, payee: label, memo: memo, categoryId: nil
+        )
+        return Recorded(payee: label, amount: amount, accountName: account.name)
+    }
+
+    /*
+     * The same row, entered by hand.
+     *
+     * The automation only fires when Wallet sees the payment, and Wallet sees
+     * nothing without a connection — a card tapped in a shop with no signal
+     * leaves no trace until the bank books it days later. Typed in from the
+     * add sheet, the payment waits under "upcoming" and the bank's row takes
+     * its place exactly as it would have for one recorded at the till.
+     */
+    static func recordUpcoming(store: LocalStore, _ tx: NewTransaction) throws {
+        try insertUpcoming(
+            store: store, accountId: tx.accountId, occurredAt: tx.occurredAt,
+            amount: tx.amount, payee: tx.payee, memo: tx.memo, categoryId: tx.categoryId
+        )
+    }
+
+    private static func insertUpcoming(
+        store: LocalStore, accountId: String, occurredAt: String,
+        amount: Double, payee: String, memo: String?, categoryId: String?
+    ) throws {
         try store.database.run(
             """
             INSERT INTO transactions
                 (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
-                 memo, source, status, is_pending, needs_review)
-            VALUES (?, ?, ?, ?, 'EUR', ?, ?, ?, ?, 'scheduled', 1, 0)
+                 memo, category_id, source, status, is_pending, needs_review)
+            VALUES (?, ?, ?, ?, 'EUR', ?, ?, ?, ?, ?, 'scheduled', 1, 0)
             """,
             [
-                .text(UUID().uuidString), .text(account.id), .text(occurred),
-                .real(-amount), .text(label), .text(LocalLedger.normalize(label)),
-                .text(memo), .text(source),
+                .text(UUID().uuidString), .text(accountId), .text(occurredAt),
+                .real(amount), .text(payee), .text(LocalLedger.normalize(payee)),
+                memo.map { .text($0) } ?? .null, categoryId.map { .text($0) } ?? .null,
+                .text(source),
             ]
         )
         // Filed from history straight away, so the upcoming row already says
         // what it is — the café it has been every other time.
         _ = try? LocalCategoriser.backfill(store: store)
-        return Recorded(payee: label, amount: amount, accountName: account.name)
     }
 
     // MARK: - Letting the bank's row take over

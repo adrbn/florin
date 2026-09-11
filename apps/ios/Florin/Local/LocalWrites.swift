@@ -363,6 +363,10 @@ enum LocalLedger {
     }
 
     static func add(store: LocalStore, _ tx: NewTransaction) throws {
+        if tx.upcoming {
+            try LocalWallet.recordUpcoming(store: store, tx)
+            return
+        }
         try store.database.transaction {
             try store.database.run(
                 """

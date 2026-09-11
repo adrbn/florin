@@ -735,7 +735,8 @@
     "v2.merchant.logoHint": "The logo comes from this site, unless you pick an emoji",
     "v2.merchant.badSite": "That's not a website address",
     "v2.settings.logos": "Merchant logos",
-    "v2.settings.logosHint": "Logos come straight from each merchant's own website."
+    "v2.settings.logosHint": "Logos come straight from each merchant's own website.",
+    "v2.add.upcomingHint": "Until the bank books it"
   },
   "fr": {
     "v2.a11y.back": "Retour",
@@ -1473,7 +1474,8 @@
     "v2.merchant.logoHint": "Le logo vient de ce site, sauf si vous choisissez un emoji",
     "v2.merchant.badSite": "Ce n'est pas une adresse de site",
     "v2.settings.logos": "Logos des marchands",
-    "v2.settings.logosHint": "Les logos viennent directement du site de chaque marchand."
+    "v2.settings.logosHint": "Les logos viennent directement du site de chaque marchand.",
+    "v2.add.upcomingHint": "Jusqu'à ce que la banque l'enregistre"
   },
   "nl": {
     "v2.a11y.back": "Terug",
@@ -2211,7 +2213,8 @@
     "v2.merchant.logoHint": "Het logo komt van deze site, tenzij je een emoji kiest",
     "v2.merchant.badSite": "Dat is geen websiteadres",
     "v2.settings.logos": "Logo's van winkels",
-    "v2.settings.logosHint": "Logo's komen rechtstreeks van de site van elke winkel."
+    "v2.settings.logosHint": "Logo's komen rechtstreeks van de site van elke winkel.",
+    "v2.add.upcomingHint": "Tot de bank hem boekt"
   },
   "it": {
     "v2.a11y.back": "Indietro",
@@ -2949,7 +2952,8 @@
     "v2.merchant.logoHint": "Il logo arriva da questo sito, a meno che tu scelga un’emoji",
     "v2.merchant.badSite": "Questo non è l’indirizzo di un sito",
     "v2.settings.logos": "Loghi degli esercenti",
-    "v2.settings.logosHint": "I loghi arrivano direttamente dal sito di ogni esercente."
+    "v2.settings.logosHint": "I loghi arrivano direttamente dal sito di ogni esercente.",
+    "v2.add.upcomingHint": "Finché la banca non la registra"
   },
   "es": {
     "v2.a11y.back": "Atrás",
@@ -3687,7 +3691,8 @@
     "v2.merchant.logoHint": "El logo viene de este sitio, salvo que elijas un emoji",
     "v2.merchant.badSite": "No es la dirección de un sitio web",
     "v2.settings.logos": "Logos de los comercios",
-    "v2.settings.logosHint": "Los logos llegan directamente de la web de cada comercio."
+    "v2.settings.logosHint": "Los logos llegan directamente de la web de cada comercio.",
+    "v2.add.upcomingHint": "Hasta que el banco la registre"
   },
   "ca": {
     "v2.a11y.back": "Enrere",
@@ -4425,7 +4430,8 @@
     "v2.merchant.logoHint": "El logotip ve d’aquest lloc, tret que triïs un emoji",
     "v2.merchant.badSite": "No és l’adreça d’un lloc web",
     "v2.settings.logos": "Logotips dels comerços",
-    "v2.settings.logosHint": "Els logotips arriben directament del web de cada comerç."
+    "v2.settings.logosHint": "Els logotips arriben directament del web de cada comerç.",
+    "v2.add.upcomingHint": "Fins que el banc la registri"
   },
   "de": {
     "v2.a11y.back": "Zurück",
@@ -5163,7 +5169,8 @@
     "v2.merchant.logoHint": "Das Logo kommt von dieser Website, außer du wählst ein Emoji",
     "v2.merchant.badSite": "Das ist keine Website-Adresse",
     "v2.settings.logos": "Händlerlogos",
-    "v2.settings.logosHint": "Die Logos kommen direkt von der Website des jeweiligen Händlers."
+    "v2.settings.logosHint": "Die Logos kommen direkt von der Website des jeweiligen Händlers.",
+    "v2.add.upcomingHint": "Bis die Bank sie bucht"
   },
   "pt": {
     "v2.a11y.back": "Voltar",
@@ -5901,6 +5908,7 @@
     "v2.merchant.logoHint": "O logótipo vem deste site, a não ser que escolha um emoji",
     "v2.merchant.badSite": "Isto não é o endereço de um site",
     "v2.settings.logos": "Logótipos dos comerciantes",
-    "v2.settings.logosHint": "Os logótipos vêm diretamente do site de cada comerciante."
+    "v2.settings.logosHint": "Os logótipos vêm diretamente do site de cada comerciante.",
+    "v2.add.upcomingHint": "Até o banco a registar"
   }
 }

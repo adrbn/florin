@@ -14,6 +14,8 @@ struct AddTransactionSheet: View {
     /// on the first account in the list — so adding a row to anything else
     /// meant knowing to open a menu three rows down.
     var presetAccountId: String?
+    /// The device's own ledger: only there can a row wait for the bank.
+    var canWaitForBank = false
 
     @Environment(\.dismiss) private var dismiss
     private var t: Strings { data.t }
@@ -37,11 +39,19 @@ struct AddTransactionSheet: View {
     @State private var categoryId = ""
     @State private var date = Date()
     @State private var memo = ""
+    @State private var upcoming = false
     @State private var saving = false
     @State private var errorMessage: String?
 
     private var usableAccounts: [Account] {
         data.accounts.filter { !$0.isArchived && !$0.isLoan }
+    }
+
+    /// Only an account the bank syncs: elsewhere nothing would ever come to
+    /// replace the row, and it would wait under "upcoming" forever.
+    private var offersUpcoming: Bool {
+        canWaitForBank && kind != .transfer
+            && usableAccounts.first { $0.id == accountId }?.isSynced == true
     }
 
     private var magnitude: Double {
@@ -277,6 +287,31 @@ struct AddTransactionSheet: View {
 
             Hairline()
 
+            if offersUpcoming {
+                Toggle(isOn: $upcoming) {
+                    HStack(spacing: 13) {
+                        Image(systemName: "clock")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(Florin.accent.opacity(0.85))
+                            .frame(width: 22)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(t("v2.wallet.guide.flowUpcoming", "En prévision"))
+                                .font(.system(size: 14.5))
+                                .foregroundStyle(Florin.text)
+                            Text(t("v2.add.upcomingHint", "Jusqu'à ce que la banque l'enregistre"))
+                                .font(.system(size: 12))
+                                .foregroundStyle(Florin.text3)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+                .tint(Florin.accent)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+
+                Hairline()
+            }
+
             HStack(spacing: 13) {
                 Image(systemName: "text.alignleft")
                     .font(.system(size: 15, weight: .medium))
@@ -372,7 +407,8 @@ struct AddTransactionSheet: View {
                         payee: payee.trimmingCharacters(in: .whitespaces),
                         occurredAt: ISO8601DateFormatter.florinNoFraction.string(from: noonOn(date)),
                         memo: trimmedMemo.isEmpty ? nil : trimmedMemo,
-                        categoryId: categoryId.isEmpty ? nil : categoryId
+                        categoryId: categoryId.isEmpty ? nil : categoryId,
+                        upcoming: upcoming && offersUpcoming
                     )
                 )
                 UINotificationFeedbackGenerator().notificationOccurred(.success)

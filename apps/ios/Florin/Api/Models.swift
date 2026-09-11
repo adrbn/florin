@@ -215,6 +215,13 @@ struct NewTransaction: Encodable, Sendable {
     let occurredAt: String
     let memo: String?
     let categoryId: String?
+    /// Not at the bank yet: kept under "upcoming" until the bank's own row
+    /// replaces it (`LocalWallet.settle`). Device ledger only, never encoded.
+    var upcoming = false
+
+    private enum CodingKeys: String, CodingKey {
+        case accountId, amount, payee, occurredAt, memo, categoryId
+    }
 }
 
 struct Transaction: Decodable, Sendable, Identifiable {

@@ -286,7 +286,8 @@ struct WalletGuideSheet: View {
               let row = try? store.database.query(
                   """
                   SELECT payee, occurred_at FROM transactions
-                  WHERE source = ? ORDER BY created_at DESC LIMIT 1
+                  WHERE source = ? AND memo LIKE 'Apple Pay%'
+                  ORDER BY created_at DESC LIMIT 1
                   """,
                   [.text(LocalWallet.source)]
               ).first,

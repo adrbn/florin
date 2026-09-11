@@ -1100,6 +1100,37 @@ struct WalletPaymentTests {
      * EUR 4,10 CARTE NO 123 OC" every other time. The categoriser has to see
      * the same merchant through both, or every tap arrives unfiled.
      */
+    /*
+     * Typed in by hand after paying with no signal: the same wait, the same
+     * handover to the bank's row — and the automation's badge is not claimed.
+     */
+    @Test("a payment entered by hand waits under upcoming and is settled by the bank")
+    func enteredByHand() throws {
+        let (store, checking, _) = try ledger()
+        try LocalLedger.add(store: store, NewTransaction(
+            accountId: checking, amount: -4.10, payee: "Le Comptoir",
+            occurredAt: "2026-09-11T12:00:00Z", memo: nil, categoryId: nil, upcoming: true
+        ))
+        let row = try #require(try store.database.query(
+            "SELECT status, is_pending, source, memo FROM transactions WHERE deleted_at IS NULL"
+        ).first)
+        #expect(row.string("status") == "scheduled")
+        #expect(row.int("is_pending") == 1)
+        #expect(row.string("source") == LocalWallet.source)
+        #expect(row.string("memo") == nil)
+        // Not in the balance until the bank has it.
+        let balance = try store.database.scalar(
+            "SELECT current_balance FROM accounts WHERE id = ?", [.text(checking)]
+        )?.double
+        #expect(balance == 500)
+
+        _ = try bankRow(store, checking, "2026-09-13", -4.10)
+        #expect(try LocalWallet.settle(store: store) == 1)
+        #expect(try store.database.scalar(
+            "SELECT count(*) FROM transactions WHERE deleted_at IS NULL"
+        )?.int == 1)
+    }
+
     @Test("a payment arrives already filed when its merchant has a history")
     func filedFromHistory() throws {
         let (store, checking, _) = try ledger()

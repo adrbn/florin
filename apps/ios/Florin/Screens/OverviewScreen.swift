@@ -193,7 +193,8 @@ struct OverviewScreen: View {
                 AddTransactionSheet(
                     data: data,
                     submit: { try await model.add($0) },
-                    onTransfer: { try await model.addTransfer($0) }
+                    onTransfer: { try await model.addTransfer($0) },
+                    canWaitForBank: model.base.scheme == "florin-local"
                 )
             }
         }
