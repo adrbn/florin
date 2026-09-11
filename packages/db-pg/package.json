@@ -11,11 +11,11 @@
     "@florin/core": "workspace:*",
     "drizzle-orm": "^0.45.2",
     "postgres": "^3.4.9",
-    "zod": "^4.3.6"
+    "zod": "^4.6.2"
   },
   "devDependencies": {
-    "@types/node": "^25.5.2",
+    "@types/node": "^25.9.6",
     "drizzle-kit": "^0.31.10",
-    "typescript": "^6.0.2"
+    "typescript": "^6.0.3"
   }
 }
