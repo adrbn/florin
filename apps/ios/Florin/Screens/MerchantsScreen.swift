@@ -10,6 +10,7 @@ struct MerchantsScreen: View {
 
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var names = MerchantNames.shared
+    @ObservedObject private var logos = MerchantLogos.shared
     @State private var editing: Editing?
     @State private var failure: String?
 
@@ -73,7 +74,8 @@ struct MerchantsScreen: View {
 
     private func row(key: String, name: String) -> some View {
         HStack(spacing: 12) {
-            Bubble(label: key, size: 34)
+            let face = logos.face(forKey: key)
+            Bubble(label: key, emoji: face?.emoji, size: 34, logo: face?.logo)
             VStack(alignment: .leading, spacing: 1) {
                 Text(name)
                     .font(.system(size: 15, weight: .medium))

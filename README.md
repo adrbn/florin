@@ -36,7 +36,7 @@
 
 ## Why Florin
 
-- 🔒 **Your data never leaves your devices.** No Florin account, no Florin server, no analytics, no tracking SDK.
+- 🔒 **Your data never leaves your devices.** No Florin account, no Florin server, no analytics, no tracking SDK. Merchant logos on iPhone come straight from each merchant's own website, never from a logo service — and can be turned off.
 - 🏦 **Real bank sync, under your own credentials.** PSD2 access to 2 000+ European banks through [Enable Banking](https://enablebanking.com/) — your own free registration, not a shared key.
 - 🎯 **Figures that match the bank.** Loans follow a real amortisation schedule; savings rates count complete months only; when a number cannot be computed honestly, Florin says so instead of showing zero.
 - 🗂️ **A budgeting workflow, not a chart gallery.** A monthly plan in category groups and a review queue that learns from how you file your own history.

@@ -729,7 +729,13 @@
     "v2.wallet.guide.walletMerchant": "Merchant",
     "v2.wallet.guide.step6": "Turn off **Show When Run**",
     "v2.wallet.guide.intro": "Florin adds your Apple Pay payments as soon as you pay, without waiting for the bank",
-    "v2.wallet.guide.step3Why": "Otherwise iOS asks at every payment"
+    "v2.wallet.guide.step3Why": "Otherwise iOS asks at every payment",
+    "v2.merchant.logo": "Logo",
+    "v2.merchant.sitePlaceholder": "example.com",
+    "v2.merchant.logoHint": "The logo comes from this site, unless you pick an emoji",
+    "v2.merchant.badSite": "That's not a website address",
+    "v2.settings.logos": "Merchant logos",
+    "v2.settings.logosHint": "Logos come straight from each merchant's own website."
   },
   "fr": {
     "v2.a11y.back": "Retour",
@@ -1461,7 +1467,13 @@
     "v2.wallet.guide.walletMerchant": "Commerçant",
     "v2.wallet.guide.step6": "Décochez **Afficher lors de l'exécution**",
     "v2.wallet.guide.intro": "Florin ajoute vos paiements Apple Pay dès que vous payez, sans attendre la banque",
-    "v2.wallet.guide.step3Why": "Sinon iOS vous demande à chaque paiement"
+    "v2.wallet.guide.step3Why": "Sinon iOS vous demande à chaque paiement",
+    "v2.merchant.logo": "Logo",
+    "v2.merchant.sitePlaceholder": "exemple.fr",
+    "v2.merchant.logoHint": "Le logo vient de ce site, sauf si vous choisissez un emoji",
+    "v2.merchant.badSite": "Ce n'est pas une adresse de site",
+    "v2.settings.logos": "Logos des marchands",
+    "v2.settings.logosHint": "Les logos viennent directement du site de chaque marchand."
   },
   "nl": {
     "v2.a11y.back": "Terug",
@@ -2193,7 +2205,13 @@
     "v2.wallet.guide.walletMerchant": "Handelaar",
     "v2.wallet.guide.step6": "Zet **Toon bij uitvoering** uit",
     "v2.wallet.guide.intro": "Florin voegt je Apple Pay-betalingen toe zodra je betaalt, zonder op de bank te wachten",
-    "v2.wallet.guide.step3Why": "Anders vraagt iOS het bij elke betaling"
+    "v2.wallet.guide.step3Why": "Anders vraagt iOS het bij elke betaling",
+    "v2.merchant.logo": "Logo",
+    "v2.merchant.sitePlaceholder": "voorbeeld.nl",
+    "v2.merchant.logoHint": "Het logo komt van deze site, tenzij je een emoji kiest",
+    "v2.merchant.badSite": "Dat is geen websiteadres",
+    "v2.settings.logos": "Logo's van winkels",
+    "v2.settings.logosHint": "Logo's komen rechtstreeks van de site van elke winkel."
   },
   "it": {
     "v2.a11y.back": "Indietro",
@@ -2925,7 +2943,13 @@
     "v2.wallet.guide.walletMerchant": "Esercente",
     "v2.wallet.guide.step6": "Disattiva **Mostra durante l’esecuzione**",
     "v2.wallet.guide.intro": "Florin aggiunge i tuoi pagamenti Apple Pay appena paghi, senza aspettare la banca",
-    "v2.wallet.guide.step3Why": "Altrimenti iOS chiede a ogni pagamento"
+    "v2.wallet.guide.step3Why": "Altrimenti iOS chiede a ogni pagamento",
+    "v2.merchant.logo": "Logo",
+    "v2.merchant.sitePlaceholder": "esempio.it",
+    "v2.merchant.logoHint": "Il logo arriva da questo sito, a meno che tu scelga un’emoji",
+    "v2.merchant.badSite": "Questo non è l’indirizzo di un sito",
+    "v2.settings.logos": "Loghi degli esercenti",
+    "v2.settings.logosHint": "I loghi arrivano direttamente dal sito di ogni esercente."
   },
   "es": {
     "v2.a11y.back": "Atrás",
@@ -3657,7 +3681,13 @@
     "v2.wallet.guide.walletMerchant": "Comercio",
     "v2.wallet.guide.step6": "Desactiva **Mostrar al ejecutar**",
     "v2.wallet.guide.intro": "Florin añade tus pagos con Apple Pay en cuanto pagas, sin esperar al banco",
-    "v2.wallet.guide.step3Why": "Si no, iOS pregunta en cada pago"
+    "v2.wallet.guide.step3Why": "Si no, iOS pregunta en cada pago",
+    "v2.merchant.logo": "Logo",
+    "v2.merchant.sitePlaceholder": "ejemplo.es",
+    "v2.merchant.logoHint": "El logo viene de este sitio, salvo que elijas un emoji",
+    "v2.merchant.badSite": "No es la dirección de un sitio web",
+    "v2.settings.logos": "Logos de los comercios",
+    "v2.settings.logosHint": "Los logos llegan directamente de la web de cada comercio."
   },
   "ca": {
     "v2.a11y.back": "Enrere",
@@ -4389,7 +4419,13 @@
     "v2.wallet.guide.walletMerchant": "Comerç",
     "v2.wallet.guide.step6": "Desactiva **Mostra en executar**",
     "v2.wallet.guide.intro": "Florin afegeix els teus pagaments amb Apple Pay tan bon punt pagues, sense esperar el banc",
-    "v2.wallet.guide.step3Why": "Si no, iOS ho pregunta a cada pagament"
+    "v2.wallet.guide.step3Why": "Si no, iOS ho pregunta a cada pagament",
+    "v2.merchant.logo": "Logotip",
+    "v2.merchant.sitePlaceholder": "exemple.cat",
+    "v2.merchant.logoHint": "El logotip ve d’aquest lloc, tret que triïs un emoji",
+    "v2.merchant.badSite": "No és l’adreça d’un lloc web",
+    "v2.settings.logos": "Logotips dels comerços",
+    "v2.settings.logosHint": "Els logotips arriben directament del web de cada comerç."
   },
   "de": {
     "v2.a11y.back": "Zurück",
@@ -5121,7 +5157,13 @@
     "v2.wallet.guide.walletMerchant": "Händler",
     "v2.wallet.guide.step6": "**Beim Ausführen anzeigen** aus",
     "v2.wallet.guide.intro": "Florin erfasst deine Apple-Pay-Zahlungen, sobald du bezahlst, ohne auf die Bank zu warten",
-    "v2.wallet.guide.step3Why": "Sonst fragt iOS bei jeder Zahlung nach"
+    "v2.wallet.guide.step3Why": "Sonst fragt iOS bei jeder Zahlung nach",
+    "v2.merchant.logo": "Logo",
+    "v2.merchant.sitePlaceholder": "beispiel.de",
+    "v2.merchant.logoHint": "Das Logo kommt von dieser Website, außer du wählst ein Emoji",
+    "v2.merchant.badSite": "Das ist keine Website-Adresse",
+    "v2.settings.logos": "Händlerlogos",
+    "v2.settings.logosHint": "Die Logos kommen direkt von der Website des jeweiligen Händlers."
   },
   "pt": {
     "v2.a11y.back": "Voltar",
@@ -5853,6 +5895,12 @@
     "v2.wallet.guide.walletMerchant": "Comerciante",
     "v2.wallet.guide.step6": "Desative **Mostrar ao executar**",
     "v2.wallet.guide.intro": "O Florin adiciona os seus pagamentos Apple Pay assim que paga, sem esperar pelo banco",
-    "v2.wallet.guide.step3Why": "Senão o iOS pergunta a cada pagamento"
+    "v2.wallet.guide.step3Why": "Senão o iOS pergunta a cada pagamento",
+    "v2.merchant.logo": "Logótipo",
+    "v2.merchant.sitePlaceholder": "exemplo.pt",
+    "v2.merchant.logoHint": "O logótipo vem deste site, a não ser que escolha um emoji",
+    "v2.merchant.badSite": "Isto não é o endereço de um site",
+    "v2.settings.logos": "Logótipos dos comerciantes",
+    "v2.settings.logosHint": "Os logótipos vêm diretamente do site de cada comerciante."
   }
 }

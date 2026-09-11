@@ -1220,3 +1220,64 @@ struct WalletPaymentTests {
         #expect(try live(store, source: LocalWallet.source) == 1)
     }
 }
+
+// MARK: - Merchant logos
+
+@Suite("Merchant logos")
+struct MerchantLogoTests {
+    @Test("a known merchant is found by whole words, the more specific name first", arguments: [
+        ("netflix com", "netflix.com"),
+        ("uber eats help uber com", "ubereats.com"),
+        ("uber bv", "uber.com"),
+        ("h&m 1234", "hm.com"),
+        ("amzn mktp fr", "amazon.com"),
+        ("prime video", "primevideo.com"),
+    ])
+    func known(_ key: String, _ domain: String) {
+        #expect(KnownMerchants.domain(forKey: key) == domain)
+    }
+
+    @Test("a person or a small shop gets no brand's logo", arguments: [
+        "claude martin", "le comptoir", "boulangerie du coin", "applebees", "", "orangerie du parc",
+    ])
+    func unknown(_ key: String) {
+        #expect(KnownMerchants.domain(forKey: key) == nil)
+    }
+
+    @Test("a typed address comes down to the site's name")
+    func domains() {
+        #expect(MerchantLogos.normalizedDomain("https://www.Le-Comptoir.fr/menu?x=1") == "le-comptoir.fr")
+        #expect(MerchantLogos.normalizedDomain("  shop.example.co.uk ") == "shop.example.co.uk")
+        #expect(MerchantLogos.normalizedDomain("le comptoir") == nil)
+        #expect(MerchantLogos.normalizedDomain("comptoir") == nil)
+        #expect(MerchantLogos.normalizedDomain("comptoir.1") == nil)
+        #expect(MerchantLogos.normalizedDomain("") == nil)
+    }
+
+    @Test("the touch icon comes first, then the largest, never an SVG")
+    func iconLinks() throws {
+        let html = """
+        <head>
+          <link rel="icon" href="/favicon-32.png" sizes="32x32">
+          <link rel='shortcut icon' href='favicon.ico'>
+          <link rel="icon" type="image/svg+xml" href="/logo.svg">
+          <link rel="stylesheet" href="/site.css">
+          <LINK REL="apple-touch-icon" SIZES="180x180" HREF="https://cdn.example.org/touch.png">
+        </head>
+        """
+        let base = try #require(URL(string: "https://www.example.org/fr/"))
+        #expect(LogoFetcher.iconLinks(in: html, base: base).map(\.absoluteString) == [
+            "https://cdn.example.org/touch.png",
+            "https://www.example.org/favicon-32.png",
+            "https://www.example.org/fr/favicon.ico",
+        ])
+    }
+
+    @Test("the emoji field keeps pictographs, not digits or signs", arguments: [
+        ("🥐", true), ("❤️", true), ("🇮🇹", true), ("1", false), ("#", false), ("a", false),
+    ])
+    func emoji(_ text: String, _ isEmoji: Bool) throws {
+        let character = try #require(text.first)
+        #expect(MerchantNameSheet.isEmoji(character) == isEmoji)
+    }
+}

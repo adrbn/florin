@@ -242,7 +242,8 @@ struct TransactionDetailSheet: View {
             MerchantNameSheet(
                 key: MerchantNames.key(tx.payee),
                 bankLabel: PayeeText.clean(tx.payee),
-                t: t
+                t: t,
+                categoryEmoji: tx.categoryEmoji
             )
         }
         .sheet(isPresented: $editing) {

@@ -226,13 +226,14 @@ enum LocalDemo {
             try db.exec("PRAGMA defer_foreign_keys = ON")
             for table in [
                 "transactions", "holdings", "monthly_budgets", "balance_snapshots",
-                "recurring_rules", "categorization_rules", "payee_aliases", "accounts",
+                "recurring_rules", "categorization_rules", "payee_aliases", "merchant_marks", "accounts",
             ] {
                 try db.exec("DELETE FROM \(table)")
             }
             try db.run("DELETE FROM settings WHERE key = ?", [.text(marker)])
         }
         MerchantNames.shared.invalidate()
+        Task { @MainActor in MerchantLogos.shared.invalidate() }
     }
 
     // MARK: - Finding the categories

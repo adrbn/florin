@@ -150,7 +150,8 @@ struct TransactionActionsHost: ViewModifier {
             MerchantNameSheet(
                 key: MerchantNames.key(tx.payee),
                 bankLabel: PayeeText.clean(tx.payee),
-                t: t
+                t: t,
+                categoryEmoji: tx.categoryEmoji
             )
         case .transfer:
             AttachTransferSheet(

@@ -37,6 +37,7 @@ struct SettingsScreen: View {
     @State private var changingLocale = false
     @AppStorage("florin.locale") private var chosenLocale = ""
     @AppStorage(AppLock.key) private var lockOn = false
+    @AppStorage("florin.merchantLogos") private var logosOn = true
 
     private var t: Strings { model.overview?.t ?? .empty }
     @AppStorage("florin.notifications") private var notificationsOn = false
@@ -688,6 +689,10 @@ struct SettingsScreen: View {
                     "v2.settings.merchantsHint",
                     "Touchez le nom d'une opération pour renommer son marchand."
                 )
+                + " " + t(
+                    "v2.settings.logosHint",
+                    "Les logos viennent directement du site de chaque marchand."
+                )
         ) {
             if local {
                 SettingsRow(
@@ -702,6 +707,27 @@ struct SettingsScreen: View {
                 symbol: "storefront",
                 action: { showingMerchants = true }
             )
+            Hairline()
+            Toggle(isOn: Binding(
+                get: { logosOn },
+                set: { on in
+                    logosOn = on
+                    MerchantLogos.shared.setEnabled(on)
+                }
+            )) {
+                HStack(spacing: 11) {
+                    Image(systemName: "photo")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(Florin.accent)
+                        .frame(width: 20)
+                    Text(t("v2.settings.logos", "Logos des marchands"))
+                        .font(.system(size: 15.5))
+                        .foregroundStyle(Florin.text)
+                }
+            }
+            .tint(Florin.accent)
+            .padding(.horizontal, Florin.gutter)
+            .padding(.vertical, 11)
         }
     }
 

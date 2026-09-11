@@ -62,6 +62,7 @@
 		5F31D9308988DE98A0E17BB0 /* LocalDemo.swift in Sources */ = {isa = PBXBuildFile; fileRef = C262DD02E4EF484E010874E8 /* LocalDemo.swift */; };
 		62CDC847E44E16D5D812F977 /* SetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA781686F48030D4E2610C3F /* SetupView.swift */; };
 		69F07F669C9388276D512B8E /* PortfolioModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66BFF60356B227C9DB19C1F8 /* PortfolioModel.swift */; };
+		6C909140154AE3375A686776 /* KnownMerchants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F00301AB25E1B51494EBAA7 /* KnownMerchants.swift */; };
 		6F745D62D1B175FC8B574F8F /* BankingSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A70197CC43070B855A98008 /* BankingSettings.swift */; };
 		713F23992E64EEBA0EFFFA4A /* CategoryPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71F201A99DD3A95C05BBE836 /* CategoryPicker.swift */; };
 		73C22C43303F56E9DEA81E40 /* SnapshotCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10D904FFFE7E0B55E4CE28DD /* SnapshotCache.swift */; };
@@ -75,6 +76,7 @@
 		899EA5BAEDF756101D5425F6 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C815B4671E296193268EC13 /* WidgetSnapshot.swift */; };
 		8AA369E3069804A986597C94 /* RecordPaymentIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 541D3A0530EEE314419A9990 /* RecordPaymentIntent.swift */; };
 		8B043232F67805B4D6D0C40E /* LocalWrites.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE123F70898FE546A5D1ACE0 /* LocalWrites.swift */; };
+		8DE10E92062EB830555A28B6 /* MerchantLogos.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA4AF8D808EF26C00D0B5A1C /* MerchantLogos.swift */; };
 		8F6443725DD79B98B0DF939F /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C17878447D95C0266AFAEB /* Models.swift */; };
 		915922155D4454202FDA87CE /* OnboardingFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54BBC64175156AE7D2F7FE08 /* OnboardingFlow.swift */; };
 		91C8FCE17A967B54AF404D1A /* SeedCategories.json in Resources */ = {isa = PBXBuildFile; fileRef = FAB80DF308FB7FBBFF1A0EDD /* SeedCategories.json */; };
@@ -215,6 +217,7 @@
 		89E7EC2A6990567E31F4543F /* TaskSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskSheet.swift; sourceTree = "<group>"; };
 		8B08B65B00C5393966C2613C /* ServerStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerStore.swift; sourceTree = "<group>"; };
 		8E9EB2FEBA4192B0854EB8D1 /* ServerImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerImport.swift; sourceTree = "<group>"; };
+		8F00301AB25E1B51494EBAA7 /* KnownMerchants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnownMerchants.swift; sourceTree = "<group>"; };
 		90E83F83B8A3FB9F4A92E25B /* WidgetGround.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetGround.swift; sourceTree = "<group>"; };
 		932CA5B579432866CCF8ED11 /* LocalLoan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalLoan.swift; sourceTree = "<group>"; };
 		93B3D703EE8199BC49EFE5C2 /* LocalPricing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalPricing.swift; sourceTree = "<group>"; };
@@ -237,6 +240,7 @@
 		B9002B8C0392D7D4BCEB2266 /* ImportSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportSheet.swift; sourceTree = "<group>"; };
 		B96B6367C0815D184665BA96 /* WidgetStrings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetStrings.swift; sourceTree = "<group>"; };
 		B9A820FC9213E4493C163519 /* ActivityModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityModel.swift; sourceTree = "<group>"; };
+		BA4AF8D808EF26C00D0B5A1C /* MerchantLogos.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MerchantLogos.swift; sourceTree = "<group>"; };
 		BD8D00CFBF99A69C1BC612F8 /* LocalHoldings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalHoldings.swift; sourceTree = "<group>"; };
 		BEA17A0E3DE53B5E3A78DD42 /* FlorinTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = FlorinTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		BF64507C596294E339B78F6E /* Strings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Strings.swift; sourceTree = "<group>"; };
@@ -432,6 +436,7 @@
 			isa = PBXGroup;
 			children = (
 				D1D62499D2405CFC7C953ABE /* BackgroundRefresh.swift */,
+				8F00301AB25E1B51494EBAA7 /* KnownMerchants.swift */,
 				72FE45643769E71AEFCDC7D4 /* LocalAnalysis.swift */,
 				9E3252C271F4E969AE64E84C /* LocalBackup.swift */,
 				AFAEC9BA74039A089559CADF /* LocalBootstrap.swift */,
@@ -449,6 +454,7 @@
 				5081BF68525A3FC3417DE71E /* LocalStore.swift */,
 				AE9DE8AEC99BB029D9DE5C4C /* LocalWallet.swift */,
 				AE123F70898FE546A5D1ACE0 /* LocalWrites.swift */,
+				BA4AF8D808EF26C00D0B5A1C /* MerchantLogos.swift */,
 				C3387D3C48B7DDAE07F4F27A /* MerchantNames.swift */,
 				8E9EB2FEBA4192B0854EB8D1 /* ServerImport.swift */,
 				CB06E854E34FEC85DF405946 /* SQLite.swift */,
@@ -675,6 +681,7 @@
 				AC5803FD0059E042429D5E3A /* FlorinAuth.swift in Sources */,
 				22CDB53123C3C03EEA6F09DD /* FlorinClient.swift in Sources */,
 				13F221008AC2C8208BE2C62F /* ImportSheet.swift in Sources */,
+				6C909140154AE3375A686776 /* KnownMerchants.swift in Sources */,
 				A636000FF8D12DAA4D6FF8BC /* LoanSettingsSheet.swift in Sources */,
 				31B1D1DF613445C5C45A0568 /* LocalAnalysis.swift in Sources */,
 				A216024B009501059D290009 /* LocalBackup.swift in Sources */,
@@ -694,6 +701,7 @@
 				CEEB2E9E5B5218F9F2EC773D /* LocalStore.swift in Sources */,
 				0938BB07A60E7EC99C6E54F2 /* LocalWallet.swift in Sources */,
 				8B043232F67805B4D6D0C40E /* LocalWrites.swift in Sources */,
+				8DE10E92062EB830555A28B6 /* MerchantLogos.swift in Sources */,
 				9D3CB646828477BDB7C85E65 /* MerchantNameSheet.swift in Sources */,
 				81FD555E5E6D1971BE3D29D8 /* MerchantNames.swift in Sources */,
 				E08134F854EB187800CA46C7 /* MerchantsScreen.swift in Sources */,

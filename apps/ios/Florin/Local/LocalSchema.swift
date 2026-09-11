@@ -229,5 +229,11 @@ enum LocalSchema {
               updated_at TEXT NOT NULL DEFAULT (datetime('now'))
             );
         CREATE UNIQUE INDEX IF NOT EXISTS payee_aliases_match_key_unique ON payee_aliases(match_key);
+        CREATE TABLE IF NOT EXISTS merchant_marks (
+              match_key TEXT PRIMARY KEY NOT NULL,
+              domain TEXT,
+              emoji TEXT,
+              updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
         """
 }

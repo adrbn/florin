@@ -7,6 +7,8 @@ struct Bubble: View {
     var emoji: String?
     var systemImage: String?
     var size: CGFloat = 40
+    /// The merchant's own icon (`MerchantLogos`), over everything else.
+    var logo: UIImage?
 
     private var tint: Color { Florin.seriesColor(for: label) }
 
@@ -14,7 +16,9 @@ struct Bubble: View {
         ZStack {
             RoundedRectangle(cornerRadius: size * 0.33, style: .continuous)
                 .fill(tint.opacity(0.15))
-            if let emoji, !emoji.isEmpty {
+            if let logo {
+                logoFace(logo)
+            } else if let emoji, !emoji.isEmpty {
                 Text(emoji).font(.system(size: size * 0.42))
             } else if let systemImage {
                 Image(systemName: systemImage)
@@ -27,6 +31,24 @@ struct Bubble: View {
             }
         }
         .frame(width: size, height: size)
+    }
+
+    /*
+     * A touch icon is a finished square: it fills the bubble. A favicon is a
+     * small mark on nothing, and blown up to fill it, it blurs — so it sits
+     * on white, at the size it can bear.
+     */
+    private func logoFace(_ logo: UIImage) -> some View {
+        let shape = RoundedRectangle(cornerRadius: size * 0.33, style: .continuous)
+        let full = LogoFetcher.pixels(logo) >= LogoFetcher.crisp
+        return Image(uiImage: logo)
+            .resizable()
+            .interpolation(.high)
+            .scaledToFit()
+            .padding(full ? 0 : size * 0.2)
+            .frame(width: size, height: size)
+            .background(Color.white)
+            .clipShape(shape)
     }
 
     static func initials(_ label: String) -> String {
@@ -162,6 +184,7 @@ struct TransactionRowView: View {
     /// Observed so a merchant renamed from its sheet is renamed in every list
     /// behind it at once, not at the next reload.
     @ObservedObject private var names = MerchantNames.shared
+    @ObservedObject private var logos = MerchantLogos.shared
 
     private var subtitle: String {
         let category = tx.categoryName ?? t("v2.common.uncategorized", "Sans catégorie")
@@ -173,10 +196,14 @@ struct TransactionRowView: View {
 
     var body: some View {
         HStack(spacing: 12) {
+            // A transfer between one's own accounts keeps its arrows: the
+            // "merchant" there is oneself.
+            let face = tx.isTransfer ? nil : logos.face(for: tx.payee)
             Bubble(
                 label: tx.categoryName ?? tx.payee,
-                emoji: tx.categoryEmoji,
-                systemImage: tx.isTransfer ? "arrow.left.arrow.right" : nil
+                emoji: face?.emoji ?? tx.categoryEmoji,
+                systemImage: tx.isTransfer ? "arrow.left.arrow.right" : nil,
+                logo: face?.logo
             )
             VStack(alignment: .leading, spacing: 2) {
                 Text(PayeeText.humanize(tx.payee))
