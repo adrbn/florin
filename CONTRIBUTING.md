@@ -58,7 +58,7 @@ xcodebuild test -project Florin.xcodeproj -scheme Florin \
 ```
 
 The on-device strings live in `apps/ios/Florin/Local/Resources/Strings.json`, in English,
-French, Dutch, Italian and Spanish. A new key goes into all five.
+French, German, Dutch, Italian, Spanish, Portuguese and Catalan. A new key goes into all eight.
 
 ## Pull requests
 

@@ -57,7 +57,7 @@ struct WidgetStrings {
 
     private static func short(_ tag: String) -> String {
         let lower = tag.lowercased()
-        for candidate in ["fr", "nl", "it", "es", "ca"] where lower.hasPrefix(candidate) { return candidate }
+        for candidate in ["fr", "nl", "it", "es", "ca", "de", "pt"] where lower.hasPrefix(candidate) { return candidate }
         return "en"
     }
 }

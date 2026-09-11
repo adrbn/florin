@@ -79,9 +79,9 @@ Nothing to sign up for, anywhere. Want to look around first? The iPhone app has 
 | Face ID / PIN lock | ✅ | ✅ | — |
 | Home-screen widget / menu-bar widget | ✅ | ✅ | — |
 | One morning notification, never one per transaction | ✅ | — | — |
-| Languages | 6 | 3 | 3 |
+| Languages | 8 | 3 | 3 |
 
-iPhone: English, French, Dutch, Italian, Spanish, Catalan. Mac and web: English, French, Dutch.
+iPhone: English, French, German, Dutch, Italian, Spanish, Portuguese, Catalan. Mac and web: English, French, Dutch.
 
 ## Get started
 
