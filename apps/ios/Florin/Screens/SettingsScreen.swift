@@ -44,6 +44,7 @@ struct SettingsScreen: View {
     @State private var showingBanking = false
     @State private var showingCategories = false
     @State private var showingMerchants = false
+    @State private var showingWalletGuide = false
     @State private var showingSyncLog = false
     @State private var showingImport = false
     @State private var confirmingImport = false
@@ -68,6 +69,7 @@ struct SettingsScreen: View {
                         demoSection
                         sourceSection
                         bankSection
+                        walletSection
                         categoriesSection
                         importSection
                         notificationsSection
@@ -89,6 +91,7 @@ struct SettingsScreen: View {
             .sheet(isPresented: $showingBanking) { BankingSettings() }
             .sheet(isPresented: $showingCategories) { CategoriesScreen(t: t) }
             .sheet(isPresented: $showingMerchants) { MerchantsScreen(t: t) }
+            .sheet(isPresented: $showingWalletGuide) { WalletGuideSheet(t: t) }
             .sheet(isPresented: $showingSyncLog) {
                 SyncLogScreen(t: t, locale: model.overview?.localeTag ?? "fr-FR")
             }
@@ -592,6 +595,24 @@ struct SettingsScreen: View {
      * the end to find out what was in it. They are three things, and the person
      * looking for one of them is not looking for the other two.
      */
+    /// Apple Pay payments recorded as they happen — a Shortcuts automation,
+    /// explained. Device ledger only: the action refuses a server's.
+    @ViewBuilder
+    private var walletSection: some View {
+        if sourceBinding.wrappedValue != .server {
+            SettingsGroup(
+                title: "Apple Pay",
+                footer: t("v2.wallet.settingsFooter", "Chaque paiement par carte enregistré dès que vous payez, avant même la banque.")
+            ) {
+                SettingsRow(
+                    label: t("v2.wallet.guide.title", "Paiements Apple Pay"),
+                    symbol: "wave.3.right",
+                    action: { showingWalletGuide = true }
+                )
+            }
+        }
+    }
+
     @ViewBuilder
     private var bankSection: some View {
         if sourceBinding.wrappedValue != .server {

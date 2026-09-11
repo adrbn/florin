@@ -70,6 +70,7 @@
 		78E07C461F16F08FEBC1BE92 /* LocalLoan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 932CA5B579432866CCF8ED11 /* LocalLoan.swift */; };
 		811A082056C43D09BFBAB1A5 /* Toast.swift in Sources */ = {isa = PBXBuildFile; fileRef = B70C1BD2212D9DC6EBE54B14 /* Toast.swift */; };
 		81FD555E5E6D1971BE3D29D8 /* MerchantNames.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3387D3C48B7DDAE07F4F27A /* MerchantNames.swift */; };
+		833382220CDAC9A9C278D1CF /* WalletGuideSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = DACD180DD215EA3B81655A72 /* WalletGuideSheet.swift */; };
 		899EA5BAEDF756101D5425F6 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C815B4671E296193268EC13 /* WidgetSnapshot.swift */; };
 		8AA369E3069804A986597C94 /* RecordPaymentIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 541D3A0530EEE314419A9990 /* RecordPaymentIntent.swift */; };
 		8B043232F67805B4D6D0C40E /* LocalWrites.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE123F70898FE546A5D1ACE0 /* LocalWrites.swift */; };
@@ -252,6 +253,7 @@
 		D819CCD023A8552EED3FEA54 /* FlorinAuth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlorinAuth.swift; sourceTree = "<group>"; };
 		D88841043DF911CC3CBE4B95 /* EnableBanking.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnableBanking.swift; sourceTree = "<group>"; };
 		D9827F713A8EE3D5E4D707EA /* CategoriesScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoriesScreen.swift; sourceTree = "<group>"; };
+		DACD180DD215EA3B81655A72 /* WalletGuideSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletGuideSheet.swift; sourceTree = "<group>"; };
 		DB92AC9E5814FF0A7879214E /* DataSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataSource.swift; sourceTree = "<group>"; };
 		DCA4B188AFA3350AE1C4604E /* LoanSettingsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoanSettingsSheet.swift; sourceTree = "<group>"; };
 		DEA94E1C0A6307106C6B8EAB /* Florin.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Florin.entitlements; sourceTree = "<group>"; };
@@ -296,6 +298,7 @@
 				ED3157EAC79D41E85F3DF2EC /* SettingsScreen.swift */,
 				CF76048AF929B992877341B9 /* SyncLogScreen.swift */,
 				CDF4A709768A421F61F9223E /* TransactionDetailSheet.swift */,
+				DACD180DD215EA3B81655A72 /* WalletGuideSheet.swift */,
 			);
 			path = Screens;
 			sourceTree = "<group>";
@@ -726,6 +729,7 @@
 				3342203CA12166B860659D6E /* TransactionDetailSheet.swift in Sources */,
 				1A857813EE96447B68DBA4E0 /* TransactionMenu.swift in Sources */,
 				CB6B4BA1CA00858BDDDA07A8 /* TrueDate.swift in Sources */,
+				833382220CDAC9A9C278D1CF /* WalletGuideSheet.swift in Sources */,
 				D5D6AB1AB9D03C62B8A127F6 /* WebContainer.swift in Sources */,
 				899EA5BAEDF756101D5425F6 /* WidgetSnapshot.swift in Sources */,
 			);
