@@ -43,13 +43,10 @@ struct Overview: Decodable, Sendable {
     }
 
     /// BCP-47 tag for the formatters; the server sends the short app locale.
-    var localeTag: String {
-        switch locale {
-        case "fr": return "fr-FR"
-        case "nl": return "nl-NL"
-        default: return "en-US"
-        }
-    }
+    /// The same table as the rest of the app: a switch of its own here knew
+    /// only French and Dutch, so Italian, Spanish, Catalan, German and
+    /// Portuguese read their months in English and their amounts the American way.
+    var localeTag: String { Strings.tag(for: locale) }
 }
 
 struct NetWorth: Decodable, Sendable {

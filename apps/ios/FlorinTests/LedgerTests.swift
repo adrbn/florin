@@ -1032,3 +1032,23 @@ struct DemoLedgerTests {
         #expect(!LocalDemo.isActive(in: store))
     }
 }
+
+// MARK: - Month names
+
+@Suite("Month names")
+struct MonthNameTests {
+    /*
+     * The plan's month reads in the app's language. The overview's locale tag
+     * once knew only French and Dutch, so every other language got English
+     * months — "September 2026" on a Catalan screen.
+     */
+    @Test("September, in every language the app ships", arguments: [
+        ("fr", "septembre"), ("en", "September"), ("nl", "september"),
+        ("it", "settembre"), ("es", "septiembre"), ("ca", "setembre"),
+        ("de", "September"), ("pt", "setembro"),
+    ])
+    func september(_ language: String, _ expected: String) {
+        let label = MonthLabel.long("2026-09", locale: Strings.tag(for: language))
+        #expect(label.lowercased().contains(expected.lowercased()), "\(language): \(label)")
+    }
+}
