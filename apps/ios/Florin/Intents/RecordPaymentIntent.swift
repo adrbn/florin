@@ -51,10 +51,16 @@ struct RecordPaymentIntent: AppIntent {
             card: card,
             accountId: account?.id
         )
+        // The name the merchant was given in Florin, when it has one.
         let name = PayeeText.humanize(recorded.payee)
-        let figure = Money.string(-recorded.amount, locale: Strings.device.localeTag, currency: "EUR")
-        let summary = "\(name) \(figure) · \(recorded.accountName)"
-        await Self.notify(summary)
+        // A payment, so no minus sign: the sentence already says which way.
+        let figure = Money.string(abs(recorded.amount), locale: Strings.device.localeTag, currency: "EUR")
+        await Self.notify(
+            title: Strings.device("v2.wallet.notifyTitle", "Paiement ajouté"),
+            body: figure
+        )
+        let summary = Strings.device("v2.wallet.dialog", "{merchant} : {amount} à venir",
+                                     ["merchant": name, "amount": figure])
         return .result(value: summary, dialog: IntentDialog(stringLiteral: summary))
     }
 
@@ -67,12 +73,20 @@ struct RecordPaymentIntent: AppIntent {
      * switched off. Without permission nothing is posted — the action still
      * returns the same line for the shortcut to show.
      */
-    private static func notify(_ summary: String) async {
+    /*
+     * Two words and a figure.
+     *
+     * The first version titled it "Paiement ajouté aux opérations à venir",
+     * which a banner truncates, and put the merchant, a signed amount and the
+     * account on one line joined by a middle dot. Someone who has just paid
+     * knows where; what the banner confirms is that Florin has it, and how much.
+     */
+    private static func notify(title: String, body: String) async {
         let centre = UNUserNotificationCenter.current()
         guard await centre.notificationSettings().authorizationStatus == .authorized else { return }
         let content = UNMutableNotificationContent()
-        content.title = Strings.device("v2.wallet.notifyTitle", "Paiement ajouté aux opérations à venir")
-        content.body = summary
+        content.title = title
+        content.body = body
         content.sound = nil
         try? await centre.add(
             UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
