@@ -1143,11 +1143,14 @@ struct WalletPaymentTests {
     /*
      * Three shops in one afternoon, in the order they were paid.
      *
-     * Recorded at midnight they all tied on `occurred_at`, and the list broke
-     * the tie on random identifiers: the "en prévision" group came out
-     * shuffled, the shop of an hour ago under one from the morning.
+     * They tied on `occurred_at` — a payment used to be recorded at midnight —
+     * and the list broke the tie on random identifiers, so the "en prévision"
+     * group came out shuffled. The row typed in by hand made it worse: filed
+     * at noon, it outranked every tap of the day on a timestamp comparison.
+     * The day and then the moment Florin learned of the row is the order the
+     * card's own list of payments has.
      */
-    @Test("payments made the same day are listed newest first")
+    @Test("the same day's payments are listed as the card lists them")
     func sameDayOrder() throws {
         let (store, checking, _) = try ledger()
         for (hour, merchant) in [(9, "Le Comptoir"), (13, "Grande Epicerie"), (19, "Chez Rosa")] {
@@ -1155,9 +1158,21 @@ struct WalletPaymentTests {
                 store: store, amountText: "4,10", merchant: merchant,
                 card: nil, accountId: checking, on: at(hour)
             )
+            // Three taps are minutes apart; three inserts in a test are not,
+            // and `created_at` counts in seconds.
+            try store.database.run(
+                "UPDATE transactions SET created_at = ? WHERE payee = ?",
+                [.text(String(format: "2026-09-11 %02d:30:00", hour)), .text(merchant)]
+            )
         }
+        // Typed in from the add sheet at midday, after the fact.
+        try LocalLedger.add(store: store, NewTransaction(
+            accountId: checking, amount: 12, payee: "Remboursement",
+            occurredAt: "2026-09-11T12:00:00Z", memo: nil, categoryId: nil, upcoming: true
+        ))
         let rows = try LocalQueries.readTransactions(store.database, limit: 10)
-        #expect(rows.map(\.payee) == ["Chez Rosa", "Grande Epicerie", "Le Comptoir"])
+        #expect(rows.map(\.payee)
+            == ["Remboursement", "Chez Rosa", "Grande Epicerie", "Le Comptoir"])
     }
 
     @Test("a payment arrives already filed when its merchant has a history")

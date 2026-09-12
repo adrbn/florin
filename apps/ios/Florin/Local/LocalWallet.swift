@@ -119,12 +119,12 @@ enum LocalWallet {
         /*
          * The hour of the tap, not midnight.
          *
-         * Every screen reads the day out of `substr(occurred_at, 1, 10)`, so
-         * the date has to stay the local one — hence the local wall clock
-         * under a Z rather than a true instant. The time is what tells apart
-         * three payments made on the same afternoon: stored at midnight they
-         * all tied, the list fell back to comparing random identifiers, and
-         * the shop visited an hour ago came out under yesterday evening's.
+         * Wallet knows when the card was presented, and a payment recorded at
+         * midnight throws that away. Every screen reads the day out of
+         * `substr(occurred_at, 1, 10)`, so the date stays the local one —
+         * hence the local wall clock under a Z rather than a true instant.
+         * Nothing sorts on the hour (`LocalQueries.readTransactions` explains
+         * why it cannot), but the ledger should not be made to forget it.
          */
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = .current

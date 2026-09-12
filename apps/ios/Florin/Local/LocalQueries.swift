@@ -528,11 +528,24 @@ enum LocalQueries {
             LEFT JOIN categories c ON c.id = t.category_id
             LEFT JOIN accounts a ON a.id = t.account_id
             WHERE t.deleted_at IS NULL
-            -- A bank books on a date, not at an hour, so a day's rows tie.
-            -- Broken by identifiers — random UUIDs — the tie was a shuffle:
-            -- the same afternoon's payments came out in no order at all. The
-            -- order Florin learned of them is the one real thing left.
-            ORDER BY t.occurred_at DESC, t.created_at DESC, t.id DESC
+            /*
+             * The day, then the moment Florin learned of the row.
+             *
+             * Sorting on the whole timestamp looked right and was not: a bank
+             * books on a date and sends midnight, a row typed by hand is filed
+             * at noon, a card payment carries the hour of the tap. Comparing
+             * those three against each other ranks the ledger by how each row
+             * arrived rather than by when the money moved — the refund typed
+             * in at four o'clock sat above the payment made at seven, and the
+             * same afternoon's purchases came out shuffled once the remaining
+             * tie fell to a comparison of random identifiers.
+             *
+             * Within a day, `created_at` is the one honest clock: for a card
+             * payment it is the tap, for a row typed in it is the typing, for
+             * a bank row it is the sync that brought it. Ordered by it, the
+             * list reads like the card's own list of payments.
+             */
+            ORDER BY substr(t.occurred_at, 1, 10) DESC, t.created_at DESC, t.id DESC
             LIMIT ? OFFSET ?
             """,
             [.integer(Int64(limit)), .integer(Int64(offset))]
