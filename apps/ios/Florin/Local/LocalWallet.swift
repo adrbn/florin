@@ -116,10 +116,25 @@ enum LocalWallet {
         let memo = card.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .flatMap { $0.isEmpty ? nil : "Apple Pay · \($0)" } ?? "Apple Pay"
 
+        /*
+         * The hour of the tap, not midnight.
+         *
+         * Every screen reads the day out of `substr(occurred_at, 1, 10)`, so
+         * the date has to stay the local one — hence the local wall clock
+         * under a Z rather than a true instant. The time is what tells apart
+         * three payments made on the same afternoon: stored at midnight they
+         * all tied, the list fell back to comparing random identifiers, and
+         * the shop visited an hour ago came out under yesterday evening's.
+         */
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = .current
-        let parts = calendar.dateComponents([.year, .month, .day], from: day)
-        let occurred = String(format: "%04d-%02d-%02dT00:00:00Z", parts.year!, parts.month!, parts.day!)
+        let parts = calendar.dateComponents(
+            [.year, .month, .day, .hour, .minute, .second], from: day
+        )
+        let occurred = String(
+            format: "%04d-%02d-%02dT%02d:%02d:%02dZ",
+            parts.year!, parts.month!, parts.day!, parts.hour!, parts.minute!, parts.second!
+        )
 
         try insertUpcoming(
             store: store, accountId: account.id, occurredAt: occurred,

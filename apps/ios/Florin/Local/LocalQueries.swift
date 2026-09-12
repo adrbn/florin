@@ -528,7 +528,11 @@ enum LocalQueries {
             LEFT JOIN categories c ON c.id = t.category_id
             LEFT JOIN accounts a ON a.id = t.account_id
             WHERE t.deleted_at IS NULL
-            ORDER BY t.occurred_at DESC, t.id DESC
+            -- A bank books on a date, not at an hour, so a day's rows tie.
+            -- Broken by identifiers — random UUIDs — the tie was a shuffle:
+            -- the same afternoon's payments came out in no order at all. The
+            -- order Florin learned of them is the one real thing left.
+            ORDER BY t.occurred_at DESC, t.created_at DESC, t.id DESC
             LIMIT ? OFFSET ?
             """,
             [.integer(Int64(limit)), .integer(Int64(offset))]

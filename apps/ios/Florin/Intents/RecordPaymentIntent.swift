@@ -57,7 +57,7 @@ struct RecordPaymentIntent: AppIntent {
         let figure = Money.string(abs(recorded.amount), locale: Strings.device.localeTag, currency: "EUR")
         await Self.notify(
             title: Strings.device("v2.wallet.notifyTitle", "Paiement ajouté"),
-            body: figure
+            body: "\(figure) — \(name)"
         )
         let summary = Strings.device("v2.wallet.dialog", "{merchant} : {amount} à venir",
                                      ["merchant": name, "amount": figure])
@@ -74,12 +74,14 @@ struct RecordPaymentIntent: AppIntent {
      * returns the same line for the shortcut to show.
      */
     /*
-     * Two words and a figure.
+     * Two words, a figure and the shop.
      *
      * The first version titled it "Paiement ajouté aux opérations à venir",
      * which a banner truncates, and put the merchant, a signed amount and the
-     * account on one line joined by a middle dot. Someone who has just paid
-     * knows where; what the banner confirms is that Florin has it, and how much.
+     * account on one line joined by a middle dot. What is left is the amount
+     * and the merchant under the name it has in Florin — the renamed one when
+     * it has been renamed, so the banner says "Le Comptoir" where the terminal
+     * said "SARL LE COMPTOIR 1234". No sign: a payment only goes one way.
      */
     private static func notify(title: String, body: String) async {
         let centre = UNUserNotificationCenter.current()

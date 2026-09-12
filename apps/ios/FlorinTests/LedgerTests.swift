@@ -1078,6 +1078,15 @@ struct WalletPaymentTests {
         return calendar.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2]))!
     }
 
+    /// The same day at a given hour, local time — what a card tap carries.
+    private func at(_ hour: Int) -> Date {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        return calendar.date(
+            from: DateComponents(year: 2026, month: 9, day: 11, hour: hour, minute: 30)
+        )!
+    }
+
     private func bankRow(_ store: LocalStore, _ account: String, _ iso: String, _ amount: Double) throws -> String {
         let id = UUID().uuidString
         try store.database.run(
@@ -1129,6 +1138,26 @@ struct WalletPaymentTests {
         #expect(try store.database.scalar(
             "SELECT count(*) FROM transactions WHERE deleted_at IS NULL"
         )?.int == 1)
+    }
+
+    /*
+     * Three shops in one afternoon, in the order they were paid.
+     *
+     * Recorded at midnight they all tied on `occurred_at`, and the list broke
+     * the tie on random identifiers: the "en prévision" group came out
+     * shuffled, the shop of an hour ago under one from the morning.
+     */
+    @Test("payments made the same day are listed newest first")
+    func sameDayOrder() throws {
+        let (store, checking, _) = try ledger()
+        for (hour, merchant) in [(9, "Le Comptoir"), (13, "Grande Epicerie"), (19, "Chez Rosa")] {
+            try LocalWallet.record(
+                store: store, amountText: "4,10", merchant: merchant,
+                card: nil, accountId: checking, on: at(hour)
+            )
+        }
+        let rows = try LocalQueries.readTransactions(store.database, limit: 10)
+        #expect(rows.map(\.payee) == ["Chez Rosa", "Grande Epicerie", "Le Comptoir"])
     }
 
     @Test("a payment arrives already filed when its merchant has a history")
