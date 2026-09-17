@@ -68,6 +68,7 @@ Nothing to sign up for, anywhere. Want to look around first? The iPhone app has 
 | PSD2 bank sync through your own Enable Banking app | ✅ | ✅ | ✅ |
 | CSV / OFX import that reads real French, German and English exports | ✅ | ✅ | ✅ |
 | Manual entry and transfers between your own accounts | ✅ | ✅ | ✅ |
+| Apple Pay payments listed as upcoming the moment you pay, then replaced by the bank's row | ✅ | — | — |
 | YNAB-style spreadsheet import | — | — | ✅ |
 | **Wealth** | | | |
 | Loans on a real amortisation schedule | ✅ | ✅ | ✅ |
@@ -78,7 +79,7 @@ Nothing to sign up for, anywhere. Want to look around first? The iPhone app has 
 | Hide every amount in one gesture | ✅ | ✅ | ✅ |
 | Face ID / PIN lock | ✅ | ✅ | — |
 | Home-screen widget / menu-bar widget | ✅ | ✅ | — |
-| One morning notification, never one per transaction | ✅ | — | — |
+| One morning summary; a payment banner only if you set up the Apple Pay automation | ✅ | — | — |
 | Languages | 8 | 3 | 3 |
 
 iPhone: English, French, German, Dutch, Italian, Spanish, Portuguese, Catalan. Mac and web: English, French, Dutch.
