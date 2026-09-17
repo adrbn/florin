@@ -4,6 +4,13 @@ on:
   push:
     tags:
       - 'Florin-v*'
+  # Rebuilds the Mac app for a tag that already exists — when only that job
+  # failed, a new version number would be churn.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to rebuild the Mac app for, e.g. Florin-v1.3.6'
+        required: true
 
 permissions:
   contents: write
@@ -17,6 +24,8 @@ jobs:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -40,9 +49,11 @@ jobs:
         #
         # The open-file limit is raised first: with asar off, signing opens
         # every file in node_modules at once, and since lucide-react ships one
-        # module per icon the runner's default of 256 ran out mid-signature.
+        # module per icon neither 256 nor 65536 was enough; the kernel's
+        # per-process ceiling has to move with it.
         run: |
-          ulimit -n 65536 || ulimit -n "$(ulimit -Hn)"
+          sudo sysctl -w kern.maxfiles=1048576 kern.maxfilesperproc=1048576
+          ulimit -n 1048576 || ulimit -n 65536
           ulimit -n
           cd apps/desktop
           pnpm exec electron-builder --mac --publish never \
@@ -59,6 +70,7 @@ jobs:
         # electron-updater reads to detect and download in-place updates.
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
           files: |
             apps/desktop/dist/*.dmg
             apps/desktop/dist/*.zip
@@ -66,6 +78,7 @@ jobs:
             apps/desktop/dist/latest-mac.yml
 
   build-ios:
+    if: github.event_name == 'push'
     # Xcode 26 or newer: the app compiles against the iOS 26 SDK for the glass
     # material, behind #available so it still runs on the 17.4 floor. An older
     # image fails at the first `glassEffect` rather than at configuration time,
@@ -111,6 +124,7 @@ jobs:
           files: Florin-*-unsigned.ipa
 
   attach-server:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
