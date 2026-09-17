@@ -799,7 +799,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.3.5;
+				MARKETING_VERSION = 1.3.6;
 				PRODUCT_BUNDLE_IDENTIFIER = com.adrbn.florin;
 				PRODUCT_NAME = Florin;
 				SDKROOT = iphoneos;
@@ -820,7 +820,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.3.5;
+				MARKETING_VERSION = 1.3.6;
 				PRODUCT_BUNDLE_IDENTIFIER = com.adrbn.florin.widgets;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -925,7 +925,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.3.5;
+				MARKETING_VERSION = 1.3.6;
 				PRODUCT_BUNDLE_IDENTIFIER = com.adrbn.florin.widgets;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -1008,7 +1008,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.3.5;
+				MARKETING_VERSION = 1.3.6;
 				PRODUCT_BUNDLE_IDENTIFIER = com.adrbn.florin;
 				PRODUCT_NAME = Florin;
 				SDKROOT = iphoneos;

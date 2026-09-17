@@ -102,7 +102,7 @@ targets:
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: Florin/Info.plist
         CURRENT_PROJECT_VERSION: 422
-        MARKETING_VERSION: "1.3.5"
+        MARKETING_VERSION: "1.3.6"
     dependencies:
       - target: FlorinWidgets
         embed: true
@@ -163,5 +163,5 @@ targets:
         APPLICATION_EXTENSION_API_ONLY: YES
         SKIP_INSTALL: YES
         CURRENT_PROJECT_VERSION: 422
-        MARKETING_VERSION: "1.3.5"
+        MARKETING_VERSION: "1.3.6"
         INFOPLIST_KEY_CFBundleDisplayName: Florin
