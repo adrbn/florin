@@ -611,12 +611,24 @@ enum BankingSync {
         let needle = LocalLedger.normalize(transaction.counterparty)
         let candidates = try store.database.query(
             """
-            SELECT id, normalized_payee,
+            SELECT id, normalized_payee, source,
                    abs(julianday(substr(occurred_at, 1, 10)) - julianday(?)) AS drift
             FROM transactions
             WHERE account_id = ? AND deleted_at IS NULL
               AND abs(julianday(substr(occurred_at, 1, 10)) - julianday(?)) <= 1
               AND abs(amount - ?) < 0.005
+              /*
+               * Except a card payment recorded at the till.
+               *
+               * Taken here, it was matched on day and amount alone, before
+               * `LocalWallet.settle` could weigh the merchant: of two card
+               * debits of one amount on one day, the first to arrive took the tap
+               * and its name, so a lunch was listed under the bakery
+               * paid that morning and the bakery came in again beside it.
+               * The row also kept `scheduled`, and read "Prévu" for good.
+               * Taps are settled after the sync, where the name counts.
+               */
+              AND source <> 'ios_shortcut'
               /*
                * A settled bank row is no longer off limits either.
                *
@@ -644,6 +656,20 @@ enum BankingSync {
 
         let match = candidates.first { row in
             guard let id = row.string("id"), !adopted.contains(id) else { return false }
+            /*
+             * Another bank row has to carry the same name, even on the day.
+             *
+             * Day and amount alone let a 12-euro card purchase take the place
+             * of a direct debit of 12 euros announced for that date: the
+             * purchase got the debit's name, and the booked debit came in
+             * beside it as an apparent duplicate. A renumbered row or an
+             * announcement turning into a booking still names its merchant.
+             */
+            if row.string("source") == "enable_banking",
+               !LocalLedger.namesAgree(transaction.counterparty, row.string("normalized_payee") ?? "",
+                                       whenUnsure: true) {
+                return false
+            }
             if (row.double("drift") ?? 1) < 0.5 { return true }
             guard !needle.isEmpty, let payee = row.string("normalized_payee"), !payee.isEmpty
             else { return false }
@@ -666,7 +692,7 @@ enum BankingSync {
                 """
                 UPDATE transactions
                 SET source = 'enable_banking', external_id = ?, is_pending = ?,
-                    occurred_at = ?, amount = ?,
+                    occurred_at = ?, amount = ?, status = 'cleared',
                     needs_review = CASE
                         WHEN is_pending = 1 AND ? = 0 THEN 1
                         ELSE needs_review
@@ -820,6 +846,45 @@ extension BankingSync {
             )
         }
         return ghosts.count
+    }
+
+    /*
+     * Bank rows that took another row's name.
+     *
+     * Before adoption weighed names, a card purchase could settle onto an
+     * announced direct debit of the same amount and day, and keep the debit's
+     * name, note and category. The key it was given still ends with the
+     * bank's own label, so where that label names another merchant the row is
+     * put back under it and asked about again. Only while payee and note still
+     * hold the same bank text: a renamed payee or a note written since is the
+     * owner's word, and a tap's note ("Apple Pay") never named the merchant.
+     */
+    @discardableResult
+    static func restoreBankLabels(store: LocalStore) throws -> Int {
+        let rows = try store.database.query(
+            """
+            SELECT id, external_id, memo FROM transactions
+            WHERE source = 'enable_banking' AND deleted_at IS NULL
+              AND memo IS NOT NULL AND memo <> '' AND payee = memo
+            """
+        )
+        var restored = 0
+        for row in rows {
+            guard let id = row.string("id"), let memo = row.string("memo"),
+                  let label = LocalWallet.bankLabel(inKey: row.string("external_id") ?? ""),
+                  !LocalLedger.namesAgree(label, memo, whenUnsure: true) else { continue }
+            try store.database.run(
+                """
+                UPDATE transactions
+                SET payee = ?, normalized_payee = ?, memo = ?, category_id = NULL,
+                    needs_review = 1, updated_at = datetime('now')
+                WHERE id = ?
+                """,
+                [.text(label), .text(LocalLedger.normalize(label)), .text(label), .text(id)]
+            )
+            restored += 1
+        }
+        return restored
     }
 
     /*

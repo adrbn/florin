@@ -19,7 +19,12 @@ enum LocalQueries {
 
         let accounts = try readAccounts(db)
         let categories = try readCategories(db)
-        let recent = try readTransactions(db, limit: 12)
+        // The twelve latest, then whatever is still waiting further down —
+        // every row of the second list ranks after all of the first, so the
+        // two end to end keep the order.
+        let latest = try readTransactions(db, limit: 12)
+        let shown = Set(latest.map(\.id))
+        let recent = latest + (try readWaiting(db)).filter { !shown.contains($0.id) }
 
         let gross = accounts
             .filter { $0.isIncludedInNetWorth && !$0.isLoan }
@@ -513,8 +518,61 @@ enum LocalQueries {
 
     // MARK: - Transactions
 
+    /*
+     * The day, then the moment Florin learned of the row.
+     *
+     * Sorting on the whole timestamp looked right and was not: a bank books
+     * on a date and sends midnight, a row typed by hand is filed at noon, a
+     * card payment carries the hour of the tap. Comparing those three against
+     * each other ranks the ledger by how each row arrived rather than by when
+     * the money moved — the refund typed in at four o'clock sat above the
+     * payment made at seven, and the same afternoon's purchases came out
+     * shuffled once the remaining tie fell to a comparison of random
+     * identifiers.
+     *
+     * Within a day, `created_at` is the one honest clock: for a card payment
+     * it is the tap, for a row typed in it is the typing, for a bank row it is
+     * the sync that brought it. Ordered by it, the list reads like the card's
+     * own list of payments. Aperçu and Activité share it — the first fix went
+     * into one of them only.
+     */
+    static let newestFirst = "substr(t.occurred_at, 1, 10) DESC, t.created_at DESC, t.id DESC"
+
     static func readTransactions(
         _ db: SQLiteDatabase,
+        limit: Int,
+        offset: Int = 0
+    ) throws -> [Transaction] {
+        try readTransactions(db, where: "1", limit: limit, offset: offset)
+    }
+
+    /*
+     * Everything waiting, not only what is among the latest rows.
+     *
+     * Aperçu built its "en prévision" and "à vérifier" groups out of the
+     * twelve most recent operations. The caption counted the whole queue
+     * while the group held only the rows that happened to be recent, and its
+     * total added up those few. Past twelve, Activité and Aperçu
+     * disagreed about the same queue.
+     *
+     * Capped all the same: a first import can leave a thousand rows to check,
+     * and the caption keeps counting them.
+     */
+    static func readWaiting(_ db: SQLiteDatabase, limit: Int = 200) throws -> [Transaction] {
+        try readTransactions(
+            db,
+            where: """
+                t.is_pending = 1
+                OR substr(t.occurred_at, 1, 10) > date('now')
+                OR (t.needs_review = 1 AND substr(t.occurred_at, 1, 10) <= date('now'))
+                """,
+            limit: limit
+        )
+    }
+
+    private static func readTransactions(
+        _ db: SQLiteDatabase,
+        where filter: String,
         limit: Int,
         offset: Int = 0
     ) throws -> [Transaction] {
@@ -527,25 +585,8 @@ enum LocalQueries {
             FROM transactions t
             LEFT JOIN categories c ON c.id = t.category_id
             LEFT JOIN accounts a ON a.id = t.account_id
-            WHERE t.deleted_at IS NULL
-            /*
-             * The day, then the moment Florin learned of the row.
-             *
-             * Sorting on the whole timestamp looked right and was not: a bank
-             * books on a date and sends midnight, a row typed by hand is filed
-             * at noon, a card payment carries the hour of the tap. Comparing
-             * those three against each other ranks the ledger by how each row
-             * arrived rather than by when the money moved — the refund typed
-             * in at four o'clock sat above the payment made at seven, and the
-             * same afternoon's purchases came out shuffled once the remaining
-             * tie fell to a comparison of random identifiers.
-             *
-             * Within a day, `created_at` is the one honest clock: for a card
-             * payment it is the tap, for a row typed in it is the typing, for
-             * a bank row it is the sync that brought it. Ordered by it, the
-             * list reads like the card's own list of payments.
-             */
-            ORDER BY substr(t.occurred_at, 1, 10) DESC, t.created_at DESC, t.id DESC
+            WHERE t.deleted_at IS NULL AND (\(filter))
+            ORDER BY \(newestFirst)
             LIMIT ? OFFSET ?
             """,
             [.integer(Int64(limit)), .integer(Int64(offset))]

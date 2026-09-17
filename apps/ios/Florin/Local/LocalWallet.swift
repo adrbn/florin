@@ -199,11 +199,25 @@ enum LocalWallet {
      * If the payment was filed while it waited and the bank's row was not, the
      * category moves across: it is the same purchase.
      */
+    /*
+     * The merchant first, then the date.
+     *
+     * Day and amount alone cannot tell apart two card debits of the same
+     * amount on the same day — a lunch and a bakery bill — and
+     * whichever came first took the tap. So the taps are matched in two passes: first only to a bank
+     * row whose label names the same shop, then, for the taps left over, to
+     * the nearest row of that amount as before. A label rarely carries the
+     * name Wallet shows, so the second pass is still most of the work; the
+     * first is what stops it guessing wrong when it has a choice.
+     *
+     * A bank row still pending is enough: the tap is the same announcement,
+     * and keeping both would list the payment twice under "en prévision".
+     */
     @discardableResult
     static func settle(store: LocalStore) throws -> Int {
         let pending = try store.database.query(
             """
-            SELECT id, account_id, amount, substr(occurred_at, 1, 10) AS day, category_id
+            SELECT id, account_id, amount, payee, substr(occurred_at, 1, 10) AS day, category_id
             FROM transactions
             WHERE source = ? AND deleted_at IS NULL
             ORDER BY occurred_at
@@ -211,46 +225,111 @@ enum LocalWallet {
             [.text(source)]
         )
         var claimed = Set<String>()
+        var done = Set<String>()
         var settled = 0
-        for row in pending {
-            guard let id = row.string("id"), let account = row.string("account_id"),
-                  let amount = row.double("amount"), let day = row.string("day") else { continue }
-            let candidates = try store.database.query(
-                """
-                SELECT id, category_id FROM transactions
-                WHERE account_id = ? AND deleted_at IS NULL
-                  AND source <> ? AND is_pending = 0 AND status = 'cleared'
-                  AND abs(amount - ?) < 0.005
-                  AND julianday(substr(occurred_at, 1, 10)) BETWEEN julianday(?) AND julianday(?) + 7
-                ORDER BY abs(julianday(substr(occurred_at, 1, 10)) - julianday(?))
-                """,
-                [.text(account), .text(source), .real(amount), .text(day), .text(day), .text(day)]
-            )
-            guard let match = candidates.first(where: {
-                guard let candidate = $0.string("id") else { return false }
-                return !claimed.contains(candidate) && !isAlreadySettling(store, candidate)
-            }), let bankId = match.string("id") else { continue }
-            claimed.insert(bankId)
-
-            if match.string("category_id") == nil, let category = row.string("category_id") {
-                try store.database.run(
-                    "UPDATE transactions SET category_id = ?, updated_at = datetime('now') WHERE id = ?",
-                    [.text(category), .text(bankId)]
+        for byName in [true, false] {
+            for row in pending {
+                guard let id = row.string("id"), !done.contains(id),
+                      let account = row.string("account_id"),
+                      let amount = row.double("amount"), let day = row.string("day") else { continue }
+                let candidates = try store.database.query(
+                    """
+                    SELECT id, category_id, normalized_payee FROM transactions
+                    WHERE account_id = ? AND deleted_at IS NULL
+                      AND source <> ? AND status = 'cleared'
+                      AND abs(amount - ?) < 0.005
+                      AND julianday(substr(occurred_at, 1, 10)) BETWEEN julianday(?) AND julianday(?) + 7
+                    ORDER BY abs(julianday(substr(occurred_at, 1, 10)) - julianday(?))
+                    """,
+                    [.text(account), .text(source), .real(amount), .text(day), .text(day), .text(day)]
                 )
+                let tap = row.string("payee") ?? ""
+                guard let match = candidates.first(where: {
+                    guard let candidate = $0.string("id") else { return false }
+                    return !claimed.contains(candidate) && !isAlreadySettling(store, candidate)
+                        && (!byName || namesAgree(tap, $0.string("normalized_payee") ?? ""))
+                }), let bankId = match.string("id") else { continue }
+                claimed.insert(bankId)
+                done.insert(id)
+
+                if match.string("category_id") == nil, let category = row.string("category_id") {
+                    try store.database.run(
+                        "UPDATE transactions SET category_id = ?, updated_at = datetime('now') WHERE id = ?",
+                        [.text(category), .text(bankId)]
+                    )
+                }
+                // The link stays on the retired payment, so this bank row is never
+                // offered to a second one on a later sync.
+                try store.database.run(
+                    """
+                    UPDATE transactions
+                    SET deleted_at = datetime('now'), merge_suggested_tx_id = ?
+                    WHERE id = ?
+                    """,
+                    [.text(bankId), .text(id)]
+                )
+                settled += 1
             }
-            // The link stays on the retired payment, so this bank row is never
-            // offered to a second one on a later sync.
-            try store.database.run(
-                """
-                UPDATE transactions
-                SET deleted_at = datetime('now'), merge_suggested_tx_id = ?
-                WHERE id = ?
-                """,
-                [.text(bankId), .text(id)]
-            )
-            settled += 1
         }
         return settled
+    }
+
+    /// Whether a bank label names the shop Wallet named: a word of four
+    /// letters or more in common. "Le Comptoir" is in "ACHAT CB SARL LE
+    /// COMPTOIR"; it is not in "ACHAT CB CHEZ ROSA".
+    static func namesAgree(_ tap: String, _ label: String) -> Bool {
+        LocalLedger.namesAgree(tap, label, whenUnsure: false)
+    }
+
+    /*
+     * Card payments a bank sync took for its own rows.
+     *
+     * Until the sync learnt to leave taps to `settle`, it adopted them: the
+     * bank's key moved onto the tap, which kept the name Wallet gave it and
+     * the `scheduled` status — so a booked debit read "Prévu" for good, and
+     * where two debits shared an amount the name could land on the wrong one.
+     * Such a row is put back as `settle` would have left it: cleared, under
+     * the bank's own label, which the key still carries when the bank gave no
+     * stable reference ("<account>:<date>:<amount>:<label>").
+     */
+    @discardableResult
+    static func repairAdopted(store: LocalStore) throws -> Int {
+        let rows = try store.database.query(
+            """
+            SELECT id, external_id FROM transactions
+            WHERE source = 'enable_banking' AND status = 'scheduled'
+              AND is_pending = 0 AND deleted_at IS NULL
+            """
+        )
+        for row in rows {
+            guard let id = row.string("id") else { continue }
+            if let label = bankLabel(inKey: row.string("external_id") ?? "") {
+                try store.database.run(
+                    """
+                    UPDATE transactions
+                    SET status = 'cleared', payee = ?, normalized_payee = ?, updated_at = datetime('now')
+                    WHERE id = ?
+                    """,
+                    [.text(label), .text(LocalLedger.normalize(label)), .text(id)]
+                )
+            } else {
+                try store.database.run(
+                    "UPDATE transactions SET status = 'cleared', updated_at = datetime('now') WHERE id = ?",
+                    [.text(id)]
+                )
+            }
+        }
+        return rows.count
+    }
+
+    /// The label at the end of a reference-less bank key, if that is its shape.
+    static func bankLabel(inKey key: String) -> String? {
+        let pattern = #"^[^:]+:\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z:-?[0-9.]+:(.+)$"#
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let hit = regex.firstMatch(in: key, range: NSRange(key.startIndex..., in: key)),
+              let range = Range(hit.range(at: 1), in: key) else { return nil }
+        let label = key[range].trimmingCharacters(in: .whitespaces)
+        return label.isEmpty ? nil : label
     }
 
     /// A bank row that already replaced an earlier payment is not free to

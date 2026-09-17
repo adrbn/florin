@@ -1087,18 +1087,132 @@ struct WalletPaymentTests {
         )!
     }
 
-    private func bankRow(_ store: LocalStore, _ account: String, _ iso: String, _ amount: Double) throws -> String {
+    private func bankRow(
+        _ store: LocalStore, _ account: String, _ iso: String, _ amount: Double,
+        label: String = "ACHAT CB SARL LE COMPTOIR"
+    ) throws -> String {
         let id = UUID().uuidString
         try store.database.run(
             """
             INSERT INTO transactions (id, account_id, occurred_at, amount, payee, normalized_payee,
                 source, status, is_pending)
-            VALUES (?, ?, ?, ?, 'ACHAT CB SARL LE COMPTOIR', 'achat cb sarl le comptoir',
-                'enable_banking', 'cleared', 0)
+            VALUES (?, ?, ?, ?, ?, ?, 'enable_banking', 'cleared', 0)
             """,
-            [.text(id), .text(account), .text("\(iso)T00:00:00Z"), .real(amount)]
+            [.text(id), .text(account), .text("\(iso)T00:00:00Z"), .real(amount),
+             .text(label), .text(LocalLedger.normalize(label))]
         )
         return id
+    }
+
+    /*
+     * Two debits of one amount on one day, one tap: the name decides.
+     *
+     * The bank row that does not name the shop arrives first, and on day and
+     * amount alone it took the tap — the tap's name ended up on the wrong
+     * purchase, and the right one was listed again beside it.
+     */
+    @Test("a tap is settled by the bank row that names its shop, not the first of that amount")
+    func settledByName() throws {
+        let (store, checking, _) = try ledger()
+        try LocalWallet.record(
+            store: store, amountText: "14,00", merchant: "Le Comptoir",
+            card: nil, accountId: checking, on: day("2026-09-13")
+        )
+        let other = try bankRow(store, checking, "2026-09-13", -14, label: "ACHAT CB CHEZ ROSA 13.09.26")
+        let named = try bankRow(store, checking, "2026-09-13", -14, label: "ACHAT CB SARL LE COMPTOIR 13.09.26")
+
+        #expect(try LocalWallet.settle(store: store) == 1)
+        let link = try store.database.scalar(
+            "SELECT merge_suggested_tx_id FROM transactions WHERE source = ?", [.text(LocalWallet.source)]
+        )?.string
+        #expect(link == named)
+        #expect(link != other)
+    }
+
+    /*
+     * A tap an earlier sync adopted is put back as settling would have left
+     * it: booked, under the bank's own label.
+     */
+    @Test("a card payment adopted by an earlier sync reads as the bank's booked row")
+    func repairsAdopted() throws {
+        let (store, checking, _) = try ledger()
+        let id = UUID().uuidString
+        try store.database.run(
+            """
+            INSERT INTO transactions (id, account_id, occurred_at, amount, payee, normalized_payee,
+                source, external_id, status, is_pending)
+            VALUES (?, ?, '2026-09-13T00:00:00Z', -14, 'Le Comptoir', 'le comptoir',
+                'enable_banking', ?, 'scheduled', 0)
+            """,
+            [.text(id), .text(checking),
+             .text("acct-1:2026-09-13T00:00:00Z:-14.0:ACHAT CB CHEZ ROSA 13.09.26")]
+        )
+        #expect(try LocalWallet.repairAdopted(store: store) == 1)
+        let row = try #require(try store.database.query(
+            "SELECT status, payee FROM transactions WHERE id = ?", [.text(id)]
+        ).first)
+        #expect(row.string("status") == "cleared")
+        #expect(row.string("payee") == "ACHAT CB CHEZ ROSA 13.09.26")
+        #expect(LocalWallet.bankLabel(inKey: "acct-1:some-stable-reference") == nil)
+    }
+
+    /*
+     * A direct debit and a card purchase of one amount on one day are two
+     * merchants; the bank's boilerplate is not a name they share.
+     */
+    @Test("names agree on a merchant word, not on bank boilerplate")
+    func namesAgreeOnMerchant() {
+        #expect(LocalLedger.namesAgree("PREL DE SARL LE COMPTOIR ADHESION", "PRELEVEMENT DE SARL LE COMPTOIR", whenUnsure: false))
+        #expect(!LocalLedger.namesAgree("PREL DE SARL LE COMPTOIR ADHESION", "ACHAT CB CHEZ ROSA 07.09.26 CARTE", whenUnsure: true))
+        #expect(!LocalLedger.namesAgree("ACHAT CB CHEZ ROSA", "ACHAT CB LE COMPTOIR", whenUnsure: true))
+        #expect(LocalLedger.namesAgree("CB 07.09.26", "ACHAT CB CHEZ ROSA", whenUnsure: true))
+        #expect(!LocalLedger.namesAgree("CB 07.09.26", "ACHAT CB CHEZ ROSA", whenUnsure: false))
+    }
+
+    @Test("a bank row that took another merchant's name gets its own back")
+    func restoresBankLabel() throws {
+        let (store, checking, _) = try ledger()
+        let taken = UUID().uuidString
+        let renamed = UUID().uuidString
+        let key = "acct-1:2026-09-07T00:00:00Z:-12.0:ACHAT CB CHEZ ROSA 07.09.26"
+        for (id, payee) in [(taken, "PREL DE SARL LE COMPTOIR ADHESION"), (renamed, "Rosa")] {
+            try store.database.run(
+                """
+                INSERT INTO transactions (id, account_id, occurred_at, amount, payee, normalized_payee,
+                    memo, source, external_id, status, is_pending, needs_review)
+                VALUES (?, ?, '2026-09-07T00:00:00Z', -12, ?, ?, 'PREL DE SARL LE COMPTOIR ADHESION',
+                    'enable_banking', ?, 'cleared', 0, 0)
+                """,
+                [.text(id), .text(checking), .text(payee), .text(LocalLedger.normalize(payee)),
+                 .text(id == taken ? key : key + " ")]
+            )
+        }
+        #expect(try BankingSync.restoreBankLabels(store: store) == 1)
+        let row = try #require(try store.database.query(
+            "SELECT payee, memo, needs_review FROM transactions WHERE id = ?", [.text(taken)]
+        ).first)
+        #expect(row.string("payee") == "ACHAT CB CHEZ ROSA 07.09.26")
+        #expect(row.string("memo") == "ACHAT CB CHEZ ROSA 07.09.26")
+        #expect(row.int("needs_review") == 1)
+        #expect(try store.database.scalar("SELECT payee FROM transactions WHERE id = ?", [.text(renamed)]) == .text("Rosa"))
+        #expect(try BankingSync.restoreBankLabels(store: store) == 0)
+    }
+
+    /*
+     * Past the twelve latest rows, Aperçu still sees the whole queue — its
+     * groups were cut out of the latest twelve and disagreed with Activité.
+     */
+    @Test("rows waiting for review further down still reach the overview")
+    func waitingBeyondLatest() throws {
+        let (store, checking, _) = try ledger()
+        let old = try bankRow(store, checking, "2026-01-05", -3)
+        try store.database.run("UPDATE transactions SET needs_review = 1 WHERE id = ?", [.text(old)])
+        for n in 0..<15 {
+            let id = try bankRow(store, checking, String(format: "2026-09-%02d", n + 1), -1)
+            try store.database.run("UPDATE transactions SET needs_review = 0 WHERE id = ?", [.text(id)])
+        }
+        let recent = try LocalQueries.overview(store: store, locale: "fr").recent
+        #expect(recent.contains { $0.id == old })
     }
 
     /*

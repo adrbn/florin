@@ -259,6 +259,15 @@ extension LocalStore {
                 log.notice("dropped \(dropped, privacy: .public) settled duplicates")
             }
 
+            let renamed = try BankingSync.restoreBankLabels(store: store)
+            if renamed > 0 {
+                log.notice("restored \(renamed, privacy: .public) bank labels")
+            }
+
+            let unadopted = try LocalWallet.repairAdopted(store: store)
+            if unadopted > 0 {
+                log.notice("restored \(unadopted, privacy: .public) card payments a sync had adopted")
+            }
             _ = try LocalWallet.settle(store: store)
 
             let relabelled = try BankingSync.collapseRelabelledDuplicates(store: store)

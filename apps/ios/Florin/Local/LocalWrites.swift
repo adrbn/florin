@@ -82,7 +82,7 @@ enum LocalLedger {
             LEFT JOIN categories c ON c.id = t.category_id
             LEFT JOIN accounts a ON a.id = t.account_id
             WHERE \(whereClause)
-            ORDER BY t.occurred_at DESC, t.id DESC
+            ORDER BY \(LocalQueries.newestFirst)
             LIMIT ? OFFSET ?
             """,
             values + [.integer(Int64(limit)), .integer(Int64(offset))]
@@ -771,5 +771,33 @@ enum LocalLedger {
             .components(separatedBy: CharacterSet.alphanumerics.inverted)
             .filter { !$0.isEmpty }
             .joined(separator: " ")
+    }
+
+    /*
+     * Whether two labels could name the same merchant.
+     *
+     * They agree when they share a word of four letters or more that is
+     * neither a figure nor the bank's own boilerplate: "Le Comptoir" is in
+     * "ACHAT CB SARL LE COMPTOIR", and "PREL DE SARL LE COMPTOIR" is not
+     * "ACHAT CB CHEZ ROSA" just because both are debits. A label with no
+     * such word says nothing either way, and `whenUnsure` decides.
+     */
+    static func namesAgree(_ one: String, _ other: String, whenUnsure: Bool) -> Bool {
+        let left = significantWords(one)
+        let right = significantWords(other)
+        guard !left.isEmpty, !right.isEmpty else { return whenUnsure }
+        return !left.isDisjoint(with: right)
+    }
+
+    private static let boilerplate: Set<Substring> = [
+        "achat", "carte", "numero", "prelevement", "prel", "virement", "instantane",
+        "credit", "debit", "sepa", "retrait", "avoir", "remboursement", "recu", "emis",
+        "from", "vers", "faveur", "paiement", "europeen", "permanent",
+    ]
+
+    private static func significantWords(_ label: String) -> Set<Substring> {
+        Set(normalize(label).lowercased().split(separator: " ").filter {
+            $0.count >= 4 && !$0.allSatisfy(\.isNumber) && !boilerplate.contains($0)
+        })
     }
 }
