@@ -37,7 +37,13 @@ jobs:
         # regardless of its CWD. The plist lives at apps/desktop/entitlements.mac.plist
         # (NOT under build/, which .gitignore excludes — that's why an earlier
         # run got "cannot read entitlement data": the file wasn't committed).
+        #
+        # The open-file limit is raised first: with asar off, signing opens
+        # every file in node_modules at once, and since lucide-react ships one
+        # module per icon the runner's default of 256 ran out mid-signature.
         run: |
+          ulimit -n 65536 || ulimit -n "$(ulimit -Hn)"
+          ulimit -n
           cd apps/desktop
           pnpm exec electron-builder --mac --publish never \
             --config.mac.entitlements="$PWD/entitlements.mac.plist" \
