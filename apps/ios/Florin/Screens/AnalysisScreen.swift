@@ -33,6 +33,9 @@ struct AnalysisScreen: View {
     @State private var scrub: Int?
     /// The grid's own width, which is what turns a touch into a square.
     @State private var gridWidth: CGFloat = 0
+    /// The month the calendar is showing, "" until the feed says which months
+    /// there are — see `shownMonth`.
+    @State private var calendarMonth = ""
 
     init(
         overview: OverviewModel,
@@ -161,13 +164,15 @@ struct AnalysisScreen: View {
                                                     currency: currency, decimals: false)])
                 )
             case .calendar:
-                // The squares themselves, so the headline counts the same
-                // window and the same categories the grid under it is drawing.
-                let days = data.map(calendarCells) ?? []
+                // The month on screen, so the headline counts the same days
+                // and the same categories the grid under it is drawing.
+                let byDay = data.map(filteredDays) ?? [:]
+                let month = shownMonth(calendarMonths(byDay))
+                let days = monthCells(byDay, month: month).compactMap { $0 }.filter { !$0.future }
                 let spent = days.reduce(0) { $0 + $1.amount }
                 let active = days.filter { $0.amount > 0 }.count
-                let window = t("v2.analysis.spentDays", "Dépensé sur {days} jours",
-                               ["days": Self.gridDays])
+                let window = t("v2.analysis.spentMonth", "Dépensé en {month}",
+                               ["month": MonthLabel.long(month, locale: locale)])
                 return (
                     hidden.isEmpty
                         ? window
@@ -659,23 +664,31 @@ struct AnalysisScreen: View {
     // MARK: - Calendrier
 
     /*
-     * A month of spending, one square per day.
+     * A month of spending, one square per day — and every month the ledger
+     * holds, a swipe apart.
      *
-     * The browser has had this for a year and the phone never did — the string
-     * for its name was sitting unused in the bundle. It answers a question the
-     * category views cannot: not what the money went on, but when. Weekends
-     * that cost more than weeks, the run of days after payday, the four quiet
-     * days that show up as gaps.
+     * It drew a rolling five weeks, week-aligned rather than by month, because
+     * that is the window the query returned. Which meant the one question a
+     * calendar is for — "what did I spend on the 14th", "which month was the
+     * heavy one" — could only be asked about the last five weeks, and the grid
+     * straddled two month names without printing either. Now the squares are a
+     * real month, the header says which, and the past is a swipe to the left
+     * for as far back as there are transactions.
      *
-     * Week-aligned columns rather than a calendar month, because a rolling
-     * window is what the query returns and a half-empty grid reads as missing
-     * data.
+     * The shades are cut over the whole history rather than per month, so the
+     * same colour means the same money in March as in September; a scale that
+     * renormalised on every swipe would make a quiet month look like a heavy
+     * one.
      */
     private func calendarTab(_ data: AnalysisData) -> some View {
-        let cells = calendarCells(data)
-        let cuts = heatCuts(cells)
-        let quiet = cells.filter { !$0.future && $0.amount <= 0 }.count
+        let byDay = filteredDays(data)
+        let months = calendarMonths(byDay)
+        let month = shownMonth(months)
+        let cells = monthCells(byDay, month: month).compactMap { $0 }.filter { !$0.future }
+        let cuts = heatCuts(Array(byDay.values))
+        let quiet = cells.filter { $0.amount <= 0 }.count
         let heaviest = cells.max { $0.amount < $1.amount }
+        let total = cells.reduce(0) { $0 + max(0, $1.amount) }
 
         return VStack(alignment: .leading, spacing: 30) {
             VStack(alignment: .leading, spacing: 12) {
@@ -683,8 +696,9 @@ struct AnalysisScreen: View {
 
                 FlorinCard {
                     VStack(alignment: .leading, spacing: 10) {
+                        monthBar(months, month: month, total: total)
                         weekdayRow
-                        grid(cells, cuts: cuts)
+                        monthPages(byDay, months: months, cuts: cuts)
                         legend
                     }
                 }
@@ -736,10 +750,7 @@ struct AnalysisScreen: View {
     /// to, so a total that looks wrong explains itself where it is read.
     private func calendarHeader(_ data: AnalysisData) -> some View {
         HStack(spacing: 10) {
-            Eyebrow(
-                text: t("v2.analysis.calendarCaption", "Dépenses par jour, sur {days} jours",
-                        ["days": Self.gridDays])
-            )
+            Eyebrow(text: t("v2.analysis.calendarCaption", "Dépenses par jour"))
             Spacer(minLength: 4)
             if model.canFilterDays {
                 Button {
@@ -772,6 +783,64 @@ struct AnalysisScreen: View {
         .padding(.horizontal, Florin.gutter)
     }
 
+    /// Which month is on screen, what it cost, and the two ways to leave it.
+    ///
+    /// The arrows are there for the reader who never discovers the swipe, and
+    /// because the last month of the ledger has no square to swipe onto.
+    private func monthBar(_ months: [String], month: String, total: Double) -> some View {
+        let index = months.firstIndex(of: month) ?? months.count - 1
+        return HStack(spacing: 6) {
+            monthStep("chevron.left", to: index > 0 ? months[index - 1] : nil)
+            Text(MonthLabel.long(month, locale: locale))
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Florin.text)
+                .contentTransition(.numericText())
+            monthStep("chevron.right", to: index < months.count - 1 ? months[index + 1] : nil)
+            Spacer(minLength: 6)
+            Text(Money.string(total, locale: locale, currency: currency, decimals: false))
+                .font(.system(size: 14, weight: .medium))
+                .monospacedDigit()
+                .foregroundStyle(Florin.text2)
+                .hiddenWhenPrivate()
+        }
+    }
+
+    private func monthStep(_ symbol: String, to month: String?) -> some View {
+        Button {
+            guard let month else { return }
+            UISelectionFeedbackGenerator().selectionChanged()
+            withAnimation(.snappy(duration: 0.22)) { calendarMonth = month }
+        } label: {
+            Image(systemName: symbol)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(month == nil ? Florin.text3.opacity(0.4) : Florin.text2)
+                .frame(width: 26, height: 26)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(month == nil)
+    }
+
+    /// One grid per month, swiped between.
+    ///
+    /// A page view has to be told its height — its pages are laid out on top of
+    /// each other — so every month draws six rows whether it needs six or five.
+    /// A grid that changed height with the month would shunt the legend and
+    /// everything under it up and down on every swipe.
+    private func monthPages(_ byDay: [String: Double], months: [String], cuts: [Double]) -> some View {
+        let width = gridWidth > 0 ? gridWidth : Self.estimatedGridWidth()
+        let side = Self.cellSide(width)
+        return TabView(selection: monthSelection(months)) {
+            ForEach(months, id: \.self) { key in
+                grid(monthCells(byDay, month: key), cuts: cuts)
+                    .frame(maxHeight: .infinity, alignment: .top)
+                    .tag(key)
+            }
+        }
+        .tabViewStyle(.page(indexDisplayMode: .never))
+        .frame(height: side * CGFloat(Self.gridRows) + Self.cellGap * CGFloat(Self.gridRows - 1))
+    }
+
     private var weekdayRow: some View {
         HStack(spacing: Self.cellGap) {
             ForEach(Self.weekdayInitials(locale), id: \.self) { initial in
@@ -784,19 +853,27 @@ struct AnalysisScreen: View {
     }
 
     /// The squares, plus the card that reads one out under the finger.
-    private func grid(_ cells: [DayCell], cuts: [Double]) -> some View {
+    private func grid(_ cells: [DayCell?], cuts: [Double]) -> some View {
         VStack(spacing: Self.cellGap) {
-            ForEach(0..<5, id: \.self) { week in
+            ForEach(0..<Self.gridRows, id: \.self) { week in
                 HStack(spacing: Self.cellGap) {
                     ForEach(0..<7, id: \.self) { column in
                         let index = week * 7 + column
-                        dayCell(
-                            cells[index],
-                            level: heatLevel(cells[index].amount, cuts: cuts),
-                            reading: scrub == index
-                        )
-                        .contentShape(Rectangle())
-                        .onTapGesture { open(cells[index]) }
+                        if let cell = cells[index] {
+                            dayCell(
+                                cell,
+                                level: heatLevel(cell.amount, cuts: cuts),
+                                reading: scrub == index
+                            )
+                            .contentShape(Rectangle())
+                            .onTapGesture { open(cell) }
+                        } else {
+                            // The days of the month before and the month after,
+                            // which belong to their own grids.
+                            Color.clear
+                                .aspectRatio(1, contentMode: .fit)
+                                .frame(maxWidth: .infinity)
+                        }
                     }
                 }
             }
@@ -817,19 +894,22 @@ struct AnalysisScreen: View {
      * Hold, then drag, to read a day out.
      *
      * The web shows this on hover; a phone has no hover, and a plain drag is
-     * not free here — the grid sits inside the screen's scroll view, and a
-     * `DragGesture(minimumDistance: 0)` on it wins over the scroll, so the page
-     * could no longer be scrolled by a thumb that happened to land on the
-     * calendar. Sequencing it behind a short press leaves a flick to the scroll
-     * view, a tap to the day sheet, and the hold to the reading — which is also
-     * how iOS scrubs a chart anywhere else.
+     * not free here — the grid sits inside the screen's scroll view and inside
+     * a page view, and a `DragGesture(minimumDistance: 0)` on it wins over
+     * both, so neither the page could be scrolled nor the month swiped by a
+     * thumb that happened to land on the calendar. Sequencing it behind a short
+     * press leaves a flick to the scroll view, a sideways swipe to the months,
+     * a tap to the day sheet, and the hold to the reading — which is also how
+     * iOS scrubs a chart anywhere else.
      */
-    private func scrubGesture(_ cells: [DayCell]) -> some Gesture {
+    private func scrubGesture(_ cells: [DayCell?]) -> some Gesture {
         LongPressGesture(minimumDuration: 0.18)
             .sequenced(before: DragGesture(minimumDistance: 0))
             .onChanged { phase in
                 guard case .second(true, let drag) = phase, let drag else { return }
-                guard let index = cellIndex(at: drag.location), index < cells.count else { return }
+                guard let index = cellIndex(at: drag.location), index < cells.count,
+                      cells[index] != nil
+                else { return }
                 if scrub != index {
                     UISelectionFeedbackGenerator().selectionChanged()
                     scrub = index
@@ -849,7 +929,7 @@ struct AnalysisScreen: View {
         guard side > 0 else { return nil }
         let pitch = side + Self.cellGap
         let column = min(6, max(0, Int((point.x / pitch).rounded(.down))))
-        let row = min(4, max(0, Int((point.y / pitch).rounded(.down))))
+        let row = min(Self.gridRows - 1, max(0, Int((point.y / pitch).rounded(.down))))
         return row * 7 + column
     }
 
@@ -866,9 +946,8 @@ struct AnalysisScreen: View {
     private static let calloutHeight: CGFloat = 46
 
     @ViewBuilder
-    private func readout(_ cells: [DayCell]) -> some View {
-        if let index = scrub, index < cells.count, gridWidth > 0 {
-            let cell = cells[index]
+    private func readout(_ cells: [DayCell?]) -> some View {
+        if let index = scrub, index < cells.count, gridWidth > 0, let cell = cells[index] {
             let day = DayLabel.string(cell.date, locale: locale, t: t)
             let amount = Money.string(cell.amount, locale: locale, currency: currency, decimals: true)
             let width = Self.calloutWidth(day: day, amount: amount)
@@ -945,26 +1024,73 @@ struct AnalysisScreen: View {
         let future: Bool
     }
 
-    /// Five whole weeks, and the same five weeks the query reads: one number,
-    /// so a grid cannot outrun its data again.
-    private static let gridDays = LocalAnalysis.calendarWindow
+    /// Six rows, always: five weeks fit most months, six are needed when the
+    /// 1st falls late in the week, and a grid whose height depends on the month
+    /// would shift the page under the reader on every swipe.
+    private static let gridRows = 6
     private static let cellGap: CGFloat = 6
 
     private static func cellSide(_ width: CGFloat) -> CGFloat {
         max(0, (width - cellGap * 6) / 7)
     }
 
-    private func calendarCells(_ data: AnalysisData) -> [DayCell] {
-        let byDay = filteredDays(data)
+    /// Only for the first frame, before the grid has been measured: the card's
+    /// content width, from the screen and the insets it sits in.
+    private static func estimatedGridWidth() -> CGFloat {
+        max(0, UIScreen.main.bounds.width - Florin.gutter * 2 - 32)
+    }
+
+    /// Every month from the oldest day the feed carries to this one.
+    ///
+    /// Continuous rather than the months that happen to hold a transaction: a
+    /// month with nothing in it is an answer, and skipping it would make the
+    /// swipe jump a year without saying so.
+    private func calendarMonths(_ byDay: [String: Double]) -> [String] {
         let calendar = Calendar(identifier: .gregorian)
+        let now = calendar.startOfDay(for: Date())
+        let thisMonth = LocalQueries.monthFormatter.string(from: now)
+        guard let oldest = byDay.keys.min()?.prefix(7), oldest < thisMonth else { return [thisMonth] }
+
+        var months: [String] = []
+        var cursor = String(oldest)
+        while cursor < thisMonth, months.count < 12 * LocalAnalysis.calendarYears {
+            months.append(cursor)
+            cursor = MonthLabel.next(cursor)
+        }
+        months.append(thisMonth)
+        return months
+    }
+
+    /// The page view's selection, which cannot be left holding a month the
+    /// feed does not have — it would quietly show the oldest one instead.
+    private func monthSelection(_ months: [String]) -> Binding<String> {
+        Binding(get: { shownMonth(months) }, set: { calendarMonth = $0 })
+    }
+
+    /// The month on screen, corrected when the feed no longer holds it — a
+    /// filter that hides everything, or a reload that arrives while the reader
+    /// is three years back.
+    private func shownMonth(_ months: [String]) -> String {
+        months.contains(calendarMonth) ? calendarMonth : (months.last ?? "")
+    }
+
+    /// One month, laid out Monday-first, with the slots before the 1st and
+    /// after the last left empty.
+    private func monthCells(_ byDay: [String: Double], month: String) -> [DayCell?] {
+        let calendar = Calendar(identifier: .gregorian)
+        let parts = month.split(separator: "-").compactMap { Int($0) }
+        guard parts.count == 2,
+              let first = calendar.date(from: DateComponents(year: parts[0], month: parts[1], day: 1)),
+              let length = calendar.range(of: .day, in: .month, for: first)?.count
+        else { return Array(repeating: nil, count: Self.gridRows * 7) }
+
         let today = calendar.startOfDay(for: Date())
-        // Fill out to the end of this week so the last column is not a stub,
-        // then run back five whole weeks.
-        let weekday = calendar.component(.weekday, from: today)
-        let toSunday = (8 - weekday) % 7
-        let last = calendar.date(byAdding: .day, value: toSunday, to: today) ?? today
-        return (0..<Self.gridDays).reversed().compactMap { back in
-            guard let date = calendar.date(byAdding: .day, value: -back, to: last)
+        // `weekday` is 1 on Sunday; the grid starts on Monday.
+        let lead = (calendar.component(.weekday, from: first) + 5) % 7
+        return (0..<(Self.gridRows * 7)).map { slot in
+            let day = slot - lead
+            guard day >= 0, day < length,
+                  let date = calendar.date(byAdding: .day, value: day, to: first)
             else { return nil }
             let key = LocalQueries.dayFormatter.string(from: date)
             return DayCell(date: date, key: key, amount: byDay[key] ?? 0, future: date > today)
@@ -1012,8 +1138,8 @@ struct AnalysisScreen: View {
      */
     private static let heatLevels = 5
 
-    private func heatCuts(_ cells: [DayCell]) -> [Double] {
-        let spent = cells.map(\.amount).filter { $0 > 0 }.sorted()
+    private func heatCuts(_ amounts: [Double]) -> [Double] {
+        let spent = amounts.filter { $0 > 0 }.sorted()
         guard !spent.isEmpty else { return [] }
         return (1..<Self.heatLevels).map {
             spent[min(spent.count - 1, spent.count * $0 / Self.heatLevels)]
@@ -1121,7 +1247,7 @@ struct AnalysisScreen: View {
                         Text(
                             t(
                                 "v2.analysis.subsEmptyWhy",
-                                "Florin cherche un même bénéficiaire, au même montant, au moins trois fois, toutes les 4 semaines environ ou toutes les semaines, sur les 6 derniers mois. Si ta banque colle une date ou un numéro de carte dans le libellé, chaque prélèvement compte comme un bénéficiaire différent et rien ne ressort."
+                                "Florin cherche un même bénéficiaire, au même montant, au moins trois fois, à un rythme régulier — toutes les 4 semaines environ ou toutes les semaines — sur les 6 derniers mois. Les achats ponctuels, et les montants qui changent à chaque fois, n'en font pas partie."
                             )
                         )
                         .font(.system(size: 12.5))

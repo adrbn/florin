@@ -28,15 +28,18 @@ enum ReleaseNotes {
 
     static let all: [Release] = [
         Release(version: "1.3.6", lines: [
-            Line(symbol: "line.3.horizontal.decrease.circle",
-                 key: "v2.news.1_3_6.filter",
-                 fallback: "Le calendrier se filtre par catégorie, loyer compris."),
+            Line(symbol: "calendar",
+                 key: "v2.news.1_3_6.calendar",
+                 fallback: "Le calendrier va mois par mois, aussi loin que votre historique, et se filtre par catégorie."),
             Line(symbol: "hand.tap",
                  key: "v2.news.1_3_6.scrub",
                  fallback: "Maintenez un jour et glissez pour lire les montants."),
             Line(symbol: "chart.xyaxis.line",
                  key: "v2.news.1_3_6.running",
                  fallback: "Flux : le mois en cours ne tire plus la courbe vers le bas."),
+            Line(symbol: "arrow.triangle.2.circlepath",
+                 key: "v2.news.1_3_6.subs",
+                 fallback: "Les abonnements sont retrouvés même quand la banque change le libellé à chaque prélèvement."),
             Line(symbol: "arrow.uturn.left",
                  key: "v2.news.1_3_6.refund",
                  fallback: "Un remboursement se classe avec l'achat, plus en revenu."),

@@ -6,11 +6,14 @@ import Foundation
 /// category, how those categories moved month to month, the daily spend, the
 /// subscriptions radar, and the savings rates.
 enum LocalAnalysis {
-    /// The calendar draws five whole weeks, so the day-by-day window has to
-    /// cover five whole weeks. It asked for thirty days while the grid drew
-    /// thirty-five, and the five squares that fell off the end were not drawn
-    /// as unknown — they were drawn as days on which nothing had been spent.
-    static let calendarWindow = 35
+    /// How far back the calendar can be paged: as far as the ledger goes.
+    ///
+    /// It used to be a five-week window, which is what the grid drew — and a
+    /// grid that only ever draws the last five weeks answers "what did I spend
+    /// on the 14th" for one month of the year. The slices are one row per day
+    /// and category, so a decade of them is a few thousand small rows read in
+    /// a single pass; the month on screen picks out the ones it needs.
+    static let calendarYears = 12
 
     /// Twelve finished months, and the one the ledger is inside.
     ///
@@ -30,7 +33,7 @@ enum LocalAnalysis {
         // And one pass for the calendar: its squares are the sum of its slices
         // by construction, so a filtered total and an unfiltered one cannot
         // come to disagree about what a day was worth.
-        let slices = try dailySlices(db, days: calendarWindow)
+        let slices = try dailySlices(db, days: 366 * calendarYears)
 
         return AnalysisData(
             flows: try flows(db, months: recentMonths(flowMonths)),
@@ -284,10 +287,32 @@ enum LocalAnalysis {
     /*
      * Payees that repeat at roughly the same amount on a roughly regular beat.
      *
-     * Monthly is 28±7 days and weekly 7±2, and a group needs three samples
-     * before it counts — two payments to the same shop is a coincidence, not a
-     * subscription. Amounts are matched within 5%, because a subscription that
-     * changed price is still that subscription.
+     * The grouping used to be `normalized_payee`, which is the bank's label
+     * with its case and accents taken off — and a French card label carries the
+     * date of the charge and the card's number inside it. Measured on a real
+     * ledger: 875 debits over six months, 809 distinct normalized payees, and
+     * so a radar that found nothing at all. Every subscription was there; each
+     * instalment of it simply had a different name.
+     *
+     * So a group is keyed on the *words* of the label, which is what the
+     * categoriser already does — digits dropped, so a date or a mandate
+     * reference cannot make two charges from one merchant look like two
+     * merchants.
+     *
+     * The words a bank writes on every line ("achat", "carte", "eur", and the
+     * "apple pay" prefix on every phone tap) would then glue unrelated payees
+     * together, so they are dropped too — found by how widely they are spread
+     * rather than from a list, because the list would be per-bank and per
+     * language. On that same ledger the split is unambiguous: five tokens on
+     * 20% to 93% of labels, and the next one down on 3%.
+     *
+     * Monthly is 30±7 days and weekly 7±2, measured on the median gap, and the
+     * beat has to be kept: a bakery visited most weeks averages seven days
+     * between visits without being a subscription, so a quarter of the gaps at
+     * most may stray from the cadence. A group needs three samples before it
+     * counts — two payments to the same shop is a coincidence — and amounts
+     * are matched within 5%, because a subscription that changed price is
+     * still that subscription.
      */
     static func subscriptions(_ db: SQLiteDatabase) throws -> [SubscriptionMatch] {
         let calendar = Calendar(identifier: .gregorian)
@@ -295,7 +320,7 @@ enum LocalAnalysis {
 
         let rows = try db.query(
             """
-            SELECT t.normalized_payee AS key, t.payee AS payee, t.amount AS amount,
+            SELECT t.payee AS payee, t.amount AS amount,
                    substr(t.occurred_at, 1, 10) AS day, c.name AS category
             FROM transactions t
             JOIN accounts a ON a.id = t.account_id
@@ -309,20 +334,42 @@ enum LocalAnalysis {
         )
 
         struct Sample { let amount: Double; let day: Date; let payee: String; let category: String? }
-        var byPayee: [String: [Sample]] = [:]
+        var entries: [(words: Set<String>, sample: Sample)] = []
+        var labels = Set<String>()
+        var spread: [String: Int] = [:]
         for row in rows {
-            guard let key = row.string("key"), !key.isEmpty,
+            guard let payee = row.string("payee"),
                   let dayText = row.string("day"),
                   let day = LocalQueries.dayFormatter.date(from: dayText)
             else { continue }
-            byPayee[key, default: []].append(
+            let words = LocalCategoriser.tokens(of: payee)
+            guard !words.isEmpty else { continue }
+            entries.append((
+                words,
                 Sample(
-                    amount: abs(row.double("amount") ?? 0),
-                    day: day,
-                    payee: row.string("payee") ?? key,
+                    amount: abs(row.double("amount") ?? 0), day: day, payee: payee,
                     category: row.string("category")
                 )
-            )
+            ))
+            // Counted once per distinct label, so that a merchant charged
+            // daily does not make its own name look like boilerplate.
+            if labels.insert(words.sorted().joined(separator: " ")).inserted {
+                for word in words { spread[word, default: 0] += 1 }
+            }
+        }
+
+        let corpus = labels.count
+        // A small ledger has no boilerplate to speak of and too few labels to
+        // tell boilerplate from a merchant seen twice, so nothing is dropped.
+        let boilerplate: Set<String> = corpus >= 40
+            ? Set(spread.filter { $0.value >= 8 && Double($0.value) / Double(corpus) >= 0.2 }.keys)
+            : []
+
+        var byPayee: [String: [Sample]] = [:]
+        for entry in entries {
+            let core = entry.words.subtracting(boilerplate)
+            let key = (core.isEmpty ? entry.words : core).sorted().joined(separator: " ")
+            byPayee[key, default: []].append(entry.sample)
         }
 
         var matches: [SubscriptionMatch] = []
@@ -333,15 +380,18 @@ enum LocalAnalysis {
 
             let days = alike.map(\.day).sorted()
             let gaps = zip(days, days.dropFirst()).map {
-                Calendar(identifier: .gregorian)
-                    .dateComponents([.day], from: $0, to: $1).day ?? 0
+                calendar.dateComponents([.day], from: $0, to: $1).day ?? 0
             }
             guard !gaps.isEmpty else { continue }
-            let cadence = gaps.reduce(0, +) / gaps.count
+            let cadence = gaps.sorted()[gaps.count / 2]
 
-            let isMonthly = abs(cadence - 28) <= 7
+            let isMonthly = abs(cadence - 30) <= 7
             let isWeekly = abs(cadence - 7) <= 2
             guard isMonthly || isWeekly else { continue }
+
+            let tolerance = max(4, Int(Double(cadence) * 0.3))
+            let strays = gaps.filter { abs($0 - cadence) > tolerance }.count
+            guard strays * 4 <= gaps.count else { continue }
 
             matches.append(
                 SubscriptionMatch(

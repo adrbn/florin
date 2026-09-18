@@ -1161,6 +1161,100 @@ struct RefundTests {
     }
 }
 
+// MARK: - The radar for what repeats
+
+/*
+ * A subscription is recognised by its words, not by its label.
+ *
+ * The grouping was the bank's own label with the case taken off, and a card
+ * label carries the date of the charge and the number of the card — so every
+ * instalment of one subscription arrived under a different name and the radar
+ * found nothing at all.
+ */
+@Suite("Subscriptions")
+struct SubscriptionTests {
+    private func ledger() throws -> (LocalStore, account: String) {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("florin-subs-\(UUID().uuidString).db")
+        let store = try LocalStore(url: url)
+        let account = UUID().uuidString
+        try store.database.exec("""
+        INSERT INTO accounts (id, name, kind, currency) VALUES ('\(account)', 'CCP', 'checking', 'EUR');
+        """)
+        return (store, account)
+    }
+
+    /// `daysAgo` days back, as the ledger writes a day.
+    private func day(_ daysAgo: Int) -> String {
+        let date = Calendar(identifier: .gregorian)
+            .date(byAdding: .day, value: -daysAgo, to: Date()) ?? Date()
+        return LocalQueries.dayFormatter.string(from: date)
+    }
+
+    private func charge(
+        _ store: LocalStore, _ account: String, _ label: String, _ amount: Double, daysAgo: Int
+    ) throws {
+        try store.database.run(
+            """
+            INSERT INTO transactions (id, account_id, occurred_at, amount, currency, payee,
+                normalized_payee, source, status, is_pending)
+            VALUES (?, ?, ?, ?, 'EUR', ?, ?, 'enable_banking', 'cleared', 0)
+            """,
+            [.text(UUID().uuidString), .text(account), .text("\(day(daysAgo))T00:00:00Z"),
+             .real(amount), .text(label), .text(LocalLedger.normalize(label))]
+        )
+    }
+
+    @Test("a monthly charge is found even when the label carries the date and the card")
+    func labelNoiseDoesNotHideIt() throws {
+        let (store, account) = try ledger()
+        for month in 0..<6 {
+            let daysAgo = 15 + month * 30
+            try charge(
+                store, account,
+                "ACHAT CB LE COMPTOIR VIA ROMA \(day(daysAgo)) CARTE NUMERO 4979",
+                -9.99, daysAgo: daysAgo
+            )
+        }
+
+        let matches = try LocalAnalysis.subscriptions(store.database)
+        #expect(matches.count == 1)
+        #expect(matches.first?.amount == 9.99)
+        #expect(matches.first?.samples == 6)
+        #expect(matches.first?.annualCost == 119.88)
+    }
+
+    /// A café most weeks averages seven days between visits without being a
+    /// subscription — the beat has to be kept, not merely averaged.
+    @Test("a shop visited whenever is not a subscription")
+    func irregularVisitsAreNotASubscription() throws {
+        let (store, account) = try ledger()
+        for daysAgo in [3, 4, 5, 26, 27, 52, 53, 54] {
+            try charge(store, account, "ACHAT CB CHEZ ROSA", -4.50, daysAgo: daysAgo)
+        }
+
+        #expect(try LocalAnalysis.subscriptions(store.database).isEmpty)
+    }
+
+    /// Two payments is a coincidence, and a price that moves every month is
+    /// not one price.
+    @Test("two charges, or a moving amount, are not enough")
+    func thinEvidenceIsRefused() throws {
+        let (store, account) = try ledger()
+        try charge(store, account, "ACHAT CB CHEZ ROSA", -12, daysAgo: 20)
+        try charge(store, account, "ACHAT CB CHEZ ROSA", -12, daysAgo: 50)
+        for month in 0..<5 {
+            let daysAgo = 10 + month * 30
+            try charge(
+                store, account, "PRELEVEMENT LE COMPTOIR",
+                -(20 + Double(month) * 6), daysAgo: daysAgo
+            )
+        }
+
+        #expect(try LocalAnalysis.subscriptions(store.database).isEmpty)
+    }
+}
+
 // MARK: - The catalogue the screens read
 
 /*

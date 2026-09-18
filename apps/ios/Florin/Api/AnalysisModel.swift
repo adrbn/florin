@@ -190,6 +190,16 @@ enum MonthLabel {
         return f.string(from: date)
     }
 
+    /// The month after "2026-12" is "2027-01".
+    static func next(_ month: String) -> String {
+        let parts = month.split(separator: "-").compactMap { Int($0) }
+        guard parts.count == 2 else { return month }
+        let index = parts[1] + 1
+        return index > 12
+            ? String(format: "%04d-01", parts[0] + 1)
+            : String(format: "%04d-%02d", parts[0], index)
+    }
+
     /// "août 2026", for a headline that has room for it.
     static func long(_ month: String, locale: String) -> String {
         let parts = month.split(separator: "-")
