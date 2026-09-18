@@ -115,9 +115,17 @@ struct RootView: View {
     /// Bank setup, presented as the last step of onboarding rather than as a
     /// settings screen — nothing behind it is worth seeing yet.
     @State private var connectingBank = false
-    /// The last version whose notes were shown. Empty on a fresh install, and
-    /// empty on the first launch after this shipped — see `ReleaseNotes`.
-    @AppStorage("florin.whatsNew.seen") private var seenVersion = ""
+    /*
+     * The last version whose notes were *read*, not merely scheduled.
+     *
+     * The key changed with the bug below: the first build marked the version
+     * as seen at the moment the sheet was asked for, so the one launch where
+     * the presentation was swallowed burned the flag for good and the notes
+     * could never appear again. Anyone who ran that build has a stale mark
+     * under the old key; this one starts empty for them, which is right —
+     * they never saw the sheet.
+     */
+    @AppStorage("florin.whatsNew.read") private var seenVersion = ""
     @State private var news: ReleaseNotes.Release?
 
     private var appearance: Appearance { Appearance(rawValue: appearanceRaw) ?? .dark }
@@ -243,25 +251,36 @@ struct RootView: View {
             }
         }
         .animation(.easeOut(duration: 0.18), value: lock.locked)
-        // After the splash, and never over the lock: a sheet outranks both an
-        // overlay and a cover, so the only thing keeping it in its place is
-        // when it is asked for.
-        .onChange(of: splashing) { _, _ in considerNews() }
-        .onChange(of: lock.locked) { _, _ in considerNews() }
-        .sheet(item: $news) { release in
+        /*
+         * After the splash, and never over the lock: a sheet outranks both an
+         * overlay and a cover, so the only thing keeping it in its place is
+         * when it is asked for.
+         *
+         * Asked for *after* the splash has finished fading, too. Presented
+         * into the middle of that transition, UIKit drops it on the floor —
+         * the binding is set, no sheet appears, and the next launch is a
+         * launch like any other.
+         */
+        .onChange(of: splashing) { _, _ in considerNews(after: 0.45) }
+        .onChange(of: lock.locked) { _, _ in considerNews(after: 0.3) }
+        .sheet(item: $news, onDismiss: { seenVersion = ReleaseNotes.current }) { release in
             WhatsNewSheet(release: release, t: Strings.device)
         }
     }
 
     /// Shown once per version, to someone who already had a ledger.
-    private func considerNews() {
+    ///
+    /// The version is marked as read when the sheet is dismissed, not here: a
+    /// presentation that never happened must not count as one, or the notes
+    /// are lost for that version and the reader never learns what changed.
+    private func considerNews(after delay: TimeInterval) {
         guard !splashing, !lock.locked, news == nil else { return }
         let ready = source == .server ? server.resolvedURL != nil : LocalOnboarding.isComplete
-        guard ready else { return }
-        news = ReleaseNotes.pending(seen: seenVersion, hasLedger: true)
-        // Marked whether or not this version has notes, so the next one that
-        // does is the next thing shown.
-        seenVersion = ReleaseNotes.current
+        guard ready, ReleaseNotes.pending(seen: seenVersion, hasLedger: true) != nil else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            guard !splashing, !lock.locked, news == nil else { return }
+            news = ReleaseNotes.pending(seen: seenVersion, hasLedger: true)
+        }
     }
 }
 

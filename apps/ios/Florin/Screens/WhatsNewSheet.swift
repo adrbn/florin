@@ -71,20 +71,26 @@ struct WhatsNewSheet: View {
     let release: ReleaseNotes.Release
     let t: Strings
     @Environment(\.dismiss) private var dismiss
+    /// The notes' own height, so the sheet is exactly as tall as what it has
+    /// to say — see `detent`.
+    @State private var measured: CGFloat = 0
 
     var body: some View {
         VStack(spacing: 0) {
             ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: 18) {
                     header
                     ForEach(release.lines) { line in
                         HStack(alignment: .top, spacing: 14) {
                             Image(systemName: line.symbol)
-                                .font(.system(size: 17, weight: .medium))
+                                .font(.system(size: 16, weight: .medium))
                                 .foregroundStyle(Florin.accent)
-                                .frame(width: 26, alignment: .center)
+                                .frame(width: 24, alignment: .center)
+                                // Optically on the first line of the sentence
+                                // beside it, not on its cap height.
+                                .padding(.top, 1)
                             Text(t(line.key, line.fallback))
-                                .font(.system(size: 15.5))
+                                .font(.system(size: 15))
                                 .foregroundStyle(Florin.text)
                                 .fixedSize(horizontal: false, vertical: true)
                             Spacer(minLength: 0)
@@ -92,8 +98,9 @@ struct WhatsNewSheet: View {
                     }
                 }
                 .padding(.horizontal, Florin.gutter)
-                .padding(.top, 26)
-                .padding(.bottom, 24)
+                .padding(.top, 22)
+                .padding(.bottom, 18)
+                .background(measurement)
             }
             .scrollBounceBehavior(.basedOnSize)
 
@@ -102,17 +109,41 @@ struct WhatsNewSheet: View {
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(.black)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 54)
+                    .frame(height: 52)
                     .background(Florin.accent, in: Capsule())
             }
             .buttonStyle(.plain)
             .padding(.horizontal, Florin.gutter)
-            .padding(.bottom, 18)
+            .padding(.bottom, 14)
         }
-        .background(Backdrop(tint: TabRoute.overview.tint, floor: true))
-        .presentationDetents([.medium])
+        .background(Backdrop(tint: TabRoute.overview.tint))
+        .presentationDetents([detent])
         .presentationDragIndicator(.visible)
         .presentationBackground(.clear)
+    }
+
+    /*
+     * As tall as the notes, not half the screen.
+     *
+     * `.medium` is a fraction of the display and knows nothing about what is
+     * on it: six lines overflowed it, the last one ran under the button, and
+     * the two after that were only findable by scrolling a sheet that gave no
+     * sign it could scroll. Measuring what is actually there and asking for
+     * that height makes the sheet fit its contents at any text size — and
+     * still scroll, clamped, when someone reads at 200%.
+     */
+    private var detent: PresentationDetent {
+        let chrome: CGFloat = 52 + 14 + 16
+        let ceiling = UIScreen.main.bounds.height * 0.86
+        return .height(min(max(measured + chrome, 260), ceiling))
+    }
+
+    private var measurement: some View {
+        GeometryReader { proxy in
+            Color.clear.onChange(of: proxy.size.height, initial: true) { _, height in
+                measured = height
+            }
+        }
     }
 
     private var header: some View {
@@ -120,7 +151,7 @@ struct WhatsNewSheet: View {
             Eyebrow(text: t("v2.news.version", "Version {version}",
                             ["version": release.version]))
             Text(t("v2.news.title", "Ce qui est nouveau"))
-                .font(.system(size: 27, weight: .semibold))
+                .font(.system(size: 26, weight: .semibold))
                 .foregroundStyle(Florin.text)
         }
     }
