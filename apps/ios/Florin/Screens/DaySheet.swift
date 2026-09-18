@@ -13,6 +13,10 @@ struct DaySheet: View {
     let locale: String
     let currency: String
     let t: Strings
+    /// What the calendar was counting when this square was tapped, when that
+    /// was not everything — the figure below would otherwise be a smaller
+    /// number than the day with no way to tell why.
+    var scope: String?
     let load: (String) -> DayDetail?
 
     @Environment(\.dismiss) private var dismiss
@@ -66,15 +70,23 @@ struct DaySheet: View {
 
     // MARK: - What the square said
 
+    /// Centred under the centred title, like every other headline in the app.
+    /// Ranged left it read as the first row of a list rather than as the answer
+    /// the sheet was opened for, and it sat under a navigation title centred
+    /// above it — two alignments, one block.
     private var headline: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(spacing: 6) {
             Eyebrow(text: t("v2.day.spent", "Dépensé"))
             AmountText(
                 value: -(detail?.spent ?? 0), locale: locale, currency: currency,
                 decimals: true, tone: detail?.spent ?? 0 > 0 ? .negative : .muted,
                 size: 34, weight: .light
             )
+            if let scope {
+                Pill(text: scope, tone: Florin.accent)
+            }
         }
+        .frame(maxWidth: .infinity)
         .padding(.horizontal, Florin.gutter)
     }
 
@@ -85,12 +97,10 @@ struct DaySheet: View {
         return VStack(alignment: .leading, spacing: 12) {
             Eyebrow(text: t("v2.day.byCategory", "Par catégorie"))
                 .padding(.horizontal, Florin.gutter)
-            FlorinCard {
-                VStack(spacing: 12) {
-                    ForEach(Array(detail.categories.enumerated()), id: \.element.id) { index, slice in
-                        if index > 0 { Hairline() }
-                        categoryRow(slice, peak: peak)
-                    }
+            RowGroup {
+                ForEach(Array(detail.categories.enumerated()), id: \.element.id) { index, slice in
+                    if index > 0 { Hairline() }
+                    categoryRow(slice, peak: peak)
                 }
             }
             .padding(.horizontal, Florin.gutter)
@@ -127,6 +137,10 @@ struct DaySheet: View {
             }
             .frame(height: 4)
         }
+        // The row carries its own inset, as a transaction row does, so the two
+        // lists on this sheet sit on the same edges.
+        .padding(.horizontal, Florin.gutter)
+        .padding(.vertical, 12)
     }
 
     // MARK: - What actually happened
@@ -135,15 +149,24 @@ struct DaySheet: View {
         VStack(alignment: .leading, spacing: 12) {
             Eyebrow(text: t("v2.day.movements", "Opérations"))
                 .padding(.horizontal, Florin.gutter)
-            FlorinCard {
-                VStack(spacing: 12) {
-                    ForEach(Array(detail.transactions.enumerated()), id: \.element.id) { index, tx in
-                        if index > 0 { Hairline() }
-                        TransactionRowView(
-                            hideUpcomingChip: false, dateIsGiven: true, tx: tx,
-                            locale: locale, currency: currency, t: t
-                        )
-                    }
+            /*
+             * A `RowGroup`, like every other list of transactions in the app.
+             *
+             * These sat in a `FlorinCard`, which pads its content — and a
+             * transaction row already carries the gutter and the vertical
+             * rhythm it is drawn with on Activité, on Aperçu and on Plan. So
+             * the one list that lives on this sheet was inset further than the
+             * card above it, spaced further apart than the same rows anywhere
+             * else, and its hairlines stopped short of both edges. Same rows,
+             * same card, same everywhere.
+             */
+            RowGroup {
+                ForEach(Array(detail.transactions.enumerated()), id: \.element.id) { index, tx in
+                    if index > 0 { Hairline() }
+                    TransactionRowView(
+                        hideUpcomingChip: false, dateIsGiven: true, tx: tx,
+                        locale: locale, currency: currency, t: t
+                    )
                 }
             }
             .padding(.horizontal, Florin.gutter)

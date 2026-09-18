@@ -6,22 +6,43 @@ import Foundation
 /// category, how those categories moved month to month, the daily spend, the
 /// subscriptions radar, and the savings rates.
 enum LocalAnalysis {
+    /// The calendar draws five whole weeks, so the day-by-day window has to
+    /// cover five whole weeks. It asked for thirty days while the grid drew
+    /// thirty-five, and the five squares that fell off the end were not drawn
+    /// as unknown — they were drawn as days on which nothing had been spent.
+    static let calendarWindow = 35
+
+    /// Twelve finished months, and the one the ledger is inside.
+    ///
+    /// The headline over this tab and the net line inside it only mean
+    /// anything over months that are over, and the running month is drawn
+    /// beside them as what has happened so far. Asking for twelve would have
+    /// left eleven to count, and a headline that says eleven months every
+    /// month of the year explains nothing.
+    static let flowMonths = 13
+
     static func data(store: LocalStore) throws -> AnalysisData {
         let db = store.database
         let months = recentMonths(12)
         // One pass. The shares and the id lookup are two halves of the same
         // answer, and this is the heaviest query on the screen.
         let breakdown = try categoryShares(db, days: 30)
+        // And one pass for the calendar: its squares are the sum of its slices
+        // by construction, so a filtered total and an unfiltered one cannot
+        // come to disagree about what a day was worth.
+        let slices = try dailySlices(db, days: calendarWindow)
 
         return AnalysisData(
-            flows: try flows(db, months: months),
+            flows: try flows(db, months: recentMonths(flowMonths)),
             categories: breakdown.shares,
             categoryIds: breakdown.ids,
             categorySeries: try categorySeries(db, months: months),
-            dailySpend: try dailySpend(db, days: 30),
+            dailySpend: dailyTotals(slices),
             subscriptions: try subscriptions(db),
             savings: try LocalQueries.savingsRates(db),
-            ageOfMoney: nil
+            ageOfMoney: nil,
+            dailySlices: slices,
+            spendCategories: try spendCategories(db)
         )
     }
 
@@ -186,12 +207,23 @@ enum LocalAnalysis {
 
     // MARK: - Day by day
 
-    static func dailySpend(_ db: SQLiteDatabase, days: Int) throws -> [DailySpend] {
+    /*
+     * A day, split by category.
+     *
+     * The same predicate as `categoryShares` — cleared, booked, not a transfer,
+     * on a live account, in an expense category — because the calendar and the
+     * category bars are two renderings of one definition of "spent". Rows are
+     * kept at their signed value rather than filtered on `amount < 0`: a refund
+     * belongs to the day it lands on, and a square that ignored it would say
+     * the money left twice.
+     */
+    static func dailySlices(_ db: SQLiteDatabase, days: Int) throws -> [DailySlice] {
         let calendar = Calendar(identifier: .gregorian)
         guard let start = calendar.date(byAdding: .day, value: -days, to: Date()) else { return [] }
         let rows = try db.query(
             """
-            SELECT substr(t.occurred_at, 1, 10) AS day, coalesce(sum(t.amount), 0) AS total
+            SELECT substr(t.occurred_at, 1, 10) AS day, c.id AS category_id,
+                   coalesce(sum(t.amount), 0) AS total
             FROM transactions t
             JOIN accounts a ON a.id = t.account_id
             JOIN categories c ON c.id = t.category_id
@@ -199,13 +231,51 @@ enum LocalAnalysis {
             WHERE t.deleted_at IS NULL AND t.status = 'cleared' AND t.is_pending = 0 AND substr(t.occurred_at, 1, 10) <= date('now')
               AND t.transfer_pair_id IS NULL AND a.is_archived = 0
               AND g.kind = 'expense' AND t.occurred_at >= ?
-            GROUP BY 1 ORDER BY 1
+            GROUP BY 1, 2 ORDER BY 1
             """,
             [.text(LocalQueries.dayFormatter.string(from: start))]
         )
         return rows.compactMap { row in
-            guard let day = row.string("day") else { return nil }
-            return DailySpend(date: day, amount: round2(-(row.double("total") ?? 0)))
+            guard let day = row.string("day"), let category = row.string("category_id")
+            else { return nil }
+            return DailySlice(
+                date: day, categoryId: category, amount: round2(-(row.double("total") ?? 0))
+            )
+        }
+    }
+
+    /// The squares, summed from their own slices.
+    static func dailyTotals(_ slices: [DailySlice]) -> [DailySpend] {
+        var byDay: [String: Double] = [:]
+        for slice in slices { byDay[slice.date, default: 0] += slice.amount }
+        return byDay
+            .map { DailySpend(date: $0.key, amount: round2($0.value)) }
+            .sorted { $0.date < $1.date }
+    }
+
+    /// The categories the calendar can be cut by: every live expense category,
+    /// in the order Catégories shows them, whether or not it saw any spending
+    /// in the window — a filter whose list changes shape week to week is not a
+    /// filter anyone can learn.
+    static func spendCategories(_ db: SQLiteDatabase) throws -> [SpendCategory] {
+        try db.query(
+            """
+            SELECT c.id AS id, c.name AS name, c.emoji AS emoji,
+                   g.name AS group_name, c.is_fixed AS is_fixed
+            FROM categories c
+            JOIN category_groups g ON g.id = c.group_id
+            WHERE c.is_archived = 0 AND g.kind = 'expense'
+            ORDER BY g.display_order, g.name, c.display_order, c.name
+            """
+        ).compactMap { row in
+            guard let id = row.string("id"), let name = row.string("name") else { return nil }
+            return SpendCategory(
+                id: id,
+                name: name,
+                emoji: row.string("emoji"),
+                groupName: row.string("group_name") ?? "",
+                isFixed: (row.int("is_fixed") ?? 0) == 1
+            )
         }
     }
 

@@ -37,14 +37,40 @@ enum LocalDay {
     private static func round2(_ value: Double) -> Double { (value * 100).rounded() / 100 }
 
     /// Everything the sheet needs, in three queries against one day.
-    static func detail(store: LocalStore, day: String) throws -> DayDetail {
+    ///
+    /// `hidden` is the calendar's filter, carried through rather than left
+    /// behind: a square that says 96 € because the rent is filtered out has to
+    /// open onto a day that says 96 € too, or the filter turns into a bug
+    /// report. The rows in those categories go with it — they are not part of
+    /// the question the reader is asking.
+    static func detail(
+        store: LocalStore, day: String, excluding hidden: Set<String> = []
+    ) throws -> DayDetail {
         let db = store.database
         return DayDetail(
             day: day,
-            spent: try spent(db, day: day),
-            categories: try categories(db, day: day),
-            transactions: try transactions(db, day: day)
+            spent: try spent(db, day: day, hidden: hidden),
+            categories: try categories(db, day: day, hidden: hidden),
+            transactions: try transactions(db, day: day, hidden: hidden)
         )
+    }
+
+    /*
+     * `NOT IN (?, ?, …)`, built to fit.
+     *
+     * SQLite has no list parameter, and interpolating ids into the SQL — even
+     * ids this app generated itself — is the habit that writes an injection
+     * bug the first time a value comes from somewhere else. The placeholders
+     * are generated, the values stay bound.
+     */
+    private static func exclusion(_ column: String, _ hidden: Set<String>) -> String {
+        guard !hidden.isEmpty else { return "" }
+        let marks = Array(repeating: "?", count: hidden.count).joined(separator: ", ")
+        return " AND (\(column) IS NULL OR \(column) NOT IN (\(marks)))"
+    }
+
+    private static func bindings(_ hidden: Set<String>) -> [SQLiteValue] {
+        hidden.sorted().map { .text($0) }
     }
 
     // MARK: - The headline
@@ -57,7 +83,9 @@ enum LocalDay {
      * it deliberately — a shared helper would move it silently and the sheet
      * would stop matching without anyone noticing.
      */
-    private static func spent(_ db: SQLiteDatabase, day: String) throws -> Double {
+    private static func spent(
+        _ db: SQLiteDatabase, day: String, hidden: Set<String>
+    ) throws -> Double {
         let total = try db.scalar(
             """
             SELECT coalesce(sum(t.amount), 0)
@@ -68,8 +96,8 @@ enum LocalDay {
             WHERE t.deleted_at IS NULL AND t.status = 'cleared' AND t.is_pending = 0
               AND t.transfer_pair_id IS NULL AND a.is_archived = 0
               AND g.kind = 'expense' AND substr(t.occurred_at, 1, 10) = ?
-            """,
-            [.text(day)]
+            """ + exclusion("c.id", hidden),
+            [.text(day)] + bindings(hidden)
         )?.double ?? 0
         return round2(-total)
     }
@@ -77,7 +105,7 @@ enum LocalDay {
     // MARK: - Where it went
 
     private static func categories(
-        _ db: SQLiteDatabase, day: String
+        _ db: SQLiteDatabase, day: String, hidden: Set<String>
     ) throws -> [DayDetail.CategorySlice] {
         try db.query(
             """
@@ -89,10 +117,12 @@ enum LocalDay {
             WHERE t.deleted_at IS NULL AND t.status = 'cleared' AND t.is_pending = 0
               AND t.transfer_pair_id IS NULL AND a.is_archived = 0
               AND g.kind = 'expense' AND substr(t.occurred_at, 1, 10) = ?
+            """ + exclusion("c.id", hidden) + """
+
             GROUP BY c.id, c.name, c.emoji
             ORDER BY total ASC
             """,
-            [.text(day)]
+            [.text(day)] + bindings(hidden)
         ).compactMap { row in
             let amount = round2(-(row.double("total") ?? 0))
             guard amount > 0 else { return nil }
@@ -108,7 +138,7 @@ enum LocalDay {
     // MARK: - What happened
 
     private static func transactions(
-        _ db: SQLiteDatabase, day: String
+        _ db: SQLiteDatabase, day: String, hidden: Set<String>
     ) throws -> [Transaction] {
         try db.query(
             """
@@ -120,9 +150,11 @@ enum LocalDay {
             LEFT JOIN categories c ON c.id = t.category_id
             LEFT JOIN accounts a ON a.id = t.account_id
             WHERE t.deleted_at IS NULL AND substr(t.occurred_at, 1, 10) = ?
+            """ + exclusion("t.category_id", hidden) + """
+
             ORDER BY abs(t.amount) DESC, t.id
             """,
-            [.text(day)]
+            [.text(day)] + bindings(hidden)
         ).map { row in
             Transaction(
                 id: row.string("id") ?? "",

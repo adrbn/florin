@@ -20,6 +20,19 @@ struct AnalysisScreen: View {
     @State private var drill: ActivityRoute?
     @State private var pickedMonth: MonthlyFlow?
     @State private var expanded: String?
+    /*
+     * The calendar's filter, and it lives here rather than in storage.
+     *
+     * It is a lens, not a preference: a grid quietly missing its rent three
+     * weeks after it was taken out would be read as a bug, not as a setting.
+     * It survives a tab switch and a refresh, and it is gone with the app.
+     */
+    @State private var hidden: Set<String> = []
+    @State private var filtering = false
+    /// The square under the finger, while it is being scrubbed.
+    @State private var scrub: Int?
+    /// The grid's own width, which is what turns a touch into a square.
+    @State private var gridWidth: CGFloat = 0
 
     init(
         overview: OverviewModel,
@@ -62,7 +75,16 @@ struct AnalysisScreen: View {
         .sheet(item: $openDay) { open in
             DaySheet(
                 date: open.date, locale: locale, currency: currency, t: t,
-                load: { model.day($0) }
+                // The filter goes with it: a square that says 96 € because the
+                // rent is out has to open onto a day that says 96 € too.
+                scope: hidden.isEmpty
+                    ? nil
+                    : CalendarFilterLabel.short(
+                        hidden: hidden,
+                        categories: model.data?.spendCategories ?? [],
+                        t: t
+                    ),
+                load: { model.day($0, excluding: hidden) }
             )
         }
         .task { if model.data == nil { await model.load() } }
@@ -114,29 +136,46 @@ struct AnalysisScreen: View {
             case .flows:
                 if let month = pickedMonth {
                     return (
-                        MonthLabel.long(month.month, locale: locale),
+                        MonthLabel.long(month.month, locale: locale)
+                            + (month.isRunning
+                               ? " · " + t("v2.analysis.running", "en cours") : ""),
                         month.net,
                         Money.string(month.income, locale: locale, currency: currency, decimals: false)
                             + " − "
                             + Money.string(month.expense, locale: locale, currency: currency, decimals: false)
                     )
                 }
-                let net = data?.flows.reduce(0) { $0 + $1.net } ?? 0
-                let months = data?.flows.count ?? 0
+                // Months that are over. Counting the running one turned a year
+                // of saving into a smaller number every time the salary was a
+                // week away, and the average it divided by said twelve.
+                let settled = (data?.flows ?? []).filter { !$0.isRunning }
+                let net = settled.reduce(0) { $0 + $1.net }
                 return (
-                    t("v2.analysis.netFlow", "Solde net sur 12 mois"), net,
-                    months > 0
-                        ? t("v2.analysis.perMonth", "{amount} par mois en moyenne",
-                            ["amount": Money.string(net / Double(months), locale: locale,
+                    t("v2.analysis.netFlowN", "Solde net sur {count} mois",
+                      ["count": settled.count]),
+                    net,
+                    settled.isEmpty
+                        ? ""
+                        : t("v2.analysis.perMonth", "{amount} par mois en moyenne",
+                            ["amount": Money.string(net / Double(settled.count), locale: locale,
                                                     currency: currency, decimals: false)])
-                        : ""
                 )
             case .calendar:
-                let days = data?.dailySpend ?? []
+                // The squares themselves, so the headline counts the same
+                // window and the same categories the grid under it is drawing.
+                let days = data.map(calendarCells) ?? []
                 let spent = days.reduce(0) { $0 + $1.amount }
                 let active = days.filter { $0.amount > 0 }.count
+                let window = t("v2.analysis.spentDays", "Dépensé sur {days} jours",
+                               ["days": Self.gridDays])
                 return (
-                    t("v2.analysis.spent30", "Dépensé sur 30 jours"), spent,
+                    hidden.isEmpty
+                        ? window
+                        : t("v2.calendar.heroScope", "{window} · {filter}",
+                            ["window": window,
+                             "filter": CalendarFilterLabel.short(
+                                hidden: hidden, categories: data?.spendCategories ?? [], t: t)]),
+                    spent,
                     active > 0
                         ? t("v2.analysis.perActiveDay", "{amount} les jours de dépense",
                             ["amount": Money.string(spent / Double(active), locale: locale,
@@ -509,6 +548,15 @@ struct AnalysisScreen: View {
                             legend(t("v2.analysis.net", "Net"), Florin.accent)
                             Spacer()
                         }
+
+                        if let running = data.flows.last, running.isRunning {
+                            Text(t("v2.analysis.runningNote",
+                                   "{month} en cours : les barres s'arrêtent à aujourd'hui, la courbe et la moyenne ne comptent que les mois terminés.",
+                                   ["month": MonthLabel.long(running.month, locale: locale)]))
+                                .font(.system(size: 11.5))
+                                .foregroundStyle(Florin.text3)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
                     }
                 }
                 .padding(.horizontal, Florin.gutter)
@@ -536,10 +584,20 @@ struct AnalysisScreen: View {
                     ForEach(Array(data.flows.reversed().enumerated()), id: \.element.id) { index, flow in
                         if index > 0 { Hairline() }
                         HStack {
-                            Text(MonthLabel.short(flow.month, locale: locale).capitalized)
-                                .font(.system(size: 13.5, weight: .medium))
-                                .foregroundStyle(Florin.text)
-                                .frame(width: 62, alignment: .leading)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(MonthLabel.short(flow.month, locale: locale).capitalized)
+                                    .font(.system(size: 13.5, weight: .medium))
+                                    .foregroundStyle(Florin.text)
+                                if flow.isRunning {
+                                    Text(t("v2.analysis.running", "en cours"))
+                                        .font(.system(size: 9.5, weight: .semibold))
+                                        .tracking(0.3)
+                                        .foregroundStyle(Florin.accent)
+                                        .lineLimit(1)
+                                        .fixedSize()
+                                }
+                            }
+                            .frame(width: 62, alignment: .leading)
                             AmountText(value: flow.income, locale: locale, currency: currency,
                                        decimals: false, tone: .positive, size: 13)
                                 .frame(maxWidth: .infinity, alignment: .trailing)
@@ -571,7 +629,7 @@ struct AnalysisScreen: View {
         }
     }
 
-    // MARK: - Abonnements
+    // MARK: - Calendrier
 
     /*
      * A month of spending, one square per day.
@@ -582,64 +640,25 @@ struct AnalysisScreen: View {
      * that cost more than weeks, the run of days after payday, the four quiet
      * days that show up as gaps.
      *
-     * Week-aligned columns rather than a calendar month, because thirty days
-     * back is what the query returns and a half-empty grid reads as missing
-     * data. Squares are scaled against the heaviest day rather than an
-     * absolute amount, so the picture is about this ledger and not about a
-     * threshold chosen here.
+     * Week-aligned columns rather than a calendar month, because a rolling
+     * window is what the query returns and a half-empty grid reads as missing
+     * data.
      */
     private func calendarTab(_ data: AnalysisData) -> some View {
-        let byDay = Dictionary(uniqueKeysWithValues: data.dailySpend.map { ($0.date, $0.amount) })
-        let calendar = Calendar(identifier: .gregorian)
-        let today = calendar.startOfDay(for: Date())
-        // Fill out to the end of this week so the last column is not a stub,
-        // then run back five whole weeks.
-        let weekday = calendar.component(.weekday, from: today)
-        let toSunday = (8 - weekday) % 7
-        let last = calendar.date(byAdding: .day, value: toSunday, to: today) ?? today
-        let cells: [(date: Date, key: String, amount: Double, future: Bool)] =
-            (0..<35).reversed().compactMap { back in
-                guard let date = calendar.date(byAdding: .day, value: -back, to: last)
-                else { return nil }
-                let key = LocalQueries.dayFormatter.string(from: date)
-                return (date, key, byDay[key] ?? 0, date > today)
-            }
-        let peak = cells.map(\.amount).max() ?? 0
+        let cells = calendarCells(data)
+        let cuts = heatCuts(cells)
         let quiet = cells.filter { !$0.future && $0.amount <= 0 }.count
         let heaviest = cells.max { $0.amount < $1.amount }
 
         return VStack(alignment: .leading, spacing: 30) {
             VStack(alignment: .leading, spacing: 12) {
-                Eyebrow(text: t("v2.analysis.calendarCaption",
-                                "Dépenses par jour, sur {days} jours", ["days": 35]))
-                    .padding(.horizontal, Florin.gutter)
+                calendarHeader(data)
 
                 FlorinCard {
                     VStack(alignment: .leading, spacing: 10) {
-                        HStack(spacing: 6) {
-                            ForEach(Self.weekdayInitials(locale), id: \.self) { initial in
-                                Text(initial)
-                                    .font(.system(size: 10, weight: .medium))
-                                    .foregroundStyle(Florin.text3)
-                                    .frame(maxWidth: .infinity)
-                            }
-                        }
-                        VStack(spacing: 6) {
-                            ForEach(0..<5, id: \.self) { week in
-                                HStack(spacing: 6) {
-                                    ForEach(0..<7, id: \.self) { day in
-                                        let cell = cells[week * 7 + day]
-                                        dayCell(cell, peak: peak)
-                                            .contentShape(Rectangle())
-                                            .onTapGesture {
-                                                guard model.canOpenDays, !cell.future else { return }
-                                                openDay = OpenDay(date: cell.date)
-                                            }
-                                    }
-                                }
-                            }
-                        }
-                        legend(peak)
+                        weekdayRow
+                        grid(cells, cuts: cuts)
+                        legend
                     }
                 }
                 .padding(.horizontal, Florin.gutter)
@@ -669,33 +688,337 @@ struct AnalysisScreen: View {
                 }
             }
         }
+        .sheet(isPresented: $filtering) {
+            CalendarFilterSheet(
+                categories: data.spendCategories ?? [],
+                totals: categoryTotals(data),
+                locale: locale,
+                currency: currency,
+                t: t,
+                hidden: $hidden
+            )
+        }
     }
 
-    private func dayCell(
-        _ cell: (date: Date, key: String, amount: Double, future: Bool), peak: Double
-    ) -> some View {
-        // Square root rather than linear: one 400 € day would otherwise make
-        // every ordinary day the same pale colour.
-        let share = peak > 0 && cell.amount > 0 ? (cell.amount / peak).squareRoot() : 0
+    /// The title of the grid, and the one control that changes what it counts.
+    ///
+    /// Beside the thing it filters rather than up in the top bar: the filter
+    /// belongs to this one view of the ledger and not to the four others on the
+    /// same screen, and a control that only works on one tab has no business
+    /// sitting in the chrome that spans all five. It also says what it is set
+    /// to, so a total that looks wrong explains itself where it is read.
+    private func calendarHeader(_ data: AnalysisData) -> some View {
+        HStack(spacing: 10) {
+            Eyebrow(
+                text: t("v2.analysis.calendarCaption", "Dépenses par jour, sur {days} jours",
+                        ["days": Self.gridDays])
+            )
+            Spacer(minLength: 4)
+            if model.canFilterDays {
+                Button {
+                    UISelectionFeedbackGenerator().selectionChanged()
+                    filtering = true
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "line.3.horizontal.decrease")
+                            .font(.system(size: 11, weight: .semibold))
+                        Text(
+                            CalendarFilterLabel.short(
+                                hidden: hidden, categories: data.spendCategories ?? [], t: t
+                            )
+                        )
+                        .font(.system(size: 12, weight: .semibold))
+                        .lineLimit(1)
+                    }
+                    .foregroundStyle(hidden.isEmpty ? Florin.text2 : Florin.accent)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(
+                        hidden.isEmpty ? Florin.text.opacity(0.06) : Florin.accent.opacity(0.16),
+                        in: Capsule()
+                    )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(t("v2.calendar.filterTitle", "Ce que compte le calendrier"))
+            }
+        }
+        .padding(.horizontal, Florin.gutter)
+    }
+
+    private var weekdayRow: some View {
+        HStack(spacing: Self.cellGap) {
+            ForEach(Self.weekdayInitials(locale), id: \.self) { initial in
+                Text(initial)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(Florin.text3)
+                    .frame(maxWidth: .infinity)
+            }
+        }
+    }
+
+    /// The squares, plus the card that reads one out under the finger.
+    private func grid(_ cells: [DayCell], cuts: [Double]) -> some View {
+        VStack(spacing: Self.cellGap) {
+            ForEach(0..<5, id: \.self) { week in
+                HStack(spacing: Self.cellGap) {
+                    ForEach(0..<7, id: \.self) { column in
+                        let index = week * 7 + column
+                        dayCell(
+                            cells[index],
+                            level: heatLevel(cells[index].amount, cuts: cuts),
+                            reading: scrub == index
+                        )
+                        .contentShape(Rectangle())
+                        .onTapGesture { open(cells[index]) }
+                    }
+                }
+            }
+        }
+        .background {
+            GeometryReader { proxy in
+                Color.clear
+                    .onChange(of: proxy.size.width, initial: true) { _, width in
+                        gridWidth = width
+                    }
+            }
+        }
+        .overlay(alignment: .topLeading) { readout(cells) }
+        .gesture(scrubGesture(cells))
+    }
+
+    /*
+     * Hold, then drag, to read a day out.
+     *
+     * The web shows this on hover; a phone has no hover, and a plain drag is
+     * not free here — the grid sits inside the screen's scroll view, and a
+     * `DragGesture(minimumDistance: 0)` on it wins over the scroll, so the page
+     * could no longer be scrolled by a thumb that happened to land on the
+     * calendar. Sequencing it behind a short press leaves a flick to the scroll
+     * view, a tap to the day sheet, and the hold to the reading — which is also
+     * how iOS scrubs a chart anywhere else.
+     */
+    private func scrubGesture(_ cells: [DayCell]) -> some Gesture {
+        LongPressGesture(minimumDuration: 0.18)
+            .sequenced(before: DragGesture(minimumDistance: 0))
+            .onChanged { phase in
+                guard case .second(true, let drag) = phase, let drag else { return }
+                guard let index = cellIndex(at: drag.location), index < cells.count else { return }
+                if scrub != index {
+                    UISelectionFeedbackGenerator().selectionChanged()
+                    scrub = index
+                }
+            }
+            .onEnded { _ in scrub = nil }
+    }
+
+    /// Which square is under a point in the grid.
+    ///
+    /// Clamped rather than nil at the edges: a thumb that slides a few points
+    /// past the last column is still reading Sunday, and letting the card
+    /// vanish there would make the gesture feel broken at exactly the moment it
+    /// is being learned.
+    private func cellIndex(at point: CGPoint) -> Int? {
+        let side = Self.cellSide(gridWidth)
+        guard side > 0 else { return nil }
+        let pitch = side + Self.cellGap
+        let column = min(6, max(0, Int((point.x / pitch).rounded(.down))))
+        let row = min(4, max(0, Int((point.y / pitch).rounded(.down))))
+        return row * 7 + column
+    }
+
+    private func open(_ cell: DayCell) {
+        guard model.canOpenDays, !cell.future else { return }
+        UISelectionFeedbackGenerator().selectionChanged()
+        openDay = OpenDay(date: cell.date)
+    }
+
+    // MARK: - The card over the square
+
+    private static let calloutDateSize: CGFloat = 11.5
+    private static let calloutAmountSize: CGFloat = 15
+    private static let calloutHeight: CGFloat = 46
+
+    @ViewBuilder
+    private func readout(_ cells: [DayCell]) -> some View {
+        if let index = scrub, index < cells.count, gridWidth > 0 {
+            let cell = cells[index]
+            let day = DayLabel.string(cell.date, locale: locale, t: t)
+            let amount = Money.string(cell.amount, locale: locale, currency: currency, decimals: true)
+            let width = Self.calloutWidth(day: day, amount: amount)
+            let side = Self.cellSide(gridWidth)
+            let pitch = side + Self.cellGap
+            let row = CGFloat(index / 7)
+            let centre = CGFloat(index % 7) * pitch + side / 2
+
+            callout(day: day, amount: amount, spent: cell.amount > 0)
+                .frame(width: width, height: Self.calloutHeight)
+                .offset(
+                    // Kept inside the card on both sides, and flipped under the
+                    // square for the top row, where there is nothing above it.
+                    x: min(max(centre - width / 2, 0), max(0, gridWidth - width)),
+                    y: row > 0
+                        ? row * pitch - Self.calloutHeight - 5
+                        : pitch + 5
+                )
+                .allowsHitTesting(false)
+                .transition(.opacity)
+        }
+    }
+
+    private func callout(day: String, amount: String, spent: Bool) -> some View {
+        VStack(spacing: 1) {
+            Text(day)
+                .font(.system(size: Self.calloutDateSize, weight: .medium))
+                .foregroundStyle(Florin.text2)
+            Text(spent ? amount : t("v2.analysis.noSpend", "Rien"))
+                .font(.system(size: Self.calloutAmountSize, weight: .semibold))
+                .monospacedDigit()
+                .foregroundStyle(Florin.text)
+                .hiddenWhenPrivate()
+        }
+        .lineLimit(1)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Florin.surface3, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(Florin.text.opacity(0.10), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.35), radius: 10, y: 4)
+    }
+
+    /*
+     * Measured from the font rather than read back from the layout.
+     *
+     * The card has to be centred over a square *before* it is drawn. A width
+     * measured by a `GeometryReader` arrives on the next pass, which on a
+     * gesture that changes the text every few points shows up as a card
+     * sliding a frame behind the finger. The two strings and their two fonts
+     * are known here, so the width is too.
+     */
+    private static func calloutWidth(day: String, amount: String) -> CGFloat {
+        let top = textWidth(day, size: calloutDateSize, weight: .medium)
+        let bottom = textWidth(amount, size: calloutAmountSize, weight: .semibold)
+        return min(200, max(top, bottom).rounded(.up) + 24)
+    }
+
+    private static func textWidth(_ text: String, size: CGFloat, weight: UIFont.Weight) -> CGFloat {
+        (text as NSString)
+            .size(withAttributes: [.font: UIFont.systemFont(ofSize: size, weight: weight)])
+            .width
+    }
+
+    // MARK: - What the grid is made of
+
+    /// A square: the day it stands for, and what was spent on it under the
+    /// filter in force.
+    private struct DayCell {
+        let date: Date
+        let key: String
+        let amount: Double
+        let future: Bool
+    }
+
+    /// Five whole weeks, and the same five weeks the query reads: one number,
+    /// so a grid cannot outrun its data again.
+    private static let gridDays = LocalAnalysis.calendarWindow
+    private static let cellGap: CGFloat = 6
+
+    private static func cellSide(_ width: CGFloat) -> CGFloat {
+        max(0, (width - cellGap * 6) / 7)
+    }
+
+    private func calendarCells(_ data: AnalysisData) -> [DayCell] {
+        let byDay = filteredDays(data)
+        let calendar = Calendar(identifier: .gregorian)
+        let today = calendar.startOfDay(for: Date())
+        // Fill out to the end of this week so the last column is not a stub,
+        // then run back five whole weeks.
+        let weekday = calendar.component(.weekday, from: today)
+        let toSunday = (8 - weekday) % 7
+        let last = calendar.date(byAdding: .day, value: toSunday, to: today) ?? today
+        return (0..<Self.gridDays).reversed().compactMap { back in
+            guard let date = calendar.date(byAdding: .day, value: -back, to: last)
+            else { return nil }
+            let key = LocalQueries.dayFormatter.string(from: date)
+            return DayCell(date: date, key: key, amount: byDay[key] ?? 0, future: date > today)
+        }
+    }
+
+    /// What each day was worth: the feed's own totals, or the slices behind
+    /// them re-added without the categories the reader has taken out.
+    private func filteredDays(_ data: AnalysisData) -> [String: Double] {
+        guard !hidden.isEmpty, let slices = data.dailySlices else {
+            return Dictionary(data.dailySpend.map { ($0.date, $0.amount) }) { $1 }
+        }
+        var byDay: [String: Double] = [:]
+        for slice in slices where !hidden.contains(slice.categoryId) {
+            byDay[slice.date, default: 0] += slice.amount
+        }
+        return byDay
+    }
+
+    /// What each category was worth over the window — the figures the filter
+    /// sheet orders and prices itself by.
+    private func categoryTotals(_ data: AnalysisData) -> [String: Double] {
+        var totals: [String: Double] = [:]
+        for slice in data.dailySlices ?? [] {
+            totals[slice.categoryId, default: 0] += slice.amount
+        }
+        return totals
+    }
+
+    // MARK: - The scale
+
+    /*
+     * Five buckets by rank, not a ramp on the amount.
+     *
+     * A single 900 € rent day sets the top of any amount-based scale, and the
+     * fortnight of 10–40 € days underneath it then differ by two percent of
+     * that — every one of them the same faint wash, which is the version of
+     * this grid that says nothing. Ranking the days instead spends the five
+     * shades on the middle of the distribution, where the differences a reader
+     * can act on actually are. The web has drawn it this way for a year.
+     *
+     * The shades mix towards the accent rather than the tab's own teal: the
+     * ground behind this screen *is* that teal, and a teal square on a teal
+     * page is a square you have to look for.
+     */
+    private static let heatLevels = 5
+
+    private func heatCuts(_ cells: [DayCell]) -> [Double] {
+        let spent = cells.map(\.amount).filter { $0 > 0 }.sorted()
+        guard !spent.isEmpty else { return [] }
+        return (1..<Self.heatLevels).map {
+            spent[min(spent.count - 1, spent.count * $0 / Self.heatLevels)]
+        }
+    }
+
+    private func heatLevel(_ amount: Double, cuts: [Double]) -> Int {
+        guard amount > 0 else { return 0 }
+        return min(Self.heatLevels, 1 + cuts.filter { amount > $0 }.count)
+    }
+
+    private static func heatShade(_ level: Int) -> Color {
+        guard level > 0 else { return Florin.surface2 }
+        return Florin.mix(Florin.surface2, Florin.accent, [0, 0.20, 0.39, 0.58, 0.78, 1.0][level])
+    }
+
+    private func dayCell(_ cell: DayCell, level: Int, reading: Bool) -> some View {
         let calendar = Calendar(identifier: .gregorian)
         let isToday = calendar.isDateInToday(cell.date)
-        let fill: Color
-        if cell.future {
-            fill = Florin.surface2.opacity(0.35)
-        } else if share > 0 {
-            fill = TabRoute.analysis.tint.opacity(0.18 + 0.72 * share)
-        } else {
-            fill = Florin.surface2
-        }
-        return RoundedRectangle(cornerRadius: 6, style: .continuous)
+        let fill = cell.future ? Florin.surface2.opacity(0.35) : Self.heatShade(level)
+        let ring = reading ? Florin.text : (isToday ? Florin.text.opacity(0.55) : .clear)
+        return RoundedRectangle(cornerRadius: 8, style: .continuous)
             .fill(fill)
             .aspectRatio(1, contentMode: .fit)
             .frame(maxWidth: .infinity)
             .overlay(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .strokeBorder(Florin.text.opacity(isToday ? 0.55 : 0), lineWidth: 1.5)
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .strokeBorder(ring, lineWidth: reading ? 2 : 1.5)
             )
-            .overlay(dayNumber(cell, share: share))
+            .overlay(dayNumber(cell, level: level))
+            .scaleEffect(reading ? 1.06 : 1)
+            .animation(.snappy(duration: 0.14), value: reading)
             .accessibilityLabel(
                 Self.cellLabel(cell.date, cell.amount, locale: locale, currency: currency, t: t)
             )
@@ -709,33 +1032,40 @@ struct AnalysisScreen: View {
         return day + ", " + money
     }
 
-    private func dayNumber(
-        _ cell: (date: Date, key: String, amount: Double, future: Bool), share: Double
-    ) -> some View {
+    private func dayNumber(_ cell: DayCell, level: Int) -> some View {
         let day = Calendar(identifier: .gregorian).component(.day, from: cell.date)
-        let tone: Color = share > 0.55 ? Color.white.opacity(0.9) : Florin.text3
+        // White once the square is dark enough to swallow grey, as on the web.
+        let tone: Color = level >= 4 ? Color.white.opacity(0.92) : Florin.text3
         return Text(String(day))
-            .font(.system(size: 9, weight: .medium))
+            .font(.system(size: 10.5, weight: level >= 4 ? .medium : .regular))
+            .monospacedDigit()
             .foregroundStyle(tone)
             .opacity(cell.future ? 0.3 : 1)
     }
 
-    private func legend(_ peak: Double) -> some View {
-        HStack(spacing: 6) {
-            Text(Money.string(0, locale: locale, currency: currency, decimals: false))
+    /// Five shades and what they mean, which is all a ranked scale can honestly
+    /// say — the old legend printed the window's largest day at the end of a
+    /// square-root ramp, so every swatch between the two ends was a number it
+    /// did not stand for.
+    private var legend: some View {
+        HStack(spacing: 5) {
+            Text(t("v2.common.less", "Moins"))
                 .font(.system(size: 10)).foregroundStyle(Florin.text3)
-            ForEach([0.0, 0.35, 0.6, 0.8, 1.0], id: \.self) { step in
+            ForEach(0...Self.heatLevels, id: \.self) { level in
                 RoundedRectangle(cornerRadius: 3, style: .continuous)
-                    .fill(step > 0
-                          ? TabRoute.analysis.tint.opacity(0.18 + 0.72 * step)
-                          : Florin.surface2)
-                    .frame(width: 14, height: 8)
+                    .fill(Self.heatShade(level))
+                    .frame(width: 13, height: 9)
             }
-            Text(Money.string(peak, locale: locale, currency: currency, decimals: false))
+            Text(t("v2.common.more", "Plus"))
                 .font(.system(size: 10)).foregroundStyle(Florin.text3)
-            Spacer()
+            Spacer(minLength: 6)
+            if model.canOpenDays {
+                Text(t("v2.calendar.scrubHint", "maintiens pour lire"))
+                    .font(.system(size: 10))
+                    .foregroundStyle(Florin.text3)
+                    .lineLimit(1)
+            }
         }
-        .hiddenWhenPrivate()
     }
 
     /// Monday-first initials in the reader's own language.
@@ -747,6 +1077,8 @@ struct AnalysisScreen: View {
         // on Monday, and repeated initials are why each carries its index.
         return (1...7).map { symbols[$0 % 7] }
     }
+
+    // MARK: - Abonnements
 
     private func subsTab(_ data: AnalysisData) -> some View {
         let sorted = data.subscriptions.sorted { $0.annualCost > $1.annualCost }
@@ -852,6 +1184,13 @@ struct FlowChart: View {
     /// Le mois sous le doigt, tel que Swift Charts le rapporte.
     @State private var touched: String?
 
+    /// Pleine encre pour le mois sous le doigt, atténuée pour les autres, et
+    /// plus pâle encore pour le mois en cours — qui n'est pas fini.
+    private func ink(_ flow: MonthlyFlow, _ full: Double) -> Double {
+        let picked = selection == nil || selection?.id == flow.id ? 1.0 : 0.32
+        return full * picked * (flow.isRunning ? 0.5 : 1)
+    }
+
     var body: some View {
         Chart {
             ForEach(flows) { flow in
@@ -860,7 +1199,7 @@ struct FlowChart: View {
                     y: .value("Montant", flow.income)
                 )
                 .position(by: .value("Sens", "in"))
-                .foregroundStyle(Florin.positive.opacity(selection == nil || selection?.id == flow.id ? 0.95 : 0.3))
+                .foregroundStyle(Florin.positive.opacity(ink(flow, 0.95)))
                 .cornerRadius(3)
 
                 BarMark(
@@ -868,17 +1207,30 @@ struct FlowChart: View {
                     y: .value("Montant", flow.expense)
                 )
                 .position(by: .value("Sens", "out"))
-                .foregroundStyle(Florin.negative.opacity(selection == nil || selection?.id == flow.id ? 0.9 : 0.28))
+                .foregroundStyle(Florin.negative.opacity(ink(flow, 0.9)))
                 .cornerRadius(3)
 
-                LineMark(
-                    x: .value("Mois", MonthLabel.short(flow.month, locale: locale)),
-                    y: .value("Net", flow.net),
-                    series: .value("Série", "net")
-                )
-                .foregroundStyle(Florin.accent)
-                .lineStyle(StrokeStyle(lineWidth: 1.8, lineCap: .round))
-                .interpolationMethod(.monotone)
+                /*
+                 * The net line stops at the last month that is over.
+                 *
+                 * A month is only half-paid until the salary lands, so the
+                 * running month's net is a trough that has nothing to do with
+                 * how the money went: it plunged off the bottom of the chart
+                 * on the 18th, took the y-axis down to −2 k with it, and
+                 * flattened the twelve real months into a ribbon. Its bars
+                 * stay — spending to date is worth seeing — and the pale ink
+                 * plus the note under the card say why they are shorter.
+                 */
+                if !flow.isRunning {
+                    LineMark(
+                        x: .value("Mois", MonthLabel.short(flow.month, locale: locale)),
+                        y: .value("Net", flow.net),
+                        series: .value("Série", "net")
+                    )
+                    .foregroundStyle(Florin.accent)
+                    .lineStyle(StrokeStyle(lineWidth: 1.8, lineCap: .round))
+                    .interpolationMethod(.monotone)
+                }
             }
 
             if let selection {

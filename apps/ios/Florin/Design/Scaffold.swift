@@ -224,24 +224,28 @@ struct ChipBar<Value: Hashable>: View {
     @Binding var selection: Value
 
     /*
-     * Fills the width when the chips fit, scrolls when they do not.
+     * One size of type across the row, whatever the row has to do to fit.
      *
-     * A scroll view sizes itself to its content, so four short chips left a
-     * ragged gap down the right of the screen — the row read as an unfinished
-     * list rather than a set of tabs. `ViewThatFits` takes the laid-out row
-     * when there is room for it and falls back to scrolling for a longer set,
-     * which is the only honest way to do this without hard-coding a count.
+     * Every chip used to take an equal share of the width, which is a quite
+     * different constraint from "the row fits": five equal fifths cannot hold
+     * "Tendances" and "Calendrier" at 14pt, so those two shrank a step and then
+     * truncated anyway while "Flux" sat in a half-empty capsule — one row, three
+     * sizes of type and two ellipses.
+     *
+     * A chip is as wide as its own word now and the leftover width is shared
+     * out as padding (`SharedSlack`). What gives way when the row is tight is
+     * the padding, in two steps, and then the row scrolls. The type never
+     * scales and a label is never cut.
      */
     var body: some View {
         ViewThatFits(in: .horizontal) {
-            HStack(spacing: 8) {
-                ForEach(options, id: \.value) { chip($0, fill: true) }
-            }
-            .padding(.horizontal, Florin.gutter)
+            row(padding: 16, spacing: 8)
+            row(padding: 12, spacing: 7)
+            row(padding: 8, spacing: 6)
 
             ScrollView(.horizontal) {
                 HStack(spacing: 8) {
-                    ForEach(options, id: \.value) { chip($0, fill: false) }
+                    ForEach(options, id: \.value) { chip($0, padding: 15) }
                 }
                 .padding(.horizontal, Florin.gutter)
             }
@@ -249,9 +253,16 @@ struct ChipBar<Value: Hashable>: View {
         }
     }
 
+    private func row(padding: CGFloat, spacing: CGFloat) -> some View {
+        SharedSlack(spacing: spacing) {
+            ForEach(options, id: \.value) { chip($0, padding: padding) }
+        }
+        .padding(.horizontal, Florin.gutter)
+    }
+
     private func chip(
         _ option: (value: Value, label: String, badge: Int),
-        fill: Bool
+        padding: CGFloat
     ) -> some View {
         let active = option.value == selection
         return Button {
@@ -259,27 +270,8 @@ struct ChipBar<Value: Hashable>: View {
             withAnimation(.snappy(duration: 0.2)) { selection = option.value }
         } label: {
             HStack(spacing: 6) {
-                Text(option.label)
-                    .font(.system(size: 14, weight: active ? .semibold : .medium))
-                    .lineLimit(1)
-                    // Filling the width makes every chip a quarter of the row,
-                    // and "Tendances" does not fit a quarter at 14pt. Shrinking
-                    // a hair is invisible; truncating to "Tendan…" is not — and
-                    // a chip carrying a count has that much less room, which is
-                    // how "À vérifier" became "À véri…" the day the queue
-                    // reached two digits.
-                    .minimumScaleFactor(fill ? (option.badge > 0 ? 0.6 : 0.72) : 1)
+                label(option.label, active: active)
                 if option.badge > 0 {
-                    /*
-                     * One line, always, and never squeezed.
-                     *
-                     * The chips fill the row, so a two-digit count made the
-                     * stack wider than its quarter and SwiftUI wrapped the
-                     * cheapest text it could find — the badge — into "1" over
-                     * "2" inside a capsule sized for one line. Fixing the badge
-                     * makes the label give way instead, which it is already
-                     * built to do.
-                     */
                     Text("\(option.badge)")
                         .font(.system(size: 11, weight: .bold))
                         .monospacedDigit()
@@ -292,13 +284,71 @@ struct ChipBar<Value: Hashable>: View {
                 }
             }
             .foregroundStyle(active ? Florin.text : Florin.text2)
-            .padding(.horizontal, fill ? 6 : 15)
+            .padding(.horizontal, padding)
             .padding(.vertical, 9)
-            .frame(maxWidth: fill ? .infinity : nil)
+            .frame(maxWidth: .infinity)
             .modifier(ChipGlass(active: active))
         }
         .buttonStyle(.plain)
     }
+
+    /// Always measured in the heavier weight it wears when selected, so moving
+    /// the selection does not re-measure the row and shuffle its neighbours.
+    private func label(_ text: String, active: Bool) -> some View {
+        Text(text)
+            .font(.system(size: 14, weight: .semibold))
+            .lineLimit(1)
+            .fixedSize()
+            .hidden()
+            .overlay {
+                Text(text)
+                    .font(.system(size: 14, weight: active ? .semibold : .medium))
+                    .lineLimit(1)
+                    .fixedSize()
+            }
+    }
+}
+
+/// A row where every view keeps its natural width and the leftover space is
+/// shared out equally between them.
+///
+/// `HStack` with `maxWidth: .infinity` on each child does the opposite: it hands
+/// everyone the same width whether their content fits it or not, which is how a
+/// short word gets a wide capsule and a long one gets an ellipsis. Reporting the
+/// natural width as its own is also what lets `ViewThatFits` see that a row is
+/// too wide — a view that stretches to whatever it is offered always "fits".
+struct SharedSlack: Layout {
+    var spacing: CGFloat = 8
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let sizes = subviews.map { $0.sizeThatFits(.unspecified) }
+        let natural = sizes.reduce(0) { $0 + $1.width } + gaps(subviews.count)
+        return CGSize(
+            width: max(natural, proposal.width ?? natural),
+            height: sizes.map(\.height).max() ?? 0
+        )
+    }
+
+    func placeSubviews(
+        in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()
+    ) {
+        guard !subviews.isEmpty else { return }
+        let widths = subviews.map { $0.sizeThatFits(.unspecified).width }
+        let slack = max(0, bounds.width - widths.reduce(0, +) - gaps(subviews.count))
+        let share = slack / CGFloat(subviews.count)
+        var x = bounds.minX
+        for (index, subview) in subviews.enumerated() {
+            let width = widths[index] + share
+            subview.place(
+                at: CGPoint(x: x, y: bounds.midY),
+                anchor: .leading,
+                proposal: ProposedViewSize(width: width, height: bounds.height)
+            )
+            x += width + spacing
+        }
+    }
+
+    private func gaps(_ count: Int) -> CGFloat { spacing * CGFloat(max(count - 1, 0)) }
 }
 
 private struct ChipGlass: ViewModifier {

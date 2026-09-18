@@ -61,6 +61,34 @@ enum Florin {
         return series[Int(hash % UInt32(series.count))]
     }
 
+    /*
+     * Two colours mixed, each resolved for the appearance it is drawn in.
+     *
+     * `Color.mix(with:by:)` is iOS 18 and the floor here is 17.4. Resolving
+     * inside the trait callback is the part that matters: mixing the light
+     * values once and handing the result to a dark screen is how a ramp ends
+     * up glowing. Interpolated in sRGB where the web says oklab — over five
+     * steps of one hue the difference is not visible, and the alternative is
+     * a colour-space conversion nothing else here needs.
+     */
+    static func mix(_ base: Color, _ other: Color, _ amount: Double) -> Color {
+        let ratio = CGFloat(min(max(amount, 0), 1))
+        return Color(UIColor { traits in
+            let from = UIColor(base).resolvedColor(with: traits)
+            let to = UIColor(other).resolvedColor(with: traits)
+            var (r1, g1, b1, a1): (CGFloat, CGFloat, CGFloat, CGFloat) = (0, 0, 0, 0)
+            var (r2, g2, b2, a2): (CGFloat, CGFloat, CGFloat, CGFloat) = (0, 0, 0, 0)
+            from.getRed(&r1, green: &g1, blue: &b1, alpha: &a1)
+            to.getRed(&r2, green: &g2, blue: &b2, alpha: &a2)
+            return UIColor(
+                red: r1 + (r2 - r1) * ratio,
+                green: g1 + (g2 - g1) * ratio,
+                blue: b1 + (b2 - b1) * ratio,
+                alpha: a1 + (a2 - a1) * ratio
+            )
+        })
+    }
+
     private static func dynamic(light: UInt32, dark: UInt32) -> Color {
         Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(hex: dark) : UIColor(hex: light) })
     }
