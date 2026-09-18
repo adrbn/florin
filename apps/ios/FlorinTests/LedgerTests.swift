@@ -1169,6 +1169,45 @@ struct WalletPaymentTests {
         #expect(!LocalLedger.namesAgree("CB 07.09.26", "ACHAT CB CHEZ ROSA", whenUnsure: false))
     }
 
+    /*
+     * A refund typed in from the receipt is dated that day; the bank credited
+     * it days earlier, and the pair has to find each other anyway.
+     */
+    @Test("a refund settles onto a credit the bank booked before it was entered")
+    func refundSettlesBackwards() throws {
+        let (store, checking, _) = try ledger()
+        let credit = try bankRow(store, checking, "2026-09-12", 43.87,
+                                 label: "CREDIT CARTE BANCAIRE SARL LE COMPTOIR")
+        let older = try bankRow(store, checking, "2026-09-09", -4.5, label: "ACHAT CB CHEZ ROSA")
+        try store.database.run(
+            """
+            INSERT INTO transactions (id, account_id, occurred_at, amount, payee, normalized_payee,
+                source, status, is_pending)
+            VALUES (?, ?, '2026-09-16T17:00:00Z', 43.87, 'Le Comptoir', 'le comptoir',
+                'ios_shortcut', 'scheduled', 1)
+            """,
+            [.text(UUID().uuidString), .text(checking)]
+        )
+        // A payment, not a refund: the identical one a week earlier is another
+        // purchase and must be left alone.
+        try store.database.run(
+            """
+            INSERT INTO transactions (id, account_id, occurred_at, amount, payee, normalized_payee,
+                source, status, is_pending)
+            VALUES (?, ?, '2026-09-17T11:00:00Z', -4.5, 'Chez Rosa', 'chez rosa',
+                'ios_shortcut', 'scheduled', 1)
+            """,
+            [.text(UUID().uuidString), .text(checking)]
+        )
+        #expect(try LocalWallet.settle(store: store) == 1)
+        #expect(try store.database.scalar(
+            "SELECT count(*) FROM transactions WHERE merge_suggested_tx_id = ?", [.text(credit)]
+        )?.int == 1)
+        #expect(try store.database.scalar(
+            "SELECT count(*) FROM transactions WHERE merge_suggested_tx_id = ?", [.text(older)]
+        )?.int == 0)
+    }
+
     @Test("a bank row that took another merchant's name gets its own back")
     func restoresBankLabel() throws {
         let (store, checking, _) = try ledger()
