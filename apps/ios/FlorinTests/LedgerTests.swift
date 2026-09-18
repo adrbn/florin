@@ -1176,14 +1176,14 @@ struct WalletPaymentTests {
     @Test("a refund settles onto a credit the bank booked before it was entered")
     func refundSettlesBackwards() throws {
         let (store, checking, _) = try ledger()
-        let credit = try bankRow(store, checking, "2026-09-12", 43.87,
+        let credit = try bankRow(store, checking, "2026-09-12", 61.20,
                                  label: "CREDIT CARTE BANCAIRE SARL LE COMPTOIR")
-        let older = try bankRow(store, checking, "2026-09-09", -4.5, label: "ACHAT CB CHEZ ROSA")
+        let older = try bankRow(store, checking, "2026-09-09", -6.3, label: "ACHAT CB CHEZ ROSA")
         try store.database.run(
             """
             INSERT INTO transactions (id, account_id, occurred_at, amount, payee, normalized_payee,
                 source, status, is_pending)
-            VALUES (?, ?, '2026-09-16T17:00:00Z', 43.87, 'Le Comptoir', 'le comptoir',
+            VALUES (?, ?, '2026-09-16T17:00:00Z', 61.20, 'Le Comptoir', 'le comptoir',
                 'ios_shortcut', 'scheduled', 1)
             """,
             [.text(UUID().uuidString), .text(checking)]
@@ -1194,7 +1194,7 @@ struct WalletPaymentTests {
             """
             INSERT INTO transactions (id, account_id, occurred_at, amount, payee, normalized_payee,
                 source, status, is_pending)
-            VALUES (?, ?, '2026-09-17T11:00:00Z', -4.5, 'Chez Rosa', 'chez rosa',
+            VALUES (?, ?, '2026-09-17T11:00:00Z', -6.3, 'Chez Rosa', 'chez rosa',
                 'ios_shortcut', 'scheduled', 1)
             """,
             [.text(UUID().uuidString), .text(checking)]
