@@ -18,6 +18,9 @@ struct TransactionDetailSheet: View {
     let onPatch: (TxPatch) async -> Void
     let onDelete: () async -> Void
     let onAttachTransfer: (String) async -> Void
+    /// Passed straight through to the edit sheet, which offers two rows only
+    /// the device ledger can honour — see `AddTransactionSheet.isLocalLedger`.
+    var isLocalLedger = false
 
     @Environment(\.dismiss) private var dismiss
     @State private var picking = false
@@ -246,10 +249,27 @@ struct TransactionDetailSheet: View {
                 categoryEmoji: tx.categoryEmoji
             )
         }
+        /*
+         * The same sheet that created the row.
+         *
+         * It was a `Form` of four fields — and the row's account, its
+         * category, its sign and its "en prévision" switch were all decided on
+         * a screen this one did not resemble and could not undo.
+         */
         .sheet(isPresented: $editing) {
-            TransactionEditor(tx: tx, locale: locale, currency: currency, t: t) { patch in
-                await onPatch(patch)
-            }
+            AddTransactionSheet(
+                accounts: accounts,
+                categories: categories,
+                localeTag: locale,
+                currency: currency,
+                t: t,
+                editing: tx,
+                onPatch: { patch in
+                    await onPatch(patch)
+                    dismiss()
+                },
+                isLocalLedger: isLocalLedger
+            )
         }
         /*
          * Une alerte, pas une feuille de confirmation.

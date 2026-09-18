@@ -77,7 +77,8 @@ enum LocalLedger {
             SELECT t.id, t.occurred_at, t.amount, t.payee, t.memo,
                    c.name AS category_name, c.emoji AS category_emoji,
                    a.name AS account_name, t.transfer_pair_id,
-                   t.needs_review, t.is_pending, t.status
+                   t.needs_review, t.is_pending, t.status,
+                   t.account_id, t.category_id
             FROM transactions t
             LEFT JOIN categories c ON c.id = t.category_id
             LEFT JOIN accounts a ON a.id = t.account_id
@@ -116,7 +117,9 @@ enum LocalLedger {
             isTransfer: !row["transfer_pair_id"].isNull,
             needsReview: row.bool("needs_review"),
             isPending: row.bool("is_pending"),
-            isScheduled: row.string("status") == "scheduled"
+            isScheduled: row.string("status") == "scheduled",
+            accountId: row.string("account_id"),
+            categoryId: row.string("category_id")
         )
     }
 
@@ -434,14 +437,41 @@ enum LocalLedger {
             sets.append("occurred_at = ?")
             values.append(.text(occurredAt))
         }
+        if let accountId = patch.accountId {
+            sets.append("account_id = ?")
+            values.append(.text(accountId))
+        }
+        /*
+         * Waiting for the bank, or not, after the fact.
+         *
+         * `is_pending` is what holds a row out of the balance — only 'cleared'
+         * rows are summed — and `status` is what the rest of the app reads to
+         * say so. They move together or the row is a contradiction: counted
+         * but labelled upcoming, or the reverse.
+         */
+        if let upcoming = patch.upcoming {
+            sets.append("is_pending = ?")
+            sets.append("status = ?")
+            values.append(.integer(upcoming ? 1 : 0))
+            values.append(.text(upcoming ? "scheduled" : "cleared"))
+        }
         guard !sets.isEmpty else { return }
         sets.append("updated_at = datetime('now')")
+
+        // Read before the write: moving a row leaves the account it came from
+        // holding a balance that still counts it.
+        let previousAccount = patch.accountId == nil ? nil : try store.database.scalar(
+            "SELECT account_id FROM transactions WHERE id = ?", [.text(id)]
+        )?.string
 
         try store.database.transaction {
             try store.database.run(
                 "UPDATE transactions SET \(sets.joined(separator: ", ")) WHERE id = ?",
                 values + [.text(id)]
             )
+            if let previousAccount, previousAccount != patch.accountId {
+                try recomputeBalance(store, accountId: previousAccount)
+            }
             try recomputeAffectedBalance(store, transactionId: id)
             try syncLoanMirror(store, transactionId: id)
         }

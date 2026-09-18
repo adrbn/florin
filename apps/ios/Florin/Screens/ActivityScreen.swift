@@ -312,7 +312,8 @@ struct TransactionList<Banner: View>: View {
             onAttach: { tx, accountId in
                 await model.attachTransfer(tx.id, to: accountId, t: t)
                 await onLedgerChanged()
-            }
+            },
+            isLocalLedger: model.isLocalLedger
         )
         .sheet(item: $detail) { tx in
             TransactionDetailSheet(
@@ -333,7 +334,8 @@ struct TransactionList<Banner: View>: View {
                 onAttachTransfer: { accountId in
                     await model.attachTransfer(tx.id, to: accountId, t: t)
                     await onLedgerChanged()
-                }
+                },
+                isLocalLedger: model.isLocalLedger
             )
         }
         .sheet(isPresented: Binding(

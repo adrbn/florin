@@ -239,6 +239,9 @@ final class OverviewModel: ObservableObject {
     /// Needed by pushed web screens hosted inside this tab's stack.
     let base: URL
 
+    /// The phone's own books, which no outage can take away.
+    private var isLocalLedger: Bool { base.scheme == "florin-local" }
+
     init(base: URL) {
         self.base = base
         client = FlorinClient(base: base)
@@ -347,6 +350,9 @@ final class OverviewModel: ObservableObject {
     func onForeground() async {
         await load(showSpinner: overview == nil)
         publishSnapshot()
+        // Nothing to reach. `sync` would say so, but only after spending a
+        // timeout per account — see `Reachability`.
+        guard Reachability.shared.online else { return }
         if Date().timeIntervalSince(lastSyncAttempt) > Self.autoSyncInterval {
             // Announce only when it actually brought something back: a pill on
             // every single app open saying "à jour" is nagging, not informing.
@@ -380,6 +386,30 @@ final class OverviewModel: ObservableObject {
 
     func sync(announce: Bool = true, announceOnlyIfNew: Bool = false, confirmCurrent: Bool = true) async {
         guard !syncing else { return }
+        /*
+         * Refused rather than attempted, when there is no route out.
+         *
+         * A sync with no network is not a slow sync: it is a sequence of
+         * timeouts, one per account, under a spinner that gives no sign of
+         * being doomed. Said outright it costs nothing, and the figures on
+         * screen — which the sync would not have changed — stay where they
+         * are instead of hiding behind it.
+         */
+        guard Reachability.shared.online else {
+            if announce {
+                toast = ToastMessage(
+                    text: overview?.t(
+                        "v2.overview.noConnection",
+                        "Pas de connexion — Florin montre ses derniers chiffres."
+                    ) ?? Strings.device(
+                        "v2.overview.noConnection",
+                        "Pas de connexion — Florin montre ses derniers chiffres."
+                    ),
+                    kind: .neutral
+                )
+            }
+            return
+        }
         syncing = true
         // Stamp before the call, not after: a failing bank must not turn into a
         // retry on every single foreground.
@@ -423,6 +453,21 @@ final class OverviewModel: ObservableObject {
     }
 
     func load(showSpinner: Bool = true) async {
+        /*
+         * A server that cannot be reached is answered from the cache at once.
+         *
+         * The catch below already falls back to it, but only after the request
+         * has spent its twenty seconds — twenty seconds of a spinner on a
+         * screen whose figures are sitting on disk. The device ledger is
+         * exempt: it is a file, and a file needs no network.
+         */
+        if !isLocalLedger, !Reachability.shared.online, overview == nil,
+           let cached = SnapshotCache.read(client.overviewKey),
+           let data = try? JSONDecoder().decode(Overview.self, from: cached.data) {
+            staleSince = cached.savedAt
+            state = .loaded(data)
+            return
+        }
         if showSpinner, case .loaded = state {} else if showSpinner { state = .loading }
         do {
             let data = try await client.overview()

@@ -131,7 +131,8 @@ struct OverviewScreen: View {
             t: t,
             onPatch: { tx, patch in await model.patch(patch, to: tx.id) },
             onDelete: { tx in await model.delete(tx.id) },
-            onAttach: { tx, accountId in try? await model.attachTransfer(tx.id, to: accountId) }
+            onAttach: { tx, accountId in try? await model.attachTransfer(tx.id, to: accountId) },
+            isLocalLedger: model.base.scheme == "florin-local"
         )
         .sheet(item: $detail) { tx in
             TransactionDetailSheet(
@@ -145,7 +146,8 @@ struct OverviewScreen: View {
                 onDelete: { await model.delete(tx.id) },
                 onAttachTransfer: { accountId in
                     try? await model.attachTransfer(tx.id, to: accountId)
-                }
+                },
+                isLocalLedger: model.base.scheme == "florin-local"
             )
         }
         /*
@@ -191,10 +193,14 @@ struct OverviewScreen: View {
         .sheet(isPresented: $adding) {
             if let data = model.overview {
                 AddTransactionSheet(
-                    data: data,
+                    accounts: data.accounts,
+                    categories: data.categories,
+                    localeTag: data.localeTag,
+                    currency: data.currency,
+                    t: data.t,
                     submit: { try await model.add($0) },
                     onTransfer: { try await model.addTransfer($0) },
-                    canWaitForBank: model.base.scheme == "florin-local"
+                    isLocalLedger: model.base.scheme == "florin-local"
                 )
             }
         }

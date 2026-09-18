@@ -76,6 +76,17 @@ struct TxPatch: Encodable, Sendable {
     var memo: String??
     var amount: Double?
     var occurredAt: String?
+    /*
+     * Device ledger only, and never encoded — like `NewTransaction.upcoming`.
+     *
+     * Moving a row to another account and putting it back under "en prévision"
+     * are both writes the device performs itself. The server's PATCH accepts
+     * neither, and its schema drops keys it does not know rather than
+     * refusing them: encoded, they would look like they had been applied. The
+     * sheet offers them only where they work.
+     */
+    var accountId: String?
+    var upcoming: Bool?
 
     enum CodingKeys: String, CodingKey {
         case categoryId, approve, payee, memo, amount, occurredAt
@@ -191,6 +202,10 @@ final class ActivityModel: ObservableObject {
     private var generation = 0
 
     init(base: URL) { client = FlorinClient(base: base) }
+
+    /// The phone's own books. The edit sheet asks: two of its rows are writes
+    /// only the device performs — see `TxPatch.accountId`.
+    var isLocalLedger: Bool { client.isLocal }
 
     var hasMore: Bool { !reachedEnd && !rows.isEmpty }
 

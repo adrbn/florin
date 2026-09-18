@@ -237,6 +237,20 @@ struct Transaction: Decodable, Sendable, Identifiable {
     let needsReview: Bool
     let isPending: Bool
     let isScheduled: Bool
+    /*
+     * The ids behind the two names above.
+     *
+     * A row carried `accountName` and `categoryName` because that is all a
+     * list has to draw. The edit sheet has to *preselect* them, and a name
+     * cannot be put back into a picker whose values are ids — two accounts
+     * may share a name, and matching on one would move money between them.
+     *
+     * Optional and last, so the server can leave them out and the four places
+     * that build a row by hand need not all be touched at once. The device
+     * ledger fills them in.
+     */
+    var accountId: String?
+    var categoryId: String?
 
     /// The same row, marked reviewed — for optimistic bulk approval.
     func approved() -> Transaction {
@@ -244,7 +258,8 @@ struct Transaction: Decodable, Sendable, Identifiable {
             id: id, date: date, amount: amount, payee: payee, memo: memo,
             categoryName: categoryName, categoryEmoji: categoryEmoji,
             accountName: accountName, isTransfer: isTransfer,
-            needsReview: false, isPending: isPending, isScheduled: isScheduled
+            needsReview: false, isPending: isPending, isScheduled: isScheduled,
+            accountId: accountId, categoryId: categoryId
         )
     }
 

@@ -200,6 +200,12 @@ struct RootView: View {
         }
         .tint(Florin.accent)
         .preferredColorScheme(appearance.colorScheme)
+        .onAppear {
+            // The path monitor takes a moment to report; started at launch it
+            // has an answer by the time the first fetch asks for one.
+            Reachability.begin()
+            markFreshInstallUpToDate()
+        }
         .onReceive(NotificationCenter.default.publisher(for: .florinShake)) { _ in
             Privacy.shared.toggle()
         }
@@ -276,11 +282,31 @@ struct RootView: View {
     private func considerNews(after delay: TimeInterval) {
         guard !splashing, !lock.locked, news == nil else { return }
         let ready = source == .server ? server.resolvedURL != nil : LocalOnboarding.isComplete
-        guard ready, ReleaseNotes.pending(seen: seenVersion, hasLedger: true) != nil else { return }
+        guard ready, ReleaseNotes.pending(seen: seenVersion, hasLedger: ready) != nil else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
             guard !splashing, !lock.locked, news == nil else { return }
-            news = ReleaseNotes.pending(seen: seenVersion, hasLedger: true)
+            news = ReleaseNotes.pending(seen: seenVersion, hasLedger: ready)
         }
+    }
+
+    /*
+     * A first launch has nothing to be told about.
+     *
+     * `ReleaseNotes.pending` refuses an empty ledger for exactly this reason,
+     * but the ledger stops being empty the moment onboarding writes an
+     * account — and onboarding is the first thing a new install does. So the
+     * notes for 1.3.6 would open over the dashboard of someone who has never
+     * seen 1.3.5, listing changes to a calendar they have not looked at once.
+     *
+     * The distinction can only be drawn here, before anything is set up:
+     * nothing in the database and no server means this install begins at this
+     * version, and begins up to date. An upgrade has one or the other and is
+     * left alone, so it still gets its notes.
+     */
+    private func markFreshInstallUpToDate() {
+        guard seenVersion.isEmpty, !LocalOnboarding.hasSeenWelcome, server.resolvedURL == nil
+        else { return }
+        seenVersion = ReleaseNotes.current
     }
 }
 

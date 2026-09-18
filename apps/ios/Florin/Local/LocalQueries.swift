@@ -329,7 +329,8 @@ enum LocalQueries {
             SELECT t.id, t.occurred_at, t.amount, t.payee, t.memo,
                    NULL AS category_name, NULL AS category_emoji,
                    a.name AS account_name, t.transfer_pair_id,
-                   t.needs_review, t.is_pending, t.status
+                   t.needs_review, t.is_pending, t.status,
+                   t.account_id, t.category_id
             FROM transactions t
             JOIN accounts a ON a.id = t.account_id
             WHERE t.deleted_at IS NULL AND t.amount < 0
@@ -581,7 +582,8 @@ enum LocalQueries {
             SELECT t.id, t.occurred_at, t.amount, t.payee, t.memo,
                    c.name AS category_name, c.emoji AS category_emoji,
                    a.name AS account_name, t.transfer_pair_id,
-                   t.needs_review, t.is_pending, t.status
+                   t.needs_review, t.is_pending, t.status,
+                   t.account_id, t.category_id
             FROM transactions t
             LEFT JOIN categories c ON c.id = t.category_id
             LEFT JOIN accounts a ON a.id = t.account_id
@@ -603,7 +605,9 @@ enum LocalQueries {
                 isTransfer: !row["transfer_pair_id"].isNull,
                 needsReview: row.bool("needs_review"),
                 isPending: row.bool("is_pending"),
-                isScheduled: row.string("status") == "scheduled"
+                isScheduled: row.string("status") == "scheduled",
+                accountId: row.string("account_id"),
+                categoryId: row.string("category_id")
             )
         }
     }

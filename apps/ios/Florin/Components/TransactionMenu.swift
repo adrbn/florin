@@ -80,12 +80,14 @@ extension View {
         t: Strings,
         onPatch: @escaping (Transaction, TxPatch) async -> Void,
         onDelete: @escaping (Transaction) async -> Void,
-        onAttach: @escaping (Transaction, String) async -> Void
+        onAttach: @escaping (Transaction, String) async -> Void,
+        isLocalLedger: Bool = false
     ) -> some View {
         modifier(TransactionActionsHost(
             request: request, categories: categories, accounts: accounts,
             locale: locale, currency: currency, t: t,
-            onPatch: onPatch, onDelete: onDelete, onAttach: onAttach
+            onPatch: onPatch, onDelete: onDelete, onAttach: onAttach,
+            isLocalLedger: isLocalLedger
         ))
     }
 }
@@ -100,6 +102,9 @@ struct TransactionActionsHost: ViewModifier {
     let onPatch: (Transaction, TxPatch) async -> Void
     let onDelete: (Transaction) async -> Void
     let onAttach: (Transaction, String) async -> Void
+    /// See `AddTransactionSheet.isLocalLedger`: the edit sheet offers two rows
+    /// only the phone's own ledger can honour.
+    var isLocalLedger = false
 
     @State private var sheet: TxActionRequest?
     @State private var deleting: Transaction?
@@ -165,9 +170,17 @@ struct TransactionActionsHost: ViewModifier {
                 onSpending: {}
             )
         case .edit:
-            TransactionEditor(tx: tx, locale: locale, currency: currency, t: t) { patch in
-                await onPatch(tx, patch)
-            }
+            // The same sheet that adds one — see `AddTransactionSheet`.
+            AddTransactionSheet(
+                accounts: accounts,
+                categories: categories,
+                localeTag: locale,
+                currency: currency,
+                t: t,
+                editing: tx,
+                onPatch: { patch in await onPatch(tx, patch) },
+                isLocalLedger: isLocalLedger
+            )
         case .approve, .delete:
             EmptyView()
         }

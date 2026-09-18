@@ -1,24 +1,42 @@
 import SwiftUI
 
-/// Record a transaction from the phone.
+/// Record a transaction from the phone — or change one already recorded.
 ///
 /// The amount is the hero of this sheet, so it gets hero treatment: large,
 /// centred, and focused on open. `.decimalPad` is deliberate — `.numberPad`
 /// has no separator key, which is exactly the key you need to type 12,40.
+///
+/// One sheet, two verbs. Editing used to be a `Form` of four fields — payee,
+/// amount, date, note — in the system's grey slabs: a different screen, in a
+/// different material, offering less than the screen that had created the row.
+/// Everything chosen when adding was then unchangeable. The sign was typed as
+/// a minus in front of the amount, the account and the category were simply
+/// absent, and "en prévision" could be switched on at birth and never off —
+/// so a payment entered ahead of the bank stayed out of the balance for good.
+/// Two sheets could not be kept in step; there is no longer a second one.
 struct AddTransactionSheet: View {
-    let data: Overview
-    let submit: (NewTransaction) async throws -> Void
+    let accounts: [Account]
+    let categories: [Category]
+    let localeTag: String
+    let currency: String
+    let t: Strings
+    var submit: (NewTransaction) async throws -> Void = { _ in }
     var onTransfer: (NewTransfer) async throws -> Void = { _ in }
+    /// Changing a row rather than creating one. Everything below reads the
+    /// same; only the title and what `save` calls differ.
+    var editing: Transaction?
+    var onPatch: (TxPatch) async -> Void = { _ in }
     /// The account the sheet was opened from, when it was opened from one.
     /// Without it the only entry point was the dashboard, which always started
     /// on the first account in the list — so adding a row to anything else
     /// meant knowing to open a menu three rows down.
     var presetAccountId: String?
-    /// The device's own ledger: only there can a row wait for the bank.
-    var canWaitForBank = false
+    /// The device's own ledger. Only there can a row wait for the bank, and
+    /// only there can an edit move a row to another account: the server's
+    /// PATCH knows neither verb and drops what it does not recognise.
+    var isLocalLedger = false
 
     @Environment(\.dismiss) private var dismiss
-    private var t: Strings { data.t }
     @FocusState private var amountFocused: Bool
 
     /*
@@ -30,29 +48,88 @@ struct AddTransactionSheet: View {
      * toggle was the whole vocabulary; this adds the third word.
      */
     private enum Kind { case expense, income, transfer }
-    @State private var kind: Kind = .expense
+    @State private var kind: Kind
     @State private var toAccountId = ""
     private var isExpense: Bool { kind == .expense }
-    @State private var amount = ""
-    @State private var payee = ""
-    @State private var accountId = ""
-    @State private var categoryId = ""
-    @State private var date = Date()
-    @State private var memo = ""
-    @State private var upcoming = false
+    @State private var amount: String
+    @State private var payee: String
+    @State private var accountId: String
+    @State private var categoryId: String
+    @State private var date: Date
+    @State private var memo: String
+    @State private var upcoming: Bool
     @State private var saving = false
     @State private var errorMessage: String?
 
-    private var usableAccounts: [Account] {
-        data.accounts.filter { !$0.isArchived && !$0.isLoan }
+    init(
+        accounts: [Account],
+        categories: [Category],
+        localeTag: String,
+        currency: String,
+        t: Strings,
+        submit: @escaping (NewTransaction) async throws -> Void = { _ in },
+        onTransfer: @escaping (NewTransfer) async throws -> Void = { _ in },
+        editing: Transaction? = nil,
+        onPatch: @escaping (TxPatch) async -> Void = { _ in },
+        presetAccountId: String? = nil,
+        isLocalLedger: Bool = false
+    ) {
+        self.accounts = accounts
+        self.categories = categories
+        self.localeTag = localeTag
+        self.currency = currency
+        self.t = t
+        self.submit = submit
+        self.onTransfer = onTransfer
+        self.editing = editing
+        self.onPatch = onPatch
+        self.presetAccountId = presetAccountId
+        self.isLocalLedger = isLocalLedger
+
+        _kind = State(initialValue: (editing?.amount ?? -1) < 0 ? .expense : .income)
+        // Typed as the locale writes it, so a French reader edits "12,40" —
+        // and unsigned, because the sign is the chips above it.
+        _amount = State(
+            initialValue: editing.map { Self.plain(abs($0.amount), locale: localeTag) } ?? ""
+        )
+        _payee = State(initialValue: editing?.payee ?? "")
+        _accountId = State(initialValue: editing?.accountId ?? "")
+        _categoryId = State(initialValue: editing?.categoryId ?? "")
+        _date = State(initialValue: editing?.day ?? Date())
+        _memo = State(initialValue: editing?.memo ?? "")
+        _upcoming = State(initialValue: editing?.isPending ?? false)
     }
 
-    /// Only an account the bank syncs: elsewhere nothing would ever come to
-    /// replace the row, and it would wait under "upcoming" forever.
-    private var offersUpcoming: Bool {
-        canWaitForBank && kind != .transfer
-            && usableAccounts.first { $0.id == accountId }?.isSynced == true
+    private var isEditing: Bool { editing != nil }
+
+    private var usableAccounts: [Account] {
+        accounts.filter {
+            // A loan is repaid, not spent from — except that the row being
+            // edited may already sit on one, and a picker that cannot show
+            // where the row *is* would move it somewhere else on save.
+            !$0.isArchived && (!$0.isLoan || $0.id == editing?.accountId)
+        }
     }
+
+    /*
+     * Only an account the bank syncs: elsewhere nothing would ever come to
+     * replace the row, and it would wait under "upcoming" forever.
+     *
+     * A row already waiting is the exception, and the reason this switch had
+     * to become editable at all. Whatever made it upcoming — a tap Wallet
+     * saw, an account since disconnected — the way out has to be on the sheet
+     * that edits it, or the row stays out of the balance with no way to say
+     * it has landed.
+     */
+    private var offersUpcoming: Bool {
+        guard isLocalLedger, kind != .transfer, editing?.isTransfer != true else { return false }
+        if editing?.isPending == true { return true }
+        return usableAccounts.first { $0.id == accountId }?.isSynced == true
+    }
+
+    /// Moving a row between accounts is a device-ledger write; see
+    /// `isLocalLedger`. Creating one always chooses an account.
+    private var offersAccount: Bool { !isEditing || isLocalLedger }
 
     private var magnitude: Double {
         Double(amount.replacingOccurrences(of: ",", with: ".").replacingOccurrences(of: " ", with: "")) ?? 0
@@ -87,7 +164,9 @@ struct AddTransactionSheet: View {
             }
             .scrollDismissesKeyboard(.interactively)
             .background(Backdrop(tint: Florin.sheetTint, floor: true))
-            .navigationTitle(t("v2.add.title", "Ajouter"))
+            .navigationTitle(
+                isEditing ? t("v2.common.edit", "Modifier") : t("v2.add.title", "Ajouter")
+            )
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -103,12 +182,20 @@ struct AddTransactionSheet: View {
         .presentationBackground(.clear)
         .onAppear {
             if accountId.isEmpty {
-                accountId = presetAccountId ?? usableAccounts.first?.id ?? ""
+                accountId = presetAccountId
+                    ?? usableAccounts.first { $0.name == editing?.accountName }?.id
+                    ?? usableAccounts.first?.id ?? ""
+            }
+            if isEditing, categoryId.isEmpty {
+                // A server row carries the category's name and not its id.
+                categoryId = categories.first { $0.name == editing?.categoryName }?.id ?? ""
             }
             // Not on a transfer: there the two accounts are the decision and
             // the amount follows, so a keypad sitting over both pickers is in
-            // the way rather than ahead of you.
-            amountFocused = kind != .transfer
+            // the way rather than ahead of you. Nor when editing: the figure
+            // is already right far more often than not, and a keypad over the
+            // rest of the sheet hides what was actually opened to change.
+            amountFocused = kind != .transfer && !isEditing
         }
     }
 
@@ -125,7 +212,17 @@ struct AddTransactionSheet: View {
         HStack(spacing: 10) {
             directionChip(t("v2.add.expense", "Dépense"), kind: .expense, tint: Florin.negative)
             directionChip(t("v2.add.income", "Entrée"), kind: .income, tint: Florin.positive)
-            directionChip(t("v2.add.transfer", "Virement"), kind: .transfer, tint: Florin.accent)
+            /*
+             * Not when editing.
+             *
+             * Turning a recorded row into a transfer is pairing it with the
+             * account the money reached, which this sheet does not ask about —
+             * "Catégoriser" does, and it is the right place: a transfer is the
+             * answer to "what was this", not a third sign.
+             */
+            if !isEditing {
+                directionChip(t("v2.add.transfer", "Virement"), kind: .transfer, tint: Florin.accent)
+            }
         }
         .padding(.horizontal, Florin.gutter)
     }
@@ -178,7 +275,7 @@ struct AddTransactionSheet: View {
                 .monospacedDigit()
                 .foregroundStyle(Florin.text)
                 .fixedSize()
-            Text(Money.currencySymbol(locale: data.localeTag, currency: data.currency))
+            Text(Money.currencySymbol(locale: localeTag, currency: currency))
                 .font(.system(size: 22, weight: .light))
                 .foregroundStyle(Florin.text3)
         }
@@ -207,6 +304,7 @@ struct AddTransactionSheet: View {
                 Hairline()
             }
 
+            if offersAccount {
             pickerRow(
                 symbol: "building.columns",
                 label: t("v2.add.account", "Compte")
@@ -227,13 +325,15 @@ struct AddTransactionSheet: View {
                 } label: {
                     menuValue(
                         usableAccounts.first { $0.id == accountId }?.name
+                            ?? editing?.accountName
                             ?? t("v2.add.account", "Compte")
                     )
                 }
             }
+                Hairline()
+            }
 
             if kind == .transfer {
-                Hairline()
                 pickerRow(
                     symbol: "arrow.down.right",
                     label: t("v2.add.toAccount", "Vers")
@@ -251,9 +351,8 @@ struct AddTransactionSheet: View {
                         )
                     }
                 }
+                Hairline()
             }
-
-            Hairline()
 
             // A transfer has no payee and no category: the two account names
             // describe it, and money moved between them is not spending to
@@ -263,22 +362,21 @@ struct AddTransactionSheet: View {
                 Menu {
                     Picker("", selection: $categoryId) {
                         Text(t("v2.common.uncategorized", "Sans catégorie")).tag("")
-                        ForEach(data.categories) { category in
+                        ForEach(categories) { category in
                             Text("\(category.emoji.map { $0 + " " } ?? "")\(category.name)")
                                 .tag(category.id)
                         }
                     }
                 } label: {
-                    let selected = data.categories.first { $0.id == categoryId }
+                    let selected = categories.first { $0.id == categoryId }
                     menuValue(
                         selected.map { "\($0.emoji.map { $0 + " " } ?? "")\($0.name)" }
                             ?? t("v2.common.uncategorized", "Sans catégorie")
                     )
                 }
             }
+                Hairline()
             }
-
-            Hairline()
 
             pickerRow(symbol: "calendar", label: t("v2.add.date", "Date")) {
                 DatePicker("", selection: $date, displayedComponents: .date)
@@ -381,6 +479,31 @@ struct AddTransactionSheet: View {
         errorMessage = nil
         let trimmedMemo = memo.trimmingCharacters(in: .whitespacesAndNewlines)
 
+        if let editing {
+            Task {
+                await onPatch(
+                    TxPatch(
+                        categoryId: .some(categoryId.isEmpty ? nil : categoryId),
+                        payee: payee.trimmingCharacters(in: .whitespaces),
+                        memo: .some(trimmedMemo.isEmpty ? nil : trimmedMemo),
+                        amount: isExpense ? -abs(magnitude) : abs(magnitude),
+                        occurredAt: ISO8601DateFormatter.florinNoFraction
+                            .string(from: noonOn(date)),
+                        // Sent only when it moved, and only where it means
+                        // something: see `offersAccount` and `offersUpcoming`.
+                        accountId: offersAccount && accountId != editing.accountId
+                            ? accountId : nil,
+                        upcoming: offersUpcoming && upcoming != editing.isPending
+                            ? upcoming : nil
+                    )
+                )
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                saving = false
+                dismiss()
+            }
+            return
+        }
+
         Task {
             do {
                 if kind == .transfer {
@@ -425,5 +548,16 @@ struct AddTransactionSheet: View {
     /// day before, which would silently land it in the wrong month.
     private func noonOn(_ day: Date) -> Date {
         Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: day) ?? day
+    }
+
+    /// An amount the way the reader's locale writes it, and no grouping — a
+    /// space between the thousands is a character the decimal pad cannot type.
+    private static func plain(_ value: Double, locale: String) -> String {
+        let formatter = NumberFormatter()
+        formatter.locale = Locale(identifier: locale)
+        formatter.numberStyle = .decimal
+        formatter.usesGroupingSeparator = false
+        formatter.maximumFractionDigits = 2
+        return formatter.string(from: NSNumber(value: value)) ?? String(value)
     }
 }

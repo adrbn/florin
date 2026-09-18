@@ -505,11 +505,15 @@ struct AccountDetailScreen: View {
         .sheet(isPresented: $adding) {
             if let data = model.overview {
                 AddTransactionSheet(
-                    data: data,
+                    accounts: data.accounts,
+                    categories: data.categories,
+                    localeTag: data.localeTag,
+                    currency: data.currency,
+                    t: data.t,
                     submit: { try await model.add($0) },
                     onTransfer: { try await model.addTransfer($0) },
                     presetAccountId: route.accountId,
-                    canWaitForBank: model.base.scheme == "florin-local"
+                    isLocalLedger: model.base.scheme == "florin-local"
                 )
             }
         }
