@@ -760,7 +760,9 @@
     "v2.news.1_3_6.turkish": "The app speaks Turkish.",
     "v2.analysis.spentMonth": "Spent in {month}",
     "v2.news.1_3_6.calendar": "The calendar runs month by month, as far back as your history goes, and can be cut by category.",
-    "v2.news.1_3_6.subs": "Subscriptions are found even when the bank writes a different label every time."
+    "v2.news.1_3_6.subs": "Subscriptions are found even when the bank writes a different label every time.",
+    "v2.analysis.nextDue": "next on {date}",
+    "v2.analysis.subsRenameHint": "Tap a subscription to give it a name and a logo."
   },
   "fr": {
     "v2.a11y.back": "Retour",
@@ -1523,7 +1525,9 @@
     "v2.news.1_3_6.turkish": "L'app parle turc.",
     "v2.analysis.spentMonth": "Dépensé en {month}",
     "v2.news.1_3_6.calendar": "Le calendrier va mois par mois, aussi loin que votre historique, et se filtre par catégorie.",
-    "v2.news.1_3_6.subs": "Les abonnements sont retrouvés même quand la banque change le libellé à chaque prélèvement."
+    "v2.news.1_3_6.subs": "Les abonnements sont retrouvés même quand la banque change le libellé à chaque prélèvement.",
+    "v2.analysis.nextDue": "prochain le {date}",
+    "v2.analysis.subsRenameHint": "Touchez un abonnement pour lui donner son nom et son logo."
   },
   "nl": {
     "v2.a11y.back": "Terug",
@@ -2286,7 +2290,9 @@
     "v2.news.1_3_6.turkish": "De app spreekt Turks.",
     "v2.analysis.spentMonth": "Uitgegeven in {month}",
     "v2.news.1_3_6.calendar": "De kalender loopt maand per maand, zo ver terug als je historiek gaat, en is per categorie te filteren.",
-    "v2.news.1_3_6.subs": "Abonnementen worden gevonden, ook als de bank elke keer een andere omschrijving zet."
+    "v2.news.1_3_6.subs": "Abonnementen worden gevonden, ook als de bank elke keer een andere omschrijving zet.",
+    "v2.analysis.nextDue": "volgende op {date}",
+    "v2.analysis.subsRenameHint": "Tik op een abonnement om het een naam en een logo te geven."
   },
   "it": {
     "v2.a11y.back": "Indietro",
@@ -3049,7 +3055,9 @@
     "v2.news.1_3_6.turkish": "L'app parla turco.",
     "v2.analysis.spentMonth": "Speso a {month}",
     "v2.news.1_3_6.calendar": "Il calendario va mese per mese, fin dove arriva il tuo storico, e si filtra per categoria.",
-    "v2.news.1_3_6.subs": "Gli abbonamenti si trovano anche quando la banca cambia descrizione ogni volta."
+    "v2.news.1_3_6.subs": "Gli abbonamenti si trovano anche quando la banca cambia descrizione ogni volta.",
+    "v2.analysis.nextDue": "prossimo il {date}",
+    "v2.analysis.subsRenameHint": "Tocca un abbonamento per dargli un nome e un logo."
   },
   "es": {
     "v2.a11y.back": "Atrás",
@@ -3812,7 +3820,9 @@
     "v2.news.1_3_6.turkish": "La app habla turco.",
     "v2.analysis.spentMonth": "Gastado en {month}",
     "v2.news.1_3_6.calendar": "El calendario va mes a mes, tan atrás como llegue tu historial, y se filtra por categoría.",
-    "v2.news.1_3_6.subs": "Las suscripciones aparecen aunque el banco escriba un concepto distinto cada vez."
+    "v2.news.1_3_6.subs": "Las suscripciones aparecen aunque el banco escriba un concepto distinto cada vez.",
+    "v2.analysis.nextDue": "próximo el {date}",
+    "v2.analysis.subsRenameHint": "Toca una suscripción para darle un nombre y un logo."
   },
   "ca": {
     "v2.a11y.back": "Enrere",
@@ -4575,7 +4585,9 @@
     "v2.news.1_3_6.turkish": "L'app parla turc.",
     "v2.analysis.spentMonth": "Gastat el {month}",
     "v2.news.1_3_6.calendar": "El calendari va mes a mes, tan enrere com arribi el teu historial, i es filtra per categoria.",
-    "v2.news.1_3_6.subs": "Les subscripcions es troben encara que el banc escrigui un concepte diferent cada vegada."
+    "v2.news.1_3_6.subs": "Les subscripcions es troben encara que el banc escrigui un concepte diferent cada vegada.",
+    "v2.analysis.nextDue": "pròxim el {date}",
+    "v2.analysis.subsRenameHint": "Toca una subscripció per donar-li un nom i un logotip."
   },
   "de": {
     "v2.a11y.back": "Zurück",
@@ -5338,7 +5350,9 @@
     "v2.news.1_3_6.turkish": "Die App spricht Türkisch.",
     "v2.analysis.spentMonth": "Ausgegeben im {month}",
     "v2.news.1_3_6.calendar": "Der Kalender läuft Monat für Monat, so weit deine Historie zurückreicht, und lässt sich nach Kategorie filtern.",
-    "v2.news.1_3_6.subs": "Abos werden auch gefunden, wenn die Bank jedes Mal einen anderen Verwendungszweck schreibt."
+    "v2.news.1_3_6.subs": "Abos werden auch gefunden, wenn die Bank jedes Mal einen anderen Verwendungszweck schreibt.",
+    "v2.analysis.nextDue": "nächste am {date}",
+    "v2.analysis.subsRenameHint": "Tippe ein Abo an, um ihm einen Namen und ein Logo zu geben."
   },
   "pt": {
     "v2.a11y.back": "Voltar",
@@ -6101,7 +6115,9 @@
     "v2.news.1_3_6.turkish": "A app fala turco.",
     "v2.analysis.spentMonth": "Gasto em {month}",
     "v2.news.1_3_6.calendar": "O calendário avança mês a mês, até onde chega o seu histórico, e filtra-se por categoria.",
-    "v2.news.1_3_6.subs": "As subscrições são encontradas mesmo quando o banco escreve um descritivo diferente de cada vez."
+    "v2.news.1_3_6.subs": "As subscrições são encontradas mesmo quando o banco escreve um descritivo diferente de cada vez.",
+    "v2.analysis.nextDue": "próximo a {date}",
+    "v2.analysis.subsRenameHint": "Toque numa subscrição para lhe dar um nome e um logótipo."
   },
   "tr": {
     "v2.a11y.back": "Geri",
@@ -6864,6 +6880,8 @@
     "v2.news.1_3_6.turkish": "Uygulama artık Türkçe konuşuyor.",
     "v2.analysis.spentMonth": "{month} harcaması",
     "v2.news.1_3_6.calendar": "Takvim, geçmişiniz nereye kadar gidiyorsa ay ay ilerler ve kategoriye göre filtrelenir.",
-    "v2.news.1_3_6.subs": "Abonelikler, banka her seferinde farklı bir açıklama yazsa bile bulunur."
+    "v2.news.1_3_6.subs": "Abonelikler, banka her seferinde farklı bir açıklama yazsa bile bulunur.",
+    "v2.analysis.nextDue": "sonraki {date}",
+    "v2.analysis.subsRenameHint": "Bir aboneliğe ad ve logo vermek için üzerine dokunun."
   }
 }

@@ -39,6 +39,12 @@ final class MerchantNames: ObservableObject {
      *   VIREMENT INSTANTANE DE PAYPAL 12345678901234567 …      → paypal
      */
     static func key(_ payee: String) -> String {
+        fold(merchantWords(payee))
+    }
+
+    /// The same trimming, with the bank's own casing left on: what `key` is
+    /// computed from, and what a screen shows when no name has been given.
+    static func merchantWords(_ payee: String) -> String {
         var words = PayeeText.clean(payee).split(separator: " ").map(String.init)
 
         var dropped = 0
@@ -52,7 +58,8 @@ final class MerchantNames: ObservableObject {
             words = Array(words[..<cut])
         }
 
-        return fold(words.joined(separator: " "))
+        let trimmed = words.joined(separator: " ").trimmingCharacters(in: .whitespaces)
+        return trimmed.isEmpty ? PayeeText.clean(payee) : trimmed
     }
 
     /// Ce qui reste du rail une fois le premier mot retiré.

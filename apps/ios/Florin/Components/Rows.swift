@@ -90,10 +90,28 @@ enum PayeeText {
         MerchantNames.shared.name(for: payee) ?? bankName(payee)
     }
 
+    /*
+     * The merchant alone, as short as the app can say it.
+     *
+     * `bankName` takes off the rail and the capture date, which is all a card
+     * label needs — a direct debit carries a mandate reference instead, and
+     * the word "DE" the rail left behind, so it read "DE Telecom SA REF :
+     * 98765432…" and truncated inside the reference. This is the trimming
+     * the merchant *identity* already uses, so a row is labelled with the same
+     * thing a rename would rename.
+     */
+    static func merchant(_ payee: String) -> String {
+        MerchantNames.shared.name(for: payee) ?? deShout(MerchantNames.merchantWords(payee))
+    }
+
     /// The bank's own label, de-shouted — what a merchant is called before
     /// anyone renames it.
     static func bankName(_ payee: String) -> String {
-        clean(payee)
+        deShout(clean(payee))
+    }
+
+    private static func deShout(_ label: String) -> String {
+        label
             .split(separator: " ")
             .map { word -> String in
                 let s = String(word)

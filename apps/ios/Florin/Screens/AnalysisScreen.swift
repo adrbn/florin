@@ -1234,91 +1234,9 @@ struct AnalysisScreen: View {
     // MARK: - Abonnements
 
     private func subsTab(_ data: AnalysisData) -> some View {
-        let sorted = data.subscriptions.sorted { $0.annualCost > $1.annualCost }
-        let monthly = sorted.reduce(0) { $0 + $1.annualCost } / 12
-
-        return VStack(alignment: .leading, spacing: 30) {
-            if sorted.isEmpty {
-                FlorinCard {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(t("v2.analysis.subsEmpty", "Aucun abonnement détecté"))
-                            .font(.system(size: 15, weight: .medium))
-                            .foregroundStyle(Florin.text)
-                        Text(
-                            t(
-                                "v2.analysis.subsEmptyWhy",
-                                "Florin cherche un même bénéficiaire, au même montant, au moins trois fois, à un rythme régulier — toutes les 4 semaines environ ou toutes les semaines — sur les 6 derniers mois. Les achats ponctuels, et les montants qui changent à chaque fois, n'en font pas partie."
-                            )
-                        )
-                        .font(.system(size: 12.5))
-                        .foregroundStyle(Florin.text2)
-                    }
-                }
-                .padding(.horizontal, Florin.gutter)
-            } else {
-                ScreenSection(
-                    title: t("v2.analysis.tab.subs", "Abonnements"),
-                    trailing: Money.string(monthly, locale: locale, currency: currency, decimals: false)
-                        + " / " + t("v2.analysis.perMonthShort", "par mois")
-                ) {
-                    RowGroup {
-                        ForEach(Array(sorted.enumerated()), id: \.element.id) { index, sub in
-                            if index > 0 { Hairline() }
-                            HStack(spacing: 12) {
-                                Bubble(label: sub.categoryName ?? sub.payee, systemImage: "repeat")
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(PayeeText.humanize(sub.payee))
-                                        .font(.system(size: 14.5, weight: .medium))
-                                        .foregroundStyle(Florin.text)
-                                        .lineLimit(1)
-                                    Text(cadence(sub) + " · " + lastSeen(sub))
-                                        .font(.system(size: 12))
-                                        .foregroundStyle(Florin.text2)
-                                        .lineLimit(1)
-                                }
-                                Spacer(minLength: 8)
-                                VStack(alignment: .trailing, spacing: 2) {
-                                    AmountText(value: -abs(sub.amount), locale: locale,
-                                               currency: currency, tone: .negative)
-                                    Text(
-                                        Money.string(sub.annualCost, locale: locale,
-                                                     currency: currency, decimals: false)
-                                            + "/" + t("v2.common.year", "an")
-                                    )
-                                    .font(.system(size: 11))
-                                    .foregroundStyle(Florin.text3)
-                                    .hiddenWhenPrivate()
-                                }
-                            }
-                            .padding(.horizontal, Florin.gutter)
-                            .padding(.vertical, 11)
-                        }
-                    }
-                    .padding(.horizontal, Florin.gutter)
-                }
-            }
-        }
-    }
-
-    /// "tous les 32 j" is technically right and useless; people think in
-    /// months, weeks and years.
-    private func cadence(_ sub: SubscriptionMatch) -> String {
-        switch sub.cadenceDays {
-        case 25...35: return t("v2.analysis.monthly", "Mensuel")
-        case 6...8: return t("v2.analysis.weekly", "Hebdomadaire")
-        case 12...16: return t("v2.analysis.biweekly", "Toutes les 2 semaines")
-        case 85...95: return t("v2.analysis.quarterly", "Trimestriel")
-        case 350...380: return t("v2.analysis.yearly", "Annuel")
-        default: return t("v2.analysis.every", "Tous les {count} j", ["count": sub.cadenceDays])
-        }
-    }
-
-    private func lastSeen(_ sub: SubscriptionMatch) -> String {
-        let date = ISO8601DateFormatter.florin.date(from: sub.lastSeen)
-            ?? ISO8601DateFormatter.florinNoFraction.date(from: sub.lastSeen)
-        guard let date else { return sub.lastSeen.prefix(10).description }
-        return t("v2.analysis.lastSeen", "vu {date}",
-                 ["date": DayLabel.string(date, locale: locale, t: t)])
+        SubscriptionsSection(
+            subscriptions: data.subscriptions, locale: locale, currency: currency, t: t
+        )
     }
 }
 

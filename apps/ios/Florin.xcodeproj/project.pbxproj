@@ -83,6 +83,7 @@
 		9797DADBBC2793AD1AFE1D6F /* FloatingTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 263DE84037C85CC838A30F67 /* FloatingTabBar.swift */; };
 		987F7FCC39E988A631A80240 /* CalendarFilterSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17413DF3E29956C6F6A5B5CA /* CalendarFilterSheet.swift */; };
 		A1B2C3D4E5F60718293A4B5C /* WhatsNewSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F1E2D3C4B5A69788796A5B4 /* WhatsNewSheet.swift */; };
+		B7C4D9E2A1F3058614273B9C /* SubscriptionsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E6D7C8B9A0F1E2D3C4B5A69 /* SubscriptionsSection.swift */; };
 		9D3CB646828477BDB7C85E65 /* MerchantNameSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18030E300AC0E1F0F5D92D52 /* MerchantNameSheet.swift */; };
 		9F70EE4441BACBA144150223 /* LocalCategoriser.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3F2754AF1FEBB2278A3EEBF /* LocalCategoriser.swift */; };
 		A216024B009501059D290009 /* LocalBackup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E3252C271F4E969AE64E84C /* LocalBackup.swift */; };
@@ -166,6 +167,7 @@
 		1716DE308068FD596619F829 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		17413DF3E29956C6F6A5B5CA /* CalendarFilterSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarFilterSheet.swift; sourceTree = "<group>"; };
 		0F1E2D3C4B5A69788796A5B4 /* WhatsNewSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhatsNewSheet.swift; sourceTree = "<group>"; };
+		5E6D7C8B9A0F1E2D3C4B5A69 /* SubscriptionsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionsSection.swift; sourceTree = "<group>"; };
 		18030E300AC0E1F0F5D92D52 /* MerchantNameSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MerchantNameSheet.swift; sourceTree = "<group>"; };
 		1EC1B2C681E3E371E60A8E28 /* BankMappingSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankMappingSheet.swift; sourceTree = "<group>"; };
 		1FA92C50BBA20A08158E13A9 /* BankingKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankingKey.swift; sourceTree = "<group>"; };
@@ -293,6 +295,7 @@
 				6BA7D5761878CB027DA9A53E /* BuySheet.swift */,
 				17413DF3E29956C6F6A5B5CA /* CalendarFilterSheet.swift */,
 				0F1E2D3C4B5A69788796A5B4 /* WhatsNewSheet.swift */,
+				5E6D7C8B9A0F1E2D3C4B5A69 /* SubscriptionsSection.swift */,
 				D9827F713A8EE3D5E4D707EA /* CategoriesScreen.swift */,
 				3043699DDFC45335EED6DED0 /* CategoryEditorSheet.swift */,
 				71F201A99DD3A95C05BBE836 /* CategoryPicker.swift */,
@@ -675,6 +678,7 @@
 				0721A4ADB20B964A866C3EF8 /* BuySheet.swift in Sources */,
 				987F7FCC39E988A631A80240 /* CalendarFilterSheet.swift in Sources */,
 				A1B2C3D4E5F60718293A4B5C /* WhatsNewSheet.swift in Sources */,
+				B7C4D9E2A1F3058614273B9C /* SubscriptionsSection.swift in Sources */,
 				DD09BB6D259B1B1BDFA2F37F /* CategoriesScreen.swift in Sources */,
 				5D6B883191B2CE941475E705 /* CategoryEditorSheet.swift in Sources */,
 				713F23992E64EEBA0EFFFA4A /* CategoryPicker.swift in Sources */,
