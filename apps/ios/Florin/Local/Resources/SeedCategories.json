@@ -766,5 +766,101 @@
         }
       ]
     }
+  ],
+  "tr": [
+    {
+      "name": "Gelirler",
+      "kind": "income",
+      "color": "#22c55e",
+      "categories": [
+        {
+          "name": "Maaş",
+          "emoji": "💸"
+        },
+        {
+          "name": "Ek gelir",
+          "emoji": "↩️"
+        },
+        {
+          "name": "Dağıtılacak",
+          "emoji": "🪙"
+        }
+      ]
+    },
+    {
+      "name": "Faturalar",
+      "kind": "expense",
+      "color": "#3b82f6",
+      "categories": [
+        {
+          "name": "Kira",
+          "emoji": "🏠",
+          "isFixed": true
+        },
+        {
+          "name": "Sigorta",
+          "emoji": "📄",
+          "isFixed": true
+        },
+        {
+          "name": "Abonelikler",
+          "emoji": "🔄",
+          "isFixed": true
+        }
+      ]
+    },
+    {
+      "name": "İhtiyaçlar",
+      "kind": "expense",
+      "color": "#06b6d4",
+      "categories": [
+        {
+          "name": "Market",
+          "emoji": "🛒"
+        },
+        {
+          "name": "Ulaşım",
+          "emoji": "🚈"
+        }
+      ]
+    },
+    {
+      "name": "İstekler",
+      "kind": "expense",
+      "color": "#f59e0b",
+      "categories": [
+        {
+          "name": "Dışarıda yemek",
+          "emoji": "🍿"
+        },
+        {
+          "name": "Seyahat",
+          "emoji": "🏝️"
+        },
+        {
+          "name": "Hediyeler",
+          "emoji": "🎁"
+        },
+        {
+          "name": "Giyim",
+          "emoji": "🧢"
+        },
+        {
+          "name": "Diğer",
+          "emoji": "⚠️"
+        }
+      ]
+    },
+    {
+      "name": "Birikim",
+      "kind": "expense",
+      "color": "#a855f7",
+      "categories": [
+        {
+          "name": "Birikim",
+          "emoji": "💶"
+        }
+      ]
+    }
   ]
 }

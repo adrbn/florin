@@ -51,13 +51,15 @@ struct WidgetStrings {
     private func plural(_ count: Int) -> String {
         switch language {
         case "fr": abs(count) < 2 ? "one" : "other"
+        // Turkish keeps the noun singular after any numeral.
+        case "tr": "other"
         default: abs(count) == 1 ? "one" : "other"
         }
     }
 
     private static func short(_ tag: String) -> String {
         let lower = tag.lowercased()
-        for candidate in ["fr", "nl", "it", "es", "ca", "de", "pt"] where lower.hasPrefix(candidate) { return candidate }
+        for candidate in ["fr", "nl", "it", "es", "ca", "de", "pt", "tr"] where lower.hasPrefix(candidate) { return candidate }
         return "en"
     }
 }

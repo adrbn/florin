@@ -466,7 +466,8 @@ struct SettingsScreen: View {
                 selection: localeBinding,
                 options: [
                     ("fr", "Français"), ("en", "English"), ("nl", "Nederlands"),
-                    ("it", "Italiano"), ("es", "Español"), ("ca", "Català"), ("de", "Deutsch"), ("pt", "Português"),
+                    ("it", "Italiano"), ("es", "Español"), ("ca", "Català"), ("de", "Deutsch"),
+                    ("pt", "Português"), ("tr", "Türkçe"),
                 ],
                 busy: changingLocale
             )

@@ -45,7 +45,8 @@ struct Strings: Sendable {
     }
 
     static func tag(for short: String) -> String {
-        ["fr": "fr-FR", "nl": "nl-NL", "it": "it-IT", "es": "es-ES", "ca": "ca-ES", "de": "de-DE", "pt": "pt-PT"][short] ?? "en-US"
+        ["fr": "fr-FR", "nl": "nl-NL", "it": "it-IT", "es": "es-ES", "ca": "ca-ES",
+         "de": "de-DE", "pt": "pt-PT", "tr": "tr-TR"][short] ?? "en-US"
     }
 
     /*
@@ -99,6 +100,11 @@ struct Strings: Sendable {
         switch language {
         case "fr":
             return abs(count) < 2 ? "one" : "other"
+        case "tr":
+            // A Turkish noun after a numeral stays singular — "1 kategori",
+            // "3 kategori" — so there is one form and the `_one` entries in
+            // the catalogue say the same thing as their base key.
+            return "other"
         default:
             return abs(count) == 1 ? "one" : "other"
         }

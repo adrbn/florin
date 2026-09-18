@@ -1045,11 +1045,89 @@ struct MonthNameTests {
     @Test("September, in every language the app ships", arguments: [
         ("fr", "septembre"), ("en", "September"), ("nl", "september"),
         ("it", "settembre"), ("es", "septiembre"), ("ca", "setembre"),
-        ("de", "September"), ("pt", "setembro"),
+        ("de", "September"), ("pt", "setembro"), ("tr", "Eylül"),
     ])
     func september(_ language: String, _ expected: String) {
         let label = MonthLabel.long("2026-09", locale: Strings.tag(for: language))
         #expect(label.lowercased().contains(expected.lowercased()), "\(language): \(label)")
+    }
+}
+
+// MARK: - The catalogue the screens read
+
+/*
+ * A language ships when every screen can speak it, not when its file exists.
+ *
+ * The two resources are written by hand, one language at a time, and a key
+ * that was added to English and forgotten elsewhere shows up as a French
+ * sentence on a Turkish screen — or, for the seed, as an English category
+ * list in a freshly installed app. Both are silent at runtime: the lookup
+ * falls back rather than failing, which is right in front of a user and
+ * useless to the author.
+ */
+@Suite("Translations")
+struct TranslationTests {
+    /// `Bundle.main`, as the app itself reads them: the tests are hosted
+    /// inside Florin, and the resources are the app's, not the bundle's.
+    private func catalogue() throws -> [String: [String: String]] {
+        let url = try #require(Bundle.main.url(forResource: "Strings", withExtension: "json"))
+        return try JSONDecoder().decode([String: [String: String]].self, from: Data(contentsOf: url))
+    }
+
+    @Test("every language has every key English has")
+    func parity() throws {
+        let all = try catalogue()
+        let english = try #require(all["en"])
+        for (language, table) in all where language != "en" {
+            let missing = Set(english.keys).subtracting(table.keys).sorted()
+            let extra = Set(table.keys).subtracting(english.keys).sorted()
+            #expect(missing.isEmpty, "\(language) is missing \(missing.count): \(missing.prefix(5))")
+            #expect(extra.isEmpty, "\(language) has \(extra.count) English doesn't: \(extra.prefix(5))")
+        }
+    }
+
+    /// A dropped `{amount}` reads as a sentence with a hole in it.
+    @Test("every translation keeps its placeholders")
+    func placeholders() throws {
+        let all = try catalogue()
+        let english = try #require(all["en"])
+        for (language, table) in all where language != "en" {
+            for (key, source) in english {
+                guard let translation = table[key] else { continue }
+                #expect(Self.names(source) == Self.names(translation),
+                        "\(language)/\(key): \(Self.names(translation)) vs \(Self.names(source))")
+            }
+        }
+    }
+
+    @Test("every language seeds its own categories")
+    func seeds() throws {
+        let languages = Set(try catalogue().keys)
+        let url = try #require(
+            Bundle.main.url(forResource: "SeedCategories", withExtension: "json"))
+        let seeds = try JSONDecoder()
+            .decode([String: [LocalBootstrap.SeedGroup]].self, from: Data(contentsOf: url))
+        #expect(Set(seeds.keys) == languages)
+        let english = try #require(seeds["en"])
+        for (language, groups) in seeds {
+            #expect(groups.count == english.count, "\(language): \(groups.count) groups")
+            #expect(groups.flatMap(\.categories).count == english.flatMap(\.categories).count,
+                    "\(language): categories")
+        }
+    }
+
+    private static func names(_ text: String) -> Set<String> {
+        var found: Set<String> = []
+        var name: String?
+        for character in text {
+            if character == "{" { name = "" } else if character == "}" {
+                if let name, !name.isEmpty { found.insert(name) }
+                name = nil
+            } else if name != nil {
+                name?.append(character)
+            }
+        }
+        return found
     }
 }
 

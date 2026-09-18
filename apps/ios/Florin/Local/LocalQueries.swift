@@ -1093,7 +1093,7 @@ enum LocalQueries {
 
     static func shortLocale(_ locale: String) -> String {
         let lower = locale.lowercased()
-        for candidate in ["fr", "nl", "it", "es", "ca", "de", "pt"] where lower.hasPrefix(candidate) { return candidate }
+        for candidate in ["fr", "nl", "it", "es", "ca", "de", "pt", "tr"] where lower.hasPrefix(candidate) { return candidate }
         return "en"
     }
 
