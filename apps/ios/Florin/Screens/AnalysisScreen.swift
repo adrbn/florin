@@ -581,8 +581,24 @@ struct AnalysisScreen: View {
                     .padding(.top, 12)
                     .padding(.bottom, 8)
 
-                    ForEach(Array(data.flows.reversed().enumerated()), id: \.element.id) { index, flow in
-                        if index > 0 { Hairline() }
+                    ForEach(Array(monthRows(data).enumerated()), id: \.element.flow.id) { index, entry in
+                        // The window covers two years, and "Sept." sits twice
+                        // in the same column — thirteen rows apart, with no
+                        // way to tell which one is this year's.
+                        if let year = entry.year {
+                            if index > 0 { Hairline() }
+                            Text(year)
+                                .font(.system(size: 10.5, weight: .semibold))
+                                .tracking(0.6)
+                                .foregroundStyle(Florin.text3)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, Florin.gutter)
+                                .padding(.top, index > 0 ? 14 : 2)
+                                .padding(.bottom, 6)
+                        } else if index > 0 {
+                            Hairline()
+                        }
+                        let flow = entry.flow
                         HStack {
                             VStack(alignment: .leading, spacing: 1) {
                                 Text(MonthLabel.short(flow.month, locale: locale).capitalized)
@@ -619,6 +635,17 @@ struct AnalysisScreen: View {
                 }
                 .padding(.horizontal, Florin.gutter)
             }
+        }
+    }
+
+    /// The table's rows, each carrying the year when it is not the year of
+    /// the row above it.
+    private func monthRows(_ data: AnalysisData) -> [(flow: MonthlyFlow, year: String?)] {
+        var previous: String?
+        return data.flows.reversed().map { flow in
+            let year = String(flow.month.prefix(4))
+            defer { previous = year }
+            return (flow, year == previous ? nil : year)
         }
     }
 
@@ -1195,7 +1222,7 @@ struct FlowChart: View {
         Chart {
             ForEach(flows) { flow in
                 BarMark(
-                    x: .value("Mois", MonthLabel.short(flow.month, locale: locale)),
+                    x: .value("Mois", flow.month),
                     y: .value("Montant", flow.income)
                 )
                 .position(by: .value("Sens", "in"))
@@ -1203,7 +1230,7 @@ struct FlowChart: View {
                 .cornerRadius(3)
 
                 BarMark(
-                    x: .value("Mois", MonthLabel.short(flow.month, locale: locale)),
+                    x: .value("Mois", flow.month),
                     y: .value("Montant", flow.expense)
                 )
                 .position(by: .value("Sens", "out"))
@@ -1223,7 +1250,7 @@ struct FlowChart: View {
                  */
                 if !flow.isRunning {
                     LineMark(
-                        x: .value("Mois", MonthLabel.short(flow.month, locale: locale)),
+                        x: .value("Mois", flow.month),
                         y: .value("Net", flow.net),
                         series: .value("Série", "net")
                     )
@@ -1234,7 +1261,7 @@ struct FlowChart: View {
             }
 
             if let selection {
-                RuleMark(x: .value("Mois", MonthLabel.short(selection.month, locale: locale)))
+                RuleMark(x: .value("Mois", selection.month))
                     .foregroundStyle(Florin.text.opacity(0.16))
                     .lineStyle(StrokeStyle(lineWidth: 1))
             }
@@ -1256,10 +1283,26 @@ struct FlowChart: View {
         .chartXAxis {
             AxisMarks { value in
                 AxisValueLabel {
-                    if let label = value.as(String.self) {
-                        Text(label)
-                            .font(.system(size: 9))
-                            .foregroundStyle(Florin.text3)
+                    if let key = value.as(String.self) {
+                        /*
+                         * The axis is keyed on "2026-09" and printed as
+                         * "sept.", because thirteen months span two years and
+                         * two Septembers printed the same collapsed into one
+                         * column: the oldest month was drawn on top of the
+                         * newest, and scrubbing either one selected the wrong
+                         * one. The year is written under the first column and
+                         * under each January, where it changes.
+                         */
+                        VStack(spacing: 0) {
+                            Text(MonthLabel.short(key, locale: locale))
+                            if key == flows.first?.month || key.hasSuffix("-01") {
+                                Text(key.prefix(4))
+                                    .font(.system(size: 8, weight: .semibold))
+                                    .foregroundStyle(Florin.text3.opacity(0.7))
+                            }
+                        }
+                        .font(.system(size: 9))
+                        .foregroundStyle(Florin.text3)
                     }
                 }
             }
@@ -1269,9 +1312,9 @@ struct FlowChart: View {
         // son tirer-pour-rafraîchir. `chartXSelection` laisse le système
         // arbitrer — appui maintenu pour scruter, balayage pour défiler.
         .chartXSelection(value: $touched)
-        .onChange(of: touched) { _, label in
-            guard let label else { selection = nil; return }
-            let hit = flows.first { MonthLabel.short($0.month, locale: locale) == label }
+        .onChange(of: touched) { _, key in
+            guard let key else { selection = nil; return }
+            let hit = flows.first { $0.month == key }
             if hit?.id != selection?.id {
                 selection = hit
                 UISelectionFeedbackGenerator().selectionChanged()

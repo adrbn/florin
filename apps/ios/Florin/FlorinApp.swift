@@ -115,6 +115,10 @@ struct RootView: View {
     /// Bank setup, presented as the last step of onboarding rather than as a
     /// settings screen — nothing behind it is worth seeing yet.
     @State private var connectingBank = false
+    /// The last version whose notes were shown. Empty on a fresh install, and
+    /// empty on the first launch after this shipped — see `ReleaseNotes`.
+    @AppStorage("florin.whatsNew.seen") private var seenVersion = ""
+    @State private var news: ReleaseNotes.Release?
 
     private var appearance: Appearance { Appearance(rawValue: appearanceRaw) ?? .dark }
 
@@ -239,6 +243,25 @@ struct RootView: View {
             }
         }
         .animation(.easeOut(duration: 0.18), value: lock.locked)
+        // After the splash, and never over the lock: a sheet outranks both an
+        // overlay and a cover, so the only thing keeping it in its place is
+        // when it is asked for.
+        .onChange(of: splashing) { _, _ in considerNews() }
+        .onChange(of: lock.locked) { _, _ in considerNews() }
+        .sheet(item: $news) { release in
+            WhatsNewSheet(release: release, t: Strings.device)
+        }
+    }
+
+    /// Shown once per version, to someone who already had a ledger.
+    private func considerNews() {
+        guard !splashing, !lock.locked, news == nil else { return }
+        let ready = source == .server ? server.resolvedURL != nil : LocalOnboarding.isComplete
+        guard ready else { return }
+        news = ReleaseNotes.pending(seen: seenVersion, hasLedger: true)
+        // Marked whether or not this version has notes, so the next one that
+        // does is the next thing shown.
+        seenVersion = ReleaseNotes.current
     }
 }
 

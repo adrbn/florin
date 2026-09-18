@@ -1053,6 +1053,114 @@ struct MonthNameTests {
     }
 }
 
+// MARK: - Filing a refund
+
+/*
+ * A shop's credit belongs with the shop, not with a month's earnings.
+ *
+ * The sign guard read both ways: money out could not be earnings, and money
+ * in could not be spending. The second half made the ledger's own answer
+ * unreachable for a refund — the only categories left were the income ones,
+ * so a shirt sent back arrived as income and the shirt stayed at full price.
+ */
+@Suite("Refunds")
+struct RefundTests {
+    private func ledger() throws -> (LocalStore, account: String, clothes: String, extra: String) {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("florin-refund-\(UUID().uuidString).db")
+        let store = try LocalStore(url: url)
+        let account = UUID().uuidString
+        let spending = UUID().uuidString, earning = UUID().uuidString
+        let clothes = UUID().uuidString, extra = UUID().uuidString
+        try store.database.exec("""
+        INSERT INTO category_groups (id, name, kind) VALUES ('\(spending)', 'Envies', 'expense');
+        INSERT INTO category_groups (id, name, kind) VALUES ('\(earning)', 'Revenus', 'income');
+        INSERT INTO categories (id, group_id, name) VALUES ('\(clothes)', '\(spending)', 'Vêtements');
+        INSERT INTO categories (id, group_id, name) VALUES ('\(extra)', '\(earning)', 'Gains');
+        INSERT INTO accounts (id, name, kind, currency) VALUES ('\(account)', 'CCP', 'checking', 'EUR');
+        """)
+        return (store, account, clothes, extra)
+    }
+
+    @discardableResult
+    private func row(
+        _ store: LocalStore, _ account: String, _ payee: String, _ amount: Double,
+        category: String?, review: Int = 0
+    ) throws -> String {
+        let id = UUID().uuidString
+        try store.database.run(
+            """
+            INSERT INTO transactions
+                (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
+                 source, status, needs_review, category_id)
+            VALUES (?, ?, '2026-08-05', ?, 'EUR', ?, ?, 'enable_banking', 'cleared', ?, ?)
+            """,
+            [.text(id), .text(account), .real(amount), .text(payee),
+             .text(payee.lowercased()), .integer(Int64(review)),
+             category.map { SQLiteValue.text($0) } ?? .null]
+        )
+        return id
+    }
+
+    /// Six purchases at one shop, then the shop pays one of them back.
+    ///
+    /// The suggestion is what is asserted, not the write: a credit whose label
+    /// shares only the merchant's words sits below the apply threshold and
+    /// goes to review, where this is the category offered.
+    @Test("a shop's credit is matched to the shop, not to income")
+    func creditGoesToTheShop() throws {
+        let (store, account, clothes, extra) = try ledger()
+        for _ in 0..<6 {
+            try row(store, account, "ACHAT CB LE COMPTOIR VIA ROMA", -39.90, category: clothes)
+        }
+        try row(store, account, "VIREMENT INSTANTANE CREDIT", 50, category: extra)
+
+        let memory = try LocalCategoriser.remember(store: store)
+        let hit = LocalCategoriser.suggest(
+            memory, payee: "CREDIT CARTE BANCAIRE LE COMPTOIR VIA ROMA",
+            amount: 39.90, accountId: account
+        )
+        #expect(hit?.categoryId == clothes)
+    }
+
+    /// The same shop, the same label it always sends: the ledger has answered
+    /// this one before, so the refund is filed unattended.
+    @Test("a credit whose label the ledger knows is filed without asking")
+    func knownCreditIsFiled() throws {
+        let (store, account, clothes, _) = try ledger()
+        for _ in 0..<4 {
+            try row(store, account, "LE COMPTOIR VIA ROMA", -39.90, category: clothes)
+        }
+        let refund = try row(
+            store, account, "LE COMPTOIR VIA ROMA", 39.90, category: nil, review: 1
+        )
+        _ = try LocalCategoriser.backfill(store: store)
+
+        let filed = try store.database.scalar(
+            "SELECT category_id FROM transactions WHERE id = ?", [.text(refund)]
+        )?.string
+        #expect(filed == clothes)
+    }
+
+    /// The half of the guard that was there for a reason: a transfer out
+    /// carrying the owner's own name used to match the salary rows. With only
+    /// earnings in the past, money leaving has no candidate at all.
+    @Test("money leaving is never matched to income")
+    func debitIsNeverIncome() throws {
+        let (store, account, _, extra) = try ledger()
+        for _ in 0..<6 {
+            try row(store, account, "VIREMENT INSTANTANE DE JEAN MARTIN", 500, category: extra)
+        }
+
+        let memory = try LocalCategoriser.remember(store: store)
+        let hit = LocalCategoriser.suggest(
+            memory, payee: "VIREMENT INSTANTANE A JEAN MARTIN",
+            amount: -500, accountId: account
+        )
+        #expect(hit == nil)
+    }
+}
+
 // MARK: - The catalogue the screens read
 
 /*

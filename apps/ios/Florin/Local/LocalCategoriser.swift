@@ -79,11 +79,19 @@ enum LocalCategoriser {
      * offered categories and nothing else. The sign is the one thing about a
      * transaction that is never ambiguous; nothing should be allowed to
      * contradict it.
+     *
+     * It runs one way only, though. Money leaving is never earnings, so an
+     * income category is out of the question for a debit — but money arriving
+     * is very often a *refund*, and a refund belongs with the purchase it
+     * cancels: a shop's credit filed under "Vêtements" nets off the shirt that
+     * was sent back, filed under "Gains additionnels" it counts as a month's
+     * income and leaves the shirt at full price. Refusing every expense
+     * category to a credit left the ledger's own answer unreachable and the
+     * catch-all income category the only one that fitted.
      */
     fileprivate static func fits(_ categoryId: String, _ amount: Double, _ kinds: [String: String]) -> Bool {
         switch kinds[categoryId] {
         case "income": amount >= 0
-        case "expense": amount <= 0
         default: true
         }
     }

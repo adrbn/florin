@@ -35,6 +35,8 @@ struct SettingsScreen: View {
     @State private var draftToken = ""
     @State private var serverStatus: ServerStatus = .unknown
     @State private var changingLocale = false
+    /// The release notes, re-opened from À propos.
+    @State private var news: ReleaseNotes.Release?
     @AppStorage("florin.locale") private var chosenLocale = ""
     @AppStorage(AppLock.key) private var lockOn = false
     @AppStorage("florin.merchantLogos") private var logosOn = true
@@ -93,6 +95,7 @@ struct SettingsScreen: View {
             .sheet(isPresented: $showingCategories) { CategoriesScreen(t: t) }
             .sheet(isPresented: $showingMerchants) { MerchantsScreen(t: t) }
             .sheet(isPresented: $showingWalletGuide) { WalletGuideSheet(t: t) }
+            .sheet(item: $news) { release in WhatsNewSheet(release: release, t: t) }
             .sheet(isPresented: $showingSyncLog) {
                 SyncLogScreen(t: t, locale: model.overview?.localeTag ?? "fr-FR")
             }
@@ -951,6 +954,17 @@ struct SettingsScreen: View {
         ) {
             SettingsRow(label: t("v2.settings.appVersion", "Version"), symbol: "app.badge") {
                 SettingsValue(text: Self.version, monospaced: true)
+            }
+            // The notes are shown once, on the launch after an update, and
+            // then only findable here — which is where someone goes looking
+            // for "what changed" a week later.
+            if let latest = ReleaseNotes.all.first {
+                Hairline()
+                SettingsRow(
+                    label: t("v2.news.title", "Ce qui est nouveau"),
+                    symbol: "sparkles",
+                    action: { news = latest }
+                )
             }
             if let generated = model.overview?.generatedAt {
                 Hairline()
