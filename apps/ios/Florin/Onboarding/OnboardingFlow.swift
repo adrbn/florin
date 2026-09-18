@@ -30,6 +30,9 @@ struct OnboardingFlow: View {
     @State private var picking = false
     @State private var importing = false
     @State private var failure: String?
+    /// How far the current page has been dragged sideways, in points — the
+    /// live value of a swipe, before it is either committed or sprung back.
+    @State private var drag: CGFloat = 0
     @FocusState private var focus: Field?
 
     private enum Field { case name, balance }
@@ -69,14 +72,36 @@ struct OnboardingFlow: View {
         case importFile
     }
 
-    /// The ground shifts colour as you advance — the same per-section tinting
-    /// the tab bar does, used here to make three steps feel like a journey
-    /// rather than three identical pages.
-    private var tint: Color {
+    /*
+     * What is on screen, named — rather than counted.
+     *
+     * The step is a number because the dots and the swipe need it to be one,
+     * but every place that asked "which page is this" was reading that number
+     * *and* the path, and every one of them had to be revisited whenever a
+     * page was inserted. Deriving the page once, here, is why splitting the
+     * account form in two touched one function instead of six.
+     */
+    private enum Page { case welcome, fork, identity, balance, notify, ready }
+
+    private var page: Page {
+        let form = path == .manual || path == .importFile
         switch step {
-        case 0: TabRoute.overview.tint
-        case 1, 2: TabRoute.accounts.tint
-        default: TabRoute.plan.tint
+        case 0: return .welcome
+        case 1: return .fork
+        case 2: return form ? .identity : .notify
+        case 3: return form ? .balance : .ready
+        default: return .ready
+        }
+    }
+
+    /// The ground shifts colour as you advance — the same per-section tinting
+    /// the tab bar does, used here to make the steps feel like a journey
+    /// rather than identical pages.
+    private var tint: Color {
+        switch page {
+        case .welcome: TabRoute.overview.tint
+        case .fork, .identity, .balance, .notify: TabRoute.accounts.tint
+        case .ready: TabRoute.plan.tint
         }
     }
 
@@ -90,42 +115,64 @@ struct OnboardingFlow: View {
      * user on a dashboard of zeros. There is nothing to confirm before the
      * bank has been connected, so the fork is where that path ends.
      */
+    /*
+     * The account form is two pages, not one.
+     *
+     * Name, kind and opening balance were stacked on a single screen, and the
+     * balance — the only figure on it that ends up in the ledger — was the
+     * runt at the bottom: a caption over a field, under a row of buttons,
+     * with none of the sectioning the rest of the flow has. It reads as
+     * filler rather than a question. A question this consequential gets the
+     * screen the other questions get.
+     */
     private var lastStep: Int {
         switch path {
-        case .manual: 3
+        case .manual: 4
         case .restore: 1
         // The account the statement lands in, and then the file.
-        case .importFile: 2
+        case .importFile: 3
         default: 2
         }
     }
 
     /// The page that asks to be allowed to speak, on the path where it would
     /// have something to say.
-    private var isNotifyStep: Bool { step == 2 && path == .bank }
+    private var isNotifyStep: Bool { page == .notify && path == .bank }
 
     var body: some View {
         ZStack {
             Backdrop(tint: tint).ignoresSafeArea()
 
             VStack(spacing: 0) {
-                Spacer(minLength: 0)
+                /*
+                 * The body of the page, and the whole of it is draggable.
+                 *
+                 * `Color.clear` takes the place the two Spacers used to — it
+                 * is greedy the same way, still centres what sits on top of
+                 * it, and gives the swipe a target the size of the page
+                 * rather than the size of the sentence on it.
+                 */
+                ZStack {
+                    Color.clear
 
-                Group {
-                    switch step {
-                    case 0: welcome
-                    case 1: fork
-                    case 2 where path == .manual || path == .importFile: account
-                    case 2: notify
-                    default: ready
+                    Group {
+                        switch page {
+                        case .welcome: welcome
+                        case .fork: fork
+                        case .identity: identity
+                        case .balance: balance
+                        case .notify: notify
+                        case .ready: ready
+                        }
                     }
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .trailing).combined(with: .opacity),
+                        removal: .move(edge: .leading).combined(with: .opacity)
+                    ))
                 }
-                .transition(.asymmetric(
-                    insertion: .move(edge: .trailing).combined(with: .opacity),
-                    removal: .move(edge: .leading).combined(with: .opacity)
-                ))
-
-                Spacer(minLength: 0)
+                .contentShape(Rectangle())
+                .offset(x: drag)
+                .gesture(swipe)
 
                 dots
                     .padding(.bottom, 18)
@@ -165,8 +212,20 @@ struct OnboardingFlow: View {
                 }
             }
         }
-        .animation(.snappy(duration: 0.32), value: step)
-        .animation(.snappy(duration: 0.32), value: tint)
+        .onChange(of: step) { _, _ in
+            /*
+             * The page that asks for one number opens with the keypad up.
+             *
+             * Arriving on a screen whose entire purpose is a figure and having
+             * to tap the figure first is a step that exists only because
+             * nobody removed it. The identity page is left alone: its field
+             * already carries a usable placeholder, and raising a keyboard
+             * over the four kinds would hide half the question.
+             */
+            focus = page == .balance ? .balance : nil
+        }
+        .animation(Self.pageMotion, value: step)
+        .animation(Self.pageMotion, value: tint)
         .preferredColorScheme(.dark)
         .alert(
             Strings.device("v2.onboard.title", "Onboarding"),
@@ -328,84 +387,158 @@ struct OnboardingFlow: View {
             )
             .florinGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressScale())
     }
 
-    private var account: some View {
-        VStack(spacing: 20) {
+    /*
+     * Who the account is, on one page.
+     *
+     * Name and kind are the same question asked twice — what is this thing —
+     * so they belong together, and nothing else belongs with them.
+     */
+    private var identity: some View {
+        VStack(spacing: 18) {
             Text(Strings.device("v2.onboard.firstAccount", "Votre premier compte"))
                 .font(.system(size: 26, weight: .semibold))
+                // Large text reads too loose at its default tracking; the
+                // bigger it is, the more it wants pulling in.
+                .tracking(-0.4)
                 .foregroundStyle(Florin.text)
+                .multilineTextAlignment(.center)
 
             Text(Strings.device("v2.onboard.firstAccountHint", "Celui que vous regardez en premier le matin."))
                 .font(.system(size: 14))
                 .foregroundStyle(Florin.text2)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 30)
 
             TextField(Strings.device("v2.onboard.accountPlaceholder", "Compte courant"), text: $name)
                 .font(.system(size: 17, weight: .medium))
                 .multilineTextAlignment(.center)
                 .focused($focus, equals: .name)
                 .submitLabel(.next)
-                .onSubmit { focus = .balance }
+                .onSubmit { advance() }
                 .padding(.vertical, 15)
                 .padding(.horizontal, 18)
                 .florinGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .padding(.horizontal, Florin.gutter)
-                .padding(.top, 4)
+                .padding(.top, 2)
 
             kindPicker
-
-            VStack(spacing: 4) {
-                Text(Strings.device("v2.account.balanceQuestion", "Combien y a-t-il dessus aujourd'hui ?"))
-                    .font(.system(size: 12.5, weight: .medium))
-                    .foregroundStyle(Florin.text3)
-
-                /*
-                 * Sized to the text so the number and its symbol stay centred
-                 * as a unit at every length — the same trick the assign sheet
-                 * uses, and for the same reason: a right-aligned field made the
-                 * one thing the screen is about drift as you typed.
-                 */
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    TextField("0", text: $balanceText)
-                        .font(.system(size: 40, weight: .light))
-                        .monospacedDigit()
-                        .multilineTextAlignment(.center)
-                        .keyboardType(.numbersAndPunctuation)
-                        .focused($focus, equals: .balance)
-                        .fixedSize()
-                    Text("€")
-                        .font(.system(size: 20))
-                        .foregroundStyle(Florin.text3)
-                }
-            }
-            .padding(.top, 6)
         }
     }
 
+    /*
+     * The one figure that lands in the ledger, given the screen.
+     *
+     * It is asked after the name rather than beside it because it is a
+     * different kind of question: the name is a label, this is money, and the
+     * answer decides what every number in the app says on the first morning.
+     * Naming the account above the field keeps the two pages one thought.
+     */
+    private var balance: some View {
+        VStack(spacing: 16) {
+            HStack(spacing: 7) {
+                Text(kind.emoji).font(.system(size: 14))
+                Text(accountLabel)
+                    .font(.system(size: 13, weight: .medium))
+                    .lineLimit(1)
+            }
+            .foregroundStyle(Florin.text3)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 7)
+            .florinGlass(in: Capsule())
+
+            Text(Strings.device("v2.account.balanceQuestion", "Combien y a-t-il dessus aujourd'hui ?"))
+                .font(.system(size: 26, weight: .semibold))
+                .tracking(-0.4)
+                .foregroundStyle(Florin.text)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 26)
+
+            /*
+             * Sized to the text so the number and its symbol stay centred as
+             * a unit at every length — the same trick the assign sheet uses,
+             * and for the same reason: a right-aligned field made the one
+             * thing the screen is about drift as you typed.
+             */
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                TextField("0", text: $balanceText)
+                    .font(.system(size: 46, weight: .light))
+                    .monospacedDigit()
+                    .multilineTextAlignment(.center)
+                    .keyboardType(.numbersAndPunctuation)
+                    .focused($focus, equals: .balance)
+                    .fixedSize()
+                Text("€")
+                    .font(.system(size: 24, weight: .light))
+                    .foregroundStyle(Florin.text3)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 26)
+            .florinGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .padding(.horizontal, Florin.gutter)
+            .padding(.top, 2)
+
+            // Nobody knows their balance to the cent standing in a queue, and
+            // being asked as though they should is what makes a person quit a
+            // setup. Saying it costs a line.
+            Text(Strings.device("v2.onboard.balanceHint", "À peu près suffit — vous corrigerez quand vous voudrez."))
+                .font(.system(size: 12.5))
+                .foregroundStyle(Florin.text3)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
+        }
+    }
+
+    /// What the account will be called once written — the typed name, or the
+    /// kind's own word, which is what `createFirstAccount` falls back to.
+    private var accountLabel: String {
+        let typed = name.trimmingCharacters(in: .whitespaces)
+        return typed.isEmpty ? kind.label : typed
+    }
+
+    /*
+     * Four boxes the same size, which they were not.
+     *
+     * They were four columns of a single row, each sized by its own label, and
+     * every language has one kind whose word is longer than the rest —
+     * "Compte courant" wrapped to two lines while "Épargne" stayed on one, so
+     * one box stood taller than its neighbours and the row looked broken. Two
+     * columns give the longest of them — "Cuenta corriente", in Spanish — the
+     * width to stay on one line, and a fixed height makes the four identical
+     * whatever the word does: nothing about the layout is left to the
+     * translation.
+     */
     private var kindPicker: some View {
-        HStack(spacing: 8) {
+        LazyVGrid(
+            columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)],
+            spacing: 10
+        ) {
             ForEach(AccountKind.allCases, id: \.self) { option in
                 let picked = option == kind
                 Button {
                     UISelectionFeedbackGenerator().selectionChanged()
-                    kind = option
+                    withAnimation(.snappy(duration: 0.22)) { kind = option }
                 } label: {
-                    VStack(spacing: 5) {
-                        Text(option.emoji).font(.system(size: 19))
+                    VStack(spacing: 7) {
+                        Text(option.emoji).font(.system(size: 22))
                         Text(option.label)
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(picked ? Florin.text : Florin.text3)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(picked ? Florin.text : Florin.text2)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.75)
                     }
+                    .padding(.horizontal, 10)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
+                    .frame(height: 74)
                     .background(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
                             .fill(picked ? Florin.accent.opacity(0.22) : .clear)
                     )
-                    .florinGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .florinGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PressScale())
             }
         }
         .padding(.horizontal, Florin.gutter)
@@ -484,6 +617,80 @@ struct OnboardingFlow: View {
         }
     }
 
+    // MARK: - Moving between pages
+
+    /*
+     * One spring for every page change, whatever caused it.
+     *
+     * Tapping "Continuer" and flicking the page are the same movement seen
+     * from two sides, and a different curve for each is the kind of seam that
+     * is felt before it is noticed. No bounce: nothing here was thrown, and
+     * overshoot on a page that simply advanced reads as slack.
+     */
+    static let pageMotion = Animation.spring(response: 0.38, dampingFraction: 1)
+
+    /*
+     * The pages answer the finger.
+     *
+     * Five screens with a "Continuer" at the bottom is a slideshow with a
+     * remote control; every other stack of cards on this phone can be pushed
+     * with a thumb, and expecting that here and finding nothing is a small
+     * dead spot in the one part of the app that has to feel alive. The page
+     * tracks the finger one-to-one while it is held, resists at the ends
+     * instead of stopping dead, and commits on where the flick was *going* —
+     * iOS's own projection of it — rather than on how far it happened to
+     * travel.
+     *
+     * Only between pages, never off the end of one: a swipe will not connect
+     * a bank, write an account or open a file picker. Those are decisions,
+     * and decisions are taken with a deliberate press.
+     */
+    private var swipe: some Gesture {
+        DragGesture(minimumDistance: 14)
+            .onChanged { value in
+                let dx = value.translation.width
+                let free = dx < 0 ? canSwipeForward : canSwipeBack
+                drag = free ? dx : Self.resisted(dx)
+            }
+            .onEnded { value in
+                let projected = value.predictedEndTranslation.width
+                let threshold = UIScreen.main.bounds.width * 0.3
+                withAnimation(Self.pageMotion) {
+                    if projected < -threshold, canSwipeForward {
+                        focus = nil
+                        step += 1
+                    } else if projected > threshold, canSwipeBack {
+                        goBack()
+                    }
+                    drag = 0
+                }
+            }
+    }
+
+    /// Forward, but never off the end: the last page of a path is a commitment
+    /// — an account written, a bank connected, a file picked — and those are
+    /// only ever taken by pressing the button that names them.
+    private var canSwipeForward: Bool { step < lastStep && canAdvance }
+
+    private var canSwipeBack: Bool { step > 0 }
+
+    /// The further past the end it is pulled, the less it follows — Apple's
+    /// own rubber band, so an edge reads as "there is nothing more here"
+    /// rather than as a frozen screen.
+    private static func resisted(_ offset: CGFloat) -> CGFloat {
+        let dimension = UIScreen.main.bounds.width
+        let constant: CGFloat = 0.55
+        return (offset * dimension * constant) / (dimension + constant * abs(offset))
+    }
+
+    private func goBack() {
+        focus = nil
+        // Back into the fork resets the choice, so the next screen is the
+        // question rather than the answer already given.
+        if step == 1 { path = nil }
+        step -= 1
+    }
+
     // MARK: - Chrome
 
     private var dots: some View {
@@ -504,7 +711,7 @@ struct OnboardingFlow: View {
             HStack(spacing: 8) {
                 if saving { ProgressView().tint(.black) }
                 Text(
-                    path == .importFile && step == 2
+                    path == .importFile && step == lastStep
                         ? Strings.device("v2.onboard.importPick", "Choisir le relevé")
                         : path == .restore && step == 1
                         ? Strings.device("v2.onboard.restorePick", "Choisir le fichier")
@@ -524,7 +731,7 @@ struct OnboardingFlow: View {
             .frame(height: 54)
             .background(Florin.accent, in: Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressScale())
         .disabled(saving || !canAdvance)
         .opacity(canAdvance ? 1 : 0.4)
     }
@@ -548,12 +755,7 @@ struct OnboardingFlow: View {
     private var backAction: some View {
         if step > 0 {
             Button {
-                withAnimation {
-                    // Back into the fork resets the choice, so the next screen
-                    // is the question rather than the answer already given.
-                    if step == 1 { path = nil }
-                    step -= 1
-                }
+                withAnimation(Self.pageMotion) { goBack() }
             } label: {
                 HStack(spacing: 4) {
                     Image(systemName: "chevron.left")
@@ -622,7 +824,7 @@ struct OnboardingFlow: View {
     private func advance() {
         focus = nil
         guard step == lastStep else {
-            withAnimation { step += 1 }
+            withAnimation(Self.pageMotion) { step += 1 }
             return
         }
         /*
@@ -706,5 +908,23 @@ struct OnboardingFlow: View {
             .replacingOccurrences(of: ",", with: ".")
             .filter { $0.isNumber || $0 == "." || $0 == "-" }
         return Double(cleaned) ?? 0
+    }
+}
+
+/*
+ * Something happens the instant a finger lands.
+ *
+ * `.buttonStyle(.plain)` is how every control on these screens kept its own
+ * look, and it also threw away the only feedback a button gives before it is
+ * released: on the biggest, most-pressed control in the app — "Continuer" —
+ * nothing at all moved until the page changed. The dip is small enough to
+ * read as the surface giving, and it is on touch-down, not on the tap, which
+ * is the whole point.
+ */
+struct PressScale: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.spring(response: 0.22, dampingFraction: 1), value: configuration.isPressed)
     }
 }
