@@ -19,10 +19,10 @@ enum LocalQueries {
 
         let accounts = try readAccounts(db)
         let categories = try readCategories(db)
-        // The twelve latest, then whatever is still waiting further down —
+        // The twelve that have happened, then everything still waiting —
         // every row of the second list ranks after all of the first, so the
         // two end to end keep the order.
-        let latest = try readTransactions(db, limit: 12)
+        let latest = try readSettled(db, limit: 12)
         let shown = Set(latest.map(\.id))
         let recent = latest + (try readWaiting(db)).filter { !shown.contains($0.id) }
 
@@ -545,6 +545,34 @@ enum LocalQueries {
         offset: Int = 0
     ) throws -> [Transaction] {
         try readTransactions(db, where: "1", limit: limit, offset: offset)
+    }
+
+    /*
+     * The last operations, not the last rows.
+     *
+     * "Dernières opérations" asked for the twelve newest rows by date — and a
+     * row dated ahead is newer than anything that has actually happened. A
+     * ledger with a dozen scheduled payments in it spent all twelve places on
+     * things that have not occurred: the section folded them into its one
+     * "en prévision" line, as it should, and then had nothing left to show. A
+     * Monday morning with seventeen payments due looked like a month in which
+     * nothing had been spent.
+     *
+     * So the list is drawn from what has settled — past, booked, and not
+     * waiting on an answer — and the queues come from `readWaiting`, which
+     * this filter is the exact complement of. Between them the two cover the
+     * ledger once and only once.
+     */
+    static func readSettled(_ db: SQLiteDatabase, limit: Int) throws -> [Transaction] {
+        try readTransactions(
+            db,
+            where: """
+                t.is_pending = 0
+                AND substr(t.occurred_at, 1, 10) <= date('now')
+                AND t.needs_review = 0
+                """,
+            limit: limit
+        )
     }
 
     /*

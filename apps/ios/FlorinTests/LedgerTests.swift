@@ -1535,6 +1535,46 @@ struct WalletPaymentTests {
     }
 
     /*
+     * Seventeen things due does not mean nothing happened.
+     *
+     * The section took the twelve newest rows by date, and a row dated ahead
+     * is newer than anything that has actually happened — so a queue of a
+     * dozen scheduled payments took all twelve places and "dernières
+     * opérations" showed one folded line and not a single operation. What
+     * belongs there is the last operations *past*, however long the queue.
+     */
+    @Test("a queue of upcoming rows does not push out what already happened")
+    func settledSurviveTheQueue() throws {
+        let (store, checking, _) = try ledger()
+        func day(_ offset: Int) -> String {
+            LocalQueries.dayFormatter.string(
+                from: Date().addingTimeInterval(86_400 * Double(offset))
+            )
+        }
+        for n in 1...15 {
+            let id = try bankRow(store, checking, day(n), -20)
+            try store.database.run(
+                "UPDATE transactions SET is_pending = 1, status = 'scheduled', needs_review = 0 WHERE id = ?",
+                [.text(id)]
+            )
+        }
+        var happened: [String] = []
+        for n in 1...3 {
+            let id = try bankRow(store, checking, day(-n), -4.10)
+            try store.database.run(
+                "UPDATE transactions SET needs_review = 0 WHERE id = ?", [.text(id)]
+            )
+            happened.append(id)
+        }
+
+        let recent = try LocalQueries.overview(store: store, locale: "fr").recent
+        let settled = recent.filter { !$0.isUpcoming && !$0.needsReview }
+        #expect(settled.map(\.id).sorted() == happened.sorted())
+        // And the queue is still whole, not cut to what fitted.
+        #expect(recent.filter(\.isUpcoming).count == 15)
+    }
+
+    /*
      * Filed from history the moment it is recorded.
      *
      * Wallet hands over the merchant as the shop calls itself — "Boulangerie
