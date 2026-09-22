@@ -907,6 +907,222 @@ struct RelabelledDuplicateTests {
     }
 }
 
+
+/*
+ * Ce que le propriétaire a corrigé lui appartient.
+ *
+ * La banque annonce un virement pendant qu'il est en attente, puis le comptabilise
+ * sous une autre référence et parfois sous un autre libellé. Entre les deux,
+ * la ligne annoncée a été renommée et catégorisée à la main — et c'est
+ * justement ce renommage qui la rendait méconnaissable à sa propre banque :
+ * l'appariement comparait le libellé qui arrive au nom que le propriétaire
+ * avait écrit. La ligne comptabilisée entrait donc en étrangère, et la version
+ * corrigée était effacée comme un doublon, sans rien transmettre.
+ */
+@Suite("Corrected bank rows", .serialized)
+struct CorrectedBankRowTests {
+    private func ledger() throws -> (LocalStore, account: String, category: String) {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("florin-corrected-\(UUID().uuidString).db")
+        let store = try LocalStore(url: url)
+        let account = UUID().uuidString
+        let group = UUID().uuidString
+        let category = UUID().uuidString
+        try store.database.exec("""
+        INSERT INTO accounts (id, name, kind, currency)
+          VALUES ('\(account)', 'CCP', 'checking', 'EUR');
+        INSERT INTO category_groups (id, name, kind) VALUES ('\(group)', 'Vie courante', 'expense');
+        INSERT INTO categories (id, group_id, name) VALUES ('\(category)', '\(group)', 'Restaurants');
+        """)
+        return (store, account, category)
+    }
+
+    /// The row a bank writes when it announces a transfer it has not booked yet.
+    @discardableResult
+    private func announced(
+        _ store: LocalStore, on account: String, amount: Double, label: String,
+        day: String, key: String
+    ) throws -> String {
+        let id = UUID().uuidString
+        try store.database.run(
+            """
+            INSERT INTO transactions
+                (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
+                 bank_payee, source, external_id, status, needs_review, is_pending)
+            VALUES (?, ?, ?, ?, 'EUR', ?, ?, ?, 'enable_banking', ?, 'cleared', 0, 1)
+            """,
+            [
+                .text(id), .text(account), .text("\(day)T00:00:00Z"), .real(amount),
+                .text(label), .text(LocalLedger.normalize(label)), .text(label), .text(key),
+            ]
+        )
+        return id
+    }
+
+    private func correct(
+        _ store: LocalStore, _ id: String, payee: String, category: String
+    ) throws {
+        try store.database.run(
+            """
+            UPDATE transactions
+            SET payee = ?, normalized_payee = ?, category_id = ? WHERE id = ?
+            """,
+            [.text(payee), .text(LocalLedger.normalize(payee)), .text(category), .text(id)]
+        )
+    }
+
+    private func booking(
+        reference: String, amount: Double, day: String, label: String
+    ) -> BankTransaction {
+        BankTransaction(
+            transactionId: reference,
+            entryReference: nil,
+            transactionAmount: BalancesResponse.Amount(
+                amount: String(abs(amount)), currency: "EUR"
+            ),
+            creditDebitIndicator: amount < 0 ? "DBIT" : "CRDT",
+            bookingDate: day,
+            valueDate: nil,
+            transactionDate: nil,
+            creditorName: amount < 0 ? label : nil,
+            debtorName: amount < 0 ? nil : label,
+            remittanceInformation: nil,
+            status: "BOOK"
+        )
+    }
+
+    private func live(_ store: LocalStore, on account: String) -> Int {
+        ((try? store.database.scalar(
+            "SELECT count(*) FROM transactions WHERE account_id = ? AND deleted_at IS NULL",
+            [.text(account)]
+        )?.int) as? Int ?? -1) ?? -1
+    }
+
+    private func read(_ store: LocalStore, _ id: String, _ column: String) throws -> String? {
+        try store.database.scalar(
+            "SELECT \(column) FROM transactions WHERE id = ?", [.text(id)]
+        )?.string
+    }
+
+    /*
+     * Le renommage ne doit pas rendre la ligne méconnaissable.
+     *
+     * L'appariement demandait « ce libellé ressemble-t-il au nom de cette
+     * ligne ? » — alors que le nom de la ligne est celui que le propriétaire a
+     * tapé. Il demande maintenant « ressemble-t-il à ce que la banque avait
+     * appelé cette ligne ? », ce que la ligne retient désormais à part.
+     */
+    @Test("a transfer the owner renamed is still recognised when the bank books it")
+    func adoptsTheRowItRenamed() throws {
+        let (store, account, category) = try ledger()
+        let id = try announced(
+            store, on: account, amount: -820, label: "VIREMENT SEPA SARL LE COMPTOIR",
+            day: "2026-09-20",
+            key: "uid:2026-09-20T00:00:00Z:-820.0:VIREMENT SEPA SARL LE COMPTOIR"
+        )
+        try correct(store, id, payee: "Chez Rosa", category: category)
+
+        var adopted: Set<String> = []
+        let written = try BankingSync.insert(
+            booking(
+                reference: "TRX-90210", amount: -820, day: "2026-09-20",
+                label: "SARL LE COMPTOIR"
+            ),
+            store: store, accountId: account, uid: "uid", adopted: &adopted
+        )
+
+        #expect(!written)
+        #expect(live(store, on: account) == 1)
+        #expect(try read(store, id, "payee") == "Chez Rosa")
+        #expect(try read(store, id, "category_id") == category)
+        #expect(try read(store, id, "external_id") == "uid:TRX-90210")
+        // And it now remembers the bank's newest word for itself.
+        #expect(try read(store, id, "bank_payee") == "SARL LE COMPTOIR")
+    }
+
+    /// Un vrai homonyme reste refusé : c'est la raison d'être du test de nom.
+    @Test("a purchase still cannot take the place of a debit of the same amount")
+    func refusesAStranger() throws {
+        let (store, account, _) = try ledger()
+        try announced(
+            store, on: account, amount: -12, label: "PRELEVEMENT TELECOM SA",
+            day: "2026-09-20", key: "uid:2026-09-20T00:00:00Z:-12.0:PRELEVEMENT TELECOM SA"
+        )
+
+        var adopted: Set<String> = []
+        let written = try BankingSync.insert(
+            booking(
+                reference: "TRX-77", amount: -12, day: "2026-09-20", label: "CHEZ ROSA"
+            ),
+            store: store, accountId: account, uid: "uid", adopted: &adopted
+        )
+
+        #expect(written)
+        #expect(live(store, on: account) == 2)
+    }
+
+    /*
+     * Et pour celles qui sont déjà là en double.
+     *
+     * L'annonce écartée est la même opération que la ligne comptabilisée :
+     * le nom écrit à la main, la catégorie, la note et l'appariement lui
+     * survivent au lieu de partir avec elle.
+     */
+    @Test("the discarded announcement hands over what the owner wrote on it")
+    func theGhostHandsOverItsCorrections() throws {
+        let (store, account, category) = try ledger()
+        let ghost = try announced(
+            store, on: account, amount: -820, label: "VIREMENT SEPA SARL LE COMPTOIR",
+            day: "2026-09-20", key: "uid:old"
+        )
+        try correct(store, ghost, payee: "Chez Rosa", category: category)
+        let booked = try announced(
+            store, on: account, amount: -820, label: "SARL LE COMPTOIR",
+            day: "2026-09-20", key: "uid:TRX-90210"
+        )
+        try store.database.run(
+            "UPDATE transactions SET is_pending = 0, occurred_at = '2000-01-02T00:00:00Z' WHERE id = ?",
+            [.text(booked)]
+        )
+        try store.database.run(
+            "UPDATE transactions SET occurred_at = '2000-01-01T00:00:00Z' WHERE id = ?",
+            [.text(ghost)]
+        )
+
+        #expect(try BankingSync.collapseSettledDuplicates(store: store) == 1)
+        #expect(live(store, on: account) == 1)
+        #expect(try read(store, ghost, "deleted_at") != nil)
+        #expect(try read(store, booked, "payee") == "Chez Rosa")
+        #expect(try read(store, booked, "category_id") == category)
+        // The bank's own word for the surviving row is untouched by the handover.
+        #expect(try read(store, booked, "bank_payee") == "SARL LE COMPTOIR")
+    }
+
+    /// Une annonce que personne n'a touchée n'a rien à transmettre.
+    @Test("an untouched announcement leaves the booked label alone")
+    func theUntouchedGhostChangesNothing() throws {
+        let (store, account, _) = try ledger()
+        let ghost = try announced(
+            store, on: account, amount: -820, label: "VIREMENT SEPA SARL LE COMPTOIR",
+            day: "2026-09-20", key: "uid:old"
+        )
+        let booked = try announced(
+            store, on: account, amount: -820, label: "SARL LE COMPTOIR",
+            day: "2026-09-20", key: "uid:TRX-90210"
+        )
+        try store.database.run(
+            "UPDATE transactions SET is_pending = 0, occurred_at = '2000-01-02T00:00:00Z' WHERE id = ?",
+            [.text(booked)]
+        )
+        try store.database.run(
+            "UPDATE transactions SET occurred_at = '2000-01-01T00:00:00Z' WHERE id = ?",
+            [.text(ghost)]
+        )
+
+        #expect(try BankingSync.collapseSettledDuplicates(store: store) == 1)
+        #expect(try read(store, booked, "payee") == "SARL LE COMPTOIR")
+    }
+}
 // MARK: - Naming merchants
 
 @Suite("Merchant names")

@@ -492,7 +492,7 @@ enum BankingSync {
         return (inserted, skipped)
     }
 
-    private static func insert(
+    static func insert(
         _ transaction: BankTransaction,
         store: LocalStore,
         accountId: String,
@@ -611,7 +611,7 @@ enum BankingSync {
         let needle = LocalLedger.normalize(transaction.counterparty)
         let candidates = try store.database.query(
             """
-            SELECT id, normalized_payee, source,
+            SELECT id, normalized_payee, bank_payee, source,
                    abs(julianday(substr(occurred_at, 1, 10)) - julianday(?)) AS drift
             FROM transactions
             WHERE account_id = ? AND deleted_at IS NULL
@@ -664,15 +664,19 @@ enum BankingSync {
              * purchase got the debit's name, and the booked debit came in
              * beside it as an apparent duplicate. A renumbered row or an
              * announcement turning into a booking still names its merchant.
+             *
+             * What it is weighed against is the bank's own label for the row,
+             * not the name it carries: those are the same thing only until
+             * someone corrects one, and correcting one is not supposed to hide
+             * the row from the bank that wrote it.
              */
             if row.string("source") == "enable_banking",
-               !LocalLedger.namesAgree(transaction.counterparty, row.string("normalized_payee") ?? "",
-                                       whenUnsure: true) {
+               !LocalLedger.namesAgree(transaction.counterparty, bankWord(row), whenUnsure: true) {
                 return false
             }
             if (row.double("drift") ?? 1) < 0.5 { return true }
-            guard !needle.isEmpty, let payee = row.string("normalized_payee"), !payee.isEmpty
-            else { return false }
+            let payee = LocalLedger.normalize(bankWord(row))
+            guard !needle.isEmpty, !payee.isEmpty else { return false }
             return payee.contains(needle) || needle.contains(payee)
         }
 
@@ -691,8 +695,8 @@ enum BankingSync {
             try store.database.run(
                 """
                 UPDATE transactions
-                SET source = 'enable_banking', external_id = ?, is_pending = ?,
-                    occurred_at = ?, amount = ?, status = 'cleared',
+                SET source = 'enable_banking', external_id = ?, bank_payee = ?,
+                    is_pending = ?, occurred_at = ?, amount = ?, status = 'cleared',
                     needs_review = CASE
                         WHEN is_pending = 1 AND ? = 0 THEN 1
                         ELSE needs_review
@@ -702,6 +706,7 @@ enum BankingSync {
                 """,
                 [
                     .text(externalId),
+                    .text(transaction.counterparty),
                     .integer(nowPending ? 1 : 0),
                     .text(date),
                     .real(transaction.signedAmount),
@@ -719,14 +724,14 @@ enum BankingSync {
             """
             INSERT INTO transactions
                 (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
-                 memo, source, external_id, status, needs_review, is_pending)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'enable_banking', ?, 'cleared', ?, ?)
+                 bank_payee, memo, source, external_id, status, needs_review, is_pending)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'enable_banking', ?, 'cleared', ?, ?)
             """,
             [
                 .text(UUID().uuidString), .text(accountId), .text(date),
                 .real(transaction.signedAmount),
                 .text(transaction.transactionAmount?.currency ?? "EUR"),
-                .text(payee), .text(LocalLedger.normalize(payee)),
+                .text(payee), .text(LocalLedger.normalize(payee)), .text(payee),
                 (transaction.remittanceInformation?.joined(separator: " ")).map {
                     $0.isEmpty ? SQLiteValue.null : .text($0)
                 } ?? .null,
@@ -745,6 +750,21 @@ enum BankingSync {
             ]
         )
         return true
+    }
+
+    /*
+     * Ce que la banque, elle, appelle cette ligne.
+     *
+     * Le `payee` d'une ligne appartient à qui l'a modifié en dernier : c'est
+     * une correction, pas une identité. `bank_payee` est le libellé que la
+     * banque a écrit, et le seul qu'il soit juste de comparer au libellé
+     * qu'elle envoie aujourd'hui — sans quoi un virement renommé à la main
+     * devient méconnaissable à sa propre banque. Les lignes écrites avant que
+     * cette colonne existe retombent sur le nom qu'elles portent, comme avant.
+     */
+    private static func bankWord(_ row: SQLiteRow) -> String {
+        let bank = row.string("bank_payee") ?? ""
+        return bank.isEmpty ? (row.string("normalized_payee") ?? "") : bank
     }
 
     /// A bank-synced account's balance is what the bank says, so the opening
@@ -818,11 +838,32 @@ extension BankingSync {
         return rows.count
     }
 
+    /*
+     * L'annonce effacée lègue ce que son propriétaire y avait mis.
+     *
+     * Les deux lignes sont la même opération : la banque a annoncé le virement,
+     * puis l'a comptabilisé sous une autre référence et parfois sous un autre
+     * libellé. Entre les deux, quelqu'un a pris le temps de renommer le
+     * marchand, de le classer, d'écrire une note — et tout cela partait avec
+     * l'annonce, la ligne survivante revenant au libellé brut de la banque et
+     * sans catégorie.
+     *
+     * Le nom ne passe que dans un sens : il faut que l'annonce porte un nom
+     * écrit à la main — `bank_payee` dit ce que la banque, elle, avait écrit —
+     * et que la survivante en soit encore au sien. Le propriétaire a le dernier
+     * mot des deux côtés.
+     */
     @discardableResult
     static func collapseSettledDuplicates(store: LocalStore) throws -> Int {
         let ghosts = try store.database.query(
             """
-            SELECT p.id AS id
+            SELECT p.id AS id, p.payee AS payee, p.bank_payee AS bank_payee,
+                   p.category_id AS category_id, p.memo AS memo,
+                   p.transfer_pair_id AS pair,
+                   s.id AS keep_id, s.category_id AS keep_category, s.memo AS keep_memo,
+                   s.transfer_pair_id AS keep_pair,
+                   (p.bank_payee IS NOT NULL AND p.bank_payee <> p.payee
+                    AND (s.bank_payee IS NULL OR s.bank_payee = s.payee)) AS renamed
             FROM transactions p
             JOIN transactions s
               ON s.account_id = p.account_id
@@ -838,14 +879,66 @@ extension BankingSync {
               AND (p.is_pending = 1 OR substr(p.occurred_at, 1, 10) > date('now'))
             """
         )
+        /// Un même fantôme peut rencontrer deux lignes réglées ; il n'a qu'une
+        /// succession à laisser.
+        var spent: Set<String> = []
+        var removed = 0
         for ghost in ghosts {
-            guard let id = ghost.string("id") else { continue }
+            guard let id = ghost.string("id"), let keep = ghost.string("keep_id"),
+                  !spent.contains(id) else { continue }
+            spent.insert(id)
+            removed += 1
+
+            var sets: [String] = []
+            var values: [SQLiteValue] = []
+            if ghost.int("renamed") == 1, let payee = ghost.string("payee") {
+                sets.append("payee = ?")
+                sets.append("normalized_payee = ?")
+                values.append(.text(payee))
+                values.append(.text(LocalLedger.normalize(payee)))
+            }
+            if ghost.string("keep_category") == nil, let category = ghost.string("category_id") {
+                sets.append("category_id = ?")
+                values.append(.text(category))
+            }
+            if (ghost.string("keep_memo") ?? "").isEmpty, let memo = ghost.string("memo"),
+               !memo.isEmpty {
+                sets.append("memo = ?")
+                values.append(.text(memo))
+            }
+            /*
+             * Et l'appariement, quand il veut encore dire quelque chose.
+             *
+             * Porter un `transfer_pair_id` n'est pas avoir une contrepartie :
+             * c'est le miroir d'un prêt, écrit en face, qui le dit. Sans cela
+             * il resterait accroché à une ligne effacée et la dette garderait
+             * une échéance qu'elle n'a jamais franchie.
+             */
+            if let inherited = ghost.string("pair"),
+               try counterpartExists(store, pair: inherited, excluding: id),
+               try !counterpartExists(
+                   store, pair: ghost.string("keep_pair") ?? "", excluding: keep
+               ) {
+                sets.append("transfer_pair_id = ?")
+                values.append(.text(inherited))
+            }
+            if !sets.isEmpty {
+                try store.database.run(
+                    """
+                    UPDATE transactions SET \(sets.joined(separator: ", ")),
+                        updated_at = datetime('now')
+                    WHERE id = ?
+                    """,
+                    values + [.text(keep)]
+                )
+            }
+
             try store.database.run(
                 "UPDATE transactions SET deleted_at = datetime('now') WHERE id = ?",
                 [.text(id)]
             )
         }
-        return ghosts.count
+        return removed
     }
 
     /*

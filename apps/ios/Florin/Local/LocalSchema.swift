@@ -13,7 +13,7 @@ import Foundation
 enum LocalSchema {
     /// Bumped whenever the statements below change, so a future migration can
     /// tell what shape it is upgrading from.
-    static let version = 1
+    static let version = 2
 
     static let ddl = """
         CREATE TABLE IF NOT EXISTS users (
@@ -106,7 +106,7 @@ enum LocalSchema {
             deleted_at TEXT,
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-          , status TEXT NOT NULL DEFAULT 'cleared', recurring_rule_id TEXT, recurrence_key TEXT, merge_suggested_tx_id TEXT);
+          , status TEXT NOT NULL DEFAULT 'cleared', recurring_rule_id TEXT, recurrence_key TEXT, merge_suggested_tx_id TEXT, bank_payee TEXT);
         CREATE INDEX IF NOT EXISTS transactions_account_date_idx ON transactions(account_id, occurred_at);
         CREATE INDEX IF NOT EXISTS transactions_category_date_idx ON transactions(category_id, occurred_at);
         CREATE TABLE IF NOT EXISTS balance_snapshots (

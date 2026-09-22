@@ -64,12 +64,50 @@ final class LocalStore {
 
     private func migrate() throws {
         try database.exec(LocalSchema.ddl)
+        try addBankPayee()
         // `settings` is exactly (key, value) in this schema — no timestamps.
         try database.run(
             "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
             [.text("schema_version"), .text(String(LocalSchema.version))]
         )
         try repairOpeningBalances()
+    }
+
+    /*
+     * Ce que la banque, elle, appelait cette ligne.
+     *
+     * `payee` est à la fois le libellé de la banque et le nom que son
+     * propriétaire lui donne : renommer une opération efface le premier. Or
+     * c'est le premier que la synchro interroge pour reconnaître une ligne
+     * qu'elle a déjà écrite — un virement annoncé puis renommé devenait
+     * méconnaissable à sa propre banque, revenait en double, et la version
+     * corrigée était effacée comme doublon. La banque écrit désormais son
+     * libellé dans une colonne à elle, qu'une modification ne touche pas.
+     *
+     * Le schéma est en `IF NOT EXISTS`, qui ne fait rien à une table déjà là :
+     * un grand livre existant ne gagne la colonne que par un `ALTER TABLE`, et
+     * SQLite n'a pas d'`ADD COLUMN IF NOT EXISTS`. Demander ce que la table
+     * contient est la seule façon de savoir.
+     *
+     * Les lignes déjà écrites la remplissent quand leur clé porte encore le
+     * libellé d'origine — c'est le cas des annonces, que la banque publie sans
+     * référence stable, donc précisément celles qui se font renommer.
+     */
+    private func addBankPayee() throws {
+        let columns = try database.query("PRAGMA table_info(transactions)")
+        guard !columns.contains(where: { $0.string("name") == "bank_payee" }) else { return }
+        try database.run("ALTER TABLE transactions ADD COLUMN bank_payee TEXT")
+        let rows = try database.query(
+            "SELECT id, external_id FROM transactions WHERE source = 'enable_banking'"
+        )
+        for row in rows {
+            guard let id = row.string("id"),
+                  let label = LocalWallet.bankLabel(inKey: row.string("external_id") ?? "")
+            else { continue }
+            try database.run(
+                "UPDATE transactions SET bank_payee = ? WHERE id = ?", [.text(label), .text(id)]
+            )
+        }
     }
 
     /*
