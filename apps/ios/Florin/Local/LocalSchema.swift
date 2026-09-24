@@ -233,6 +233,7 @@ enum LocalSchema {
               match_key TEXT PRIMARY KEY NOT NULL,
               domain TEXT,
               emoji TEXT,
+              image BLOB,
               updated_at TEXT NOT NULL DEFAULT (datetime('now'))
             );
         CREATE TABLE IF NOT EXISTS wallet_attempts (

@@ -28,6 +28,10 @@ final class MerchantLogos: ObservableObject {
     struct Mark: Equatable {
         var domain: String?
         var emoji: String?
+        /// Une image a été choisie pour ce marchand. Le drapeau seulement :
+        /// charger les vignettes de tous les marchands pour dessiner une liste
+        /// coûterait bien plus que de lire celles qu'on affiche.
+        var hasPicture = false
     }
 
     enum Face {
@@ -41,6 +45,8 @@ final class MerchantLogos: ObservableObject {
     private var marks: [String: Mark]?
     private var keys: [String: String] = [:]
     private var images: [String: UIImage] = [:]
+    /// Les images choisies à la main, par clé de marchand, lues à la demande.
+    private var pictures: [String: UIImage] = [:]
     private var missed: Set<String> = []
     private var pending: [String] = []
     private var queued: Set<String> = []
@@ -61,6 +67,9 @@ final class MerchantLogos: ObservableObject {
     func face(forKey key: String) -> Face? {
         guard !key.isEmpty else { return nil }
         let mark = table()[key]
+        // Une image choisie pour ce marchand passe avant tout : c'est le
+        // geste le plus délibéré des trois, et le plus précis.
+        if mark?.hasPicture == true, let picture = picture(forKey: key) { return .logo(picture) }
         if let emoji = mark?.emoji, !emoji.isEmpty { return .emoji(emoji) }
         guard enabled, let domain = mark?.domain ?? knownDomain(forKey: key) else { return nil }
         return logo(domain: domain).map(Face.logo)
@@ -68,6 +77,91 @@ final class MerchantLogos: ObservableObject {
 
     func mark(forKey key: String) -> Mark? {
         table()[key]
+    }
+
+    /// L'image choisie pour ce marchand, lue une fois puis gardée.
+    func picture(forKey key: String) -> UIImage? {
+        if let hit = pictures[key] { return hit }
+        guard !key.isEmpty, let store = LocalStore.shared,
+              let data = try? store.database.scalar(
+                  "SELECT image FROM merchant_marks WHERE match_key = ?", [.text(key)]
+              )?.data,
+              let image = UIImage(data: data)
+        else { return nil }
+        pictures[key] = image
+        return image
+    }
+
+    /*
+     * Une image donnée par son propriétaire.
+     *
+     * Une photo d'iPhone pèse plusieurs mégaoctets et n'a rien à faire dans
+     * une base qu'on sauvegarde et qu'on recopie. Elle est donc réduite à la
+     * taille où elle sera vue, recadrée au carré depuis son centre — les
+     * bulles sont rondes, une image déformée s'y verrait tout de suite — et
+     * réencodée : quelques dizaines de kilo-octets, comme un logo.
+     */
+    func setPicture(key: String, image: UIImage?) throws {
+        guard let store = LocalStore.shared, !key.isEmpty else { return }
+        pictures[key] = nil
+        guard let image else {
+            try store.database.run(
+                "UPDATE merchant_marks SET image = NULL, updated_at = datetime('now') WHERE match_key = ?",
+                [.text(key)]
+            )
+            // Un marchand dont il ne reste rien ne garde pas de ligne.
+            try store.database.run(
+                """
+                DELETE FROM merchant_marks
+                WHERE match_key = ? AND domain IS NULL AND emoji IS NULL AND image IS NULL
+                """,
+                [.text(key)]
+            )
+            invalidate()
+            return
+        }
+        guard let data = Self.thumbnail(image) else { return }
+        try store.database.run(
+            """
+            INSERT INTO merchant_marks (match_key, image) VALUES (?, ?)
+            ON CONFLICT(match_key) DO UPDATE SET
+                image = excluded.image,
+                updated_at = datetime('now')
+            """,
+            [.text(key), .blob(data)]
+        )
+        invalidate()
+    }
+
+    /// Le côté du carré conservé : trois fois la plus grande bulle, de quoi
+    /// rester net sur un écran à trois points par pixel.
+    static let pictureSide: CGFloat = 180
+
+    /// Recadre au centre, réduit, puis encode. Nil si l'image est illisible.
+    nonisolated static func thumbnail(_ image: UIImage) -> Data? {
+        let side = min(image.size.width, image.size.height)
+        guard side > 0 else { return nil }
+        let square = CGRect(
+            x: (image.size.width - side) / 2, y: (image.size.height - side) / 2,
+            width: side, height: side
+        )
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1
+        format.opaque = true
+        let box = CGSize(width: pictureSide, height: pictureSide)
+        let drawn = UIGraphicsImageRenderer(size: box, format: format).image { context in
+            UIColor.white.setFill()
+            context.fill(CGRect(origin: .zero, size: box))
+            // Le carré central étiré à la boîte : même rapport, donc pas de
+            // déformation, et l'image remplit la bulle.
+            image.draw(in: CGRect(
+                x: -square.origin.x * box.width / side,
+                y: -square.origin.y * box.height / side,
+                width: image.size.width * box.width / side,
+                height: image.size.height * box.height / side
+            ))
+        }
+        return drawn.jpegData(compressionQuality: 0.82)
     }
 
     /// The site the list knows for this merchant — under the bank's label or
@@ -109,7 +203,15 @@ final class MerchantLogos: ObservableObject {
         let domain = domain.flatMap(Self.normalizedDomain)
         let emoji = emoji.flatMap { $0.isEmpty ? nil : $0 }
         if domain == nil, emoji == nil {
-            try store.database.run("DELETE FROM merchant_marks WHERE match_key = ?", [.text(key)])
+            // Sans site ni emoji il peut rester une image : on n'efface la
+            // ligne que lorsqu'il n'y a plus rien du tout.
+            try store.database.run(
+                "UPDATE merchant_marks SET domain = NULL, emoji = NULL WHERE match_key = ?",
+                [.text(key)]
+            )
+            try store.database.run(
+                "DELETE FROM merchant_marks WHERE match_key = ? AND image IS NULL", [.text(key)]
+            )
         } else {
             try store.database.run(
                 """
@@ -132,6 +234,7 @@ final class MerchantLogos: ObservableObject {
 
     func invalidate() {
         marks = nil
+        pictures.removeAll()
         revision += 1
     }
 
@@ -196,10 +299,18 @@ final class MerchantLogos: ObservableObject {
         if let marks { return marks }
         var read: [String: Mark] = [:]
         if let store = LocalStore.shared,
-           let rows = try? store.database.query("SELECT match_key, domain, emoji FROM merchant_marks") {
+           let rows = try? store.database.query(
+               """
+               SELECT match_key, domain, emoji, image IS NOT NULL AS has_image
+               FROM merchant_marks
+               """
+           ) {
             for row in rows {
                 guard let key = row.string("match_key") else { continue }
-                read[key] = Mark(domain: row.string("domain"), emoji: row.string("emoji"))
+                read[key] = Mark(
+                    domain: row.string("domain"), emoji: row.string("emoji"),
+                    hasPicture: (row.int("has_image") ?? 0) == 1
+                )
             }
         }
         marks = read

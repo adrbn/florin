@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import UIKit
 @testable import Florin
 
 /*
@@ -2043,5 +2044,86 @@ struct MerchantLogoTests {
     func emoji(_ text: String, _ isEmoji: Bool) throws {
         let character = try #require(text.first)
         #expect(MerchantNameSheet.isEmoji(character) == isEmoji)
+    }
+}
+
+// MARK: - What the automation tried
+
+/*
+ * Le journal d'une action qui tourne sans écran.
+ *
+ * Toute la valeur du journal tient dans un cas : celui où le paiement n'a pas
+ * pu être enregistré. Ce sont donc les échecs qu'on éprouve ici, pas les
+ * réussites — et le fait qu'une tentative ouverte puis jamais close se lise
+ * quand même, parce qu'un processus tué en arrière-plan ne repasse pas.
+ */
+@Suite("Automation journal", .serialized)
+struct WalletJournalTests {
+    @Test("A failed attempt keeps what Wallet handed over, and why it failed")
+    func failureKeepsTheInput() throws {
+        let store = try ledger()
+        let id = WalletLog.begin(
+            store: store, amountText: "12,50 €", merchant: "Chez Rosa", card: "MA BANQUE"
+        )
+        WalletLog.finish(store: store, id: id, outcome: .failed, detail: "Montant illisible")
+
+        let attempt = try #require(WalletLog.recent(store: store).first)
+        #expect(attempt.outcome == .failed)
+        #expect(attempt.amountText == "12,50 €")
+        #expect(attempt.merchant == "Chez Rosa")
+        #expect(attempt.detail == "Montant illisible")
+    }
+
+    @Test("An attempt never closed stays readable as interrupted")
+    func interruptedStaysOpen() throws {
+        let store = try ledger()
+        WalletLog.begin(store: store, amountText: "4,10", merchant: "Le Comptoir", card: nil)
+
+        let attempt = try #require(WalletLog.recent(store: store).first)
+        #expect(attempt.outcome == .started)
+    }
+
+    @Test("The newest attempt comes first, and the table does not grow forever")
+    func newestFirstAndBounded() throws {
+        let store = try ledger()
+        for index in 1...(WalletLog.keep + 5) {
+            let id = WalletLog.begin(
+                store: store, amountText: "\(index),00", merchant: "Le Comptoir", card: nil
+            )
+            WalletLog.finish(store: store, id: id, outcome: .recorded)
+        }
+        let kept = try #require(
+            try store.database.scalar("SELECT COUNT(*) FROM wallet_attempts")?.int
+        )
+        #expect(kept == WalletLog.keep)
+    }
+
+    private func ledger() throws -> LocalStore {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("florin-journal-\(UUID().uuidString).db")
+        return try LocalStore(url: url)
+    }
+}
+
+// MARK: - A merchant's own picture
+
+@Suite("Merchant picture")
+struct MerchantPictureTests {
+    /*
+     * Une photo d'iPhone pèse quelques mégaoctets ; la base la porte, la
+     * sauvegarde la recopie, et la bulle qui l'affiche fait cinquante points.
+     * Ce qui est gardé doit donc être petit, carré, et non déformé.
+     */
+    @Test("A wide photo is squared and shrunk to a few tens of kilobytes")
+    func wideBecomesSmallSquare() throws {
+        let wide = UIGraphicsImageRenderer(size: CGSize(width: 1600, height: 900)).image { context in
+            UIColor.systemTeal.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 1600, height: 900))
+        }
+        let data = try #require(MerchantLogos.thumbnail(wide))
+        let kept = try #require(UIImage(data: data))
+        #expect(kept.size.width == MerchantLogos.pictureSide)
+        #expect(kept.size.height == MerchantLogos.pictureSide)
+        #expect(data.count < 80_000)
     }
 }

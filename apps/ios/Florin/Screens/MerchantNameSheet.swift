@@ -1,4 +1,6 @@
+import PhotosUI
 import SwiftUI
+import UIKit
 
 /// Donner à un marchand le nom sous lequel on le connaît, et sa tête.
 ///
@@ -25,6 +27,10 @@ struct MerchantNameSheet: View {
     @State private var previewSite: String?
     @State private var count: Int?
     @State private var failure: String?
+    /// L'image choisie pour ce marchand, et si elle a bougé depuis l'ouverture.
+    @State private var picture: UIImage?
+    @State private var picked: PhotosPickerItem?
+    @State private var pictureChanged = false
     @FocusState private var focused: Bool
 
     private let existing: String?
@@ -43,6 +49,8 @@ struct MerchantNameSheet: View {
         _site = State(initialValue: mark?.domain ?? "")
         _emoji = State(initialValue: mark?.emoji ?? "")
         _previewSite = State(initialValue: mark?.domain)
+        _picture = State(initialValue: mark?.hasPicture == true
+                         ? MerchantLogos.shared.picture(forKey: key) : nil)
     }
 
     private var trimmed: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -61,7 +69,7 @@ struct MerchantNameSheet: View {
     private var markChanged: Bool {
         domain != existingMark?.domain || (emoji.isEmpty ? nil : emoji) != existingMark?.emoji
     }
-    private var canSave: Bool { siteIsValid && (nameChanged || markChanged) }
+    private var canSave: Bool { siteIsValid && (nameChanged || markChanged || pictureChanged) }
 
     var body: some View {
         NavigationStack {
@@ -123,6 +131,58 @@ struct MerchantNameSheet: View {
                             .foregroundStyle(siteIsValid ? Florin.text3 : Florin.negative)
                     }
 
+                    /*
+                     * Quand aucun site ne donne de logo.
+                     *
+                     * Un petit commerçant n'a souvent ni icône ni site, et
+                     * l'emoji ne ressemble pas toujours à ce qu'on a en tête.
+                     * Une photo prise soi-même — la devanture, une carte de
+                     * visite — fait alors le travail. Elle est réduite avant
+                     * d'être gardée : la bulle est ronde et petite, la base
+                     * se sauvegarde et se recopie.
+                     */
+                    VStack(alignment: .leading, spacing: 10) {
+                        Eyebrow(text: t("v2.merchant.picture", "Image"))
+                        HStack(spacing: 12) {
+                            PhotosPicker(selection: $picked, matching: .images, photoLibrary: .shared()) {
+                                Label(
+                                    picture == nil
+                                        ? t("v2.merchant.pictureChoose", "Choisir une image")
+                                        : t("v2.merchant.pictureChange", "Changer l'image"),
+                                    systemImage: "photo.on.rectangle.angled"
+                                )
+                                .font(.system(size: 15, weight: .medium))
+                                .foregroundStyle(Florin.text)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 46)
+                                .florinGlass(in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+
+                            if picture != nil {
+                                Button {
+                                    picture = nil
+                                    picked = nil
+                                    pictureChanged = true
+                                } label: {
+                                    Image(systemName: "trash")
+                                        .font(.system(size: 16, weight: .medium))
+                                        .foregroundStyle(Florin.negative)
+                                        .frame(width: 46, height: 46)
+                                        .florinGlass(in: Circle())
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        Text(t(
+                            "v2.merchant.pictureHint",
+                            "Recadrée au carré et compressée. Elle passe avant le site et l'emoji."
+                        ))
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(Florin.text3)
+                        .fixedSize(horizontal: false, vertical: true)
+                    }
+
                     if let count {
                         Text(t(
                             "v2.merchant.reach",
@@ -177,6 +237,14 @@ struct MerchantNameSheet: View {
             count = MerchantNames.shared.usage(ofKey: key)
             focused = true
         }
+        .task(id: picked) {
+            guard let picked,
+                  let data = try? await picked.loadTransferable(type: Data.self),
+                  let image = UIImage(data: data)
+            else { return }
+            picture = image
+            pictureChanged = true
+        }
         .task(id: typedSite) {
             try? await Task.sleep(for: .milliseconds(600))
             guard !Task.isCancelled else { return }
@@ -195,9 +263,14 @@ struct MerchantNameSheet: View {
     /// La bulle et le nom, comme dans la liste des opérations.
     private var preview: some View {
         let site = typedSite.isEmpty ? known : previewSite
-        let logo = emoji.isEmpty && logos.enabled ? site.flatMap(logos.logo(domain:)) : nil
+        // Ce que la bulle montrera, dans l'ordre où elle choisit.
+        let logo = picture ?? (emoji.isEmpty && logos.enabled ? site.flatMap(logos.logo(domain:)) : nil)
         return HStack(spacing: 14) {
-            Bubble(label: bankLabel, emoji: emoji.isEmpty ? categoryEmoji : emoji, size: 52, logo: logo)
+            Bubble(
+                label: bankLabel,
+                emoji: picture != nil ? nil : (emoji.isEmpty ? categoryEmoji : emoji),
+                size: 52, logo: logo
+            )
             VStack(alignment: .leading, spacing: 3) {
                 Text(trimmed.isEmpty ? PayeeText.bankName(bankLabel) : trimmed)
                     .font(.system(size: 17, weight: .semibold))
@@ -221,6 +294,7 @@ struct MerchantNameSheet: View {
             if markChanged {
                 try logos.setMark(key: key, domain: domain, emoji: emoji.isEmpty ? nil : emoji)
             }
+            if pictureChanged { try logos.setPicture(key: key, image: picture) }
             dismiss()
         } catch {
             failure = error.localizedDescription

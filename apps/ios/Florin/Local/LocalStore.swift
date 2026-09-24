@@ -65,6 +65,15 @@ final class LocalStore {
     private func migrate() throws {
         try database.exec(LocalSchema.ddl)
         try addBankPayee()
+        /*
+         * Une image choisie à la main pour un marchand.
+         *
+         * Le site d'un petit commerçant n'a souvent pas d'icône — ou pas de
+         * site du tout — et l'emoji ne fait pas toujours l'affaire. Même
+         * raison que `bank_payee` pour l'`ALTER` : un grand livre déjà créé
+         * ne gagne pas une colonne par `CREATE TABLE IF NOT EXISTS`.
+         */
+        try addColumn("merchant_marks", "image", "BLOB")
         // `settings` is exactly (key, value) in this schema — no timestamps.
         try database.run(
             "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
@@ -93,6 +102,14 @@ final class LocalStore {
      * libellé d'origine — c'est le cas des annonces, que la banque publie sans
      * référence stable, donc précisément celles qui se font renommer.
      */
+    /// Ajoute une colonne à une table déjà créée. SQLite n'a pas d'`ADD COLUMN
+    /// IF NOT EXISTS` : lire la table est la seule façon de savoir.
+    private func addColumn(_ table: String, _ column: String, _ type: String) throws {
+        let columns = try database.query("PRAGMA table_info(\(table))")
+        guard !columns.contains(where: { $0.string("name") == column }) else { return }
+        try database.run("ALTER TABLE \(table) ADD COLUMN \(column) \(type)")
+    }
+
     private func addBankPayee() throws {
         let columns = try database.query("PRAGMA table_info(transactions)")
         guard !columns.contains(where: { $0.string("name") == "bank_payee" }) else { return }
