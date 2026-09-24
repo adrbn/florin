@@ -35,7 +35,11 @@ extension View {
         canTransfer: Bool,
         request: Binding<TxActionRequest?>
     ) -> some View {
-        contextMenu {
+        // La même surface pour le menu que pour le tap, et un aperçu qui
+        // épouse la ligne plutôt que le rectangle de ses mots.
+        contentShape(Rectangle())
+        .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .contextMenu {
             // Checked only once it says what it is; an unfiled row is filed first.
             if tx.needsReview, tx.categoryName != nil || tx.isTransfer {
                 Button { request.wrappedValue = TxActionRequest(action: .approve, tx: tx) } label: {

@@ -272,6 +272,18 @@ struct TransactionRowView: View {
         }
         .padding(.horizontal, Florin.gutter)
         .padding(.vertical, 12)
+        /*
+         * La ligne entière, pas seulement ce qui y est écrit.
+         *
+         * Sans forme déclarée, une vue n'est touchable que là où elle peint :
+         * le nom, la bulle, le montant. Les blancs entre eux ne répondaient
+         * à rien. Un tap finissait par tomber juste — on vise un mot sans y
+         * penser — mais l'appui long, lui, demande de rester immobile 0,5 s
+         * sur un pixel peint, et le menu contextuel ne s'ouvrait donc
+         * quasiment jamais depuis l'Aperçu. La ligne déclare sa surface, une
+         * fois, pour tous les écrans qui l'affichent.
+         */
+        .contentShape(Rectangle())
     }
 }
 
