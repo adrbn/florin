@@ -399,13 +399,20 @@ struct WalletGuideSheet: View {
         notificationsAllowed = status == .authorized || status == .provisional
     }
 
-    /// The last payment an automation recorded, settled by the bank or not.
+    /*
+     * Le dernier paiement encore au grand livre.
+     *
+     * Sans filtre, la preuve que ça marche citait une ligne effacée : le
+     * bandeau nommait un marchand que son propriétaire venait de supprimer,
+     * et l'aurait nommé encore des jours. Une ligne retirée ne témoigne plus
+     * de rien qu'on veuille lire ici.
+     */
     private static func latestPayment() -> (payee: String, day: Date)? {
         guard let store = LocalStore.shared,
               let row = try? store.database.query(
                   """
                   SELECT payee, occurred_at FROM transactions
-                  WHERE source = ? AND memo LIKE 'Apple Pay%'
+                  WHERE source = ? AND memo LIKE 'Apple Pay%' AND deleted_at IS NULL
                   ORDER BY created_at DESC LIMIT 1
                   """,
                   [.text(LocalWallet.source)]
