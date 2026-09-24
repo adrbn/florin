@@ -38,6 +38,29 @@ struct RecordPaymentIntent: AppIntent {
     var account: FlorinAccountEntity?
 
     func perform() async throws -> some IntentResult & ReturnsValue<String> & ProvidesDialog {
+        do {
+            return try await record()
+        } catch {
+            /*
+             * Un paiement qui n'est pas entré doit le dire.
+             *
+             * L'automatisation tourne sans ouvrir l'app et son « me prévenir
+             * lors de l'exécution » est décoché — c'est tout l'intérêt. Mais
+             * alors une action qui échoue ne laisse rien du tout : pas de
+             * ligne, pas de bandeau, pas de trace. L'ardoise reste muette
+             * pendant des jours et on croit que la détection s'est arrêtée
+             * d'elle-même. Le succès se signale déjà ; l'échec le doit
+             * davantage, puisque lui seul demande quelque chose.
+             */
+            await Self.notify(
+                title: Strings.device("v2.wallet.notifyFailed", "Paiement non ajouté"),
+                body: error.localizedDescription
+            )
+            throw error
+        }
+    }
+
+    private func record() async throws -> some IntentResult & ReturnsValue<String> & ProvidesDialog {
         // Against a server the ledger on screen is the server's; a row written
         // on the phone would be invisible there.
         if UserDefaults.standard.string(forKey: "florin.dataSource") == DataSource.server.rawValue {
