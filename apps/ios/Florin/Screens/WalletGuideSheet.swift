@@ -53,7 +53,7 @@ struct WalletGuideSheet: View {
         .task {
             await refreshPermission()
             lastPayment = Self.latestPayment()
-            if let store = LocalStore.shared { attempts = WalletLog.recent(store: store, limit: 6) }
+            if let store = LocalStore.shared { attempts = WalletLog.recent(store: store, limit: 3) }
         }
     }
 
@@ -65,8 +65,7 @@ struct WalletGuideSheet: View {
                 .foregroundStyle(Florin.text2)
                 .fixedSize(horizontal: false, vertical: true)
             flow
-            if let lastPayment { activeBadge(lastPayment) }
-            journal
+            status
             setup
             // Right under the steps, not pinned to the bottom edge: pinned, it
             // left a band of nothing between the last step and itself.
@@ -148,35 +147,58 @@ struct WalletGuideSheet: View {
      * Wallet a transmis et, en cas d'échec, la raison. Et une liste vide après
      * un paiement se lit aussi : l'action n'a pas été lancée.
      */
+    /*
+     * Un seul bloc, jamais deux.
+     *
+     * Le bandeau vert et le journal disent la même chose — la dernière fois
+     * que ça a marché — et empilés ils poussaient le bouton hors de l'écran.
+     * Dès qu'il y a des tentatives, elles remplacent le bandeau : leur
+     * première ligne porte déjà la nouvelle, en plus précis.
+     */
+    @ViewBuilder
+    private var status: some View {
+        if !attempts.isEmpty {
+            journal
+        } else if let lastPayment {
+            activeBadge(lastPayment)
+        } else {
+            emptyJournal
+        }
+    }
+
     private var journal: some View {
         VStack(alignment: .leading, spacing: 10) {
             Eyebrow(text: t("v2.wallet.guide.attempts", "Dernières tentatives"))
             RowGroup {
-                if attempts.isEmpty {
-                    /*
-                     * Une section vide qui disparaît ne dit rien.
-                     *
-                     * Cachée faute de lignes, elle laisse croire que rien
-                     * n'est enregistré — alors que l'absence est justement ce
-                     * qu'on vient lire. Elle reste donc, et dit ce que le vide
-                     * signifie.
-                     */
-                    Text(t(
-                        "v2.wallet.guide.attemptsNone",
-                        "Rien pour l'instant. Un paiement qui n'apparaît pas ici n'a pas atteint Florin."
-                    ))
-                    .font(.system(size: 13.5))
-                    .foregroundStyle(Florin.text2)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
-                } else {
-                    ForEach(Array(attempts.enumerated()), id: \.element.id) { index, attempt in
-                        if index > 0 { Hairline() }
-                        attemptRow(attempt)
-                    }
+                ForEach(Array(attempts.enumerated()), id: \.element.id) { index, attempt in
+                    if index > 0 { Hairline() }
+                    attemptRow(attempt)
                 }
+            }
+        }
+    }
+
+    private var emptyJournal: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Eyebrow(text: t("v2.wallet.guide.attempts", "Dernières tentatives"))
+            /*
+             * Une section vide qui disparaît ne dit rien.
+             *
+             * Cachée faute de lignes, elle laisse croire que rien n'est
+             * enregistré — alors que l'absence est justement ce qu'on vient
+             * lire. Elle reste donc, et dit ce que le vide signifie.
+             */
+            RowGroup {
+                Text(t(
+                    "v2.wallet.guide.attemptsNone",
+                    "Rien pour l'instant. Un paiement qui n'apparaît pas ici n'a pas atteint Florin."
+                ))
+                .font(.system(size: 13.5))
+                .foregroundStyle(Florin.text2)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
             }
         }
     }
