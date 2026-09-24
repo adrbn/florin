@@ -148,12 +148,30 @@ struct WalletGuideSheet: View {
      * Wallet a transmis et, en cas d'échec, la raison. Et une liste vide après
      * un paiement se lit aussi : l'action n'a pas été lancée.
      */
-    @ViewBuilder
     private var journal: some View {
-        if !attempts.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
-                Eyebrow(text: t("v2.wallet.guide.attempts", "Dernières tentatives"))
-                RowGroup {
+        VStack(alignment: .leading, spacing: 10) {
+            Eyebrow(text: t("v2.wallet.guide.attempts", "Dernières tentatives"))
+            RowGroup {
+                if attempts.isEmpty {
+                    /*
+                     * Une section vide qui disparaît ne dit rien.
+                     *
+                     * Cachée faute de lignes, elle laisse croire que rien
+                     * n'est enregistré — alors que l'absence est justement ce
+                     * qu'on vient lire. Elle reste donc, et dit ce que le vide
+                     * signifie.
+                     */
+                    Text(t(
+                        "v2.wallet.guide.attemptsNone",
+                        "Rien pour l'instant. Un paiement qui n'apparaît pas ici n'a pas atteint Florin."
+                    ))
+                    .font(.system(size: 13.5))
+                    .foregroundStyle(Florin.text2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                } else {
                     ForEach(Array(attempts.enumerated()), id: \.element.id) { index, attempt in
                         if index > 0 { Hairline() }
                         attemptRow(attempt)
