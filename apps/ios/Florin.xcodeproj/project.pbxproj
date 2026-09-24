@@ -16,6 +16,7 @@
 		0C0F0E087D436E275DA1A339 /* ServerProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = A430BB992FA1860E239C34C8 /* ServerProbe.swift */; };
 		0FC7475F516BDC8DA2821A95 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C815B4671E296193268EC13 /* WidgetSnapshot.swift */; };
 		13F221008AC2C8208BE2C62F /* ImportSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9002B8C0392D7D4BCEB2266 /* ImportSheet.swift */; };
+		14570AF8AED25106A817D2D0 /* WalletLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2406258388A57C80943B22BA /* WalletLog.swift */; };
 		157CD4668E4CE3E100509CC9 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1716DE308068FD596619F829 /* Theme.swift */; };
 		15892DA826788CC24B016B11 /* SettingsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED3157EAC79D41E85F3DF2EC /* SettingsScreen.swift */; };
 		1593C4A9E7F275C4785F6F0F /* WidgetGround.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90E83F83B8A3FB9F4A92E25B /* WidgetGround.swift */; };
@@ -174,6 +175,7 @@
 		226D9DC6516754A93B4095CB /* ShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareSheet.swift; sourceTree = "<group>"; };
 		22D62DF409CF3CE35918326F /* PlanScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanScreen.swift; sourceTree = "<group>"; };
 		23E29CE538BC035660929769 /* FlorinWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = FlorinWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		2406258388A57C80943B22BA /* WalletLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletLog.swift; sourceTree = "<group>"; };
 		24A8CF18ACAA0CA5B471CD27 /* LocalCategories.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalCategories.swift; sourceTree = "<group>"; };
 		26287A1F7C976E83B6DDBF26 /* SQLiteValue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SQLiteValue.swift; sourceTree = "<group>"; };
 		263DE84037C85CC838A30F67 /* FloatingTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingTabBar.swift; sourceTree = "<group>"; };
@@ -471,6 +473,7 @@
 				8E9EB2FEBA4192B0854EB8D1 /* ServerImport.swift */,
 				CB06E854E34FEC85DF405946 /* SQLite.swift */,
 				26287A1F7C976E83B6DDBF26 /* SQLiteValue.swift */,
+				2406258388A57C80943B22BA /* WalletLog.swift */,
 				4C815B4671E296193268EC13 /* WidgetSnapshot.swift */,
 				57EB0432D753D5ABB05D740E /* Resources */,
 			);
@@ -757,6 +760,7 @@
 				1A857813EE96447B68DBA4E0 /* TransactionMenu.swift in Sources */,
 				CB6B4BA1CA00858BDDDA07A8 /* TrueDate.swift in Sources */,
 				833382220CDAC9A9C278D1CF /* WalletGuideSheet.swift in Sources */,
+				14570AF8AED25106A817D2D0 /* WalletLog.swift in Sources */,
 				D5D6AB1AB9D03C62B8A127F6 /* WebContainer.swift in Sources */,
 				271667468A51402139D78805 /* WhatsNewSheet.swift in Sources */,
 				899EA5BAEDF756101D5425F6 /* WidgetSnapshot.swift in Sources */,

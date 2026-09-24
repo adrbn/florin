@@ -22,6 +22,7 @@ struct WalletGuideSheet: View {
     @Environment(\.openURL) private var openURL
     @State private var notificationsAllowed: Bool?
     @State private var lastPayment: (payee: String, day: Date)?
+    @State private var attempts: [WalletLog.Attempt] = []
 
     var body: some View {
         NavigationStack {
@@ -52,6 +53,7 @@ struct WalletGuideSheet: View {
         .task {
             await refreshPermission()
             lastPayment = Self.latestPayment()
+            if let store = LocalStore.shared { attempts = WalletLog.recent(store: store, limit: 6) }
         }
     }
 
@@ -64,6 +66,7 @@ struct WalletGuideSheet: View {
                 .fixedSize(horizontal: false, vertical: true)
             flow
             if let lastPayment { activeBadge(lastPayment) }
+            journal
             setup
             // Right under the steps, not pinned to the bottom edge: pinned, it
             // left a band of nothing between the last step and itself.
@@ -133,6 +136,82 @@ struct WalletGuideSheet: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 11)
         .florinSurface(tint: Florin.positive)
+    }
+
+    // MARK: - What the automation tried
+
+    /*
+     * Le journal des tentatives.
+     *
+     * Le bandeau vert ne dit que la dernière réussite ; il se tait exactement
+     * quand on a besoin de lui. Ici chaque déclenchement figure, avec ce que
+     * Wallet a transmis et, en cas d'échec, la raison. Et une liste vide après
+     * un paiement se lit aussi : l'action n'a pas été lancée.
+     */
+    @ViewBuilder
+    private var journal: some View {
+        if !attempts.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                Eyebrow(text: t("v2.wallet.guide.attempts", "Dernières tentatives"))
+                RowGroup {
+                    ForEach(Array(attempts.enumerated()), id: \.element.id) { index, attempt in
+                        if index > 0 { Hairline() }
+                        attemptRow(attempt)
+                    }
+                }
+            }
+        }
+    }
+
+    private func attemptRow(_ attempt: WalletLog.Attempt) -> some View {
+        let failed = attempt.outcome != .recorded
+        return HStack(alignment: .top, spacing: 10) {
+            Image(systemName: attempt.outcome == .recorded
+                  ? "checkmark.circle.fill"
+                  : (attempt.outcome == .failed ? "exclamationmark.circle.fill" : "clock.badge.questionmark"))
+                .font(.system(size: 15))
+                .foregroundStyle(failed ? Florin.warn : Florin.positive)
+                .padding(.top, 1)
+            VStack(alignment: .leading, spacing: 3) {
+                // Ce que Wallet a donné, mot pour mot : c'est la seule chose
+                // qu'on ne peut voir nulle part ailleurs.
+                Text("\(attempt.amountText)  ·  \(attempt.merchant)")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(Florin.text)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                if let detail = attempt.detail, failed {
+                    Text(detail)
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(Florin.warn)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else if attempt.outcome == .started {
+                    Text(t("v2.wallet.guide.attemptCut", "Interrompue avant la fin"))
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(Florin.text2)
+                }
+            }
+            Spacer(minLength: 8)
+            if let at = attempt.startedAt {
+                Text(Self.clock(at, locale: t.localeTag))
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(Florin.text3)
+                    .fixedSize()
+                    .padding(.top, 1)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 9)
+    }
+
+    /// Le jour et l'heure, courts : « hier 12:06 » en dit plus qu'une date.
+    private static func clock(_ date: Date, locale: String) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: locale)
+        f.setLocalizedDateFormatFromTemplate(
+            Calendar.current.isDateInToday(date) ? "Hm" : "EdHm"
+        )
+        return f.string(from: date)
     }
 
     // MARK: - Setting it up

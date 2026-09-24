@@ -13,7 +13,7 @@ import Foundation
 enum LocalSchema {
     /// Bumped whenever the statements below change, so a future migration can
     /// tell what shape it is upgrading from.
-    static let version = 2
+    static let version = 3
 
     static let ddl = """
         CREATE TABLE IF NOT EXISTS users (
@@ -235,5 +235,16 @@ enum LocalSchema {
               emoji TEXT,
               updated_at TEXT NOT NULL DEFAULT (datetime('now'))
             );
+        CREATE TABLE IF NOT EXISTS wallet_attempts (
+              id TEXT PRIMARY KEY NOT NULL,
+              started_at TEXT NOT NULL DEFAULT (datetime('now')),
+              amount_text TEXT,
+              merchant TEXT,
+              card TEXT,
+              outcome TEXT NOT NULL DEFAULT 'started',
+              detail TEXT,
+              transaction_id TEXT
+            );
+        CREATE INDEX IF NOT EXISTS wallet_attempts_started_idx ON wallet_attempts(started_at);
         """
 }

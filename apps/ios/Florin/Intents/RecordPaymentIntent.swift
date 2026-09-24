@@ -38,9 +38,28 @@ struct RecordPaymentIntent: AppIntent {
     var account: FlorinAccountEntity?
 
     func perform() async throws -> some IntentResult & ReturnsValue<String> & ProvidesDialog {
+        /*
+         * La tentative est inscrite avant tout le reste.
+         *
+         * Ouverte ici, close par son issue : ce que Wallet a donné est gardé
+         * même quand rien n'a pu être enregistré — et c'est justement ce
+         * cas-là qu'on ne pouvait pas lire. Le journal ne doit jamais empêcher
+         * un paiement d'entrer, d'où le magasin optionnel et les écritures qui
+         * ne jettent pas.
+         */
+        let attempt = LocalStore.shared.map {
+            WalletLog.begin(store: $0, amountText: amount, merchant: merchant, card: card)
+        }
+        func close(_ outcome: WalletLog.Outcome, _ detail: String? = nil) {
+            guard let store = LocalStore.shared, let attempt else { return }
+            WalletLog.finish(store: store, id: attempt, outcome: outcome, detail: detail)
+        }
         do {
-            return try await record()
+            let done = try await record()
+            close(.recorded)
+            return done
         } catch {
+            close(.failed, error.localizedDescription)
             /*
              * Un paiement qui n'est pas entré doit le dire.
              *
