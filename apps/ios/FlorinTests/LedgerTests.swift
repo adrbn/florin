@@ -2127,3 +2127,53 @@ struct MerchantPictureTests {
         #expect(data.count < 80_000)
     }
 }
+
+// MARK: - The same shop under two labels
+
+/*
+ * La banque tronque, Apple Pay pas.
+ *
+ * Le relevé ne garde que les premiers caractères du commerçant — « SumUp
+ * *LE COMPTO » — là où Wallet transmet « SumUp *LE COMPTOIR SARL ». Deux
+ * libellés pour une seule boutique, donc deux clés, donc deux renommages à
+ * faire pour un seul marchand. Une clé qui est le préfixe exact d'une autre
+ * est précisément ce que produit une troncature : les deux désignent le
+ * même commerce.
+ *
+ * Éprouvé sur la résolution seule, à qui l'on donne sa table : le magasin
+ * partagé est celui de l'app, et un test n'a rien à y écrire.
+ */
+@Suite("Truncated bank labels")
+struct TruncatedLabelTests {
+    private let named = ["sumup *le comptoir sarl": "Le Comptoir"]
+    private let truncated = ["sumup *le compto": "Le Comptoir"]
+
+    @Test("Naming the Apple Pay label also names the bank's truncated one")
+    func renameReachesTheBankLabel() {
+        #expect(MerchantNames.resolve("sumup *le compto", in: named) == "Le Comptoir")
+    }
+
+    @Test("And the other way round: the bank's label covers Apple Pay's")
+    func renameReachesTheWalletLabel() {
+        #expect(MerchantNames.resolve("sumup *le comptoir sarl", in: truncated) == "Le Comptoir")
+    }
+
+    @Test("A name given to this very label wins over a truncation of it")
+    func exactNameWins() {
+        let table = ["chez rosa": "Chez Rosa", "chez rosa traiteur": "Rosa Traiteur"]
+        #expect(MerchantNames.resolve("chez rosa traiteur", in: table) == "Rosa Traiteur")
+        #expect(MerchantNames.resolve("chez rosa", in: table) == "Chez Rosa")
+    }
+
+    @Test("Too short to be a truncation, so it stays its own merchant")
+    func shortKeysStayApart() {
+        // « bar » n'est pas une troncature : c'est un mot.
+        #expect(MerchantNames.resolve("bar", in: ["bar du coin": "Bar du Coin"]) == nil)
+    }
+
+    @Test("Two merchants that merely start alike are not merged")
+    func neighboursStayApart() {
+        let table = ["boulangerie du port": "Le Fournil"]
+        #expect(MerchantNames.resolve("boulangerie centrale", in: table) == nil)
+    }
+}

@@ -81,14 +81,50 @@ final class MerchantNames: ObservableObject {
 
     /// Le nom donné à ce marchand, s'il en a un.
     func name(for payee: String) -> String? {
-        let key = Self.key(payee)
-        guard !key.isEmpty else { return nil }
-        return table()[key]
+        name(forKey: Self.key(payee))
     }
 
     /// Le nom donné à une clé déjà calculée.
     func name(forKey key: String) -> String? {
-        table()[key]
+        Self.resolve(key, in: table())
+    }
+
+    /*
+     * La banque tronque le commerçant, Apple Pay non.
+     *
+     * Le relevé ne garde que les premiers caractères du nom — « SumUp *LE
+     * COMPTO » — là où Wallet transmet « SumUp *LE COMPTOIR SARL ». Une boutique,
+     * deux libellés, donc deux clés : il fallait la renommer deux fois, et
+     * l'oubli laissait la moitié de son historique sous le nom du terminal
+     * de paiement.
+     *
+     * Une clé qui est le préfixe exact d'une autre est précisément ce que
+     * produit une troncature. Le plancher évite qu'un mot court fasse
+     * autorité sur tout ce qui commence pareil, et la clé exacte l'emporte
+     * toujours : nommer « Chez Rosa » ne renomme pas « Chez Rosa Traiteur »
+     * si celui-ci porte déjà son propre nom. À égalité, la clé la plus
+     * longue gagne — c'est la plus précise.
+     */
+    static let truncationFloor = 8
+
+    static func resolve(_ key: String, in table: [String: String]) -> String? {
+        guard !key.isEmpty else { return nil }
+        if let exact = table[key] { return exact }
+        guard key.count >= truncationFloor else { return nil }
+        var best: (key: String, name: String)?
+        for (other, name) in table where other.count >= truncationFloor {
+            guard other.hasPrefix(key) || key.hasPrefix(other) else { continue }
+            if best == nil || other.count > best!.key.count { best = (other, name) }
+        }
+        return best?.name
+    }
+
+    /// Deux libellés qui désignent le même marchand — la même règle que
+    /// `resolve`, pour compter les opérations qu'un renommage atteindra.
+    static func sameMerchant(_ a: String, _ b: String) -> Bool {
+        if a == b { return !a.isEmpty }
+        guard a.count >= truncationFloor, b.count >= truncationFloor else { return false }
+        return a.hasPrefix(b) || b.hasPrefix(a)
     }
 
     /// Tous les marchands renommés, par ordre alphabétique du nom donné.
@@ -114,7 +150,8 @@ final class MerchantNames: ObservableObject {
                   """
               ) else { return 0 }
         return rows.reduce(0) { total, row in
-            guard let payee = row.string("payee"), Self.key(payee) == key else { return total }
+            guard let payee = row.string("payee"),
+                  Self.sameMerchant(Self.key(payee), key) else { return total }
             return total + (row.int("n") ?? 0)
         }
     }

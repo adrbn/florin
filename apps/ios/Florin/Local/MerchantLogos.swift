@@ -66,17 +66,35 @@ final class MerchantLogos: ObservableObject {
 
     func face(forKey key: String) -> Face? {
         guard !key.isEmpty else { return nil }
-        let mark = table()[key]
+        // Sous sa clé, ou sous celle que la banque a tronquée — voir
+        // `MerchantNames.resolve` : la tête suit le nom.
+        let found = located(key)
+        let mark = found?.mark
         // Une image choisie pour ce marchand passe avant tout : c'est le
         // geste le plus délibéré des trois, et le plus précis.
-        if mark?.hasPicture == true, let picture = picture(forKey: key) { return .logo(picture) }
+        if mark?.hasPicture == true, let found, let picture = picture(forKey: found.key) {
+            return .logo(picture)
+        }
         if let emoji = mark?.emoji, !emoji.isEmpty { return .emoji(emoji) }
         guard enabled, let domain = mark?.domain ?? knownDomain(forKey: key) else { return nil }
         return logo(domain: domain).map(Face.logo)
     }
 
     func mark(forKey key: String) -> Mark? {
-        table()[key]
+        located(key)?.mark
+    }
+
+    /// La marque de ce marchand, sous sa clé ou sous une troncature de
+    /// celle-ci. La plus longue gagne : c'est la plus précise.
+    private func located(_ key: String) -> (key: String, mark: Mark)? {
+        let table = table()
+        if let exact = table[key] { return (key, exact) }
+        guard key.count >= MerchantNames.truncationFloor else { return nil }
+        var best: (key: String, mark: Mark)?
+        for (other, mark) in table where MerchantNames.sameMerchant(other, key) {
+            if best == nil || other.count > best!.key.count { best = (other, mark) }
+        }
+        return best
     }
 
     /// L'image choisie pour ce marchand, lue une fois puis gardée.
