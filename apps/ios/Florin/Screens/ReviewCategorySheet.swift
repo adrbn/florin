@@ -144,7 +144,8 @@ struct ReviewCategorySheet: View {
     private var suggestion: Category? {
         guard let memory, let tx = current,
               let hit = LocalCategoriser.suggest(
-                  memory, payee: tx.payee, amount: tx.amount, accountId: ""
+                  memory, payee: tx.payee, amount: tx.amount,
+                  accountId: tx.accountId ?? "", date: String(tx.date.prefix(10))
               )
         else { return nil }
         return categories.first { $0.id == hit.categoryId }

@@ -80,6 +80,18 @@ enum PayeeText {
         if let cut = words.firstIndex(where: { $0.range(of: #"^\d{2}[./-]\d{2}[./-]\d{2,4}$"#, options: .regularExpression) != nil }) {
             words = Array(words[..<cut])
         }
+        /*
+         * An account number is not a name.
+         *
+         * A transfer the bank has not yet booked carries no merchant at all:
+         * it is announced under the account it moves to, so the row read as a
+         * barcode and truncated mid-number. Dropping the IBAN leaves whatever
+         * the label says besides it, and when it says nothing else the raw
+         * payee still shows — better a barcode than an empty line.
+         */
+        words.removeAll {
+            $0.range(of: #"^[A-Za-z]{2}\d{2}[A-Za-z0-9]{10,30}$"#, options: .regularExpression) != nil
+        }
         let result = words.joined(separator: " ").trimmingCharacters(in: .whitespaces)
         return result.isEmpty ? payee.trimmingCharacters(in: .whitespaces) : result
     }
@@ -87,7 +99,30 @@ enum PayeeText {
     /// De-shout token by token; keep acronyms (≤3 chars, or ≤5 with no vowel).
     /// A merchant given a name of its own is shown by that name instead.
     static func humanize(_ payee: String) -> String {
-        MerchantNames.shared.name(for: payee) ?? bankName(payee)
+        if let given = MerchantNames.shared.name(for: payee) { return given }
+        // Un libellé qui ne nomme que le compte d'arrivée ne nomme personne.
+        if OwnAccounts.shared.named(by: payee) {
+            return Strings.device("v2.common.ownTransfer", "Virement")
+        }
+        return bankName(payee)
+    }
+
+    /*
+     * Ce que la ligne est, quand son libellé ne dit rien.
+     *
+     * Une banque qui annonce un virement le nomme d'après le compte d'arrivée
+     * — donc d'après son titulaire. Afficher ça, c'est renvoyer à quelqu'un
+     * son propre nom en guise de commerçant. Il n'y a pas de marchand à
+     * trouver : la ligne porte alors sa catégorie, la seule chose qu'on sache
+     * d'elle. Un nom donné à la main passe avant, toujours.
+     */
+    static func title(_ payee: String, category: String?) -> String {
+        if MerchantNames.shared.name(for: payee) == nil,
+           OwnAccounts.shared.named(by: payee),
+           let category, !category.isEmpty {
+            return category
+        }
+        return humanize(payee)
     }
 
     /*
@@ -204,12 +239,26 @@ struct TransactionRowView: View {
     @ObservedObject private var names = MerchantNames.shared
     @ObservedObject private var logos = MerchantLogos.shared
 
+    /*
+     * Ce que la ligne est, quand son libellé ne dit rien.
+     *
+     * Une banque qui annonce un virement le nomme d'après le compte d'arrivée
+     * — donc d'après son titulaire. Afficher ça, c'est renvoyer à quelqu'un
+     * son propre nom en guise de commerçant. Il n'y a pas de marchand à
+     * trouver : la ligne porte alors sa catégorie, qui est la seule chose
+     * qu'on sache d'elle. Un nom donné à la main passe avant, toujours.
+     */
+    private var title: String { PayeeText.title(tx.payee, category: tx.categoryName) }
+
     private var subtitle: String {
         let category = tx.categoryName ?? t("v2.common.uncategorized", "Sans catégorie")
         let second = dateIsGiven
             ? tx.accountName
             : DayLabel.string(tx.day, locale: locale, t: t)
-        return second.isEmpty ? category : "\(category) · \(second)"
+        // La catégorie est déjà le titre : la répéter ne dit rien de plus.
+        let first = title == category ? "" : category
+        if first.isEmpty { return second }
+        return second.isEmpty ? first : "\(first) · \(second)"
     }
 
     var body: some View {
@@ -224,7 +273,7 @@ struct TransactionRowView: View {
                 logo: face?.logo
             )
             VStack(alignment: .leading, spacing: 2) {
-                Text(PayeeText.humanize(tx.payee))
+                Text(title)
                     .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(Florin.text)
                     .lineLimit(1)

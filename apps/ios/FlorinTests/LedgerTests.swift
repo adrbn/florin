@@ -2177,3 +2177,170 @@ struct TruncatedLabelTests {
         #expect(MerchantNames.resolve("boulangerie centrale", in: table) == nil)
     }
 }
+
+/*
+ * Un virement dont la banque change le libellé.
+ *
+ * Le salaire arrive annoncé sous un numéro de compte, puis comptabilisé sous
+ * le nom de l'employeur : deux libellés sans un mot en commun. Les mots ne
+ * peuvent rien en dire — pire, le nom de famille traverse tous les virements
+ * du grand livre et tire vers la mauvaise catégorie de revenus. Ce qui ne
+ * bouge pas, c'est la forme : même compte, même montant, même semaine.
+ */
+@Suite("Recurring credits")
+struct RecurringCreditTests {
+    private func ledger() throws -> (LocalStore, account: String, salary: String, extra: String) {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("florin-rhythm-\(UUID().uuidString).db")
+        let store = try LocalStore(url: url)
+        let account = UUID().uuidString
+        let earning = UUID().uuidString
+        let salary = UUID().uuidString, extra = UUID().uuidString
+        try store.database.exec("""
+        INSERT INTO accounts (id, name, kind, currency)
+          VALUES ('\(account)', 'CCP', 'checking', 'EUR');
+        INSERT INTO category_groups (id, name, kind) VALUES ('\(earning)', 'Revenus', 'income');
+        INSERT INTO categories (id, group_id, name) VALUES ('\(salary)', '\(earning)', 'Salaires');
+        INSERT INTO categories (id, group_id, name) VALUES ('\(extra)', '\(earning)', 'Gains additionnels');
+        """)
+        return (store, account, salary, extra)
+    }
+
+    @discardableResult
+    private func row(
+        _ store: LocalStore, _ account: String, _ date: String, _ payee: String,
+        _ amount: Double, category: String?
+    ) throws -> String {
+        let id = UUID().uuidString
+        try store.database.run(
+            """
+            INSERT INTO transactions
+                (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
+                 source, status, needs_review, category_id)
+            VALUES (?, ?, ?, ?, 'EUR', ?, ?, 'enable_banking', 'cleared', 0, ?)
+            """,
+            [.text(id), .text(account), .text(date), .real(amount), .text(payee),
+             .text(payee.lowercased()), category.map { SQLiteValue.text($0) } ?? .null]
+        )
+        return id
+    }
+
+    /// Cinq mois du même virement, puis un sixième sous un libellé inédit.
+    private func salaried(_ store: LocalStore, _ account: String, _ salary: String) throws {
+        for (index, day) in ["2026-04-27", "2026-05-27", "2026-06-26", "2026-07-29", "2026-08-27"].enumerated() {
+            try row(store, account, day, "VIREMENT DE TELECOM SA", 2000 + Double(index), category: salary)
+        }
+    }
+
+    @Test("a credit the words cannot name is named by its rhythm")
+    func rhythmNamesTheSalary() throws {
+        let (store, account, salary, _) = try ledger()
+        try salaried(store, account, salary)
+
+        let memory = try LocalCategoriser.remember(store: store)
+        let hit = LocalCategoriser.suggest(
+            memory, payee: "FR7630000000000000000000123 DUPONT", amount: 2006,
+            accountId: account, date: "2026-09-28"
+        )
+        #expect(hit?.categoryId == salary)
+        #expect((hit?.confidence ?? 0) >= LocalCategoriser.applyThreshold)
+    }
+
+    /// Le même virement, mais le grand livre n'a pas encore quatre mois à
+    /// montrer : trois fois n'est pas une habitude.
+    @Test("three months are not a habit")
+    func threeMonthsAreNotEnough() throws {
+        let (store, account, salary, _) = try ledger()
+        for day in ["2026-06-26", "2026-07-29", "2026-08-27"] {
+            try row(store, account, day, "VIREMENT DE TELECOM SA", 2000, category: salary)
+        }
+
+        let memory = try LocalCategoriser.remember(store: store)
+        let hit = LocalCategoriser.suggest(
+            memory, payee: "FR7630000000000000000000123 DUPONT", amount: 2000,
+            accountId: account, date: "2026-09-28"
+        )
+        #expect(hit == nil)
+    }
+
+    /// Un passé partagé ne décide rien : quatre mois, deux catégories.
+    @Test("a divided past decides nothing")
+    func dividedPastStaysSilent() throws {
+        let (store, account, salary, extra) = try ledger()
+        try row(store, account, "2026-05-27", "VIREMENT DE TELECOM SA", 2000, category: salary)
+        try row(store, account, "2026-06-26", "VIREMENT DE TELECOM SA", 2000, category: salary)
+        try row(store, account, "2026-07-29", "VIREMENT DE TELECOM SA", 2000, category: extra)
+        try row(store, account, "2026-08-27", "VIREMENT DE TELECOM SA", 2000, category: salary)
+
+        let memory = try LocalCategoriser.remember(store: store)
+        let hit = LocalCategoriser.suggest(
+            memory, payee: "FR7630000000000000000000123 DUPONT", amount: 2000,
+            accountId: account, date: "2026-09-28"
+        )
+        #expect(hit == nil)
+    }
+
+    /// Le même montant, le même compte, mais versé n'importe quand : une
+    /// rentrée régulière tombe dans la même semaine, pas à trois semaines près.
+    @Test("a credit that lands anywhere in the month is not recurring")
+    func scatteredDaysStaySilent() throws {
+        let (store, account, salary, _) = try ledger()
+        for day in ["2026-05-03", "2026-06-14", "2026-07-08", "2026-08-11"] {
+            try row(store, account, day, "VIREMENT DE TELECOM SA", 2000, category: salary)
+        }
+
+        let memory = try LocalCategoriser.remember(store: store)
+        let hit = LocalCategoriser.suggest(
+            memory, payee: "FR7630000000000000000000123 DUPONT", amount: 2000,
+            accountId: account, date: "2026-09-28"
+        )
+        #expect(hit == nil)
+    }
+
+    /// Une dépense mensuelle du même montant ne suffit pas : trop d'achats se
+    /// répètent au même prix sans être la même chose.
+    @Test("a monthly debit of the same size is left alone")
+    func debitsAreLeftAlone() throws {
+        let (store, account, _, _) = try ledger()
+        let spending = UUID().uuidString, rent = UUID().uuidString
+        try store.database.exec("""
+        INSERT INTO category_groups (id, name, kind) VALUES ('\(spending)', 'Charges', 'expense');
+        INSERT INTO categories (id, group_id, name) VALUES ('\(rent)', '\(spending)', 'Loyer');
+        """)
+        for day in ["2026-05-02", "2026-06-02", "2026-07-02", "2026-08-02"] {
+            try row(store, account, day, "PRELEVEMENT JOIVY", -800, category: rent)
+        }
+
+        let memory = try LocalCategoriser.remember(store: store)
+        let hit = LocalCategoriser.suggest(
+            memory, payee: "FR7630000000000000000000123 DUPONT", amount: -800,
+            accountId: account, date: "2026-09-02"
+        )
+        #expect(hit == nil)
+    }
+
+    /// Le numéro de compte quitte la ligne, ce qui l'accompagne reste.
+    @Test("an account number is not shown as a name")
+    func ibanLeavesTheLabel() throws {
+        #expect(PayeeText.clean("FR7630000000000000000000123 DUPONT") == "DUPONT")
+        // Rien d'autre à dire : mieux vaut le code-barres qu'une ligne vide.
+        #expect(PayeeText.clean("FR7630000000000000000000123") == "FR7630000000000000000000123")
+    }
+
+    /// Le libellé ne nomme que le compte d'arrivée : la ligne porte ce qu'elle
+    /// est, pas le nom de famille de celui qui la lit.
+    @Test("a label that names only the account is titled by its category")
+    func ownAccountRowIsTitledByCategory() throws {
+        #expect(
+            PayeeText.title("VIREMENT DE TELECOM SA", category: "Salaires")
+                == PayeeText.humanize("VIREMENT DE TELECOM SA")
+        )
+        let named = MerchantNames.shared.name(for: "FR7630000000000000000000123 DUPONT")
+        // Sans compte connu de ce numéro, rien ne change : c'est la liste des
+        // comptes qui autorise la substitution, pas la forme du libellé.
+        #expect(named == nil)
+        #expect(
+            PayeeText.title("FR7630000000000000000000123 DUPONT", category: "Salaires") == "Dupont"
+        )
+    }
+}

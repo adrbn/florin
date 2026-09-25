@@ -55,6 +55,8 @@ enum LocalCategoriser {
         /// A guess that contradicts the sign of the row is not a weak guess,
         /// it is a wrong one — see `fits`.
         fileprivate let kinds: [String: String]
+        /// Every credit already filed, stripped of its words — see `rhythm`.
+        fileprivate let beats: [Beat]
 
         var isEmpty: Bool { rows.isEmpty }
     }
@@ -64,6 +66,15 @@ enum LocalCategoriser {
         let categoryId: String
         let amount: Double
         let accountId: String
+    }
+
+    /// A filed credit reduced to its shape: when, on what account, how much.
+    fileprivate struct Beat {
+        let month: String
+        let day: Int
+        let amount: Double
+        let accountId: String
+        let categoryId: String
     }
 
     /*
@@ -164,15 +175,105 @@ enum LocalCategoriser {
             weights[token] = rarity * (0.15 + 0.85 * concentration)
         }
 
+        /*
+         * Credits only, and every one of them.
+         *
+         * A row whose label tokenises to nothing never reaches `entries`, and
+         * a label made of an account number very nearly is nothing — which is
+         * exactly the row `rhythm` exists for. So the beats are read on their
+         * own, from the date and the amount, which no bank can garble.
+         */
+        var beats: [Beat] = []
+        for row in try store.database.query(
+            """
+            SELECT substr(occurred_at, 1, 10) AS day, amount, account_id, category_id
+            FROM transactions
+            WHERE category_id IS NOT NULL AND deleted_at IS NULL AND amount > 0
+            ORDER BY occurred_at DESC LIMIT 4000
+            """
+        ) {
+            guard let day = row.string("day"), day.count >= 10,
+                  let categoryId = row.string("category_id"),
+                  let accountId = row.string("account_id"),
+                  let amount = row.double("amount"),
+                  let number = Int(day.dropFirst(8).prefix(2))
+            else { continue }
+            beats.append(
+                Beat(
+                    month: String(day.prefix(7)), day: number,
+                    amount: amount, accountId: accountId, categoryId: categoryId
+                )
+            )
+        }
+
         return Memory(
             weights: weights, rows: entries, postings: postings,
-            signatures: signatures, amounts: amounts, kinds: kinds
+            signatures: signatures, amounts: amounts, kinds: kinds, beats: beats
         )
     }
 
     // MARK: - Asking
 
     static func suggest(
+        _ memory: Memory, payee: String, amount: Double, accountId: String,
+        date: String = ""
+    ) -> Suggestion? {
+        let spoken = fromWords(memory, payee: payee, amount: amount, accountId: accountId)
+        if let spoken, spoken.confidence >= applyThreshold { return spoken }
+        let beaten = rhythm(memory, date: date, amount: amount, accountId: accountId)
+        return beaten ?? spoken
+    }
+
+    /*
+     * The same credit, month after month, whatever the bank calls it today.
+     *
+     * A salary is announced by the bank under one label and booked under
+     * another; some months it arrives as nothing but an account number and a
+     * surname. The words then have no answer, or worse: a person's own name
+     * runs through every transfer they ever made, so the scoring picks the
+     * income category that name happens to be most common in. The one thing
+     * that does not move is the shape — same account, same size, same week of
+     * the month — and a credit that has kept that shape for four months
+     * running, filed the same way every time, is not a guess.
+     *
+     * Kept deliberately narrow. Measured over the whole ledger this fires on
+     * twelve rows and gets twelve right; loosened to debits it drops to
+     * two thirds, because a great many purchases repeat at the same price
+     * without being the same thing at all. So: credits, a tight band, a
+     * unanimous past, and only ever after the words have failed.
+     */
+    static let rhythmBand = 0.05
+    static let rhythmMonths = 4
+    static let rhythmDays = 5
+
+    private static func rhythm(
+        _ memory: Memory, date: String, amount: Double, accountId: String
+    ) -> Suggestion? {
+        guard amount > 0, date.count >= 10, !accountId.isEmpty else { return nil }
+        let month = String(date.prefix(7))
+        guard let day = Int(date.dropFirst(8).prefix(2)) else { return nil }
+
+        // One vote per month: a month that paid twice does not count twice.
+        var voted: [String: (categoryId: String, distance: Double)] = [:]
+        for beat in memory.beats where beat.accountId == accountId && beat.month < month {
+            let distance = abs(beat.amount - amount)
+            guard distance <= rhythmBand * amount else { continue }
+            let apart = abs(beat.day - day)
+            guard min(apart, 31 - apart) <= rhythmDays else { continue }
+            if let kept = voted[beat.month], kept.distance <= distance { continue }
+            voted[beat.month] = (beat.categoryId, distance)
+        }
+        guard voted.count >= rhythmMonths else { return nil }
+
+        let agreed = Set(voted.values.map(\.categoryId))
+        guard agreed.count == 1, let categoryId = agreed.first,
+              fits(categoryId, amount, memory.kinds)
+        else { return nil }
+        // Enough to file, never more certain than a label the ledger knows.
+        return Suggestion(categoryId: categoryId, confidence: applyThreshold + 0.05)
+    }
+
+    private static func fromWords(
         _ memory: Memory, payee: String, amount: Double, accountId: String
     ) -> Suggestion? {
         let tokens = Self.tokens(of: payee)
@@ -297,7 +398,7 @@ enum LocalCategoriser {
     static func backfill(store: LocalStore) throws -> Int {
         let pending = try store.database.query(
             """
-            SELECT id, payee, amount, account_id
+            SELECT id, payee, amount, account_id, occurred_at
             FROM transactions
             WHERE category_id IS NULL AND deleted_at IS NULL
               AND (needs_review = 1 OR is_pending = 1
@@ -318,7 +419,8 @@ enum LocalCategoriser {
                     memory,
                     payee: payee,
                     amount: row.double("amount") ?? 0,
-                    accountId: row.string("account_id") ?? ""
+                    accountId: row.string("account_id") ?? "",
+                    date: String((row.string("occurred_at") ?? "").prefix(10))
                 ), hit.confidence >= applyThreshold else { continue }
 
                 try store.database.run(

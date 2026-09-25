@@ -95,7 +95,7 @@ struct TransactionDetailSheet: View {
                 .padding(.bottom, 20)
             }
             .scrollBounceBehavior(.basedOnSize)
-            .navigationTitle(PayeeText.humanize(tx.payee))
+            .navigationTitle(PayeeText.title(tx.payee, category: tx.categoryName))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 /*
@@ -110,7 +110,7 @@ struct TransactionDetailSheet: View {
                 ToolbarItem(placement: .principal) {
                     Button { naming = true } label: {
                         HStack(spacing: 6) {
-                            Text(PayeeText.humanize(tx.payee))
+                            Text(PayeeText.title(tx.payee, category: tx.categoryName))
                                 .font(.system(size: 16, weight: .semibold))
                                 .foregroundStyle(Florin.text)
                                 .lineLimit(1)
@@ -293,7 +293,7 @@ struct TransactionDetailSheet: View {
             }
             Button(t("v2.common.cancel", "Annuler"), role: .cancel) {}
         } message: {
-            Text(PayeeText.humanize(tx.payee))
+            Text(PayeeText.title(tx.payee, category: tx.categoryName))
         }
     }
 
