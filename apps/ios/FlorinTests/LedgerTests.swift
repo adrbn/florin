@@ -2344,3 +2344,88 @@ struct RecurringCreditTests {
         )
     }
 }
+
+// MARK: - Announcements settling into bookings
+
+/*
+ * Une banque annonce un virement, puis le comptabilise sous un autre nom.
+ *
+ * Les deux libellés ne partagent alors aucun mot : l'annonce nomme le compte
+ * d'arrivée, la comptabilisation nomme l'émetteur. La ligne annoncée doit
+ * pourtant céder la place à celle qui la réalise, faute de quoi le mois
+ * compte deux fois le même virement.
+ */
+@Suite("Announced then booked")
+struct AnnouncedThenBookedTests {
+    private let own: Set<String> = ["FR7630000000000000000000123"]
+
+    @Test("an announcement made under one's own account number gives way")
+    func ownNumberAnnouncementSettles() {
+        #expect(
+            BankingSync.labelsAgree(
+                "VIREMENT DE ATELIERS MARTIN",
+                "FR7630000000000000000000123 DUPONT",
+                own: own
+            )
+        )
+    }
+
+    /// C'est la liste des comptes qui tranche, pas la forme du libellé : sans
+    /// elle, les deux textes restent deux opérations distinctes.
+    @Test("without the ledger's accounts the two labels stay apart")
+    func withoutTheAccountsTheyStayApart() {
+        #expect(
+            !BankingSync.labelsAgree(
+                "VIREMENT DE ATELIERS MARTIN",
+                "FR7630000000000000000000123 DUPONT",
+                own: []
+            )
+        )
+    }
+
+    /// Le même numéro écrit autrement reste le même compte.
+    @Test("the same number written differently is the same account")
+    func theSameNumberWrittenDifferently() {
+        #expect(
+            BankingSync.labelsAgree(
+                "VIREMENT DE ATELIERS MARTIN",
+                "fr76 3000 0000 0000 0000 0000 123 DUPONT",
+                own: own
+            )
+        )
+    }
+
+    /// Un numéro qui n'est pas le sien ne donne aucun passe-droit.
+    @Test("someone else's account number decides nothing")
+    func anotherNumberDecidesNothing() {
+        #expect(
+            !BankingSync.labelsAgree(
+                "VIREMENT DE ATELIERS MARTIN",
+                "FR7612345678901234567890999 ROSA",
+                own: own
+            )
+        )
+    }
+
+    /// Le garde-fou tient toujours : deux commerçants du même montant le même
+    /// jour restent deux opérations.
+    @Test("two merchants still disagree")
+    func twoMerchantsStillDisagree() {
+        #expect(!BankingSync.labelsAgree("LE COMPTOIR", "CHEZ ROSA", own: own))
+    }
+
+    @Test("a shared word is still enough")
+    func aSharedWordIsEnough() {
+        #expect(
+            BankingSync.labelsAgree(
+                "PRELEVEMENT DE TELECOM SA", "TELECOM SA REF 9876543210", own: own
+            )
+        )
+    }
+
+    /// Un libellé qui ne dit rien ne peut rien contredire.
+    @Test("a label with nothing to say is not weighed")
+    func anEmptyLabelIsNotWeighed() {
+        #expect(BankingSync.labelsAgree("", "CHEZ ROSA", own: own))
+    }
+}

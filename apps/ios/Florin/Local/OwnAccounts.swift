@@ -20,12 +20,26 @@ final class OwnAccounts {
 
     /// Le libellé ne nomme qu'un compte du grand livre.
     func named(by payee: String) -> Bool {
-        let folded = payee.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: nil)
-        let squeezed = folded.components(separatedBy: CharacterSet.alphanumerics.inverted).joined()
-        guard squeezed.count >= 15 else { return false }
-        let numbers = table()
+        Self.named(by: payee, among: table())
+    }
+
+    /// Les numéros connus, pour qui a plusieurs libellés à peser d'affilée.
+    func numbers() -> Set<String> { table() }
+
+    /// La même question, posée à une liste donnée. Les deux côtés sont
+    /// réduits de la même façon : un numéro écrit en majuscules ou espacé
+    /// par groupes de quatre est le même numéro.
+    static func named(by payee: String, among numbers: Set<String>) -> Bool {
         guard !numbers.isEmpty else { return false }
-        return numbers.contains { squeezed.contains($0) }
+        let squeezed = squeeze(payee)
+        guard squeezed.count >= 15 else { return false }
+        return numbers.contains { squeezed.contains(squeeze($0)) }
+    }
+
+    /// Le numéro seul : sans accent, sans casse, sans séparateur.
+    static func squeeze(_ text: String) -> String {
+        text.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: nil)
+            .components(separatedBy: CharacterSet.alphanumerics.inverted).joined()
     }
 
     func invalidate() {
@@ -52,9 +66,7 @@ final class OwnAccounts {
         var out = Set<String>()
         for row in rows {
             guard let iban = row.string("iban") else { continue }
-            let squeezed = iban
-                .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: nil)
-                .components(separatedBy: CharacterSet.alphanumerics.inverted).joined()
+            let squeezed = squeeze(iban)
             // Un numéro trop court ne prouve rien s'il se retrouve dans un
             // libellé par hasard.
             guard squeezed.count >= 15 else { continue }

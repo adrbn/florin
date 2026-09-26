@@ -654,6 +654,7 @@ enum BankingSync {
             ]
         )
 
+        let ownNumbers = OwnAccounts.shared.numbers()
         let match = candidates.first { row in
             guard let id = row.string("id"), !adopted.contains(id) else { return false }
             /*
@@ -671,7 +672,7 @@ enum BankingSync {
              * the row from the bank that wrote it.
              */
             if row.string("source") == "enable_banking",
-               !LocalLedger.namesAgree(transaction.counterparty, bankWord(row), whenUnsure: true) {
+               !labelsAgree(transaction.counterparty, bankWord(row), own: ownNumbers) {
                 return false
             }
             if (row.double("drift") ?? 1) < 0.5 { return true }
@@ -762,6 +763,29 @@ enum BankingSync {
      * devient méconnaissable à sa propre banque. Les lignes écrites avant que
      * cette colonne existe retombent sur le nom qu'elles portent, comme avant.
      */
+    /*
+     * Une annonce faite sous son propre numéro de compte ne dément personne.
+     *
+     * La banque qui annonce un virement avant de le comptabiliser n'a pas
+     * encore de contrepartie à nommer : elle nomme la ligne d'après le compte
+     * où l'argent atterrit, « FR76… DUPONT ». Le libellé comptabilisé, lui,
+     * nomme l'émetteur — deux textes sans un mot commun pour une seule et
+     * même opération. Exiger ce mot commun laissait donc l'annonce en place
+     * et écrivait la ligne comptabilisée à côté : un salaire compté deux
+     * fois, et le nom qu'on avait donné resté sur celle des deux qui ne sert
+     * plus à rien.
+     *
+     * Le garde-fou existe contre l'achat qui prendrait la place d'un
+     * prélèvement du même montant ce jour-là. Un libellé qui ne nomme qu'un
+     * compte du grand livre ne nomme aucun commerçant : il ne peut donc en
+     * démentir aucun.
+     */
+    static func labelsAgree(_ incoming: String, _ existing: String, own: Set<String>) -> Bool {
+        if OwnAccounts.named(by: existing, among: own)
+            || OwnAccounts.named(by: incoming, among: own) { return true }
+        return LocalLedger.namesAgree(incoming, existing, whenUnsure: true)
+    }
+
     private static func bankWord(_ row: SQLiteRow) -> String {
         let bank = row.string("bank_payee") ?? ""
         return bank.isEmpty ? (row.string("normalized_payee") ?? "") : bank
