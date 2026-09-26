@@ -2429,3 +2429,100 @@ struct AnnouncedThenBookedTests {
         #expect(BankingSync.labelsAgree("", "CHEZ ROSA", own: own))
     }
 }
+
+// MARK: - Payments held while the ledger was closed
+
+/*
+ * Un paiement présenté pendant que la base ne s'ouvrait pas.
+ *
+ * C'est la fenêtre d'une installation : quelques secondes où l'action Wallet
+ * n'a nulle part où écrire, pas même au journal. Elle mettait le paiement à
+ * la poubelle ; elle le met désormais de côté.
+ */
+@Suite("Payments held while closed", .serialized)
+struct WalletQueueTests {
+    private func ledger() throws -> (LocalStore, defaults: UserDefaults) {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("florin-held-\(UUID().uuidString).db")
+        let store = try LocalStore(url: url)
+        try store.database.exec("""
+        INSERT INTO accounts (id, name, kind, currency)
+          VALUES ('\(UUID().uuidString)', 'CCP', 'checking', 'EUR');
+        """)
+        let defaults = try #require(UserDefaults(suiteName: "florin.tests.\(UUID().uuidString)"))
+        return (store, defaults)
+    }
+
+    @Test("a payment held while closed enters the ledger at the next launch")
+    func heldPaymentIsResumed() throws {
+        let (store, defaults) = try ledger()
+        let tapped = Date(timeIntervalSince1970: 1_750_000_000)
+        WalletQueue.hold(
+            amountText: "4,10 €", merchant: "Le Comptoir", card: "MA BANQUE",
+            at: tapped, in: defaults
+        )
+
+        #expect(WalletQueue.drain(store: store, in: defaults) == 1)
+
+        let row = try #require(
+            try store.database.query(
+                "SELECT payee, amount, status FROM transactions"
+            ).first
+        )
+        #expect(row.string("payee") == "Le Comptoir")
+        #expect(row.double("amount") == -4.10)
+        #expect(row.string("status") == "scheduled")
+    }
+
+    /// Reprendre laisse sa trace : sans elle, la ligne apparaîtrait dans le
+    /// grand livre sans que rien ne dise d'où elle sort.
+    @Test("resuming leaves its line in the journal")
+    func resumingIsWrittenDown() throws {
+        let (store, defaults) = try ledger()
+        WalletQueue.hold(amountText: "4,10 €", merchant: "Le Comptoir", card: nil, in: defaults)
+        WalletQueue.drain(store: store, in: defaults)
+
+        let attempt = try #require(WalletLog.recent(store: store).first)
+        #expect(attempt.outcome == .recorded)
+        #expect(attempt.merchant == "Le Comptoir")
+    }
+
+    /// La file se vide : un lancement de plus n'ajoute pas le paiement une
+    /// seconde fois.
+    @Test("a resumed payment is not entered twice")
+    func resumingIsNotRepeated() throws {
+        let (store, defaults) = try ledger()
+        WalletQueue.hold(amountText: "4,10 €", merchant: "Le Comptoir", card: nil, in: defaults)
+        WalletQueue.drain(store: store, in: defaults)
+
+        #expect(WalletQueue.drain(store: store, in: defaults) == 0)
+        #expect(WalletQueue.pending(in: defaults).isEmpty)
+        let count = try #require(
+            try store.database.scalar("SELECT COUNT(*) FROM transactions")?.int
+        )
+        #expect(count == 1)
+    }
+
+    /// Un montant illisible ne le devient pas au lancement suivant : sa ligne
+    /// dit pourquoi, et la file ne le retient pas pour toujours.
+    @Test("an unreadable amount is dropped, with its reason")
+    func unreadableAmountIsDropped() throws {
+        let (store, defaults) = try ledger()
+        WalletQueue.hold(amountText: "", merchant: "Le Comptoir", card: nil, in: defaults)
+
+        #expect(WalletQueue.drain(store: store, in: defaults) == 0)
+        let attempt = try #require(WalletLog.recent(store: store).first)
+        #expect(attempt.outcome == .failed)
+        #expect(WalletQueue.pending(in: defaults).isEmpty)
+    }
+
+    /// Deux paiements dans la même fenêtre attendent tous les deux.
+    @Test("two payments held in the same window both come back")
+    func twoHeldPaymentsBothReturn() throws {
+        let (store, defaults) = try ledger()
+        WalletQueue.hold(amountText: "1,50 €", merchant: "Le Comptoir", card: nil, in: defaults)
+        WalletQueue.hold(amountText: "9,90 €", merchant: "Chez Rosa", card: nil, in: defaults)
+
+        #expect(WalletQueue.drain(store: store, in: defaults) == 2)
+    }
+}

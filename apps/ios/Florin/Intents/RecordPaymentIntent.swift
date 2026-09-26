@@ -85,7 +85,28 @@ struct RecordPaymentIntent: AppIntent {
         if UserDefaults.standard.string(forKey: "florin.dataSource") == DataSource.server.rawValue {
             throw LocalWallet.Failure.serverMode
         }
-        guard let store = LocalStore.shared else { throw LocalWallet.Failure.noStore }
+        /*
+         * Une base fermée ne fait pas disparaître un paiement.
+         *
+         * Remplacer l'app remplace son conteneur : pendant ces quelques
+         * secondes le grand livre ne s'ouvre pas, et jusqu'ici l'action
+         * renonçait — sans ligne, et sans même une tentative au journal,
+         * qui est une table de cette base. Le paiement est mis de côté là
+         * où les réglages tiennent debout, et la prochaine ouverture le
+         * reprend à l'heure de la carte.
+         */
+        guard let store = LocalStore.shared else {
+            WalletQueue.hold(amountText: amount, merchant: merchant, card: card)
+            let held = Strings.device(
+                "v2.wallet.heldBody", "{merchant} — ajouté à la prochaine ouverture de Florin",
+                ["merchant": merchant]
+            )
+            await Self.notify(
+                title: Strings.device("v2.wallet.notifyHeld", "Paiement mis en attente"),
+                body: held
+            )
+            return .result(value: held, dialog: IntentDialog(stringLiteral: held))
+        }
         let recorded = try LocalWallet.record(
             store: store,
             amountText: amount,

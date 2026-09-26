@@ -302,6 +302,13 @@ extension LocalStore {
              * nothing is waiting, so a ledger with no unfiled bank rows pays
              * almost nothing for it.
              */
+            // Les paiements que Wallet a présentés pendant que la base était
+            // fermée : repris avant tout le reste, puisque la suite les apparie.
+            let resumed = WalletQueue.drain(store: store)
+            if resumed > 0 {
+                log.notice("resumed \(resumed, privacy: .public) payments held while closed")
+            }
+
             // A duplicate left by an earlier build outlives the sync that
             // created it, so the repair has to run where every launch sees it.
             let unlabelled = try BankingSync.clearMirrorCategories(store: store)
