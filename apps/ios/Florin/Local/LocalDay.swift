@@ -82,6 +82,14 @@ enum LocalDay {
      * the grid's definition of spending changes, this should be changed with
      * it deliberately — a shared helper would move it silently and the sheet
      * would stop matching without anyone noticing.
+     *
+     * Y compris ce qui est parti sans catégorie, et ce que la banque n'a pas
+     * encore comptabilisé : la jointure stricte écartait les premières, le
+     * filtre sur « comptabilisé » les secondes, et une journée s'affichait à
+     * zéro sous la liste de ses propres dépenses. Une carte présentée est de
+     * l'argent parti — l'écran le dit d'ailleurs, « Prévu » ; il reste à le
+     * compter. La ligne de la banque remplace celle du paiement au lieu de
+     * s'y ajouter, donc rien n'est compté deux fois.
      */
     private static func spent(
         _ db: SQLiteDatabase, day: String, hidden: Set<String>
@@ -91,11 +99,12 @@ enum LocalDay {
             SELECT coalesce(sum(t.amount), 0)
             FROM transactions t
             JOIN accounts a ON a.id = t.account_id
-            JOIN categories c ON c.id = t.category_id
-            JOIN category_groups g ON g.id = c.group_id
-            WHERE t.deleted_at IS NULL AND t.status = 'cleared' AND t.is_pending = 0
+            LEFT JOIN categories c ON c.id = t.category_id
+            LEFT JOIN category_groups g ON g.id = c.group_id
+            WHERE t.deleted_at IS NULL
               AND t.transfer_pair_id IS NULL AND a.is_archived = 0
-              AND g.kind = 'expense' AND substr(t.occurred_at, 1, 10) = ?
+              AND (g.kind = 'expense' OR (t.category_id IS NULL AND t.amount < 0))
+              AND substr(t.occurred_at, 1, 10) = ?
             """ + exclusion("c.id", hidden),
             [.text(day)] + bindings(hidden)
         )?.double ?? 0
@@ -112,11 +121,12 @@ enum LocalDay {
             SELECT c.id, c.name, c.emoji, coalesce(sum(t.amount), 0) AS total
             FROM transactions t
             JOIN accounts a ON a.id = t.account_id
-            JOIN categories c ON c.id = t.category_id
-            JOIN category_groups g ON g.id = c.group_id
-            WHERE t.deleted_at IS NULL AND t.status = 'cleared' AND t.is_pending = 0
+            LEFT JOIN categories c ON c.id = t.category_id
+            LEFT JOIN category_groups g ON g.id = c.group_id
+            WHERE t.deleted_at IS NULL
               AND t.transfer_pair_id IS NULL AND a.is_archived = 0
-              AND g.kind = 'expense' AND substr(t.occurred_at, 1, 10) = ?
+              AND (g.kind = 'expense' OR (t.category_id IS NULL AND t.amount < 0))
+              AND substr(t.occurred_at, 1, 10) = ?
             """ + exclusion("c.id", hidden) + """
 
             GROUP BY c.id, c.name, c.emoji
@@ -127,7 +137,7 @@ enum LocalDay {
             let amount = round2(-(row.double("total") ?? 0))
             guard amount > 0 else { return nil }
             return DayDetail.CategorySlice(
-                id: row.string("id") ?? "",
+                id: row.string("id") ?? LocalAnalysis.uncategorized,
                 name: row.string("name") ?? "",
                 emoji: row.string("emoji"),
                 amount: amount

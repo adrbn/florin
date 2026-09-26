@@ -61,7 +61,7 @@ enum LocalAnalysis {
             JOIN accounts a ON a.id = t.account_id
             LEFT JOIN categories c ON c.id = t.category_id
             LEFT JOIN category_groups g ON g.id = c.group_id
-            WHERE t.deleted_at IS NULL AND t.status = 'cleared' AND t.is_pending = 0 AND substr(t.occurred_at, 1, 10) <= date('now')
+            WHERE t.deleted_at IS NULL AND substr(t.occurred_at, 1, 10) <= date('now')
               AND t.transfer_pair_id IS NULL AND a.is_archived = 0
               AND substr(t.occurred_at, 1, 7) >= ?
             GROUP BY 1
@@ -114,7 +114,7 @@ enum LocalAnalysis {
             JOIN accounts a ON a.id = t.account_id
             JOIN categories c ON c.id = t.category_id
             JOIN category_groups g ON g.id = c.group_id
-            WHERE t.deleted_at IS NULL AND t.status = 'cleared' AND t.is_pending = 0 AND substr(t.occurred_at, 1, 10) <= date('now')
+            WHERE t.deleted_at IS NULL AND substr(t.occurred_at, 1, 10) <= date('now')
               AND t.transfer_pair_id IS NULL AND a.is_archived = 0
               AND g.kind = 'expense' AND t.amount < 0
               AND substr(t.occurred_at, 1, 10) >= date('now', ?)
@@ -177,7 +177,7 @@ enum LocalAnalysis {
             JOIN accounts a ON a.id = t.account_id
             JOIN categories c ON c.id = t.category_id
             JOIN category_groups g ON g.id = c.group_id
-            WHERE t.deleted_at IS NULL AND t.status = 'cleared' AND t.is_pending = 0 AND substr(t.occurred_at, 1, 10) <= date('now')
+            WHERE t.deleted_at IS NULL AND substr(t.occurred_at, 1, 10) <= date('now')
               AND t.transfer_pair_id IS NULL AND a.is_archived = 0
               AND g.kind = 'expense' AND substr(t.occurred_at, 1, 7) >= ?
             GROUP BY c.id, month
@@ -213,27 +213,46 @@ enum LocalAnalysis {
     /*
      * A day, split by category.
      *
-     * The same predicate as `categoryShares` — cleared, booked, not a transfer,
-     * on a live account, in an expense category — because the calendar and the
-     * category bars are two renderings of one definition of "spent". Rows are
+     * The same predicate as `categoryShares` — not a transfer, on a live
+     * account, in an expense category — because the calendar and the category
+     * bars are two renderings of one definition of "spent". Un paiement que la
+     * banque n'a pas encore comptabilisé en fait partie : le calendrier dit ce
+     * qui est parti aujourd'hui, et attendre la banque un à trois jours lui
+     * faisait afficher zéro sur la semaine en cours — la seule qu'on regarde.
+     * La ligne de la banque remplace celle du paiement au lieu de s'y ajouter,
+     * donc rien n'est compté deux fois. Rows are
      * kept at their signed value rather than filtered on `amount < 0`: a refund
      * belongs to the day it lands on, and a square that ignored it would say
      * the money left twice.
+     *
+     * Avec une exception, qui est de l'arithmétique et non du classement :
+     * l'argent parti sans catégorie est parti quand même. Une jointure
+     * stricte l'écartait, et une journée à 91 € de taxes s'affichait à zéro
+     * sous la liste de ses propres opérations. Il est compté à part, sous une
+     * clé à lui, pour que le total dise vrai sans inventer une catégorie que
+     * personne n'a choisie. Un mouvement rentrant sans catégorie, lui, n'est
+     * pas une dépense : rien ne dit ce qu'il est, et le compter en négatif
+     * effacerait des dépenses réelles.
      */
+    /// Ce qui est parti sans qu'on dise où : une clé, pas une catégorie.
+    static let uncategorized = "__none__"
+
     static func dailySlices(_ db: SQLiteDatabase, days: Int) throws -> [DailySlice] {
         let calendar = Calendar(identifier: .gregorian)
         guard let start = calendar.date(byAdding: .day, value: -days, to: Date()) else { return [] }
         let rows = try db.query(
             """
-            SELECT substr(t.occurred_at, 1, 10) AS day, c.id AS category_id,
+            SELECT substr(t.occurred_at, 1, 10) AS day,
+                   coalesce(c.id, '\(uncategorized)') AS category_id,
                    coalesce(sum(t.amount), 0) AS total
             FROM transactions t
             JOIN accounts a ON a.id = t.account_id
-            JOIN categories c ON c.id = t.category_id
-            JOIN category_groups g ON g.id = c.group_id
-            WHERE t.deleted_at IS NULL AND t.status = 'cleared' AND t.is_pending = 0 AND substr(t.occurred_at, 1, 10) <= date('now')
+            LEFT JOIN categories c ON c.id = t.category_id
+            LEFT JOIN category_groups g ON g.id = c.group_id
+            WHERE t.deleted_at IS NULL AND substr(t.occurred_at, 1, 10) <= date('now')
               AND t.transfer_pair_id IS NULL AND a.is_archived = 0
-              AND g.kind = 'expense' AND t.occurred_at >= ?
+              AND (g.kind = 'expense' OR (t.category_id IS NULL AND t.amount < 0))
+              AND t.occurred_at >= ?
             GROUP BY 1, 2 ORDER BY 1
             """,
             [.text(LocalQueries.dayFormatter.string(from: start))]

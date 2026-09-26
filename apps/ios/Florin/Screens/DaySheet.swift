@@ -108,10 +108,14 @@ struct DaySheet: View {
     }
 
     private func categoryRow(_ slice: DayDetail.CategorySlice, peak: Double) -> some View {
-        VStack(spacing: 7) {
+        // Une part sans catégorie n'a pas de nom en base : c'est l'écran qui
+        // le dit, dans la langue où il est lu.
+        let name = slice.name.isEmpty
+            ? t("v2.common.uncategorized", "Sans catégorie") : slice.name
+        return VStack(spacing: 7) {
             HStack(spacing: 12) {
-                Bubble(label: slice.name, emoji: slice.emoji)
-                Text(slice.name)
+                Bubble(label: name, emoji: slice.emoji)
+                Text(name)
                     .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(Florin.text)
                     .lineLimit(1)

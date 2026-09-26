@@ -2526,3 +2526,115 @@ struct WalletQueueTests {
         #expect(WalletQueue.drain(store: store, in: defaults) == 2)
     }
 }
+
+// MARK: - Spending nobody has filed
+
+/*
+ * Une journée affichée à zéro sous la liste de ses propres dépenses.
+ *
+ * Le total du jour joignait la table des catégories, ce qui écartait
+ * silencieusement tout ce qui n'en avait pas — et une dépense non classée
+ * reste de l'argent parti.
+ */
+@Suite("Unfiled spending")
+struct UnfiledSpendingTests {
+    private func ledger() throws -> (LocalStore, account: String, category: String) {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("florin-unfiled-\(UUID().uuidString).db")
+        let store = try LocalStore(url: url)
+        let account = UUID().uuidString, group = UUID().uuidString, category = UUID().uuidString
+        try store.database.exec("""
+        INSERT INTO accounts (id, name, kind, currency)
+          VALUES ('\(account)', 'CCP', 'checking', 'EUR');
+        INSERT INTO category_groups (id, name, kind) VALUES ('\(group)', 'Courses', 'expense');
+        INSERT INTO categories (id, group_id, name) VALUES ('\(category)', '\(group)', 'Alimentation');
+        """)
+        return (store, account, category)
+    }
+
+    private func row(
+        _ store: LocalStore, _ account: String, _ amount: Double, category: String?,
+        pending: Bool = false, day: String = "2026-09-25"
+    ) throws {
+        try store.database.run(
+            """
+            INSERT INTO transactions
+                (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
+                 source, status, is_pending, needs_review, category_id)
+            VALUES (?, ?, ?, ?, 'EUR', 'Le Comptoir', 'le comptoir',
+                    'enable_banking', ?, ?, 0, ?)
+            """,
+            [.text(UUID().uuidString), .text(account), .text("\(day)T12:00:00Z"), .real(amount),
+             .text(pending ? "scheduled" : "cleared"), .integer(pending ? 1 : 0),
+             category.map { SQLiteValue.text($0) } ?? .null]
+        )
+    }
+
+    @Test("money that left without a category is still money that left")
+    func unfiledSpendingCounts() throws {
+        let (store, account, _) = try ledger()
+        try row(store, account, -91, category: nil)
+
+        let day = try LocalDay.detail(store: store, day: "2026-09-25")
+        #expect(day.spent == 91)
+    }
+
+    @Test("it shows as its own slice, unnamed")
+    func unfiledHasItsOwnSlice() throws {
+        let (store, account, category) = try ledger()
+        try row(store, account, -91, category: nil)
+        try row(store, account, -9, category: category)
+
+        let day = try LocalDay.detail(store: store, day: "2026-09-25")
+        #expect(day.spent == 100)
+        let unfiled = try #require(day.categories.first { $0.id == LocalAnalysis.uncategorized })
+        #expect(unfiled.amount == 91)
+        #expect(unfiled.name.isEmpty)
+        #expect(day.categories.reduce(0) { $0 + $1.amount } == day.spent)
+    }
+
+    /// Un mouvement rentrant sans catégorie n'est pas une dépense : rien ne
+    /// dit ce qu'il est, et le compter effacerait des dépenses réelles.
+    @Test("an unfiled credit is not spending")
+    func unfiledCreditIsNotSpending() throws {
+        let (store, account, _) = try ledger()
+        try row(store, account, -91, category: nil)
+        try row(store, account, 500, category: nil)
+
+        let day = try LocalDay.detail(store: store, day: "2026-09-25")
+        #expect(day.spent == 91)
+    }
+
+    /// Une carte présentée est de l'argent parti, que la banque l'ait
+    /// comptabilisée ou non : l'attendre un à trois jours affichait zéro sur
+    /// la semaine en cours, la seule qu'on regarde.
+    @Test("a payment the bank has not booked yet still counts")
+    func pendingCountsToo() throws {
+        let (store, account, category) = try ledger()
+        try row(store, account, -1.50, category: nil, pending: true)
+        try row(store, account, -9.90, category: category, pending: true)
+
+        let day = try LocalDay.detail(store: store, day: "2026-09-25")
+        #expect(day.spent == 11.40)
+    }
+
+    /// Un virement entre ses propres comptes n'est toujours pas une dépense.
+    @Test("a transfer is still not spending")
+    func transferIsStillNotSpending() throws {
+        let (store, account, category) = try ledger()
+        try row(store, account, -9, category: category)
+        try store.database.run(
+            """
+            INSERT INTO transactions
+                (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
+                 source, status, is_pending, needs_review, category_id, transfer_pair_id)
+            VALUES (?, ?, '2026-09-25T12:00:00Z', -300, 'EUR', 'Virement', 'virement',
+                    'enable_banking', 'cleared', 0, 0, ?, 'pair-1')
+            """,
+            [.text(UUID().uuidString), .text(account), .text(category)]
+        )
+
+        let day = try LocalDay.detail(store: store, day: "2026-09-25")
+        #expect(day.spent == 9)
+    }
+}
