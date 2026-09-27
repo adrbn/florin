@@ -40,15 +40,27 @@ for attempt in $(seq 1 10); do
   sleep 8
 done
 
-for attempt in $(seq 1 5); do
+# Un téléphone verrouillé refuse de lancer quoi que ce soit, et il le reste
+# le temps qu'on le reprenne en main. On insiste quatre minutes plutôt que
+# vingt-cinq secondes : l'installation sans lancement est une panne complète
+# de l'automatisation, pas un détail de confort.
+ATTEMPTS="${FLORIN_LAUNCH_ATTEMPTS:-24}"
+for attempt in $(seq 1 "$ATTEMPTS"); do
   if xcrun devicectl device process launch \
       --device "$DEVICE" --no-activate --terminate-existing "$BUNDLE" >/dev/null 2>&1; then
     echo "lancé une fois — les raccourcis retrouvent l'action Florin"
     exit 0
   fi
-  sleep 5
+  if [ $((attempt % 6)) = 0 ]; then
+    echo "en attente du téléphone (déverrouille-le) — essai $attempt/$ATTEMPTS" >&2
+  fi
+  sleep 10
 done
 
-echo "installé, mais le lancement a échoué : ouvre l'app une fois à la main," >&2
-echo "sinon l'automatisation Apple Pay n'enregistrera rien." >&2
+echo "" >&2
+echo "ATTENTION : le build est installé mais n'a jamais tourné." >&2
+echo "Tant que Florin n'est pas ouvert une fois, l'automatisation Apple Pay" >&2
+echo "n'enregistre RIEN, sans erreur ni trace. Ouvre l'app, ou relance :" >&2
+echo "  xcrun devicectl device process launch --device $DEVICE \\" >&2
+echo "    --no-activate --terminate-existing $BUNDLE" >&2
 exit 1
