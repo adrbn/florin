@@ -27,6 +27,20 @@ enum ReleaseNotes {
     }
 
     static let all: [Release] = [
+        Release(version: "1.3.7", lines: [
+            Line(symbol: "clock.badge.checkmark",
+                 key: "v2.news.1_3_7.today",
+                 fallback: "Vos dépenses du jour comptent tout de suite, sans attendre que la banque les enregistre."),
+            Line(symbol: "tray",
+                 key: "v2.news.1_3_7.unfiled",
+                 fallback: "Une dépense sans catégorie compte dans les totaux au lieu d'être ignorée."),
+            Line(symbol: "arrow.down.circle",
+                 key: "v2.news.1_3_7.held",
+                 fallback: "Un paiement présenté pendant une mise à jour n'est plus perdu : il est repris à la prochaine ouverture."),
+            Line(symbol: "banknote",
+                 key: "v2.news.1_3_7.settled",
+                 fallback: "Un virement annoncé puis enregistré par la banque ne fait plus deux lignes."),
+        ]),
         Release(version: "1.3.6", lines: [
             Line(symbol: "calendar",
                  key: "v2.news.1_3_6.calendar",
