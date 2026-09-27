@@ -71,3 +71,6 @@ docs/
 
 # Turborepo cache
 .turbo/
+
+# réglages locaux de publication OTA (infra perso)
+apps/ios/scripts/ota.env
