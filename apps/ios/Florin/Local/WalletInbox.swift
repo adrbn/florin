@@ -59,6 +59,20 @@ enum WalletInbox {
         return base?.appendingPathComponent(fileName)
     }
 
+    /*
+     * Le fichier existe avant qu'on ait quoi que ce soit à y écrire.
+     *
+     * Raccourcis ne sait pas taper un chemin : son champ « Chemin du fichier »
+     * se remplit en choisissant un fichier qui existe. Un fichier vide créé au
+     * lancement transforme donc la mise en place en une sélection dans
+     * Fichiers, au lieu d'un chemin à deviner et à écrire sans faute.
+     */
+    static func ensureExists(at url: URL? = nil) {
+        guard let url = url ?? fileURL(),
+              !FileManager.default.fileExists(atPath: url.path) else { return }
+        try? Data().write(to: url, options: .atomic)
+    }
+
     // MARK: - La lecture
 
     /*

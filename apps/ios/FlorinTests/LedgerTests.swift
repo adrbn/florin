@@ -2699,6 +2699,19 @@ struct WalletInboxTests {
         #expect(WalletInbox.date(from: "") == nil)
     }
 
+    /// Le fichier est créé vide pour que Raccourcis puisse le choisir : son
+    /// champ de chemin ne se tape pas, il se sélectionne.
+    @Test("the file is created empty so Shortcuts can point at it")
+    func fileIsCreatedForThePicker() throws {
+        let (_, file) = try ledger()
+        WalletInbox.ensureExists(at: file)
+        #expect(FileManager.default.fileExists(atPath: file.path))
+
+        try "\(stamp(tapped))|4,10 €||Le Comptoir\n".write(to: file, atomically: true, encoding: .utf8)
+        WalletInbox.ensureExists(at: file)
+        #expect(try Data(contentsOf: file).isEmpty == false)
+    }
+
     /// Rien à lire ne coûte rien et n'écrit rien : c'est le cas de presque
     /// toutes les ouvertures.
     @Test("no file, nothing done")

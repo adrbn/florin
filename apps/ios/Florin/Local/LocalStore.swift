@@ -311,6 +311,7 @@ extension LocalStore {
             // Puis le filet : ce que l'automatisation a écrit elle-même, pour
             // les fois où l'action de Florin n'a pas été appelée du tout.
             WalletInbox.drain(store: store)
+            WalletInbox.ensureExists()
 
             // A duplicate left by an earlier build outlives the sync that
             // created it, so the repair has to run where every launch sees it.
