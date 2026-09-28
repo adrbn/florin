@@ -609,8 +609,35 @@ struct AddTransactionSheet: View {
 
     /// Les échéanciers qu'on rencontre : quatre fois sans frais est la forme
     /// la plus courante des facilités proposées à la caisse, trois fois celle
-    /// des cartes bancaires, dix et douze celles des enseignes.
-    private static let instalmentChoices = [1, 2, 3, 4, 6, 10]
+    /// des cartes bancaires, six et dix celles des enseignes.
+    private static let instalmentChoices = [2, 3, 4, 6, 10]
+
+    /// Celui qu'on obtient sans rien choisir, parce que c'est celui qu'on
+    /// rencontre le plus souvent.
+    private static let defaultInstalmentCount = 4
+
+    /*
+     * Un interrupteur, et le choix seulement une fois qu'il est mis.
+     *
+     * Six capsules posées en permanence sous la date donnaient un écran qui
+     * pose une question que personne ne se pose : la plupart des dépenses se
+     * paient en une fois, et le partage doit se demander, pas s'afficher. Le
+     * nombre de fois reste la seule source de vérité — un « 1 » veut dire
+     * éteint — pour qu'un interrupteur et un échéancier ne puissent jamais se
+     * contredire.
+     */
+    private var splitting: Binding<Bool> {
+        Binding(
+            get: { instalmentCount > 1 },
+            set: { on in
+                UISelectionFeedbackGenerator().selectionChanged()
+                withAnimation(.snappy(duration: 0.2)) {
+                    instalmentCount = on ? Self.defaultInstalmentCount : 1
+                    instalmentEach = ""
+                }
+            }
+        )
+    }
 
     /*
      * Le nombre de fois, la mensualité, et ce que ça coûte vraiment.
@@ -627,20 +654,30 @@ struct AddTransactionSheet: View {
      */
     private var instalmentRow: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 13) {
-                Image(systemName: "calendar.badge.clock")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(Florin.accent.opacity(0.85))
-                    .frame(width: 22)
-                Text(t("v2.add.instalments", "En plusieurs fois"))
-                    .font(.system(size: 16))
-                    .foregroundStyle(Florin.text)
-                Spacer(minLength: 0)
+            Toggle(isOn: splitting) {
+                HStack(spacing: 13) {
+                    Image(systemName: "calendar.badge.clock")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(Florin.accent.opacity(0.85))
+                        .frame(width: 22)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(t("v2.add.instalments", "En plusieurs fois"))
+                            .font(.system(size: 14.5))
+                            .foregroundStyle(Florin.text)
+                        Text(t("v2.add.instalmentsHint", "Une échéance par mois, en prévision"))
+                            .font(.system(size: 12))
+                            .foregroundStyle(Florin.text3)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
             }
+            .tint(Florin.accent)
 
-            HStack(spacing: 7) {
-                ForEach(Self.instalmentChoices, id: \.self) { count in
-                    instalmentChip(count)
+            if instalmentCount > 1 {
+                HStack(spacing: 8) {
+                    ForEach(Self.instalmentChoices, id: \.self) { count in
+                        instalmentChip(count)
+                    }
                 }
             }
 
@@ -686,7 +723,7 @@ struct AddTransactionSheet: View {
                 instalmentEach = ""
             }
         } label: {
-            Text(count == 1 ? t("v2.add.instalmentsOff", "Non") : "\(count)×")
+            Text("\(count)×")
                 .font(.system(size: 14.5, weight: active ? .semibold : .medium))
                 .lineLimit(1)
                 // Six capsules sur la largeur d'un iPhone mini laissent
