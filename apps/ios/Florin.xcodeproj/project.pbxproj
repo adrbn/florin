@@ -65,6 +65,7 @@
 		5D6B883191B2CE941475E705 /* CategoryEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3043699DDFC45335EED6DED0 /* CategoryEditorSheet.swift */; };
 		5F31D9308988DE98A0E17BB0 /* LocalDemo.swift in Sources */ = {isa = PBXBuildFile; fileRef = C262DD02E4EF484E010874E8 /* LocalDemo.swift */; };
 		62CDC847E44E16D5D812F977 /* SetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA781686F48030D4E2610C3F /* SetupView.swift */; };
+		694BCC79B07BF15EC2128C7A /* WalletInbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7ADCEE2967BBD9EE265CD0F8 /* WalletInbox.swift */; };
 		69F07F669C9388276D512B8E /* PortfolioModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66BFF60356B227C9DB19C1F8 /* PortfolioModel.swift */; };
 		6C909140154AE3375A686776 /* KnownMerchants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F00301AB25E1B51494EBAA7 /* KnownMerchants.swift */; };
 		6F745D62D1B175FC8B574F8F /* BankingSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A70197CC43070B855A98008 /* BankingSettings.swift */; };
@@ -221,6 +222,7 @@
 		75D28CE358FB2C14BF840725 /* AmountText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmountText.swift; sourceTree = "<group>"; };
 		772EFF8D3DF1CE1E2F3D2ADA /* CategoryRemovalSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryRemovalSheet.swift; sourceTree = "<group>"; };
 		7AB3BB28F5C79A6CA7BB503F /* BankingTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankingTypes.swift; sourceTree = "<group>"; };
+		7ADCEE2967BBD9EE265CD0F8 /* WalletInbox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletInbox.swift; sourceTree = "<group>"; };
 		84BAB9F84D78CB4801400265 /* Appearance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Appearance.swift; sourceTree = "<group>"; };
 		84E153B45F8DCF03658782FF /* ServerFieldsCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerFieldsCard.swift; sourceTree = "<group>"; };
 		86665E5949173D99AC181418 /* EmptyStart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStart.swift; sourceTree = "<group>"; };
@@ -478,6 +480,7 @@
 				8E9EB2FEBA4192B0854EB8D1 /* ServerImport.swift */,
 				CB06E854E34FEC85DF405946 /* SQLite.swift */,
 				26287A1F7C976E83B6DDBF26 /* SQLiteValue.swift */,
+				7ADCEE2967BBD9EE265CD0F8 /* WalletInbox.swift */,
 				2406258388A57C80943B22BA /* WalletLog.swift */,
 				2B1761AD39E3267CD8E7EA5D /* WalletQueue.swift */,
 				4C815B4671E296193268EC13 /* WidgetSnapshot.swift */,
@@ -767,6 +770,7 @@
 				1A857813EE96447B68DBA4E0 /* TransactionMenu.swift in Sources */,
 				CB6B4BA1CA00858BDDDA07A8 /* TrueDate.swift in Sources */,
 				833382220CDAC9A9C278D1CF /* WalletGuideSheet.swift in Sources */,
+				694BCC79B07BF15EC2128C7A /* WalletInbox.swift in Sources */,
 				14570AF8AED25106A817D2D0 /* WalletLog.swift in Sources */,
 				F28AE846545CA6969A224B11 /* WalletQueue.swift in Sources */,
 				D5D6AB1AB9D03C62B8A127F6 /* WebContainer.swift in Sources */,
@@ -819,7 +823,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Florin/Florin.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 439;
+				CURRENT_PROJECT_VERSION = 440;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Florin/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;
@@ -840,7 +844,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = FlorinWidgets/FlorinWidgets.entitlements;
-				CURRENT_PROJECT_VERSION = 439;
+				CURRENT_PROJECT_VERSION = 440;
 				INFOPLIST_FILE = FlorinWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -945,7 +949,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = FlorinWidgets/FlorinWidgets.entitlements;
-				CURRENT_PROJECT_VERSION = 439;
+				CURRENT_PROJECT_VERSION = 440;
 				INFOPLIST_FILE = FlorinWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1028,7 +1032,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Florin/Florin.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 439;
+				CURRENT_PROJECT_VERSION = 440;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Florin/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;

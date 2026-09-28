@@ -67,6 +67,7 @@ struct WalletGuideSheet: View {
             flow
             status
             setup
+            net
             // Right under the steps, not pinned to the bottom edge: pinned, it
             // left a band of nothing between the last step and itself.
             actions
@@ -286,6 +287,36 @@ struct WalletGuideSheet: View {
                 step(6, t("v2.wallet.guide.step6", "Décochez **Afficher lors de l'exécution**")) {
                     notificationStatus
                 }
+            }
+        }
+    }
+
+    // MARK: - Le filet
+
+    /*
+     * Les quatre lignes qui font qu'un paiement ne peut plus disparaître.
+     *
+     * Elles viennent après la mise en place et non dedans : l'action de Florin
+     * est la voie normale, celle-ci n'est là que pour les fois où elle n'est
+     * pas appelée. Numérotées à part, pour qu'on voie tout de suite qu'il
+     * s'agit d'une seconde action dans la même automatisation.
+     */
+    private var net: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Eyebrow(text: t("v2.wallet.guide.net", "Filet de sécurité"))
+            Text(t("v2.wallet.guide.netWhy",
+                   "Remplacer l'app peut détacher l'action sans le dire. Une action native, elle, ne se détache jamais : elle écrit chaque paiement dans un fichier, que Florin relit à chaque ouverture."))
+                .font(.system(size: 13.5))
+                .foregroundStyle(Florin.text2)
+                .fixedSize(horizontal: false, vertical: true)
+            RowGroup {
+                step(1, t("v2.wallet.guide.netStep1", "**Première** action : **Ajouter au fichier**"))
+                Hairline()
+                step(2, t("v2.wallet.guide.netStep2", "Fichier : **Sur mon iPhone › Florin › paiements.txt**"))
+                Hairline()
+                step(3, t("v2.wallet.guide.netStep3", "Texte : **date | montant | carte | commerçant**"))
+                Hairline()
+                step(4, t("v2.wallet.guide.netStep4", "Activez **Nouvelle ligne**"))
             }
         }
     }

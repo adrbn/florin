@@ -64,6 +64,18 @@ struct FlorinApp: App {
                 .id(chosenLocale)
         }
         .onChange(of: scenePhase) { _, phase in
+            /*
+             * Revenir dans l'app suffit à rattraper un paiement.
+             *
+             * Le filet est relu à l'ouverture de la base, ce qui ne se produit
+             * qu'une fois par processus : un paiement fait pendant que Florin
+             * dort en arrière-plan n'aurait été repris qu'au prochain
+             * démarrage à froid, c'est-à-dire un jour au hasard. Le fichier
+             * est presque toujours vide, et le lire ne coûte rien.
+             */
+            if phase == .active, let store = LocalStore.shared {
+                WalletInbox.drain(store: store)
+            }
             // Leaving the foreground is the moment a backup is most likely to
             // run, and the moment the ledger is guaranteed to be idle. Folding
             // the write-ahead log back in here is what makes including the

@@ -2527,6 +2527,188 @@ struct WalletQueueTests {
     }
 }
 
+/*
+ * Le filet : ce que l'automatisation a écrit elle-même.
+ *
+ * L'action de Florin peut cesser d'être appelée sans que rien ne le dise —
+ * remplacer l'app détache le lien. Une action native placée devant elle écrit
+ * chaque paiement dans un fichier, et Florin le relit à l'ouverture. Ce qui
+ * est éprouvé ici, c'est surtout l'inverse du rattrapage : qu'il ne double
+ * jamais une opération déjà entrée.
+ */
+@Suite("The shortcut's own file", .serialized)
+struct WalletInboxTests {
+    private func ledger() throws -> (store: LocalStore, file: URL) {
+        let id = UUID().uuidString
+        let store = try LocalStore(
+            url: URL(fileURLWithPath: NSTemporaryDirectory())
+                .appendingPathComponent("florin-inbox-\(id).db")
+        )
+        try store.database.exec("""
+        INSERT INTO accounts (id, name, kind, currency)
+          VALUES ('\(UUID().uuidString)', 'CCP', 'checking', 'EUR');
+        """)
+        let folder = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("florin-inbox-\(id)", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        return (store, folder.appendingPathComponent(WalletInbox.fileName))
+    }
+
+    private func stamp(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = .current
+        f.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        return f.string(from: date)
+    }
+
+    private let tapped = Date(timeIntervalSince1970: 1_750_000_000)
+
+    @Test("a line the action never recorded enters the ledger")
+    func lineIsRecovered() throws {
+        let (store, file) = try ledger()
+        try "\(stamp(tapped))|4,10 €|MA BANQUE|Le Comptoir\n".write(to: file, atomically: true, encoding: .utf8)
+
+        #expect(WalletInbox.drain(store: store, at: file, now: tapped) == 1)
+
+        let row = try #require(try store.database.query(
+            "SELECT payee, amount, status, memo FROM transactions"
+        ).first)
+        #expect(row.string("payee") == "Le Comptoir")
+        #expect(row.double("amount") == -4.10)
+        #expect(row.string("status") == "scheduled")
+        #expect(row.string("memo") == "Apple Pay · MA BANQUE")
+    }
+
+    /// Le cas courant, et le seul qui compte vraiment : l'action a marché, le
+    /// fichier dit la même chose, et il ne doit rien ajouter.
+    @Test("a payment the action already recorded is not doubled")
+    func recordedPaymentIsNotDoubled() throws {
+        let (store, file) = try ledger()
+        try LocalWallet.record(
+            store: store, amountText: "4,10 €", merchant: "Le Comptoir",
+            card: "MA BANQUE", accountId: nil, on: tapped
+        )
+        try "\(stamp(tapped))|4,10 €|MA BANQUE|Le Comptoir\n".write(to: file, atomically: true, encoding: .utf8)
+
+        #expect(WalletInbox.drain(store: store, at: file, now: tapped) == 0)
+        #expect(try store.database.scalar("SELECT COUNT(*) FROM transactions")?.int == 1)
+    }
+
+    /*
+     * Une opération que la banque a confirmée est supprimée, pas effacée.
+     *
+     * C'est le piège du rattrapage : la ligne du paiement disparaît de
+     * l'écran quand la banque prend le relais, et un filet qui ne regarde que
+     * les lignes vivantes la réécrirait des jours plus tard, en double de
+     * l'opération bancaire.
+     */
+    @Test("a payment the bank has already settled is not written again")
+    func settledPaymentIsNotRewritten() throws {
+        let (store, file) = try ledger()
+        try LocalWallet.record(
+            store: store, amountText: "4,10 €", merchant: "Le Comptoir",
+            card: nil, accountId: nil, on: tapped
+        )
+        try store.database.run("UPDATE transactions SET deleted_at = datetime('now')")
+        try "\(stamp(tapped))|4,10 €||Le Comptoir\n".write(to: file, atomically: true, encoding: .utf8)
+
+        #expect(WalletInbox.drain(store: store, at: file, now: tapped) == 0)
+    }
+
+    /// Deux cafés identiques dans la même journée restent deux cafés.
+    @Test("the same amount at the same shop an hour later is another payment")
+    func twoIdenticalPaymentsAreKept() throws {
+        let (store, file) = try ledger()
+        try LocalWallet.record(
+            store: store, amountText: "1,50 €", merchant: "Le Comptoir",
+            card: nil, accountId: nil, on: tapped
+        )
+        let later = tapped.addingTimeInterval(3600)
+        try "\(stamp(later))|1,50 €||Le Comptoir\n".write(to: file, atomically: true, encoding: .utf8)
+
+        #expect(WalletInbox.drain(store: store, at: file, now: later) == 1)
+        #expect(try store.database.scalar("SELECT COUNT(*) FROM transactions")?.int == 2)
+    }
+
+    /// Vidé après coup : le fichier ne grossit pas et le journal ne
+    /// reconstate pas les mêmes lignes à chaque ouverture.
+    @Test("the file is emptied once it has been read")
+    func fileIsEmptied() throws {
+        let (store, file) = try ledger()
+        try "\(stamp(tapped))|4,10 €||Le Comptoir\n".write(to: file, atomically: true, encoding: .utf8)
+        WalletInbox.drain(store: store, at: file, now: tapped)
+
+        #expect(try Data(contentsOf: file).isEmpty)
+        #expect(WalletInbox.drain(store: store, at: file, now: tapped) == 0)
+    }
+
+    /// Le marchand est le dernier champ et garde tout ce qui suit : c'est le
+    /// seul dont on ne choisit pas le contenu.
+    @Test("a merchant carrying the separator survives")
+    func merchantKeepsTheSeparator() throws {
+        let entries = WalletInbox.parse("\(stamp(tapped))|4,10 €|MA BANQUE|Bar | Tabac")
+        #expect(entries.count == 1)
+        #expect(entries.first?.merchant == "Bar | Tabac")
+    }
+
+    /// Une heure illisible ne fait pas perdre le paiement — elle se dit.
+    @Test("an unreadable time still records the payment, and says so")
+    func unreadableTimeStillRecords() throws {
+        let (store, file) = try ledger()
+        try "n'importe quoi|4,10 €||Le Comptoir\n".write(to: file, atomically: true, encoding: .utf8)
+
+        #expect(WalletInbox.drain(store: store, at: file, now: tapped) == 1)
+        let attempt = try #require(WalletLog.recent(store: store).first)
+        #expect(attempt.outcome == .recorded)
+        #expect(attempt.detail?.isEmpty == false)
+    }
+
+    /// Le journal raconte les paiements, pas les rattrapages : une tentative
+    /// reprise le soir pour un café de midi se lit à midi.
+    @Test("the journal keeps the hour of the payment, not of the recovery")
+    func journalKeepsThePaymentHour() throws {
+        let (store, file) = try ledger()
+        try "\(stamp(tapped))|4,10 €||Le Comptoir\n".write(to: file, atomically: true, encoding: .utf8)
+        WalletInbox.drain(store: store, at: file, now: tapped.addingTimeInterval(36_000))
+
+        let attempt = try #require(WalletLog.recent(store: store).first)
+        let started = try #require(attempt.startedAt)
+        #expect(abs(started.timeIntervalSince(tapped)) < 1)
+    }
+
+    /// Une ligne incomplète est ignorée, sans emporter les autres.
+    @Test("a malformed line is skipped and the rest goes through")
+    func malformedLineIsSkipped() throws {
+        let entries = WalletInbox.parse(
+            "\(stamp(tapped))|4,10 €\n\n\(stamp(tapped))|9,90 €|MA BANQUE|Chez Rosa\n"
+        )
+        #expect(entries.count == 1)
+        #expect(entries.first?.merchant == "Chez Rosa")
+    }
+
+    /// Les formats de date que Raccourcis peut produire sans qu'on l'y force.
+    @Test("the dates Shortcuts writes are all read")
+    func datesAreRead() throws {
+        #expect(WalletInbox.date(from: "2026-09-28 14:23:05") != nil)
+        #expect(WalletInbox.date(from: "2026-09-28T14:23:05+02:00") != nil)
+        #expect(WalletInbox.date(from: "28/09/2026, 14:23") != nil)
+        #expect(WalletInbox.date(from: "28/09/2026 14:23:05") != nil)
+        #expect(WalletInbox.date(from: "28/09/2026 à 14:23") != nil)
+        #expect(WalletInbox.date(from: "28/09/2026 à 14:23:05") != nil)
+        #expect(WalletInbox.date(from: "") == nil)
+    }
+
+    /// Rien à lire ne coûte rien et n'écrit rien : c'est le cas de presque
+    /// toutes les ouvertures.
+    @Test("no file, nothing done")
+    func noFileNoWork() throws {
+        let (store, file) = try ledger()
+        #expect(WalletInbox.drain(store: store, at: file, now: tapped) == 0)
+        #expect(try store.database.scalar("SELECT COUNT(*) FROM transactions")?.int == 0)
+    }
+}
+
 // MARK: - Spending nobody has filed
 
 /*

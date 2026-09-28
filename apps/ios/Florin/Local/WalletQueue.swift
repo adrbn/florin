@@ -66,7 +66,7 @@ enum WalletQueue {
         for payment in waiting {
             let attempt = WalletLog.begin(
                 store: store, amountText: payment.amountText,
-                merchant: payment.merchant, card: payment.card
+                merchant: payment.merchant, card: payment.card, at: payment.at
             )
             do {
                 try LocalWallet.record(

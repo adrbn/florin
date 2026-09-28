@@ -308,6 +308,9 @@ extension LocalStore {
             if resumed > 0 {
                 log.notice("resumed \(resumed, privacy: .public) payments held while closed")
             }
+            // Puis le filet : ce que l'automatisation a écrit elle-même, pour
+            // les fois où l'action de Florin n'a pas été appelée du tout.
+            WalletInbox.drain(store: store)
 
             // A duplicate left by an earlier build outlives the sync that
             // created it, so the repair has to run where every launch sees it.

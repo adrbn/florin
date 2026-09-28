@@ -39,7 +39,10 @@ enum WalletLog {
     /// Ouvre une tentative. Ne jette jamais : un journal qui empêche
     /// d'enregistrer un paiement serait pire que pas de journal.
     @discardableResult
-    static func begin(store: LocalStore, amountText: String, merchant: String, card: String?) -> String {
+    static func begin(
+        store: LocalStore, amountText: String, merchant: String, card: String?,
+        at moment: Date = Date()
+    ) -> String {
         let id = UUID().uuidString
         try? store.database.run(
             """
@@ -47,7 +50,7 @@ enum WalletLog {
             VALUES (?, ?, ?, ?, ?, ?)
             """,
             [
-                .text(id), .text(stamp()), .text(amountText), .text(merchant),
+                .text(id), .text(stamp(moment)), .text(amountText), .text(merchant),
                 card.map { .text($0) } ?? .null, .text(Outcome.started.rawValue),
             ]
         )
@@ -84,13 +87,16 @@ enum WalletLog {
 
     // MARK: - Heures
 
-    /// L'heure locale, écrite comme le reste de la base la lit.
-    private static func stamp() -> String {
+    /// L'heure locale, écrite comme le reste de la base la lit. Celle du
+    /// paiement quand on la connaît : une tentative rattrapée le soir pour un
+    /// café de midi doit se lire à midi, sans quoi le journal raconte le
+    /// rattrapage au lieu de raconter les paiements.
+    private static func stamp(_ moment: Date = Date()) -> String {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
         f.dateFormat = "yyyy-MM-dd HH:mm:ss"
         f.timeZone = .current
-        return f.string(from: Date())
+        return f.string(from: moment)
     }
 
     private static func date(from text: String) -> Date? {
