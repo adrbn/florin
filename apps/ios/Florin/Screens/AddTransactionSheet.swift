@@ -22,6 +22,7 @@ struct AddTransactionSheet: View {
     let t: Strings
     var submit: (NewTransaction) async throws -> Void = { _ in }
     var onTransfer: (NewTransfer) async throws -> Void = { _ in }
+    var onInstalments: (InstalmentPlan) async throws -> Void = { _ in }
     /// Changing a row rather than creating one. Everything below reads the
     /// same; only the title and what `save` calls differ.
     var editing: Transaction?
@@ -58,6 +59,16 @@ struct AddTransactionSheet: View {
     @State private var date: Date
     @State private var memo: String
     @State private var upcoming: Bool
+    /*
+     * Un achat payé en plusieurs fois.
+     *
+     * `1` veut dire « pas de partage », et c'est le seul état où le reste de
+     * la sheet se comporte comme avant. La mensualité reste vide tant qu'on ne
+     * la corrige pas : vide, elle vaut le prix divisé, et c'est le cas sans
+     * frais. La saisir est ce qui fait apparaître ce que l'offre coûte.
+     */
+    @State private var instalmentCount = 1
+    @State private var instalmentEach = ""
     @State private var saving = false
     @State private var errorMessage: String?
 
@@ -69,6 +80,7 @@ struct AddTransactionSheet: View {
         t: Strings,
         submit: @escaping (NewTransaction) async throws -> Void = { _ in },
         onTransfer: @escaping (NewTransfer) async throws -> Void = { _ in },
+        onInstalments: @escaping (InstalmentPlan) async throws -> Void = { _ in },
         editing: Transaction? = nil,
         onPatch: @escaping (TxPatch) async -> Void = { _ in },
         presetAccountId: String? = nil,
@@ -81,6 +93,7 @@ struct AddTransactionSheet: View {
         self.t = t
         self.submit = submit
         self.onTransfer = onTransfer
+        self.onInstalments = onInstalments
         self.editing = editing
         self.onPatch = onPatch
         self.presetAccountId = presetAccountId
@@ -133,6 +146,30 @@ struct AddTransactionSheet: View {
 
     private var magnitude: Double {
         Double(amount.replacingOccurrences(of: ",", with: ".").replacingOccurrences(of: " ", with: "")) ?? 0
+    }
+
+    /*
+     * Le partage ne s'offre que là où les échéances peuvent s'éteindre.
+     *
+     * Ce sont des opérations à venir, donc les mêmes conditions : le grand
+     * livre de l'appareil, un compte que la banque synchronise, une dépense.
+     * Modifier une ligne existante ne la partage pas — ce serait en créer
+     * d'autres derrière le dos de quelqu'un qui croyait corriger un montant.
+     */
+    private var offersInstalments: Bool { offersUpcoming && !isEditing && kind == .expense }
+
+    /// Ce qui sera prélevé chaque mois : le prix divisé, ou la mensualité
+    /// telle qu'elle est écrite sur l'offre quand on l'a saisie.
+    private var instalmentAmounts: [Double] {
+        guard instalmentCount > 1, magnitude > 0 else { return [] }
+        let typed = Double(
+            instalmentEach.replacingOccurrences(of: ",", with: ".")
+                .replacingOccurrences(of: " ", with: "")
+        )
+        guard let each = typed, each > 0 else {
+            return LocalInstalments.split(magnitude, over: instalmentCount)
+        }
+        return Array(repeating: (each * 100).rounded() / 100, count: instalmentCount)
     }
 
     private var isValid: Bool {
@@ -385,7 +422,14 @@ struct AddTransactionSheet: View {
 
             Hairline()
 
-            if offersUpcoming {
+            if offersInstalments {
+                instalmentRow
+                Hairline()
+            }
+
+            // Une échéance est déjà une opération à venir : le proposer une
+            // seconde fois laisserait croire qu'on peut partager sans l'être.
+            if offersUpcoming && instalmentCount == 1 {
                 Toggle(isOn: $upcoming) {
                     HStack(spacing: 13) {
                         Image(systemName: "clock")
@@ -521,6 +565,23 @@ struct AddTransactionSheet: View {
                     saving = false
                     return
                 }
+                if offersInstalments, instalmentCount > 1, !instalmentAmounts.isEmpty {
+                    try await onInstalments(
+                        InstalmentPlan(
+                            accountId: accountId,
+                            payee: payee.trimmingCharacters(in: .whitespaces),
+                            purchase: abs(magnitude),
+                            instalments: instalmentAmounts,
+                            first: noonOn(date),
+                            memo: trimmedMemo.isEmpty ? nil : trimmedMemo,
+                            categoryId: categoryId.isEmpty ? nil : categoryId
+                        )
+                    )
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    dismiss()
+                    saving = false
+                    return
+                }
                 try await submit(
                     NewTransaction(
                         accountId: accountId,
@@ -542,6 +603,95 @@ struct AddTransactionSheet: View {
             }
             saving = false
         }
+    }
+
+    // MARK: - En plusieurs fois
+
+    /*
+     * Le nombre de fois, la mensualité, et ce que ça coûte vraiment.
+     *
+     * La ligne de résumé est la raison d'être de tout le reste : une offre en
+     * trois fois avec « seulement 2 % de frais » se paie autour de vingt-cinq
+     * pour cent l'an, parce qu'on n'emprunte les deux tiers de la somme qu'un
+     * mois ou deux. Tant que la mensualité n'est pas saisie, il n'y a pas de
+     * frais à montrer et la ligne dit simplement combien de fois combien.
+     */
+    private var instalmentRow: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 13) {
+                Image(systemName: "calendar.badge.clock")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(Florin.accent.opacity(0.85))
+                    .frame(width: 22)
+                Text(t("v2.add.instalments", "En plusieurs fois"))
+                    .font(.system(size: 16))
+                    .foregroundStyle(Florin.text)
+                Spacer(minLength: 8)
+                Picker("", selection: $instalmentCount) {
+                    Text(t("v2.add.instalmentsOff", "Non")).tag(1)
+                    ForEach([2, 3, 4, 6, 10, 12], id: \.self) { count in
+                        Text(t("v2.add.instalmentsCount", "{count} fois", ["count": "\(count)"]))
+                            .tag(count)
+                    }
+                }
+                .labelsHidden()
+                .tint(Florin.accent)
+            }
+            if instalmentCount > 1 {
+                HStack(spacing: 13) {
+                    Spacer().frame(width: 22)
+                    Text(t("v2.add.instalmentsEach", "Mensualité"))
+                        .font(.system(size: 14))
+                        .foregroundStyle(Florin.text2)
+                    TextField(
+                        Self.plain(instalmentAmounts.first ?? 0, locale: localeTag),
+                        text: $instalmentEach
+                    )
+                    .keyboardType(.decimalPad)
+                    .multilineTextAlignment(.trailing)
+                    .font(.system(size: 15))
+                }
+                Text(instalmentSummary)
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(Florin.text3)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.leading, 35)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+    }
+
+    private var instalmentSummary: String {
+        let amounts = instalmentAmounts
+        guard let each = amounts.first else { return "" }
+        let figure = Money.string(each, locale: localeTag, currency: currency)
+        let fees = LocalInstalments.fees(purchase: magnitude, instalments: amounts)
+        guard fees > 0.004,
+              let rate = LocalInstalments.annualRate(purchase: magnitude, instalments: amounts),
+              rate > 0
+        else {
+            return t("v2.add.instalmentsFree", "{count} × {amount}, sans frais",
+                     ["count": "\(amounts.count)", "amount": figure])
+        }
+        return t(
+            "v2.add.instalmentsCost", "{count} × {amount} · {fees} de frais · {rate} par an",
+            [
+                "count": "\(amounts.count)", "amount": figure,
+                "fees": Money.string(fees, locale: localeTag, currency: currency),
+                "rate": Self.percent(rate, locale: localeTag),
+            ]
+        )
+    }
+
+    /// Un taux annuel se lit à un chiffre après la virgule : la précision
+    /// au-delà est fausse, l'ordre de grandeur est tout le message.
+    private static func percent(_ value: Double, locale: String) -> String {
+        let formatter = NumberFormatter()
+        formatter.locale = Locale(identifier: locale)
+        formatter.numberStyle = .percent
+        formatter.maximumFractionDigits = 1
+        return formatter.string(from: NSNumber(value: value)) ?? "—"
     }
 
     /// Book at midday so a timezone shift can never move a transaction to the

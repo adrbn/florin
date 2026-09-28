@@ -2722,6 +2722,167 @@ struct WalletInboxTests {
     }
 }
 
+/*
+ * « 3 fois sans frais », et les autres.
+ *
+ * Le partage doit tomber juste au centime, les échéances doivent entrer comme
+ * des opérations à venir pour que le rapprochement les éteigne, et surtout le
+ * coût annoncé doit être ramené à l'année — 2,2 % de frais en trois fois, ce
+ * n'est pas un crédit à 2,2 %.
+ */
+@Suite("Paying in instalments", .serialized)
+struct InstalmentTests {
+    private func ledger() throws -> (store: LocalStore, account: String) {
+        let store = try LocalStore(
+            url: URL(fileURLWithPath: NSTemporaryDirectory())
+                .appendingPathComponent("florin-split-\(UUID().uuidString).db")
+        )
+        let account = UUID().uuidString
+        try store.database.exec("""
+        INSERT INTO accounts (id, name, kind, currency)
+          VALUES ('\(account)', 'CCP', 'checking', 'EUR');
+        """)
+        return (store, account)
+    }
+
+    private var calendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Europe/Paris") ?? .current
+        return calendar
+    }
+
+    @Test("the split is exact to the cent")
+    func splitIsExact() {
+        #expect(LocalInstalments.split(100, over: 3) == [33.34, 33.33, 33.33])
+        #expect(LocalInstalments.split(300, over: 3) == [100, 100, 100])
+        #expect(LocalInstalments.split(99.99, over: 4).reduce(0, +) == 99.99)
+        #expect(LocalInstalments.split(40, over: 1) == [40])
+    }
+
+    /// Les centimes se voient sur l'échéance qu'on paie au comptoir, la seule
+    /// qu'on puisse confronter au ticket.
+    @Test("the odd cents fall on the instalment paid at the till")
+    func oddCentsComeFirst() {
+        let parts = LocalInstalments.split(100, over: 3)
+        #expect(parts.first == 33.34)
+        #expect(parts.dropFirst().allSatisfy { $0 == 33.33 })
+    }
+
+    @Test("without fees the rate is nothing, not nothing-to-say")
+    func freeCreditIsZero() {
+        #expect(LocalInstalments.annualRate(purchase: 300, instalments: [100, 100, 100]) == 0)
+    }
+
+    /*
+     * Le chiffre que l'offre ne montre pas.
+     *
+     * 2 % de frais sur trois fois, c'est un tiers remboursé tout de suite et
+     * deux tiers prêtés un mois et deux mois. Ramené à l'année, on est très
+     * au-delà de vingt pour cent — l'ordre de grandeur d'un découvert, pas
+     * celui d'un prêt.
+     */
+    @Test("two percent of fees over three months is a quarter a year")
+    func feesAreWorseThanTheySound() throws {
+        let rate = try #require(
+            LocalInstalments.annualRate(purchase: 300, instalments: [102, 102, 102])
+        )
+        #expect(rate > 0.20 && rate < 0.35)
+    }
+
+    /// Plus l'échéancier est long, moins les mêmes frais coûtent par an : on
+    /// emprunte plus longtemps pour le même prix.
+    @Test("the same fees spread further cost less per year")
+    func longerIsCheaperPerYear() throws {
+        let short = try #require(
+            LocalInstalments.annualRate(purchase: 300, instalments: [102, 102, 102])
+        )
+        let long = try #require(
+            LocalInstalments.annualRate(purchase: 300, instalments: LocalInstalments.split(306, over: 10))
+        )
+        #expect(long < short)
+    }
+
+    @Test("a single payment has no rate to speak of")
+    func oneInstalmentHasNoRate() {
+        #expect(LocalInstalments.annualRate(purchase: 300, instalments: [300]) == nil)
+        #expect(LocalInstalments.annualRate(purchase: 0, instalments: [10, 10]) == nil)
+    }
+
+    @Test("the fees are what is handed back on top of the purchase")
+    func feesAreTheExtra() {
+        #expect(LocalInstalments.fees(purchase: 300, instalments: [102, 102, 102]) == 6)
+        #expect(LocalInstalments.fees(purchase: 300, instalments: [100, 100, 100]) == 0)
+    }
+
+    /// Un 31 janvier ne déborde pas sur le 3 mars.
+    @Test("a month later than the 31st is the end of the month")
+    func monthEndDoesNotOverflow() throws {
+        var parts = DateComponents()
+        parts.year = 2027; parts.month = 1; parts.day = 31; parts.hour = 12
+        let january = try #require(calendar.date(from: parts))
+        let days = LocalInstalments.dates(from: january, count: 3, calendar: calendar)
+        #expect(calendar.component(.month, from: days[1]) == 2)
+        #expect(calendar.component(.day, from: days[1]) == 28)
+        #expect(calendar.component(.month, from: days[2]) == 3)
+        #expect(calendar.component(.day, from: days[2]) == 31)
+    }
+
+    @Test("each instalment enters as an upcoming payment, a month apart")
+    func instalmentsEnterTheLedger() throws {
+        let (store, account) = try ledger()
+        var parts = DateComponents()
+        parts.year = 2027; parts.month = 3; parts.day = 10; parts.hour = 12
+        let day = try #require(calendar.date(from: parts))
+
+        let written = try LocalInstalments.record(
+            store: store, accountId: account, payee: "Le Comptoir", memo: nil,
+            categoryId: nil, from: day, instalments: LocalInstalments.split(300, over: 3),
+            calendar: calendar
+        )
+        #expect(written == 3)
+
+        let rows = try store.database.query(
+            "SELECT occurred_at, amount, status, memo FROM transactions ORDER BY occurred_at"
+        )
+        #expect(rows.count == 3)
+        #expect(rows.allSatisfy { $0.string("status") == "scheduled" })
+        #expect(rows.allSatisfy { $0.double("amount") == -100 })
+        #expect(rows.map { String(($0.string("occurred_at") ?? "").prefix(10)) }
+                == ["2027-03-10", "2027-04-10", "2027-05-10"])
+        #expect(rows.first?.string("memo")?.isEmpty == false)
+    }
+
+    /// La source est celle des opérations à venir, sans quoi le rapprochement
+    /// ne les verrait pas et les échéances resteraient prévues pour toujours.
+    @Test("the bank's own debit retires an instalment")
+    func theBankSettlesAnInstalment() throws {
+        let (store, account) = try ledger()
+        var parts = DateComponents()
+        parts.year = 2027; parts.month = 3; parts.day = 10; parts.hour = 12
+        let day = try #require(calendar.date(from: parts))
+        try LocalInstalments.record(
+            store: store, accountId: account, payee: "Le Comptoir", memo: nil,
+            categoryId: nil, from: day, instalments: [100, 100, 100], calendar: calendar
+        )
+        try store.database.run(
+            """
+            INSERT INTO transactions
+                (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
+                 source, status, needs_review)
+            VALUES (?, ?, '2027-03-12T10:00:00Z', -100, 'EUR', 'ACHAT CB LE COMPTOIR',
+                    'achat cb le comptoir', 'enable_banking', 'cleared', 0)
+            """,
+            [.text(UUID().uuidString), .text(account)]
+        )
+
+        #expect(try LocalWallet.settle(store: store) == 1)
+        let left = try #require(try store.database.scalar(
+            "SELECT COUNT(*) FROM transactions WHERE status = 'scheduled' AND deleted_at IS NULL"
+        )?.int)
+        #expect(left == 2)
+    }
+}
+
 // MARK: - Spending nobody has filed
 
 /*

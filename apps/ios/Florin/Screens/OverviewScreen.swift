@@ -200,6 +200,7 @@ struct OverviewScreen: View {
                     t: data.t,
                     submit: { try await model.add($0) },
                     onTransfer: { try await model.addTransfer($0) },
+                    onInstalments: { try await model.addInstalments($0) },
                     isLocalLedger: model.base.scheme == "florin-local"
                 )
             }

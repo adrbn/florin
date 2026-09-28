@@ -224,6 +224,25 @@ struct NewTransaction: Encodable, Sendable {
     }
 }
 
+/*
+ * Un achat réparti sur plusieurs mois.
+ *
+ * Ce n'est pas une opération : c'est ce qu'il faut pour en écrire plusieurs,
+ * et le prix d'achat y figure en plus des échéances parce que lui seul dit ce
+ * que les frais coûtent vraiment (voir `LocalInstalments.annualRate`).
+ */
+struct InstalmentPlan: Sendable {
+    let accountId: String
+    let payee: String
+    /// Le prix affiché en magasin, positif.
+    let purchase: Double
+    /// Ce qui sera prélevé, mois après mois, la première à la date d'achat.
+    let instalments: [Double]
+    let first: Date
+    let memo: String?
+    let categoryId: String?
+}
+
 struct Transaction: Decodable, Sendable, Identifiable {
     let id: String
     let date: String

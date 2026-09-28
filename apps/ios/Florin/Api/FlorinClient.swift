@@ -129,6 +129,22 @@ struct FlorinClient: Sendable {
         }
     }
 
+    /*
+     * Les échéances d'un paiement en plusieurs fois.
+     *
+     * Écriture du grand livre local uniquement : les échéances sont des
+     * opérations à venir, que seul le rapprochement de cet appareil sait
+     * éteindre. Contre un serveur, la sheet ne propose pas le partage.
+     */
+    func addInstalments(_ plan: InstalmentPlan) async throws {
+        guard isLocal else { throw FlorinError.rejected("") }
+        try LocalInstalments.record(
+            store: try localStore(), accountId: plan.accountId, payee: plan.payee,
+            memo: plan.memo, categoryId: plan.categoryId, from: plan.first,
+            instalments: plan.instalments
+        )
+    }
+
     struct SyncResult: Decodable, Sendable {
         let ok: Bool
         let connectionsSynced: Int
@@ -267,6 +283,11 @@ final class OverviewModel: ObservableObject {
 
     func add(_ tx: NewTransaction) async throws {
         try await client.add(tx)
+        await load(showSpinner: false)
+    }
+
+    func addInstalments(_ plan: InstalmentPlan) async throws {
+        try await client.addInstalments(plan)
         await load(showSpinner: false)
     }
 

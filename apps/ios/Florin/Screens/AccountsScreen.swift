@@ -512,6 +512,7 @@ struct AccountDetailScreen: View {
                     t: data.t,
                     submit: { try await model.add($0) },
                     onTransfer: { try await model.addTransfer($0) },
+                    onInstalments: { try await model.addInstalments($0) },
                     presetAccountId: route.accountId,
                     isLocalLedger: model.base.scheme == "florin-local"
                 )
