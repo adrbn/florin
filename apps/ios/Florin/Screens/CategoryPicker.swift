@@ -19,6 +19,16 @@ struct CategoryPicker: View {
     /// Absent when the row cannot be a transfer — one already paired, or an
     /// incoming one, whose far end this flow does not know how to word.
     var onTransfer: (() -> Void)?
+    /*
+     * Ce que le grand livre propose, quand il n'est pas assez sûr pour le
+     * faire lui-même.
+     *
+     * Jamais appliqué : proposé, en tête, et validé d'une tape. Le catégoriseur
+     * se tait sous 0,80 pour ne pas classer de travers — mais ce qu'il avait
+     * trouvé reste souvent la bonne réponse, et le chercher dans soixante
+     * catégories quand il l'avait sous la main est du travail rendu à la main.
+     */
+    var hint: Category?
 
     @Environment(\.dismiss) private var dismiss
     @State private var query = ""
@@ -42,6 +52,28 @@ struct CategoryPicker: View {
     var body: some View {
         NavigationStack {
             List {
+                if let hint, selected == nil {
+                    Section {
+                        Button {
+                            onPick(hint.id)
+                            dismiss()
+                        } label: {
+                            HStack(spacing: 10) {
+                                Text(hint.emoji ?? "•").frame(width: 22)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(hint.name).foregroundStyle(Florin.text)
+                                    Text(t("v2.category.hint", "Florin pense que c'est ça"))
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(Florin.text2)
+                                }
+                                Spacer(minLength: 8)
+                                Image(systemName: "sparkles")
+                                    .foregroundStyle(Florin.accent)
+                            }
+                        }
+                    }
+                }
+
                 Section {
                     if let onTransfer {
                         Button {

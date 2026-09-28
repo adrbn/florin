@@ -1388,6 +1388,132 @@ struct RefundTests {
  * instalment of one subscription arrived under a different name and the radar
  * found nothing at all.
  */
+@Suite("Category hints")
+struct CategoryHintTests {
+    private func ledger() throws -> (LocalStore, account: String, food: String, gifts: String) {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("florin-hint-\(UUID().uuidString).db")
+        let store = try LocalStore(url: url)
+        let account = UUID().uuidString
+        let spending = UUID().uuidString
+        let food = UUID().uuidString, gifts = UUID().uuidString
+        try store.database.exec("""
+        INSERT INTO category_groups (id, name, kind) VALUES ('\(spending)', 'Besoins', 'expense');
+        INSERT INTO categories (id, group_id, name) VALUES ('\(food)', '\(spending)', 'Courses');
+        INSERT INTO categories (id, group_id, name) VALUES ('\(gifts)', '\(spending)', 'Cadeaux');
+        INSERT INTO accounts (id, name, kind, currency) VALUES ('\(account)', 'CCP', 'checking', 'EUR');
+        """)
+        return (store, account, food, gifts)
+    }
+
+    private func row(
+        _ store: LocalStore, _ account: String, _ payee: String, _ amount: Double, category: String?
+    ) throws {
+        try store.database.run(
+            """
+            INSERT INTO transactions
+                (id, account_id, occurred_at, amount, payee, normalized_payee, source, category_id)
+            VALUES (?, ?, '2026-05-04T10:00:00Z', ?, ?, ?, 'enable_banking', ?)
+            """,
+            [
+                .text(UUID().uuidString), .text(account), .real(amount),
+                .text(payee), .text(LocalLedger.normalize(payee)),
+                category.map { .text($0) } ?? .null,
+            ]
+        )
+    }
+
+    /// Le cas qui a motivé la proposition : le moteur tient la bonne réponse et
+    /// se tait, parce qu'il ne classe qu'au-dessus de 0,80. Un mot venu d'une
+    /// autre catégorie suffit à diviser le score sans rendre le candidat faux.
+    @Test("a candidate too weak to file is still worth offering")
+    func weakCandidateIsOffered() throws {
+        let (store, account, food, gifts) = try ledger()
+        for _ in 0..<3 { try row(store, account, "ACHAT CB PANETTERIA AURORA", -4.20, category: food) }
+        try row(store, account, "BOUTIQUE GIRASOLE", -22.00, category: gifts)
+
+        let memory = try LocalCategoriser.remember(store: store)
+        let hit = CategoryHint.suggest(
+            memory, payee: "Panetteria Aurora Girasole", amount: -3.80, accountId: account
+        )
+        #expect(hit?.categoryId == food)
+        #expect((hit?.confidence ?? 1) < LocalCategoriser.applyThreshold)
+        #expect((hit?.confidence ?? 0) >= CategoryHint.floor)
+    }
+
+    /*
+     * Un mot vu une seule fois pèse autant qu'une habitude.
+     *
+     * La concentration d'un mot se mesure sur ses occurrences : vu une fois,
+     * il est par construction « concentré à 100 % » sur la catégorie où on l'a
+     * vu, et son poids écrase des mots vus dix fois. C'est ainsi qu'une
+     * boulangerie connue de longue date s'est fait proposer « Cadeaux » par un
+     * mot emprunté à un fleuriste. Amortir la concentration corrige ce cas-là
+     * et en casse autant d'autres — mesuré, c'est un jeu à somme nulle — donc
+     * le moteur ne tranche pas : il propose, et le geste reste à la personne.
+     */
+    @Test("a word seen once can outrank a habit, which is why nothing is applied")
+    func oneSightingCanMislead() throws {
+        let (store, account, food, gifts) = try ledger()
+        for _ in 0..<3 { try row(store, account, "ACHAT CB PANETTERIA AURORA", -4.20, category: food) }
+        try row(store, account, "BOUTIQUE GIRASOLE", -22.00, category: gifts)
+
+        let memory = try LocalCategoriser.remember(store: store)
+        let hit = CategoryHint.suggest(
+            memory, payee: "Panetteria Girasole", amount: -3.80, accountId: account
+        )
+        // Proposé, jamais appliqué : c'est toute la différence entre les deux.
+        #expect(hit != nil)
+        #expect((hit?.confidence ?? 1) < LocalCategoriser.applyThreshold)
+    }
+
+    /// Un libellé dont aucun mot n'a de passé ne propose rien : mieux vaut la
+    /// liste complète qu'un nom tiré au hasard.
+    @Test("a merchant the ledger has never seen proposes nothing")
+    func unknownMerchantProposesNothing() throws {
+        let (store, account, food, _) = try ledger()
+        for _ in 0..<3 { try row(store, account, "ACHAT CB PANETTERIA ROMA", -4.20, category: food) }
+
+        let memory = try LocalCategoriser.remember(store: store)
+        #expect(CategoryHint.suggest(
+            memory, payee: "Zzyrkan Vittore", amount: -6.50, accountId: account
+        ) == nil)
+    }
+
+    /// Le plancher n'est pas décoratif : en dessous, le candidat ne vaut pas
+    /// mieux qu'un tirage au sort et n'a rien à faire en tête de liste.
+    @Test("the floor sits below the filing threshold and above nothing")
+    func floorIsBetweenSilenceAndFiling() {
+        #expect(CategoryHint.floor > 0)
+        #expect(CategoryHint.floor < LocalCategoriser.applyThreshold)
+    }
+
+    /// Ce qui est déjà classé ne se fait pas proposer autre chose, et un
+    /// virement interne n'est pas une dépense à ranger.
+    @Test("a filed row and a transfer are left alone")
+    func filedRowsAreLeftAlone() {
+        let categories = [Category(
+            id: "c1", name: "Courses", emoji: nil, groupName: "Besoins",
+            linkedLoanAccountId: nil, groupKind: "expense"
+        )]
+        let filed = Transaction(
+            id: "t1", date: "2026-05-04T10:00:00Z", amount: -4.20, payee: "Panetteria",
+            memo: nil, categoryName: "Courses", categoryEmoji: nil, accountName: "CCP",
+            isTransfer: false, needsReview: false, isPending: false, isScheduled: false,
+            accountId: "a1", categoryId: "c1"
+        )
+        #expect(CategoryHint.category(for: filed, in: categories) == nil)
+
+        let transfer = Transaction(
+            id: "t2", date: "2026-05-04T10:00:00Z", amount: -4.20, payee: "Panetteria",
+            memo: nil, categoryName: nil, categoryEmoji: nil, accountName: "CCP",
+            isTransfer: true, needsReview: false, isPending: false, isScheduled: false,
+            accountId: "a1", categoryId: nil
+        )
+        #expect(CategoryHint.category(for: transfer, in: categories) == nil)
+    }
+}
+
 @Suite("Subscriptions")
 struct SubscriptionTests {
     private func ledger() throws -> (LocalStore, account: String) {

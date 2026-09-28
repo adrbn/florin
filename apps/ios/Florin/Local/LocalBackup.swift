@@ -265,6 +265,8 @@ enum LocalBackup {
 
         // Les noms de marchands viennent d'être remplacés sous le cache.
         MerchantNames.shared.invalidate()
+        // Le grand livre n'est plus le même : ce qu'il suggérait ne vaut plus.
+        CategoryHint.invalidate()
         Task { @MainActor in MerchantLogos.shared.invalidate() }
         let after = summary(of: store.database)
         log.notice("restored — \(after.transactions, privacy: .public) transactions on file")

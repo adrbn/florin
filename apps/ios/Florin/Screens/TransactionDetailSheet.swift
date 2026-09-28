@@ -22,6 +22,9 @@ struct TransactionDetailSheet: View {
     /// the device ledger can honour — see `AddTransactionSheet.isLocalLedger`.
     var isLocalLedger = false
 
+    /// Ce que le grand livre propose pour cette ligne, s'il propose quelque chose.
+    @State private var hint: Category?
+
     @Environment(\.dismiss) private var dismiss
     @State private var picking = false
     /// The category chosen in this visit. The row this sheet was handed is a
@@ -195,8 +198,12 @@ struct TransactionDetailSheet: View {
                 // does not know how to word.
                 onTransfer: (!tx.isTransfer && tx.amount < 0 && accounts.count > 1)
                     ? { wantsTransfer = true }
-                    : nil
+                    : nil,
+                hint: hint
             )
+            // Lue à l'ouverture, pas à chaque redessin : elle relit le grand
+            // livre, et le sélecteur se redessine à chaque lettre tapée.
+            .task { hint = CategoryHint.category(for: tx, in: categories) }
         }
         .sheet(isPresented: $filing) {
             ReviewCategorySheet(
