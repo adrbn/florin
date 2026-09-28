@@ -607,17 +607,26 @@ struct AddTransactionSheet: View {
 
     // MARK: - En plusieurs fois
 
+    /// Les échéanciers qu'on rencontre : quatre fois sans frais est la forme
+    /// la plus courante des facilités proposées à la caisse, trois fois celle
+    /// des cartes bancaires, dix et douze celles des enseignes.
+    private static let instalmentChoices = [1, 2, 3, 4, 6, 10]
+
     /*
      * Le nombre de fois, la mensualité, et ce que ça coûte vraiment.
      *
-     * La ligne de résumé est la raison d'être de tout le reste : une offre en
-     * trois fois avec « seulement 2 % de frais » se paie autour de vingt-cinq
-     * pour cent l'an, parce qu'on n'emprunte les deux tiers de la somme qu'un
-     * mois ou deux. Tant que la mensualité n'est pas saisie, il n'y a pas de
-     * frais à montrer et la ligne dit simplement combien de fois combien.
+     * Les mêmes capsules que le choix dépense/entrée/virement, parce que c'est
+     * la même sorte de décision : un petit nombre de possibilités qu'on veut
+     * voir toutes à la fois, et non une liste déroulante système qui cache
+     * cinq choix derrière un chevron et ne ressemble à rien d'autre ici.
+     *
+     * La mensualité reste vide tant qu'il n'y a pas de frais : c'est le cas
+     * d'un « quatre fois sans frais », et un champ prérempli inviterait à
+     * corriger un chiffre déjà juste. La saisir est ce qui fait apparaître le
+     * coût réel.
      */
     private var instalmentRow: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 13) {
                 Image(systemName: "calendar.badge.clock")
                     .font(.system(size: 15, weight: .medium))
@@ -626,62 +635,124 @@ struct AddTransactionSheet: View {
                 Text(t("v2.add.instalments", "En plusieurs fois"))
                     .font(.system(size: 16))
                     .foregroundStyle(Florin.text)
-                Spacer(minLength: 8)
-                Picker("", selection: $instalmentCount) {
-                    Text(t("v2.add.instalmentsOff", "Non")).tag(1)
-                    ForEach([2, 3, 4, 6, 10, 12], id: \.self) { count in
-                        Text(t("v2.add.instalmentsCount", "{count} fois", ["count": "\(count)"]))
-                            .tag(count)
-                    }
-                }
-                .labelsHidden()
-                .tint(Florin.accent)
+                Spacer(minLength: 0)
             }
-            if instalmentCount > 1 {
-                HStack(spacing: 13) {
-                    Spacer().frame(width: 22)
-                    Text(t("v2.add.instalmentsEach", "Mensualité"))
-                        .font(.system(size: 14))
-                        .foregroundStyle(Florin.text2)
-                    TextField(
-                        Self.plain(instalmentAmounts.first ?? 0, locale: localeTag),
-                        text: $instalmentEach
-                    )
-                    .keyboardType(.decimalPad)
-                    .multilineTextAlignment(.trailing)
-                    .font(.system(size: 15))
+
+            HStack(spacing: 7) {
+                ForEach(Self.instalmentChoices, id: \.self) { count in
+                    instalmentChip(count)
                 }
-                Text(instalmentSummary)
-                    .font(.system(size: 12.5))
-                    .foregroundStyle(Florin.text3)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.leading, 35)
+            }
+
+            // Pas avant qu'il y ait un prix : à zéro, le récapitulatif
+            // annonçait « 0 × 0,00 € », ce qui est faux et ce qu'on voit
+            // forcément puisque le partage se choisit avant de taper le
+            // montant aussi souvent qu'après.
+            if instalmentCount > 1, !instalmentAmounts.isEmpty {
+                VStack(spacing: 10) {
+                    HStack(spacing: 10) {
+                        Text(t("v2.add.instalmentsEach", "Mensualité"))
+                            .font(.system(size: 14))
+                            .foregroundStyle(Florin.text2)
+                        Spacer(minLength: 8)
+                        TextField(
+                            Self.plain(instalmentAmounts.first ?? 0, locale: localeTag),
+                            text: $instalmentEach
+                        )
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
+                        .font(.system(size: 15, weight: .medium))
+                        .frame(maxWidth: 110)
+                    }
+                    Hairline()
+                    instalmentTotals
+                }
+                .padding(.top, 2)
             }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.vertical, 13)
     }
 
-    private var instalmentSummary: String {
-        let amounts = instalmentAmounts
-        guard let each = amounts.first else { return "" }
-        let figure = Money.string(each, locale: localeTag, currency: currency)
-        let fees = LocalInstalments.fees(purchase: magnitude, instalments: amounts)
-        guard fees > 0.004,
-              let rate = LocalInstalments.annualRate(purchase: magnitude, instalments: amounts),
-              rate > 0
-        else {
-            return t("v2.add.instalmentsFree", "{count} × {amount}, sans frais",
-                     ["count": "\(amounts.count)", "amount": figure])
+    private func instalmentChip(_ count: Int) -> some View {
+        let active = instalmentCount == count
+        return Button {
+            UISelectionFeedbackGenerator().selectionChanged()
+            withAnimation(.snappy(duration: 0.2)) {
+                instalmentCount = count
+                // Changer d'échéancier rend caduque une mensualité saisie pour
+                // le précédent : la garder afficherait un coût qui n'est celui
+                // d'aucune des deux offres.
+                instalmentEach = ""
+            }
+        } label: {
+            Text(count == 1 ? t("v2.add.instalmentsOff", "Non") : "\(count)×")
+                .font(.system(size: 14.5, weight: active ? .semibold : .medium))
+                .lineLimit(1)
+                // Six capsules sur la largeur d'un iPhone mini laissent
+                // quarante-six points chacune : « Non » y tient, mais de peu,
+                // et une langue plus longue n'y tiendrait pas.
+                .minimumScaleFactor(0.8)
+                .foregroundStyle(active ? Florin.accent : Florin.text2)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(active ? Florin.accent.opacity(0.16) : Color.clear, in: Capsule())
+                .overlay(
+                    Capsule().strokeBorder(
+                        active ? Florin.accent.opacity(0.5) : Florin.text.opacity(0.10),
+                        lineWidth: 1
+                    )
+                )
         }
-        return t(
-            "v2.add.instalmentsCost", "{count} × {amount} · {fees} de frais · {rate} par an",
-            [
-                "count": "\(amounts.count)", "amount": figure,
-                "fees": Money.string(fees, locale: localeTag, currency: currency),
-                "rate": Self.percent(rate, locale: localeTag),
-            ]
-        )
+        .buttonStyle(.plain)
+    }
+
+    /*
+     * Deux lignes : ce qu'on rend, et ce que ça coûte.
+     *
+     * La seconde est la raison d'être de tout le reste. « 2 % de frais en
+     * trois fois » n'est pas un crédit à 2 % : un tiers est rendu tout de
+     * suite et les deux autres ne sont empruntés qu'un mois et deux mois, si
+     * bien que le taux annuel équivalent tourne autour de vingt-cinq pour
+     * cent — l'ordre de grandeur d'un découvert. Il est teinté comme une
+     * dépense au-delà de dix pour cent, parce qu'à ce niveau ce n'est plus une
+     * facilité mais un crédit, et que personne ne lit un chiffre gris.
+     */
+    @ViewBuilder
+    private var instalmentTotals: some View {
+        let amounts = instalmentAmounts
+        let due = amounts.reduce(0, +)
+        let fees = LocalInstalments.fees(purchase: magnitude, instalments: amounts)
+        let rate = LocalInstalments.annualRate(purchase: magnitude, instalments: amounts)
+        VStack(spacing: 7) {
+            HStack {
+                Text("\(amounts.count) × \(Money.string(amounts.first ?? 0, locale: localeTag, currency: currency))")
+                    .foregroundStyle(Florin.text2)
+                Spacer(minLength: 8)
+                Text(Money.string(due, locale: localeTag, currency: currency))
+                    .foregroundStyle(Florin.text)
+                    .fontWeight(.medium)
+            }
+            HStack {
+                Text(t("v2.add.instalmentsFees", "Frais"))
+                    .foregroundStyle(Florin.text2)
+                Spacer(minLength: 8)
+                if fees > 0.004, let rate, rate > 0 {
+                    Text(
+                        "\(Money.string(fees, locale: localeTag, currency: currency))  ·  "
+                            + t("v2.add.instalmentsPerYear", "{rate} par an",
+                                ["rate": Self.percent(rate, locale: localeTag)])
+                    )
+                    .foregroundStyle(rate > 0.10 ? Florin.negative : Florin.text)
+                    .fontWeight(.medium)
+                } else {
+                    Text(t("v2.add.instalmentsNoFees", "Sans frais"))
+                        .foregroundStyle(Florin.positive)
+                        .fontWeight(.medium)
+                }
+            }
+        }
+        .font(.system(size: 13))
     }
 
     /// Un taux annuel se lit à un chiffre après la virgule : la précision
