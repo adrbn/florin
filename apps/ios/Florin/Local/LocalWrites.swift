@@ -699,7 +699,7 @@ enum LocalLedger {
 
         let amount = row.double("amount") ?? 0
         let pair = row.string("transfer_pair_id") ?? UUID().uuidString
-        let label = "↳ \(row.string("payee") ?? "")"
+        let label = "\(Transfers.mirrorMark) \(row.string("payee") ?? "")"
         try store.database.run(
             "UPDATE transactions SET transfer_pair_id = ? WHERE id = ?",
             [.text(pair), .text(id)]

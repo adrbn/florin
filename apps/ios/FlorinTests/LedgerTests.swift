@@ -1179,6 +1179,79 @@ struct MerchantNameTests {
     func neverEmpty() {
         #expect(!MerchantNames.key("VIREMENT 12345678901234567").isEmpty)
     }
+
+    /*
+     * Le miroir d'un prêt n'est pas un autre commerçant.
+     *
+     * Il est écrit « ↳ » + le libellé de la ligne qu'il reflète, et la flèche
+     * entrait dans la clé : la jambe débit trouvait le nom donné au prêt,
+     * son miroir gardait le libellé brut de la banque. Une même échéance
+     * s'affichait donc sous deux noms, dont un illisible.
+     */
+    @Test("a mirror shares the key of the row it mirrors")
+    func mirror() {
+        let paid = "PRELEVEMENT DE PRET ETUDIANT REF : 12345678901234"
+        #expect(MerchantNames.key("↳ " + paid) == MerchantNames.key(paid))
+        #expect(MerchantNames.key("↳ " + paid) == "pret etudiant")
+    }
+}
+
+// MARK: - Ce qu'une ligne dit sous son nom
+
+@Suite("Row subtitle")
+struct RowSubtitleTests {
+    /*
+     * Un virement ne manque pas de catégorie : il n'en a pas.
+     *
+     * Les deux jambes portaient « Sans catégorie », le même mot que porte une
+     * dépense qu'on a oublié de classer — donc une invitation à réparer
+     * quelque chose qui n'est pas cassé. Et comme elles portent désormais le
+     * même nom, c'est le compte qui les distingue, pas la date.
+     */
+    @Test("a transfer says what it is and which side it is")
+    func transfer() {
+        #expect(RowText.subtitle(
+            title: "Mensualité prêt étudiant", category: nil,
+            account: "Compte courant", when: "mer. 30 sept.", isTransfer: true
+        ) == "Virement · Compte courant")
+        #expect(RowText.subtitle(
+            title: "Mensualité prêt étudiant", category: nil,
+            account: "Prêt étudiant", when: "mer. 30 sept.", isTransfer: true
+        ) == "Virement · Prêt étudiant")
+    }
+
+    @Test("an unfiled expense still asks to be filed")
+    func unfiled() {
+        #expect(RowText.subtitle(
+            title: "Boulangerie du Parc", category: nil,
+            account: "Compte courant", when: "lun. 5 oct.", isTransfer: false
+        ) == "Sans catégorie · lun. 5 oct.")
+    }
+
+    @Test("a filed row shows its category")
+    func filed() {
+        #expect(RowText.subtitle(
+            title: "Boulangerie du Parc", category: "Food / Courses",
+            account: "Compte courant", when: "lun. 5 oct.", isTransfer: false
+        ) == "Food / Courses · lun. 5 oct.")
+    }
+
+    /// Le titre vaut déjà la catégorie quand le libellé ne nomme personne.
+    @Test("a category already in the title is not repeated")
+    func noEcho() {
+        #expect(RowText.subtitle(
+            title: "Salaires", category: "Salaires",
+            account: "Compte courant", when: "mar. 28 sept.", isTransfer: false
+        ) == "mar. 28 sept.")
+    }
+
+    @Test("nothing to say on either side says nothing")
+    func empty() {
+        #expect(RowText.subtitle(
+            title: "Virement", category: nil,
+            account: "", when: "", isTransfer: true
+        ) == "Virement")
+    }
 }
 
 // MARK: - Demo ledger

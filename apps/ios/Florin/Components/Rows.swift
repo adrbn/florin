@@ -60,12 +60,62 @@ struct Bubble: View {
     }
 }
 
+/// La marque d'un miroir : la contrepartie que Florin écrit en face d'un
+/// virement. Nommée ici parce que trois endroits doivent s'accorder dessus —
+/// celui qui l'écrit, celui qui la retire du nom, et les tests.
+enum Transfers {
+    static let mirrorMark = "↳"
+}
+
+/// Ce qu'une ligne dit sous son nom.
+///
+/// Extrait de la vue parce que c'est une règle, pas une mise en page : une
+/// dépense montre sa catégorie et sa date, un virement montre qu'il en est un
+/// et de quel côté on le regarde.
+enum RowText {
+    static func subtitle(
+        title: String,
+        category: String?,
+        account: String,
+        when: String,
+        isTransfer: Bool,
+        t: Strings = .empty
+    ) -> String {
+        /*
+         * Un virement ne manque pas de catégorie, il n'en a pas.
+         *
+         * Écrire « Sans catégorie » sous ses deux jambes, c'est le mot que
+         * porte une dépense qu'on a oublié de classer : une réparation
+         * réclamée pour quelque chose d'intact. Et les deux jambes portent le
+         * même nom — ce qui les distingue est le compte où on les regarde,
+         * l'une sortant l'argent, l'autre faisant baisser la dette. La date,
+         * elle, est la même des deux côtés : elle ne distingue rien.
+         */
+        if isTransfer {
+            return join(t("v2.common.ownTransfer", "Virement"), account)
+        }
+        let category = category ?? t("v2.common.uncategorized", "Sans catégorie")
+        // La catégorie est déjà le titre : la répéter ne dit rien de plus.
+        return join(title == category ? "" : category, when)
+    }
+
+    private static func join(_ first: String, _ second: String) -> String {
+        if first.isEmpty { return second }
+        return second.isEmpty ? first : "\(first) · \(second)"
+    }
+}
+
 /// Bank payees arrive as "ACHAT CB SUPERMARCHE 17.08.2026 CARTE 4589".
 /// Same cleaning rules as the web `cleanPayee` / `humanizePayee`.
 enum PayeeText {
     private static let leadWords: Set<String> = [
         "achat", "cb", "carte", "paiement", "prlv", "prelevement", "prélèvement",
         "vir", "virement", "sepa", "ach", "pos", "tpe", "retrait", "dab", "facture",
+        // La marque que Florin met devant le miroir d'un virement. Elle dit
+        // d'où vient la ligne, pas qui a été payé : la laisser dans le nom
+        // donnait au miroir une identité propre, donc un nom à renommer à
+        // part de la ligne qu'il reflète. La ligne porte déjà les flèches.
+        Transfers.mirrorMark,
     ]
 
     static func clean(_ payee: String) -> String {
@@ -251,14 +301,16 @@ struct TransactionRowView: View {
     private var title: String { PayeeText.title(tx.payee, category: tx.categoryName) }
 
     private var subtitle: String {
-        let category = tx.categoryName ?? t("v2.common.uncategorized", "Sans catégorie")
-        let second = dateIsGiven
-            ? tx.accountName
-            : DayLabel.string(tx.day, locale: locale, t: t)
-        // La catégorie est déjà le titre : la répéter ne dit rien de plus.
-        let first = title == category ? "" : category
-        if first.isEmpty { return second }
-        return second.isEmpty ? first : "\(first) · \(second)"
+        RowText.subtitle(
+            title: title,
+            category: tx.categoryName,
+            account: tx.accountName,
+            when: dateIsGiven
+                ? tx.accountName
+                : DayLabel.string(tx.day, locale: locale, t: t),
+            isTransfer: tx.isTransfer,
+            t: t
+        )
     }
 
     var body: some View {
