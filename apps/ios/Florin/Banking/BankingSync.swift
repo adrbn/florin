@@ -697,7 +697,8 @@ enum BankingSync {
                 """
                 UPDATE transactions
                 SET source = 'enable_banking', external_id = ?, bank_payee = ?,
-                    is_pending = ?, occurred_at = ?, amount = ?, status = 'cleared',
+                    is_pending = ?, occurred_at = ?, amount = ?, booked_at = ?,
+                    status = 'cleared',
                     needs_review = CASE
                         WHEN is_pending = 1 AND ? = 0 THEN 1
                         ELSE needs_review
@@ -711,6 +712,7 @@ enum BankingSync {
                     .integer(nowPending ? 1 : 0),
                     .text(date),
                     .real(transaction.signedAmount),
+                    transaction.bookingDate.map { SQLiteValue.text($0) } ?? .null,
                     .integer(nowPending ? 1 : 0),
                     .text(twin),
                 ]
@@ -725,8 +727,9 @@ enum BankingSync {
             """
             INSERT INTO transactions
                 (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
-                 bank_payee, memo, source, external_id, status, needs_review, is_pending)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'enable_banking', ?, 'cleared', ?, ?)
+                 bank_payee, memo, source, external_id, status, needs_review, is_pending,
+                 booked_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'enable_banking', ?, 'cleared', ?, ?, ?)
             """,
             [
                 .text(UUID().uuidString), .text(accountId), .text(date),
@@ -748,6 +751,8 @@ enum BankingSync {
                  */
                 .integer(upcoming ? 0 : 1),
                 .integer(transaction.status == "PDNG" ? 1 : 0),
+                // Vide quand la banque annonce sans avoir comptabilisé.
+                transaction.bookingDate.map { SQLiteValue.text($0) } ?? .null,
             ]
         )
         return true

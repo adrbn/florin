@@ -290,10 +290,39 @@ struct Transaction: Decodable, Sendable, Identifiable {
      * the list as though it had already gone. A date after today is the fact
      * that settles it: it has not happened.
      */
-    var isUpcoming: Bool {
-        isPending || day > Calendar(identifier: .gregorian).startOfDay(
-            for: Date().addingTimeInterval(86_400)
-        )
+    var isUpcoming: Bool { isUpcoming(among: OwnAccounts.shared.numbers()) }
+
+    /// La même question, posée à une liste donnée — ce que les tests
+    /// interrogent, et ce que peut réutiliser qui pèse plusieurs lignes
+    /// d'affilée sans relire les comptes à chaque fois.
+    func isUpcoming(among numbers: Set<String>) -> Bool {
+        isPending || isAnnounced(among: numbers)
+            || day > Calendar(identifier: .gregorian).startOfDay(
+                for: Date().addingTimeInterval(86_400)
+            )
+    }
+
+    /*
+     * Annoncée, et toujours pas comptabilisée.
+     *
+     * La date d'une annonce est celle que la banque promet, pas celle où elle
+     * tient parole : un salaire annoncé pour le 28 quittait « en prévision »
+     * à 00:00 ce jour-là et la banque ne l'a passé qu'à 23:31. Vingt-trois
+     * heures où l'app affirmait un mouvement qui n'avait pas eu lieu, sur la
+     * seule foi du calendrier.
+     *
+     * Ce qu'une banque n'a pas encore comptabilisé, elle ne sait pas le
+     * nommer : elle n'a pas de contrepartie, alors elle nomme la ligne
+     * d'après le compte d'arrivée — « FR76… DUPONT ». Le libellé est donc
+     * l'aveu, et il tombe au moment exact de la comptabilisation, quand la
+     * banque le remplace par le vrai payeur. On compare des numéros de
+     * compte, pas des noms, pour qu'un virement écrit à la main « vers
+     * Livret A » ne s'y trompe pas.
+     */
+    var isAnnounced: Bool { isAnnounced(among: OwnAccounts.shared.numbers()) }
+
+    func isAnnounced(among numbers: Set<String>) -> Bool {
+        OwnAccounts.named(by: payee, among: numbers)
     }
 
     /*

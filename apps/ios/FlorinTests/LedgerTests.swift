@@ -1199,6 +1199,75 @@ struct MerchantNameTests {
     }
 }
 
+// MARK: - Annoncée, ou vraiment passée
+
+/*
+ * Une date promise n'est pas une date tenue.
+ *
+ * Le salaire annoncé pour le 28 quittait « en prévision » à 00:00 ce jour-là ;
+ * la banque ne l'a comptabilisé qu'à 23:31. Vingt-trois heures durant
+ * lesquelles l'app affirmait un mouvement qui n'avait pas eu lieu, sur la
+ * seule foi du calendrier.
+ */
+@Suite("Announced, or actually settled")
+struct AnnouncedTests {
+    private let mine: Set<String> = ["FR7612345678901234567890123"]
+
+    private func row(_ payee: String, on day: String, pending: Bool = false) -> Transaction {
+        Transaction(
+            id: UUID().uuidString, date: day, amount: 2_400, payee: payee, memo: nil,
+            categoryName: nil, categoryEmoji: nil, accountName: "Compte courant",
+            isTransfer: false, needsReview: false, isPending: pending, isScheduled: false
+        )
+    }
+
+    private var today: String {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.timeZone = TimeZone(secondsFromGMT: 0)
+        return f.string(from: Date())
+    }
+
+    @Test("a row still named after one's own account has not been settled")
+    func announced() {
+        let announced = row("FR76 1234 5678 9012 3456 7890 123 DUPONT", on: today)
+        #expect(announced.isAnnounced(among: mine))
+        #expect(announced.isUpcoming(among: mine))
+    }
+
+    @Test("the day it is booked the bank names the payer, and it settles")
+    func booked() {
+        let booked = row("VIREMENT DE EMPLOYEUR EXEMPLE SA", on: today)
+        #expect(!booked.isAnnounced(among: mine))
+        #expect(!booked.isUpcoming(among: mine))
+    }
+
+    /// Les deux se lisent sur la même ligne, à une heure d'intervalle : c'est
+    /// le libellé qui bascule, pas la date.
+    @Test("the same date, two labels, two answers")
+    func theLabelDecides() {
+        #expect(row("FR76 1234 5678 9012 3456 7890 123 DUPONT", on: today).isUpcoming(among: mine))
+        #expect(!row("VIREMENT DE EMPLOYEUR EXEMPLE SA", on: today).isUpcoming(among: mine))
+    }
+
+    /// Un virement écrit à la main nomme un compte par son nom, pas par son
+    /// numéro — il ne doit pas passer pour une annonce.
+    @Test("a hand-written transfer to one's own account is not an announcement")
+    func handWritten() {
+        #expect(!row("Transfer to Livret A", on: today).isAnnounced(among: mine))
+    }
+
+    @Test("a future date is still enough on its own")
+    func future() {
+        #expect(row("ACHAT CB BOULANGERIE DU PARC", on: "2099-01-01").isUpcoming(among: mine))
+    }
+
+    @Test("a ledger that knows no account number accuses nothing")
+    func noAccounts() {
+        #expect(!row("FR76 1234 5678 9012 3456 7890 123 DUPONT", on: today).isAnnounced(among: []))
+    }
+}
+
 // MARK: - Ce qu'une ligne dit sous son nom
 
 @Suite("Row subtitle")

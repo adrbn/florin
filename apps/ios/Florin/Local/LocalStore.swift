@@ -74,6 +74,17 @@ final class LocalStore {
          * ne gagne pas une colonne par `CREATE TABLE IF NOT EXISTS`.
          */
         try addColumn("merchant_marks", "image", "BLOB")
+        /*
+         * La date à laquelle la banque a comptabilisé, distincte de celle
+         * qu'elle avait annoncée.
+         *
+         * Enable Banking envoie trois dates — `booking_date`, `transaction_date`,
+         * `value_date` — et le grand livre n'en gardait qu'une, la première
+         * non nulle. Or c'est justement la présence de `booking_date` qui
+         * sépare une opération passée d'une opération promise. On la garde
+         * telle quelle : vide tant que la banque n'a rien comptabilisé.
+         */
+        try addColumn("transactions", "booked_at", "TEXT")
         // `settings` is exactly (key, value) in this schema — no timestamps.
         try database.run(
             "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
