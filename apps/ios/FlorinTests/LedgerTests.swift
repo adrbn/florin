@@ -1976,6 +1976,51 @@ struct WalletPaymentTests {
         )?.int == 0)
     }
 
+    /*
+     * A fare the operator submitted late: the bank booked the ride on the day
+     * it happened, Wallet only revealed it afterwards, so the tap is dated
+     * after the row that already holds it.
+     */
+    @Test("a payment recorded late settles onto the row the bank booked before it")
+    func debitSettlesSlightlyBackwards() throws {
+        let (store, checking, _) = try ledger()
+        let fare = try bankRow(store, checking, "2026-09-03", -1.80,
+                               label: "ACHAT CB TRANSPORTS DU FLEUVE")
+        try store.database.run(
+            """
+            INSERT INTO transactions (id, account_id, occurred_at, amount, payee, normalized_payee,
+                source, status, is_pending)
+            VALUES (?, ?, '2026-09-04T09:10:00Z', -1.80, 'Transports du Fleuve',
+                'transports du fleuve', 'ios_shortcut', 'scheduled', 1)
+            """,
+            [.text(UUID().uuidString), .text(checking)]
+        )
+        #expect(try LocalWallet.settle(store: store) == 1)
+        #expect(try store.database.scalar(
+            "SELECT count(*) FROM transactions WHERE merge_suggested_tx_id = ?", [.text(fare)]
+        )?.int == 1)
+    }
+
+    /// Three days, not a week: beyond that the room behind buys nothing but
+    /// the chance of claiming a different purchase of the same price.
+    @Test("a week earlier is another purchase, name or no name")
+    func debitDoesNotReachTooFarBack() throws {
+        let (store, checking, _) = try ledger()
+        _ = try bankRow(store, checking, "2026-09-01", -1.80,
+                        label: "ACHAT CB TRANSPORTS DU FLEUVE")
+        try store.database.run(
+            """
+            INSERT INTO transactions (id, account_id, occurred_at, amount, payee, normalized_payee,
+                source, status, is_pending)
+            VALUES (?, ?, '2026-09-09T09:10:00Z', -1.80, 'Transports du Fleuve',
+                'transports du fleuve', 'ios_shortcut', 'scheduled', 1)
+            """,
+            [.text(UUID().uuidString), .text(checking)]
+        )
+        #expect(try LocalWallet.settle(store: store) == 0)
+        #expect(try live(store, source: LocalWallet.source) == 1)
+    }
+
     @Test("a bank row that took another merchant's name gets its own back")
     func restoresBankLabel() throws {
         let (store, checking, _) = try ledger()

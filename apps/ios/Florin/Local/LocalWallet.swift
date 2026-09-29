@@ -222,9 +222,21 @@ enum LocalWallet {
      * the credit sat under "en prévision" for ever while the bank's own credit
      * stood beside it. A credit may therefore settle onto a bank row up to a
      * fortnight before it, and only in the pass where the labels name the same
-     * shop. Debits keep the old rule: a payment cannot be booked before it is
-     * made, and the same coffee at the same price a week earlier is a
-     * different coffee.
+     * shop.
+     *
+     * A debit has the same exception, one size down.
+     *
+     * "A payment cannot be booked before it is made" describes a tap written
+     * the second it happens, and most are. Some are not: a transit operator
+     * submits a day's rides a day or three later, so Wallet reveals the fare
+     * — and the tap gets written — after the bank has already booked it. With
+     * no room behind, those two can never meet, and both stay for good: a
+     * fare booked on the 3rd beside its own tap dated the 4th, neither one
+     * able to claim the other.
+     *
+     * Three days back, and only where the labels name the same shop. The
+     * blind pass keeps none: with no name to agree on, the same amount a few
+     * days earlier is a different coffee.
      */
     @discardableResult
     static func settle(store: LocalStore) throws -> Int {
@@ -256,7 +268,7 @@ enum LocalWallet {
                     ORDER BY abs(julianday(substr(occurred_at, 1, 10)) - julianday(?))
                     """,
                     [.text(account), .text(source), .real(amount), .text(day),
-                     .real(byName && amount > 0 ? 14 : 0), .text(day), .text(day)]
+                     .real(byName ? (amount > 0 ? 14 : 3) : 0), .text(day), .text(day)]
                 )
                 let tap = row.string("payee") ?? ""
                 guard let match = candidates.first(where: {
