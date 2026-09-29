@@ -590,7 +590,7 @@ struct AccountDetailScreen: View {
      * A loan, and whether the app can follow it.
      *
      * The remaining debt cannot be recovered from the repayments: knowing that
-     * 135,91 € leaves every month says nothing about how much was borrowed, at
+     * 165,13 € leaves every month says nothing about how much was borrowed, at
      * what rate, or over how long. Without the contract the only figure
      * available is the total handed over — which is what this app used to show
      * and is very nearly the opposite of what is owed — so an unconfigured loan

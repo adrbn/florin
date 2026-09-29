@@ -262,9 +262,11 @@ struct TimestampTests {
 // MARK: - What is still owed
 
 /*
- * The same loan the server's own tests use, and the same reference: a real
- * statement from La Banque Postale. 10 000 € over 84 months at an advertised
- * 3,90 %, instalment 135,91 €, first payment 30 June 2024.
+ * An invented loan, and a reference worked out away from the code it checks:
+ * 12 000 € over 84 months at 4,20 %, instalment 165,13 €, first payment
+ * 31 March 2024. The remaining balance below comes from the closed-form
+ * amortisation, computed outside this target — so a bug in `LocalLoan` cannot
+ * quietly define its own expected answer.
  *
  * The phone reported this loan's debt as the sum of the repayments sitting on
  * the loan account — 3 543 € after twenty-six instalments, which is the money
@@ -273,10 +275,10 @@ struct TimestampTests {
  */
 @Suite("Loan")
 struct LoanTests {
-    private let principal = 10_000.0
-    private let rate = 0.039
+    private let principal = 12_000.0
+    private let rate = 0.042
     private let term = 84
-    private let payment = 135.91
+    private let payment = 165.13
 
     private func debt(after payments: Int) -> Double {
         LocalLoan.liability(
@@ -287,13 +289,13 @@ struct LoanTests {
 
     @Test("the periodic rate is recovered from principal, payment and term")
     func calibration() {
-        // The bank quotes the TAEG and amortises on the taux débiteur; taking
-        // the advertised rate drifts a few euros and spills an extra month.
+        // The instalment was built from this rate, so the solver has to
+        // hand it back — that round trip is the whole point of the method.
         let solved = LocalLoan.solveAnnualRate(
             principal: principal, monthlyPayment: payment, termMonths: term
         )
         #expect(solved != nil)
-        #expect(abs((solved ?? 0) - 0.0383) < 0.0005)
+        #expect(abs((solved ?? 0) - 0.0420) < 0.0005)
         // And it reproduces the instalment it was solved from.
         let check = LocalLoan.monthlyPayment(
             principal: principal, annualRate: solved ?? 0, termMonths: term
@@ -301,21 +303,22 @@ struct LoanTests {
         #expect(abs(check - payment) < 0.01)
     }
 
-    @Test("capital restant dû lands within a euro of the bank's own figure")
+    @Test("capital restant dû lands within a euro of the amortisation table")
     func matchesTheBank() {
-        // The statement says 7 298,12 € after twenty-five instalments. This is
-        // the assertion the server makes, so the two builds agree by
+        // 8 788,93 € after twenty-five instalments, by the closed form
+        // B(k) = P(1+i)^k − m((1+i)^k − 1)/i, computed outside this target.
+        // The server asserts the same figure, so the two builds agree by
         // construction rather than by coincidence.
-        #expect(abs(debt(after: 25) - 7298.12) < 1)
+        #expect(abs(debt(after: 25) - 8788.93) < 1)
     }
 
     @Test("what is owed is not what has been paid")
     func notTheAmountPaid() {
-        // Twenty-six instalments of 135,91 € is 3 533,66 € handed over — the
+        // Twenty-six instalments of 165,13 € is 4 293,38 € handed over — the
         // number the phone used to print as the debt. The debt is more than
         // twice that.
         let paid = 26.0 * payment
-        #expect(debt(after: 26) > 7_000)
+        #expect(debt(after: 26) > 8_000)
         #expect(abs(debt(after: 26) - paid) > 3_500)
     }
 
@@ -325,7 +328,7 @@ struct LoanTests {
         let after = debt(after: 26)
         #expect(after < before)
         // Early in a loan most of the instalment is interest, so the debt
-        // falls by less than the 135,91 € paid.
+        // falls by less than the 165,13 € paid.
         let step = before - after
         #expect(step > 100 && step < payment)
     }
@@ -369,7 +372,7 @@ struct LoanMirrorTests {
         INSERT INTO accounts (id, name, kind, currency, loan_original_principal,
                               loan_interest_rate, loan_term_months, loan_monthly_payment,
                               loan_start_date)
-          VALUES ('\(loan)', 'Prêt', 'loan', 'EUR', 10000, 0.039, 84, 135.91, '2024-06-30');
+          VALUES ('\(loan)', 'Prêt', 'loan', 'EUR', 12000, 0.042, 84, 165.13, '2024-03-31');
         INSERT INTO categories (id, group_id, name, linked_loan_account_id)
           VALUES ('\(category)', '\(group)', 'Remboursement du prêt', '\(loan)');
         """)
@@ -383,7 +386,7 @@ struct LoanMirrorTests {
             INSERT INTO transactions
                 (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
                  source, status, needs_review)
-            VALUES (?, ?, '2026-08-05', -135.91, 'EUR', 'PRELEVEMENT LBP', 'prelevement lbp',
+            VALUES (?, ?, '2026-08-05', -165.13, 'EUR', 'PRELEVEMENT CREDIT MAISON', 'prelevement credit maison',
                     'enable_banking', 'cleared', 1)
             """,
             [.text(id), .text(account)]
@@ -414,7 +417,7 @@ struct LoanMirrorTests {
             "SELECT amount, category_id, transfer_pair_id FROM transactions WHERE account_id = ?",
             [.text(loan)]
         ).first
-        #expect(row?.double("amount") == 135.91)
+        #expect(row?.double("amount") == 165.13)
         #expect(row?.string("category_id") == nil)
         #expect(row?.string("transfer_pair_id") != nil)
     }
@@ -433,8 +436,8 @@ struct LoanMirrorTests {
         let after = try debt()
         #expect(after < before)
         // Early in a loan most of the instalment is interest; the debt falls by
-        // less than the 135,91 € handed over.
-        #expect(before - after < 135.91)
+        // less than the 165,13 € handed over.
+        #expect(before - after < 165.13)
         #expect(before - after > 90)
     }
 
@@ -568,7 +571,7 @@ struct LoanMirrorTests {
             INSERT INTO transactions
                 (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
                  source, status, needs_review, transfer_pair_id)
-            VALUES (?, ?, '2026-08-05', 135.91, 'EUR', '↳ PRELEVEMENT LBP', 'prelevement lbp',
+            VALUES (?, ?, '2026-08-05', 165.13, 'EUR', '↳ PRELEVEMENT CREDIT MAISON', 'prelevement credit maison',
                     'server', 'cleared', 0, 'imported:b')
             """,
             [.text(UUID().uuidString), .text(loan)]
@@ -590,7 +593,7 @@ struct LoanMirrorTests {
             INSERT INTO transactions
                 (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
                  source, status, needs_review, transfer_pair_id)
-            VALUES (?, ?, '2026-09-01', 135.91, 'EUR', '↳ x', 'x', 'server', 'cleared', 0, ?)
+            VALUES (?, ?, '2026-09-01', 165.13, 'EUR', '↳ x', 'x', 'server', 'cleared', 0, ?)
             """,
             [.text(UUID().uuidString), .text(loan), .text(UUID().uuidString)]
         )
@@ -600,7 +603,7 @@ struct LoanMirrorTests {
             INSERT INTO transactions
                 (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
                  source, status, needs_review)
-            VALUES (?, ?, '2026-08-30', -135.91, 'EUR', 'PRELEVEMENT LBP', 'prelevement lbp',
+            VALUES (?, ?, '2026-08-30', -165.13, 'EUR', 'PRELEVEMENT CREDIT MAISON', 'prelevement credit maison',
                     'enable_banking', 'cleared', 1)
             """,
             [.text(id), .text(ccp)]
@@ -619,7 +622,7 @@ struct LoanMirrorTests {
                 INSERT INTO transactions
                     (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
                      source, status, needs_review, transfer_pair_id)
-                VALUES (?, ?, '2026-08-05', 135.91, 'EUR', '↳ x', 'x', 'manual', 'cleared', 0, ?)
+                VALUES (?, ?, '2026-08-05', 165.13, 'EUR', '↳ x', 'x', 'manual', 'cleared', 0, ?)
                 """,
                 [.text(UUID().uuidString), .text(loan), .text(UUID().uuidString)]
             )
@@ -691,7 +694,7 @@ struct BackupTests {
         try store.database.exec("""
         INSERT INTO bank_connections
             (id, provider, session_id, status, aspsp_name, aspsp_country, valid_until)
-          VALUES ('\(conn)', 'enable_banking', 's-\(conn)', 'active', 'LBP', 'FR', '2026-12-01');
+          VALUES ('\(conn)', 'enable_banking', 's-\(conn)', 'active', 'BANQUE EXEMPLE', 'FR', '2026-12-01');
         INSERT INTO category_groups (id, name, kind) VALUES ('\(group)', 'Dépenses', 'expense');
         INSERT INTO accounts (id, name, kind, currency, bank_connection_id)
           VALUES ('\(ccp)', 'CCP', 'checking', 'EUR', '\(conn)');
@@ -820,11 +823,11 @@ struct RelabelledDuplicateTests {
     func collapsesTheRelabelledTwin() throws {
         let (store, account) = try ledger()
         let kept = try row(
-            store, on: account, amount: -135.91, payee: "PREL DE LA BANQUE POSTALE",
-            externalId: "uid:2026-08-31T00:00:00Z:-135.91:PREL DE LA BANQUE POSTALE"
+            store, on: account, amount: -165.13, payee: "PREL DE CREDIT MAISON",
+            externalId: "uid:2026-08-31T00:00:00Z:-165.13:PREL DE CREDIT MAISON"
         )
         let stale = try row(
-            store, on: account, amount: -135.91, payee: "PRELEVEMENT DE LA BANQUE POSTALE",
+            store, on: account, amount: -165.13, payee: "PRELEVEMENT DE CREDIT MAISON",
             externalId: "uid:2026-08-31.0"
         )
 
@@ -852,15 +855,15 @@ struct RelabelledDuplicateTests {
         // The row kept carries a pair id whose other half was never written;
         // the row discarded is the one the mirror is actually attached to.
         let kept = try row(
-            store, on: account, amount: -135.91, payee: "PREL DE LA BANQUE POSTALE",
-            externalId: "uid:2026-08-31T00:00:00Z:-135.91:PREL", pair: "orphan"
+            store, on: account, amount: -165.13, payee: "PREL DE CREDIT MAISON",
+            externalId: "uid:2026-08-31T00:00:00Z:-165.13:PREL", pair: "orphan"
         )
         try row(
-            store, on: account, amount: -135.91, payee: "PRELEVEMENT DE LA BANQUE POSTALE",
+            store, on: account, amount: -165.13, payee: "PRELEVEMENT DE CREDIT MAISON",
             externalId: "uid:2026-08-31.0", pair: "real"
         )
         try row(
-            store, on: loan, amount: 135.91, payee: "↳ PRELEVEMENT",
+            store, on: loan, amount: 165.13, payee: "↳ PRELEVEMENT",
             externalId: "uid:mirror", pair: "real"
         )
 

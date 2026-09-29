@@ -53,7 +53,7 @@ extension SQLiteValue {
     /// The exact value of a money column.
     ///
     /// Amounts are stored as decimal strings; `Decimal(string:)` keeps them
-    /// exact where `Double` would not. Summing a year of 135.91 instalments as
+    /// exact where `Double` would not. Summing a year of 165.13 instalments as
     /// doubles drifts, and this app exists to tell someone what they actually
     /// have.
     var decimal: Decimal? {

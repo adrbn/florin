@@ -73,7 +73,7 @@ enum LocalPlan {
                * The server's plan excludes these and the port did not, so a
                * transfer's inbound leg — if it carried a category — cancelled
                * the outbound one it mirrors. A loan repayment is exactly that
-               * shape: 135,91 € leaves the current account and the same
+               * shape: 165,13 € leaves the current account and the same
                * amount lands against the debt.
                *
                * But excluding both legs is what reported "Réparti 136 €,

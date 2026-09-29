@@ -582,7 +582,7 @@ enum LocalLedger {
          * itself.
          *
          * Two guards keep it honest. The match is to the cent, not
-         * approximate: an ordinary purchase of 135,91 € is possible and a
+         * approximate: an ordinary purchase of 165,13 € is possible and a
          * purchase of 135,90 € is not this. And one per calendar month per
          * loan, so a coincidence in a month already accounted for is ignored
          * rather than paying the loan twice.

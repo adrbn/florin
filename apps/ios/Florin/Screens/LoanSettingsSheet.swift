@@ -4,7 +4,7 @@ import SwiftUI
  * The four numbers on the contract, and the category that pays it.
  *
  * A loan's remaining debt cannot be recovered from its repayments: knowing that
- * 135,91 € left every month says nothing about how much was borrowed, at what
+ * 165,13 € left every month says nothing about how much was borrowed, at what
  * rate, or over how long — and without those the only figure available is the
  * total handed over, which is what the app used to show and is very nearly the
  * opposite of what is owed.
@@ -60,7 +60,7 @@ struct LoanSettingsSheet: View {
                              * Round numbers, deliberately.
                              *
                              * The first draft used the author's own contract —
-                             * 10 000 over 84 months at 3,9 %, 135,91 € — which
+                             * 12 000 over 84 months at 4,2 %, 165,13 € — which
                              * reads as a filled-in form rather than a hint, and
                              * is somebody's actual loan. These are obviously
                              * illustrative: they teach the unit each field

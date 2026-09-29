@@ -6,7 +6,7 @@ import Foundation
  * The phone reported a loan's debt as `abs(balance)` — the sum of the
  * repayment rows sitting on the loan account, which is the money already
  * handed over. On this ledger that read 3 543 € after twenty-six instalments
- * of 135,91 €, and called it the remaining debt. It is very nearly the exact
+ * of 165,13 €, and called it the remaining debt. It is very nearly the exact
  * opposite: the debt was the part not in that number.
  *
  * The server has computed this properly since the loan feature shipped —
