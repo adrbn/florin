@@ -3078,19 +3078,36 @@ struct InstalmentTests {
     /*
      * Un multiple ne s'annonce que lorsque c'en est un.
      *
-     * Le récapitulatif affichait « 3 × 33,34 € » en face de « 100,00 € ».
-     * Trois fois 33,34 font 100,02 : il multipliait la première échéance,
-     * c'est-à-dire précisément celle qui porte les centimes de l'arrondi. La
-     * phrase se contredisait d'elle-même dès qu'un montant ne se divisait pas
-     * — et un montant se divise rarement.
+     * Le récapitulatif affichait « 3 × 33,34 € » en face de « 100,00 € », et
+     * trois fois 33,34 font 100,02 : il multipliait la première échéance,
+     * celle-là même qui porte les centimes de l'arrondi.
      */
-    @Test("a recap only says N times M when the instalments really are equal")
-    func unevenInstalmentsAreNotAMultiple() {
-        #expect(LocalInstalments.isEven(LocalInstalments.split(100, over: 3)) == false)
-        #expect(LocalInstalments.isEven(LocalInstalments.split(99, over: 3)))
-        #expect(LocalInstalments.isEven(LocalInstalments.split(300, over: 3)))
-        #expect(LocalInstalments.isEven(LocalInstalments.split(40, over: 1)))
-        #expect(LocalInstalments.isEven([]))
+    @Test("the recap groups equal instalments and names the odd one")
+    func describesTheRealShape() {
+        let plain = { (v: Double) in String(format: "%.2f", v) }
+        #expect(LocalInstalments.describe(LocalInstalments.split(99, over: 3), money: plain)
+            == "3 × 33.00")
+        #expect(LocalInstalments.describe(LocalInstalments.split(100, over: 3), money: plain)
+            == "33.34 + 2 × 33.33")
+        #expect(LocalInstalments.describe([33.33, 33.33, 33.34], money: plain)
+            == "2 × 33.33 + 33.34")
+        #expect(LocalInstalments.describe([], money: plain) == "")
+    }
+
+    /*
+     * La mensualité annoncée fait foi, et la dernière échéance encaisse le
+     * centime qui ne tombe pas juste — mais pas un euro : au-delà d'un centime
+     * par échéance, l'écart est le coût de l'offre et doit rester visible.
+     */
+    @Test("a quoted instalment stands, and only rounding lands on the last")
+    func quotedInstalmentsAbsorbOnlyRounding() {
+        #expect(LocalInstalments.quoted(33.34, count: 3, total: 100)
+            == [33.34, 33.34, 33.32])
+        #expect(LocalInstalments.quoted(33.33, count: 3, total: 100)
+            == [33.33, 33.33, 33.34])
+        // Deux euros de frais sur trois échéances : pas un arrondi.
+        #expect(LocalInstalments.quoted(34, count: 3, total: 100) == [34, 34, 34])
+        #expect(LocalInstalments.quoted(20, count: 5, total: 100) == [20, 20, 20, 20, 20])
     }
 
     /// Les centimes se voient sur l'échéance qu'on paie au comptoir, la seule

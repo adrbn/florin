@@ -169,7 +169,7 @@ struct AddTransactionSheet: View {
         guard let each = typed, each > 0 else {
             return LocalInstalments.split(magnitude, over: instalmentCount)
         }
-        return Array(repeating: (each * 100).rounded() / 100, count: instalmentCount)
+        return LocalInstalments.quoted(each, count: instalmentCount, total: magnitude)
     }
 
     private var isValid: Bool {
@@ -792,17 +792,11 @@ struct AddTransactionSheet: View {
         .font(.system(size: 13))
     }
 
-    /// L'échéancier tel qu'il sera écrit : « 3 × 100,00 € » quand il se divise,
-    /// « 33,34 € + 2 × 33,33 € » quand les centimes tombent sur la première.
+    /// L'échéancier tel qu'il sera écrit, groupes d'échéances égales compris.
     private static func shape(_ amounts: [Double], locale: String, currency: String) -> String {
-        func money(_ value: Double) -> String {
-            Money.string(value, locale: locale, currency: currency)
+        LocalInstalments.describe(amounts) {
+            Money.string($0, locale: locale, currency: currency)
         }
-        guard let first = amounts.first else { return "" }
-        guard !LocalInstalments.isEven(amounts), let rest = amounts.last else {
-            return "\(amounts.count) × \(money(first))"
-        }
-        return "\(money(first)) + \(amounts.count - 1) × \(money(rest))"
     }
 
     /// Un taux annuel se lit à un chiffre après la virgule : la précision

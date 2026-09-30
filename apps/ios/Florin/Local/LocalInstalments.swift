@@ -43,21 +43,64 @@ enum LocalInstalments {
     }
 
     /*
-     * Les échéances sont-elles toutes identiques ?
+     * L'échéance qu'on vous a annoncée, et le centime qui ne tombe pas juste.
      *
-     * Le récapitulatif annonçait « 3 × 33,34 € » en face de « 100,00 € », et
-     * trois fois 33,34 font 100,02. Il multipliait la première échéance,
-     * celle-là même qui porte les centimes de l'arrondi : la phrase se
-     * contredisait donc dès qu'un montant ne se divisait pas, c'est-à-dire
-     * presque toujours.
+     * Une offre en plusieurs fois annonce toujours sa mensualité avant qu'on
+     * confirme, et c'est le seul chiffre dont on soit sûr — le partage, lui,
+     * est une convention que chaque organisme applique à sa façon et que
+     * personne ne publie. Deviner cette convention, ou la proposer dans une
+     * liste d'enseignes, ce serait se tromper avec assurance ; on prend donc
+     * le chiffre annoncé et on ne discute pas.
      *
-     * Ce n'est pas le partage qu'il faut changer — il tombe juste au
-     * centime — mais la façon de l'énoncer. Un multiple ne se dit que
-     * lorsque c'en est un ; sinon on nomme la première et le reste.
+     * Reste que N fois ce chiffre retombe rarement sur le prix exact : une
+     * mensualité arrondie au centime supérieur dépasse l'achat d'un cheveu.
+     * La dernière échéance absorbe l'écart — la dernière, et non la première
+     * comme dans `split`, parce qu'ici la première est justement celle qui a
+     * été annoncée et qu'on n'a aucune raison de la contredire.
+     *
+     * Mais seulement jusqu'à un centime par échéance. Au-delà, l'écart n'est
+     * plus un arrondi : c'est le coût de l'offre, et le rattraper en douce
+     * sur la dernière échéance effacerait précisément ce que `annualRate` est
+     * là pour montrer. Une offre « 3 × 34,00 € » sur un achat de 100 € rend
+     * 2 € de plus, et doit continuer de le dire.
      */
-    static func isEven(_ amounts: [Double]) -> Bool {
-        guard let first = amounts.first else { return true }
-        return amounts.allSatisfy { abs($0 - first) < 0.005 }
+    static func quoted(_ each: Double, count: Int, total: Double) -> [Double] {
+        let count = max(1, min(count, maxCount))
+        let each = Int((abs(each) * 100).rounded())
+        var all = Array(repeating: each, count: count)
+        let drift = each * count - Int((abs(total) * 100).rounded())
+        if count > 1, drift != 0, abs(drift) <= count {
+            all[count - 1] -= drift
+        }
+        return all.map { Double($0) / 100 }
+    }
+
+    /*
+     * L'échéancier dit tel qu'il est.
+     *
+     * Le récapitulatif multipliait la première échéance par leur nombre —
+     * « 3 × 33,34 € » en face de « 100,00 € », alors que trois fois 33,34
+     * font 100,02. La première est justement celle qui porte les centimes de
+     * l'arrondi : la phrase se contredisait dès qu'un montant ne se divisait
+     * pas, c'est-à-dire presque toujours.
+     *
+     * Les échéances égales qui se suivent se regroupent, les autres se
+     * nomment. « 3 × 33,33 € » quand ça tombe juste, « 33,34 € + 2 × 33,33 € »
+     * quand les centimes ouvrent la marche, « 2 × 33,33 € + 33,34 € » quand
+     * ils la ferment — sans qu'aucun de ces cas soit traité à part.
+     */
+    static func describe(_ amounts: [Double], money: (Double) -> String) -> String {
+        var parts: [String] = []
+        var index = 0
+        while index < amounts.count {
+            var run = 1
+            while index + run < amounts.count,
+                  abs(amounts[index + run] - amounts[index]) < 0.005 { run += 1 }
+            let each = money(amounts[index])
+            parts.append(run == 1 ? each : "\(run) × \(each)")
+            index += run
+        }
+        return parts.joined(separator: " + ")
     }
 
     /// Les frais d'une offre énoncée « N × M € » : ce qu'on rend en plus de
