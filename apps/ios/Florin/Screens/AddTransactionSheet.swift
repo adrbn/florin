@@ -763,7 +763,7 @@ struct AddTransactionSheet: View {
         let rate = LocalInstalments.annualRate(purchase: magnitude, instalments: amounts)
         VStack(spacing: 7) {
             HStack {
-                Text("\(amounts.count) × \(Money.string(amounts.first ?? 0, locale: localeTag, currency: currency))")
+                Text(Self.shape(amounts, locale: localeTag, currency: currency))
                     .foregroundStyle(Florin.text2)
                 Spacer(minLength: 8)
                 Text(Money.string(due, locale: localeTag, currency: currency))
@@ -790,6 +790,19 @@ struct AddTransactionSheet: View {
             }
         }
         .font(.system(size: 13))
+    }
+
+    /// L'échéancier tel qu'il sera écrit : « 3 × 100,00 € » quand il se divise,
+    /// « 33,34 € + 2 × 33,33 € » quand les centimes tombent sur la première.
+    private static func shape(_ amounts: [Double], locale: String, currency: String) -> String {
+        func money(_ value: Double) -> String {
+            Money.string(value, locale: locale, currency: currency)
+        }
+        guard let first = amounts.first else { return "" }
+        guard !LocalInstalments.isEven(amounts), let rest = amounts.last else {
+            return "\(amounts.count) × \(money(first))"
+        }
+        return "\(money(first)) + \(amounts.count - 1) × \(money(rest))"
     }
 
     /// Un taux annuel se lit à un chiffre après la virgule : la précision

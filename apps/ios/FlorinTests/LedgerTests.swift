@@ -3075,6 +3075,24 @@ struct InstalmentTests {
         #expect(LocalInstalments.split(40, over: 1) == [40])
     }
 
+    /*
+     * Un multiple ne s'annonce que lorsque c'en est un.
+     *
+     * Le récapitulatif affichait « 3 × 33,34 € » en face de « 100,00 € ».
+     * Trois fois 33,34 font 100,02 : il multipliait la première échéance,
+     * c'est-à-dire précisément celle qui porte les centimes de l'arrondi. La
+     * phrase se contredisait d'elle-même dès qu'un montant ne se divisait pas
+     * — et un montant se divise rarement.
+     */
+    @Test("a recap only says N times M when the instalments really are equal")
+    func unevenInstalmentsAreNotAMultiple() {
+        #expect(LocalInstalments.isEven(LocalInstalments.split(100, over: 3)) == false)
+        #expect(LocalInstalments.isEven(LocalInstalments.split(99, over: 3)))
+        #expect(LocalInstalments.isEven(LocalInstalments.split(300, over: 3)))
+        #expect(LocalInstalments.isEven(LocalInstalments.split(40, over: 1)))
+        #expect(LocalInstalments.isEven([]))
+    }
+
     /// Les centimes se voient sur l'échéance qu'on paie au comptoir, la seule
     /// qu'on puisse confronter au ticket.
     @Test("the odd cents fall on the instalment paid at the till")

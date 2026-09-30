@@ -42,6 +42,24 @@ enum LocalInstalments {
         return (0..<count).map { Double(base + ($0 == 0 ? extra : 0)) / 100 }
     }
 
+    /*
+     * Les échéances sont-elles toutes identiques ?
+     *
+     * Le récapitulatif annonçait « 3 × 33,34 € » en face de « 100,00 € », et
+     * trois fois 33,34 font 100,02. Il multipliait la première échéance,
+     * celle-là même qui porte les centimes de l'arrondi : la phrase se
+     * contredisait donc dès qu'un montant ne se divisait pas, c'est-à-dire
+     * presque toujours.
+     *
+     * Ce n'est pas le partage qu'il faut changer — il tombe juste au
+     * centime — mais la façon de l'énoncer. Un multiple ne se dit que
+     * lorsque c'en est un ; sinon on nomme la première et le reste.
+     */
+    static func isEven(_ amounts: [Double]) -> Bool {
+        guard let first = amounts.first else { return true }
+        return amounts.allSatisfy { abs($0 - first) < 0.005 }
+    }
+
     /// Les frais d'une offre énoncée « N × M € » : ce qu'on rend en plus de
     /// ce qu'on a acheté.
     static func fees(purchase: Double, instalments: [Double]) -> Double {
