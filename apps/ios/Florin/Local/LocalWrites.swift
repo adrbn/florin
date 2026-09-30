@@ -78,7 +78,7 @@ enum LocalLedger {
                    c.name AS category_name, c.emoji AS category_emoji,
                    a.name AS account_name, t.transfer_pair_id,
                    t.needs_review, t.is_pending, t.status,
-                   t.account_id, t.category_id
+                   t.account_id, t.category_id, t.instalment_plan_id
             FROM transactions t
             LEFT JOIN categories c ON c.id = t.category_id
             LEFT JOIN accounts a ON a.id = t.account_id
@@ -119,7 +119,8 @@ enum LocalLedger {
             isPending: row.bool("is_pending"),
             isScheduled: row.string("status") == "scheduled",
             accountId: row.string("account_id"),
-            categoryId: row.string("category_id")
+            categoryId: row.string("category_id"),
+            instalmentPlanId: row.string("instalment_plan_id")
         )
     }
 

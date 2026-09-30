@@ -93,6 +93,7 @@ struct TransactionList<Banner: View>: View {
     /// Non-nil while picking rows to approve in one go.
     @State private var selection: Set<String>?
     @State private var upcomingExpanded = false
+    @State private var instalmentsExpanded = false
     @FocusState private var searchFocused: Bool
 
     init(
@@ -596,6 +597,24 @@ struct TransactionList<Banner: View>: View {
                         }
                     }
 
+                    if !instalments.isEmpty {
+                        UpcomingGroup(
+                            transactions: instalments,
+                            locale: locale,
+                            currency: currency,
+                            t: t,
+                            symbol: "calendar",
+                            caption: t(
+                                "v2.activity.instalmentCount",
+                                "{count} mensualités à venir",
+                                ["count": instalments.count]
+                            ),
+                            expanded: $instalmentsExpanded
+                        ) { tx in
+                            row(tx)
+                        }
+                    }
+
                     /*
                      * The same shape the dashboard uses.
                      *
@@ -778,7 +797,22 @@ struct TransactionList<Banner: View>: View {
 
     /// Announced, not yet booked. Kept out of the queue and the day groups.
     private var upcoming: [Transaction] {
-        model.rows.filter(\.isUpcoming)
+        model.rows.filter { $0.isUpcoming && !$0.isInstalment }
+    }
+
+    /*
+     * Les échéances d'un achat payé en plusieurs fois, à part.
+     *
+     * Une opération en prévision est une promesse de la banque : elle arrive,
+     * on n'y peut rien, et on veut la voir. Une échéance est une décision
+     * prise le jour de l'achat, connue d'avance et sans surprise — la ranger
+     * avec les autres faisait d'un achat en quatre fois quatre nouvelles.
+     *
+     * Même composant, donc même pli et même total ; un autre glyphe et une
+     * autre phrase, parce que ce n'est pas la même attente.
+     */
+    private var instalments: [Transaction] {
+        model.rows.filter { $0.isUpcoming && $0.isInstalment }
     }
 
     private var days: [Day] {
@@ -789,7 +823,7 @@ struct TransactionList<Banner: View>: View {
         let pinned = Set(pending.map(\.id))
         // Upcoming rows have their own group above; listing them again here
         // would put tomorrow's direct debit twice on the same screen.
-        let announced = Set(upcoming.map(\.id))
+        let announced = Set(upcoming.map(\.id)).union(instalments.map(\.id))
         for tx in model.rows
         where !(pinned.contains(tx.id) && !model.filter.needsReview)
             && !announced.contains(tx.id) {

@@ -155,26 +155,29 @@ enum LocalWallet {
     static func recordUpcoming(store: LocalStore, _ tx: NewTransaction) throws {
         try insertUpcoming(
             store: store, accountId: tx.accountId, occurredAt: tx.occurredAt,
-            amount: tx.amount, payee: tx.payee, memo: tx.memo, categoryId: tx.categoryId
+            amount: tx.amount, payee: tx.payee, memo: tx.memo,
+            categoryId: tx.categoryId, instalmentPlanId: tx.instalmentPlanId
         )
     }
 
     private static func insertUpcoming(
         store: LocalStore, accountId: String, occurredAt: String,
-        amount: Double, payee: String, memo: String?, categoryId: String?
+        amount: Double, payee: String, memo: String?, categoryId: String?,
+        instalmentPlanId: String? = nil
     ) throws {
         try store.database.run(
             """
             INSERT INTO transactions
                 (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
-                 memo, category_id, source, status, is_pending, needs_review)
-            VALUES (?, ?, ?, ?, 'EUR', ?, ?, ?, ?, ?, 'scheduled', 1, 0)
+                 memo, category_id, source, instalment_plan_id,
+                 status, is_pending, needs_review)
+            VALUES (?, ?, ?, ?, 'EUR', ?, ?, ?, ?, ?, ?, 'scheduled', 1, 0)
             """,
             [
                 .text(UUID().uuidString), .text(accountId), .text(occurredAt),
                 .real(amount), .text(payee), .text(LocalLedger.normalize(payee)),
                 memo.map { .text($0) } ?? .null, categoryId.map { .text($0) } ?? .null,
-                .text(source),
+                .text(source), instalmentPlanId.map { .text($0) } ?? .null,
             ]
         )
         // Filed from history straight away, so the upcoming row already says

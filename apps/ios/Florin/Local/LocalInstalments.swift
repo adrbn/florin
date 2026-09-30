@@ -179,6 +179,9 @@ enum LocalInstalments {
         calendar: Calendar = .current
     ) throws -> Int {
         let days = dates(from: first, count: instalments.count, calendar: calendar)
+        // Ce qui fait de ces N lignes un échéancier plutôt que N opérations
+        // qui se ressemblent.
+        let plan = UUID().uuidString
         for (index, amount) in instalments.enumerated() {
             let note = Strings.device(
                 "v2.instalments.memo", "En {count} fois ({index}/{count})",
@@ -193,7 +196,8 @@ enum LocalInstalments {
                 ),
                 memo: memo.flatMap { $0.isEmpty ? nil : "\($0) · \(note)" } ?? note,
                 categoryId: categoryId,
-                upcoming: true
+                upcoming: true,
+                instalmentPlanId: plan
             ))
         }
         return instalments.count

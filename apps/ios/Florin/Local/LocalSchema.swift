@@ -106,7 +106,7 @@ enum LocalSchema {
             deleted_at TEXT,
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-          , status TEXT NOT NULL DEFAULT 'cleared', recurring_rule_id TEXT, recurrence_key TEXT, merge_suggested_tx_id TEXT, bank_payee TEXT, booked_at TEXT);
+          , status TEXT NOT NULL DEFAULT 'cleared', recurring_rule_id TEXT, recurrence_key TEXT, merge_suggested_tx_id TEXT, bank_payee TEXT, booked_at TEXT, instalment_plan_id TEXT);
         CREATE INDEX IF NOT EXISTS transactions_account_date_idx ON transactions(account_id, occurred_at);
         CREATE INDEX IF NOT EXISTS transactions_category_date_idx ON transactions(category_id, occurred_at);
         CREATE TABLE IF NOT EXISTS balance_snapshots (

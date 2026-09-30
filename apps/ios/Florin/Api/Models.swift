@@ -218,6 +218,9 @@ struct NewTransaction: Encodable, Sendable {
     /// Not at the bank yet: kept under "upcoming" until the bank's own row
     /// replaces it (`LocalWallet.settle`). Device ledger only, never encoded.
     var upcoming = false
+    /// L'échéancier dont elle fait partie. Comme `upcoming`, il ne quitte
+    /// jamais l'appareil : le serveur n'a pas cette notion.
+    var instalmentPlanId: String?
 
     private enum CodingKeys: String, CodingKey {
         case accountId, amount, payee, occurredAt, memo, categoryId
@@ -271,6 +274,15 @@ struct Transaction: Decodable, Sendable, Identifiable {
     var accountId: String?
     var categoryId: String?
 
+    /// L'échéancier dont cette ligne est une échéance, s'il y en a un.
+    /// Vide pour tout le reste, c'est-à-dire pour presque tout.
+    var instalmentPlanId: String?
+
+    /// Une échéance d'un achat payé en plusieurs fois — à distinguer d'une
+    /// opération simplement annoncée : la banque n'a rien promis, c'est vous
+    /// qui savez qu'elle viendra.
+    var isInstalment: Bool { instalmentPlanId != nil }
+
     /// The same row, marked reviewed — for optimistic bulk approval.
     func approved() -> Transaction {
         Transaction(
@@ -278,7 +290,8 @@ struct Transaction: Decodable, Sendable, Identifiable {
             categoryName: categoryName, categoryEmoji: categoryEmoji,
             accountName: accountName, isTransfer: isTransfer,
             needsReview: false, isPending: isPending, isScheduled: isScheduled,
-            accountId: accountId, categoryId: categoryId
+            accountId: accountId, categoryId: categoryId,
+            instalmentPlanId: instalmentPlanId
         )
     }
 

@@ -3203,6 +3203,45 @@ struct InstalmentTests {
         #expect(rows.first?.string("memo")?.isEmpty == false)
     }
 
+    /*
+     * Les échéances d'un même achat se reconnaissent entre elles.
+     *
+     * Rien ne les distinguait d'une opération à venir ordinaire, sinon un
+     * mémo traduit — « En 3 fois (1/3) » — qu'un écran n'a pas à relire pour
+     * savoir ce qu'il affiche. Un identifiant commun aux N lignes suffit, et
+     * reste vide partout ailleurs : ce qui était déjà écrit ne bouge pas.
+     */
+    @Test("the instalments of one purchase share a plan, and nothing else has one")
+    func instalmentsShareAPlan() throws {
+        let (store, account) = try ledger()
+        var parts = DateComponents()
+        parts.year = 2027; parts.month = 3; parts.day = 10; parts.hour = 12
+        let day = try #require(calendar.date(from: parts))
+
+        for _ in 0..<2 {
+            _ = try LocalInstalments.record(
+                store: store, accountId: account, payee: "Le Comptoir", memo: nil,
+                categoryId: nil, from: day, instalments: LocalInstalments.split(300, over: 3),
+                calendar: calendar
+            )
+        }
+        let plans = try store.database.query(
+            "SELECT instalment_plan_id AS plan, count(*) AS n FROM transactions GROUP BY plan"
+        )
+        #expect(plans.count == 2)
+        #expect(plans.allSatisfy { $0.int("n") == 3 })
+        #expect(plans.allSatisfy { ($0.string("plan") ?? "").isEmpty == false })
+
+        // Une opération à venir ordinaire n'appartient à aucun échéancier.
+        try LocalWallet.recordUpcoming(store: store, NewTransaction(
+            accountId: account, amount: -9, payee: "Le Comptoir",
+            occurredAt: "2027-03-10T12:00:00Z", memo: nil, categoryId: nil, upcoming: true
+        ))
+        #expect(try store.database.scalar(
+            "SELECT count(*) FROM transactions WHERE instalment_plan_id IS NULL"
+        )?.int == 1)
+    }
+
     /// La source est celle des opérations à venir, sans quoi le rapprochement
     /// ne les verrait pas et les échéances resteraient prévues pour toujours.
     @Test("the bank's own debit retires an instalment")

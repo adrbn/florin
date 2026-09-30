@@ -934,7 +934,12 @@ struct OverviewScreen: View {
         // Announced but not booked: dated ahead, so by date they crowd the top
         // of "dernières opérations", which is meant to answer what just
         // happened. Folded into one line above, and out of the six below.
-        let upcoming = data.recent.filter(\.isUpcoming)
+        // Une échéance d'un achat en plusieurs fois n'est pas une nouvelle :
+        // elle est décidée, datée, et connue depuis le jour de l'achat. Quatre
+        // d'entre elles suffisaient à chasser de l'écran ce qui venait
+        // réellement de se passer. Elles vivent dans Activité, sous la
+        // prévision, et n'ont rien à faire dans un résumé.
+        let upcoming = data.recent.filter { $0.isUpcoming && !$0.isInstalment }
         // Waiting on the bank and waiting on you are two different queues, and
         // a row cannot be in both: an unsettled charge is not yours to file
         // yet. Split before either group is drawn.

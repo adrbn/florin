@@ -85,6 +85,19 @@ final class LocalStore {
          * telle quelle : vide tant que la banque n'a rien comptabilisé.
          */
         try addColumn("transactions", "booked_at", "TEXT")
+        /*
+         * L'échéancier auquel une échéance appartient.
+         *
+         * Les échéances d'un achat en plusieurs fois s'écrivaient comme des
+         * opérations à venir ordinaires, et rien ne les en distinguait : une
+         * seule chose les reliait, un mémo traduit « En 4 fois (1/4) », qu'on
+         * ne va pas se mettre à relire pour construire un écran.
+         *
+         * Un même identifiant sur les N lignes suffit, et se contente d'être
+         * vide partout ailleurs — les opérations déjà écrites restent donc
+         * exactement ce qu'elles étaient.
+         */
+        try addColumn("transactions", "instalment_plan_id", "TEXT")
         // `settings` is exactly (key, value) in this schema — no timestamps.
         try database.run(
             "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
