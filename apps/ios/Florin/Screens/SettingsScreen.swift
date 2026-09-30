@@ -47,6 +47,7 @@ struct SettingsScreen: View {
     @State private var showingBanking = false
     @State private var showingCategories = false
     @State private var showingMerchants = false
+    @State private var showingTrash = false
     @State private var showingWalletGuide = false
     @State private var showingSyncLog = false
     @State private var showingImport = false
@@ -94,6 +95,14 @@ struct SettingsScreen: View {
             .sheet(isPresented: $showingBanking) { BankingSettings() }
             .sheet(isPresented: $showingCategories) { CategoriesScreen(t: t) }
             .sheet(isPresented: $showingMerchants) { MerchantsScreen(t: t) }
+            .sheet(isPresented: $showingTrash) {
+                TrashScreen(
+                    t: t,
+                    locale: model.overview?.localeTag ?? "fr-FR",
+                    currency: model.overview?.currency ?? "EUR",
+                    onChange: { await model.load(showSpinner: false) }
+                )
+            }
             .sheet(isPresented: $showingWalletGuide) { WalletGuideSheet(t: t) }
             .sheet(item: $news) { release in WhatsNewSheet(release: release, t: t) }
             .sheet(isPresented: $showingSyncLog) {
@@ -712,6 +721,14 @@ struct SettingsScreen: View {
                 action: { showingMerchants = true }
             )
             Hairline()
+            if local {
+                SettingsRow(
+                    label: t("v2.trash.title", "Corbeille"),
+                    symbol: "trash",
+                    action: { showingTrash = true }
+                )
+                Hairline()
+            }
             Toggle(isOn: Binding(
                 get: { logosOn },
                 set: { on in

@@ -32,7 +32,6 @@ struct TransactionDetailSheet: View {
     /// catégorie" a moment after one was assigned.
     @State private var filed: String?
     @State private var editing = false
-    @State private var confirmingDelete = false
     @State private var working = false
     @State private var filing = false
     @State private var markingTransfer = false
@@ -279,29 +278,14 @@ struct TransactionDetailSheet: View {
             )
         }
         /*
-         * Une alerte, pas une feuille de confirmation.
+         * Plus de confirmation.
          *
-         * Depuis une feuille, iOS ancre un `confirmationDialog` sur ce qui l'a
-         * déclenché et le dessine en bulle avec une flèche — un objet qui a
-         * l'air d'un bug, et dont le bouton Annuler disparaît au passage : il
-         * ne restait qu'un « Supprimer » rouge flottant au-dessus de l'écran.
-         * Une alerte se centre, garde ses deux boutons, et se comporte pareil
-         * partout — c'est déjà ce que la suppression d'un compte utilise.
+         * Elle demandait un geste de plus à chaque suppression pour se
+         * prémunir d'un accident rare — et d'un accident qui ne détruit rien :
+         * la suppression est douce partout, la ligne reste dans la base.
+         * Réparer vaut mieux que barrer la route, et c'est la corbeille des
+         * Réglages qui répare (voir `LocalLedger.deletedRecently`).
          */
-        .alert(
-            t("v2.activity.deleteConfirm", "Supprimer cette opération ?"),
-            isPresented: $confirmingDelete
-        ) {
-            Button(t("v2.common.delete", "Supprimer"), role: .destructive) {
-                Task {
-                    await onDelete()
-                    dismiss()
-                }
-            }
-            Button(t("v2.common.cancel", "Annuler"), role: .cancel) {}
-        } message: {
-            Text(PayeeText.title(tx.payee, category: tx.categoryName))
-        }
     }
 
     private var summary: some View {
@@ -372,7 +356,10 @@ struct TransactionDetailSheet: View {
                 symbol: "trash",
                 destructive: true
             ) {
-                confirmingDelete = true
+                Task {
+                    await onDelete()
+                    dismiss()
+                }
             }
         }
         .padding(.horizontal, Florin.gutter)

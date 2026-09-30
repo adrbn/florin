@@ -1977,6 +1977,63 @@ struct WalletPaymentTests {
     }
 
     /*
+     * Ce qu'une main a jeté se reprend ; ce que le rapprochement a retiré, non.
+     *
+     * Supprimer ne demande plus confirmation, donc il faut pouvoir revenir en
+     * arrière. Mais le rapprochement supprime lui aussi, en silence : il
+     * retire le paiement du comptoir quand la banque publie le sien, en
+     * gardant le lien vers celle-ci. Rendre celui-là recréerait le doublon
+     * qu'il venait d'éteindre — c'est ce lien qui les sépare.
+     */
+    @Test("the trash takes back a hand's deletion, never the reconciler's")
+    func trashRestoresOnlyWhatAHandDeleted() throws {
+        let (store, checking, _) = try ledger()
+        let groceries = try bankRow(store, checking, "2026-09-10", -24.90,
+                                    label: "ACHAT CB LE COMPTOIR")
+        try LocalLedger.delete(store: store, id: groceries)
+        #expect(try LocalLedger.deletedRecently(store.database).map(\.id) == [groceries])
+
+        try LocalLedger.restore(store: store, id: groceries)
+        #expect(try LocalLedger.deletedRecently(store.database).isEmpty)
+        #expect(try store.database.scalar(
+            "SELECT count(*) FROM transactions WHERE id = ? AND deleted_at IS NULL",
+            [.text(groceries)]
+        )?.int == 1)
+
+        // Le paiement que la banque a remplacé : retiré, mais pas jetable.
+        _ = try bankRow(store, checking, "2026-09-12", -4.20, label: "ACHAT CB LE COMPTOIR")
+        try store.database.run(
+            """
+            INSERT INTO transactions (id, account_id, occurred_at, amount, payee, normalized_payee,
+                source, status, is_pending)
+            VALUES (?, ?, '2026-09-12T09:10:00Z', -4.20, 'Le Comptoir', 'le comptoir',
+                'ios_shortcut', 'scheduled', 1)
+            """,
+            [.text(UUID().uuidString), .text(checking)]
+        )
+        #expect(try LocalWallet.settle(store: store) == 1)
+        #expect(try LocalLedger.deletedRecently(store.database).isEmpty)
+    }
+
+    /// Trente jours, pas davantage : la corbeille est une fenêtre, pas une
+    /// archive, et rien n'y est jamais effacé pour de bon.
+    @Test("a deletion older than the window is no longer offered")
+    func trashForgetsOldDeletions() throws {
+        let (store, checking, _) = try ledger()
+        let old = try bankRow(store, checking, "2026-06-01", -12, label: "ACHAT CB LE COMPTOIR")
+        try LocalLedger.delete(store: store, id: old)
+        try store.database.run(
+            "UPDATE transactions SET deleted_at = datetime('now', '-31 days') WHERE id = ?",
+            [.text(old)]
+        )
+        #expect(try LocalLedger.deletedRecently(store.database).isEmpty)
+        // Toujours là, simplement plus proposée.
+        #expect(try store.database.scalar(
+            "SELECT count(*) FROM transactions WHERE id = ?", [.text(old)]
+        )?.int == 1)
+    }
+
+    /*
      * A fare the operator submitted late: the bank booked the ride on the day
      * it happened, Wallet only revealed it afterwards, so the tap is dated
      * after the row that already holds it.

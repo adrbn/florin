@@ -733,6 +733,65 @@ enum LocalLedger {
         }
     }
 
+    // MARK: - La corbeille
+
+    /*
+     * Ce qu'on a jeté, et qu'on peut reprendre.
+     *
+     * Une suppression est douce partout dans Florin : la ligne reste, son
+     * `deleted_at` la met de côté. La confirmation qui barrait la route ne
+     * protégeait donc rien qu'on ne puisse défaire — elle coûtait un geste à
+     * chaque fois pour un accident rare et réversible. Elle est partie ; la
+     * corbeille prend sa place, et rend le geste réparable au lieu de le
+     * rendre pénible.
+     *
+     * Ne sont proposées que les suppressions d'une main humaine. Le
+     * rapprochement en fait d'autres, en silence : il retire le paiement
+     * enregistré au comptoir quand la banque publie le sien, et garde sur la
+     * ligne retirée le lien vers celle qui l'a remplacée. Les rendre, ce
+     * serait recréer le doublon qu'il venait d'éteindre — on les reconnaît
+     * précisément à ce lien.
+     *
+     * Rien n'est jamais effacé pour de bon, et les trente jours ne sont
+     * qu'une fenêtre d'affichage. Purger pour de vrai ressusciterait ce
+     * qu'on croyait jeté : une ligne bancaire supprimée puis effacée revient
+     * à la synchro suivante, neuve et sans mémoire — c'est la raison même
+     * pour laquelle `delete` est douce.
+     */
+    static func deletedRecently(_ db: SQLiteDatabase, days: Int = 30) throws -> [Transaction] {
+        try db.query(
+            """
+            SELECT t.id, t.occurred_at, t.amount, t.payee, t.memo,
+                   c.name AS category_name, c.emoji AS category_emoji,
+                   a.name AS account_name, t.transfer_pair_id,
+                   t.needs_review, t.is_pending, t.status,
+                   t.account_id, t.category_id, t.instalment_plan_id
+            FROM transactions t
+            LEFT JOIN categories c ON c.id = t.category_id
+            LEFT JOIN accounts a ON a.id = t.account_id
+            WHERE t.deleted_at IS NOT NULL
+              AND t.merge_suggested_tx_id IS NULL
+              AND t.deleted_at >= datetime('now', ?)
+            ORDER BY t.deleted_at DESC, t.occurred_at DESC
+            """,
+            [.text("-\(max(1, days)) days")]
+        ).map(transaction(from:))
+    }
+
+    /// Reprise dans le grand livre, et le solde du compte avec elle.
+    static func restore(store: LocalStore, id: String) throws {
+        try store.database.transaction {
+            try store.database.run(
+                """
+                UPDATE transactions SET deleted_at = NULL, updated_at = datetime('now')
+                WHERE id = ? AND merge_suggested_tx_id IS NULL
+                """,
+                [.text(id)]
+            )
+            try recomputeAffectedBalance(store, transactionId: id)
+        }
+    }
+
     // MARK: - Keeping balances true
 
     private static func recomputeAffectedBalance(_ store: LocalStore, transactionId: String) throws {

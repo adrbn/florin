@@ -111,7 +111,6 @@ struct TransactionActionsHost: ViewModifier {
     var isLocalLedger = false
 
     @State private var sheet: TxActionRequest?
-    @State private var deleting: Transaction?
     /// Ce que le grand livre propose pour la ligne en cours de classement.
     @State private var hint: Category?
 
@@ -124,25 +123,15 @@ struct TransactionActionsHost: ViewModifier {
                 case .approve:
                     Task { await onPatch(new.tx, TxPatch(approve: true)) }
                 case .delete:
-                    deleting = new.tx
+                    // Sans confirmation : la suppression est douce et la
+                    // corbeille des Réglages la reprend (LocalLedger.restore).
+                    Task { await onDelete(new.tx) }
                 default:
                     sheet = new
                 }
             }
             .sheet(item: $sheet) { pending in
                 sheetContent(pending)
-            }
-            .alert(
-                t("v2.activity.deleteConfirm", "Supprimer cette opération ?"),
-                isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })
-            ) {
-                Button(t("v2.common.delete", "Supprimer"), role: .destructive) {
-                    if let tx = deleting { Task { await onDelete(tx) } }
-                    deleting = nil
-                }
-                Button(t("v2.common.cancel", "Annuler"), role: .cancel) { deleting = nil }
-            } message: {
-                Text(deleting.map { PayeeText.humanize($0.payee) } ?? "")
             }
     }
 
