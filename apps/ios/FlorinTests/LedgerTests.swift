@@ -3268,6 +3268,76 @@ struct InstalmentTests {
      * savoir ce qu'il affiche. Un identifiant commun aux N lignes suffit, et
      * reste vide partout ailleurs : ce qui était déjà écrit ne bouge pas.
      */
+    /*
+     * Un échéancier écrit avant que la colonne n'existe reste un échéancier.
+     *
+     * Ses lignes n'ont que leur mémo pour le dire, et un mémo est traduit.
+     * Ce qui les trahit, c'est la manière dont elles sont nées : une seule
+     * boucle, donc une seule seconde d'enregistrement, un seul compte, une
+     * seule enseigne — et des dates différentes. Une automatisation Wallet
+     * n'écrit jamais cela, et une opération isolée non plus.
+     */
+    @Test("an instalment plan older than the column is adopted on the next launch")
+    func olderPlansAreAdopted() throws {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("florin-legacy-\(UUID().uuidString).db")
+        let account = UUID().uuidString
+        do {
+            let store = try LocalStore(url: url)
+            try store.database.exec("""
+            INSERT INTO accounts (id, name, kind, currency)
+              VALUES ('\(account)', 'CCP', 'checking', 'EUR');
+            """)
+            // Trois échéances d'un même achat, écrites d'un bloc, sans plan.
+            for (index, day) in ["2027-03-10", "2027-04-10", "2027-05-10"].enumerated() {
+                try store.database.run(
+                    """
+                    INSERT INTO transactions (id, account_id, occurred_at, recorded_at, amount,
+                        payee, normalized_payee, memo, source, status, is_pending)
+                    VALUES (?, ?, ?, '2027-03-10 09:00:00', -10, 'Le Comptoir', 'le comptoir',
+                        ?, 'ios_shortcut', 'scheduled', 1)
+                    """,
+                    [.text(UUID().uuidString), .text(account), .text("\(day)T12:00:00Z"),
+                     .text("En 3 fois (\(index + 1)/3)")]
+                )
+            }
+            // Un achat isolé, même enseigne, même seconde : une seule date,
+            // donc rien à regrouper.
+            try store.database.run(
+                """
+                INSERT INTO transactions (id, account_id, occurred_at, recorded_at, amount,
+                    payee, normalized_payee, source, status, is_pending)
+                VALUES (?, ?, '2027-03-10T12:00:00Z', '2027-06-01 08:00:00', -4,
+                    'Le Comptoir', 'le comptoir', 'ios_shortcut', 'scheduled', 1)
+                """,
+                [.text(UUID().uuidString), .text(account)]
+            )
+        }
+
+        // Relancer l'app, c'est rouvrir la base.
+        let store = try LocalStore(url: url)
+        let plans = try store.database.query(
+            """
+            SELECT instalment_plan_id AS plan, count(*) AS n FROM transactions
+             WHERE instalment_plan_id IS NOT NULL GROUP BY plan
+            """
+        )
+        #expect(plans.count == 1)
+        #expect(plans.first?.int("n") == 3)
+        #expect(try store.database.scalar(
+            "SELECT count(*) FROM transactions WHERE instalment_plan_id IS NULL"
+        )?.int == 1)
+
+        // Rouvrir encore ne scinde rien : la clé du groupe est la même.
+        let again = try LocalStore(url: url)
+        #expect(try again.database.query(
+            """
+            SELECT instalment_plan_id AS plan FROM transactions
+             WHERE instalment_plan_id IS NOT NULL GROUP BY plan
+            """
+        ).count == 1)
+    }
+
     @Test("the instalments of one purchase share a plan, and nothing else has one")
     func instalmentsShareAPlan() throws {
         let (store, account) = try ledger()

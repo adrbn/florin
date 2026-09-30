@@ -98,6 +98,7 @@ final class LocalStore {
          * exactement ce qu'elles étaient.
          */
         try addColumn("transactions", "instalment_plan_id", "TEXT")
+        try adoptOlderInstalmentPlans()
         // `settings` is exactly (key, value) in this schema — no timestamps.
         try database.run(
             "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
@@ -171,6 +172,39 @@ final class LocalStore {
      * existe. Une fois par ouverture de base, et sans effet là où les comptes
      * étaient déjà cohérents.
      */
+    /// Rattache les échéanciers saisis avant que la colonne n'existe.
+    ///
+    /// Ceux-là n'ont que leur mémo pour dire ce qu'ils sont, et un mémo est
+    /// traduit : on ne construit pas un regroupement là-dessus. Ce qui les
+    /// identifie sans ambiguïté, c'est leur écriture — un échéancier naît
+    /// d'une seule boucle, donc ses lignes partagent la seconde
+    /// d'enregistrement, le compte et l'enseigne, tout en tombant à des dates
+    /// différentes. Aucune autre écriture de l'app ne produit cela : une
+    /// automatisation Wallet écrit une ligne, pas plusieurs échelonnées.
+    ///
+    /// L'identifiant reconstruit n'est pas un UUID mais la clé du groupe
+    /// elle-même : deux passages donnent le même résultat, et la reprise peut
+    /// donc rejouer sans jamais scinder un plan déjà rattaché.
+    private func adoptOlderInstalmentPlans() throws {
+        try database.run(
+            """
+            UPDATE transactions AS t
+               SET instalment_plan_id = 'legacy:' || t.account_id || ':'
+                   || t.normalized_payee || ':' || t.recorded_at
+             WHERE t.instalment_plan_id IS NULL
+               AND t.source = 'ios_shortcut'
+               AND EXISTS (
+                     SELECT 1 FROM transactions o
+                      WHERE o.id <> t.id
+                        AND o.account_id = t.account_id
+                        AND o.normalized_payee = t.normalized_payee
+                        AND o.recorded_at = t.recorded_at
+                        AND o.occurred_at <> t.occurred_at
+                   )
+            """
+        )
+    }
+
     private func repairOpeningBalances() throws {
         try database.run(
             """
