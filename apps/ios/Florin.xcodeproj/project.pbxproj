@@ -63,6 +63,7 @@
 		563720ABC3A033BC1D4B4DBA /* AddAccountSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 608F7E010F694A6297EE66C4 /* AddAccountSheet.swift */; };
 		570B14EAF8BA2BB76436B76C /* LocalQueries.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37EF623AEA746C7A66D35F6B /* LocalQueries.swift */; };
 		579ACFFF81AA5E790B90DA13 /* Rows.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF9632D2BADE2A1BA9B98E7D /* Rows.swift */; };
+		5A0180922CA7EF9A05CD85BB /* InstalmentPlanSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73E0B715B359D07A69D20D17 /* InstalmentPlanSheet.swift */; };
 		5B4111C7309CCDDA821AD38E /* CategoryRemovalSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 772EFF8D3DF1CE1E2F3D2ADA /* CategoryRemovalSheet.swift */; };
 		5D6B883191B2CE941475E705 /* CategoryEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3043699DDFC45335EED6DED0 /* CategoryEditorSheet.swift */; };
 		5F31D9308988DE98A0E17BB0 /* LocalDemo.swift in Sources */ = {isa = PBXBuildFile; fileRef = C262DD02E4EF484E010874E8 /* LocalDemo.swift */; };
@@ -223,6 +224,7 @@
 		71F201A99DD3A95C05BBE836 /* CategoryPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryPicker.swift; sourceTree = "<group>"; };
 		71F6A5D199B6FCCED78975D2 /* NetWorthChart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetWorthChart.swift; sourceTree = "<group>"; };
 		72FE45643769E71AEFCDC7D4 /* LocalAnalysis.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalAnalysis.swift; sourceTree = "<group>"; };
+		73E0B715B359D07A69D20D17 /* InstalmentPlanSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstalmentPlanSheet.swift; sourceTree = "<group>"; };
 		754B34C99EE06AC065034351 /* ReviewCategorySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewCategorySheet.swift; sourceTree = "<group>"; };
 		75D28CE358FB2C14BF840725 /* AmountText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmountText.swift; sourceTree = "<group>"; };
 		772EFF8D3DF1CE1E2F3D2ADA /* CategoryRemovalSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryRemovalSheet.swift; sourceTree = "<group>"; };
@@ -317,6 +319,7 @@
 				3CF1EDFEA6B96F300B0E16EC /* DaySheet.swift */,
 				2B9D688258E231DAD13B47A2 /* FilterSheet.swift */,
 				B9002B8C0392D7D4BCEB2266 /* ImportSheet.swift */,
+				73E0B715B359D07A69D20D17 /* InstalmentPlanSheet.swift */,
 				DCA4B188AFA3350AE1C4604E /* LoanSettingsSheet.swift */,
 				18030E300AC0E1F0F5D92D52 /* MerchantNameSheet.swift */,
 				A3A99F69BD4F0DE7DFD05513 /* MerchantsScreen.swift */,
@@ -716,6 +719,7 @@
 				AC5803FD0059E042429D5E3A /* FlorinAuth.swift in Sources */,
 				22CDB53123C3C03EEA6F09DD /* FlorinClient.swift in Sources */,
 				13F221008AC2C8208BE2C62F /* ImportSheet.swift in Sources */,
+				5A0180922CA7EF9A05CD85BB /* InstalmentPlanSheet.swift in Sources */,
 				6C909140154AE3375A686776 /* KnownMerchants.swift in Sources */,
 				A636000FF8D12DAA4D6FF8BC /* LoanSettingsSheet.swift in Sources */,
 				31B1D1DF613445C5C45A0568 /* LocalAnalysis.swift in Sources */,
@@ -835,7 +839,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Florin/Florin.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 448;
+				CURRENT_PROJECT_VERSION = 449;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Florin/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;
@@ -856,7 +860,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = FlorinWidgets/FlorinWidgets.entitlements;
-				CURRENT_PROJECT_VERSION = 448;
+				CURRENT_PROJECT_VERSION = 449;
 				INFOPLIST_FILE = FlorinWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -961,7 +965,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = FlorinWidgets/FlorinWidgets.entitlements;
-				CURRENT_PROJECT_VERSION = 448;
+				CURRENT_PROJECT_VERSION = 449;
 				INFOPLIST_FILE = FlorinWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1044,7 +1048,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Florin/Florin.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 448;
+				CURRENT_PROJECT_VERSION = 449;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Florin/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;

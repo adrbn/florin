@@ -176,12 +176,29 @@ enum LocalInstalments {
     static func record(
         store: LocalStore, accountId: String, payee: String, memo: String?,
         categoryId: String?, from first: Date, instalments: [Double],
-        calendar: Calendar = .current
+        purchase: Double? = nil, calendar: Calendar = .current
     ) throws -> Int {
         let days = dates(from: first, count: instalments.count, calendar: calendar)
         // Ce qui fait de ces N lignes un échéancier plutôt que N opérations
         // qui se ressemblent.
         let plan = UUID().uuidString
+        /*
+         * Le prix d'achat, écrit une fois pour l'échéancier entier.
+         *
+         * Sans prix donné, c'est la somme des échéances : « sans frais », la
+         * seule hypothèse que le grand livre atteste. Voir
+         * `LocalStore.priceOlderPlansAtWhatTheyCharged`.
+         */
+        try store.database.run(
+            "INSERT OR REPLACE INTO instalment_plans (id, purchase, purchased_on) VALUES (?, ?, ?)",
+            [
+                .text(plan),
+                .real(round2(abs(purchase ?? instalments.reduce(0, +)))),
+                .text(String(ISO8601DateFormatter.florinNoFraction.string(
+                    from: noon(days.first ?? first, calendar)
+                ).prefix(10))),
+            ]
+        )
         for (index, amount) in instalments.enumerated() {
             let note = Strings.device(
                 "v2.instalments.memo", "En {count} fois ({index}/{count})",
@@ -203,6 +220,122 @@ enum LocalInstalments {
         return instalments.count
     }
 
+    // MARK: - La lecture
+
+    /*
+     * Un échéancier tel qu'on le regarde : un achat, pas N opérations.
+     *
+     * L'écran listait les échéances à plat — quatre lignes identiques à un
+     * mois d'intervalle, et celles de deux achats différents mêlées au même
+     * niveau. Or personne ne pense « j'ai quatre opérations à venir » : on
+     * pense « il me reste trois échéances chez untel ». Le regroupement est
+     * donc la vue, et l'échéance le détail.
+     *
+     * Tout se déduit des lignes, ce qui est volontaire : rien à tenir à jour,
+     * rien qui puisse mentir. Une échéance prélevée est une ligne de la banque
+     * (`status = 'cleared'`), une échéance à venir est annoncée
+     * (`'scheduled'`) — le plan se remplit de lui-même au fil des
+     * prélèvements, sans compteur à incrémenter.
+     */
+    struct Schedule: Identifiable, Sendable {
+        let id: String
+        /// Le prix affiché à l'achat, positif.
+        let purchase: Double
+        let purchasedOn: Date?
+        /// Les échéances dans l'ordre des dates, payées puis à venir.
+        let instalments: [Transaction]
+
+        /// L'enseigne, prise sur la première échéance : renommer une ligne
+        /// renomme donc l'échéancier, ce qui est le comportement attendu.
+        var payee: String { instalments.first?.payee ?? "" }
+        var accountName: String { instalments.first?.accountName ?? "" }
+        var categoryName: String? { instalments.first?.categoryName }
+        var categoryEmoji: String? { instalments.first?.categoryEmoji }
+        var accountId: String? { instalments.first?.accountId }
+
+        var count: Int { instalments.count }
+        var due: [Transaction] { instalments.filter(\.isUpcoming) }
+        var settled: [Transaction] { instalments.filter { !$0.isUpcoming } }
+        var paidCount: Int { settled.count }
+
+        /// Ce que l'échéancier prélève en tout — frais compris, donc pas
+        /// forcément le prix d'achat.
+        var total: Double { LocalInstalments.round2(settled.sum + due.sum) }
+        var paid: Double { LocalInstalments.round2(settled.sum) }
+        var remaining: Double { LocalInstalments.round2(due.sum) }
+        /// Ce qu'on rend en plus de ce qu'on a acheté.
+        var fees: Double { LocalInstalments.round2(total - purchase) }
+        var isFree: Bool { abs(fees) < 0.005 }
+        var annualRate: Double? {
+            LocalInstalments.annualRate(
+                purchase: purchase, instalments: instalments.map { abs($0.amount) }
+            )
+        }
+
+        /// La prochaine échéance à tomber, s'il en reste.
+        var next: Transaction? { due.first }
+        var isOver: Bool { due.isEmpty }
+    }
+
+    /// Les échéanciers du grand livre, le plus pressé d'abord.
+    ///
+    /// Ordonnés sur la prochaine échéance — c'est la question que l'écran
+    /// pose — et les échéanciers soldés à la fin, eux n'attendant plus rien.
+    static func schedules(_ db: SQLiteDatabase) throws -> [Schedule] {
+        let prices = try db.query("SELECT id, purchase, purchased_on FROM instalment_plans")
+        var purchase: [String: (Double, String?)] = [:]
+        for row in prices {
+            guard let id = row.string("id") else { continue }
+            purchase[id] = (row.double("purchase") ?? 0, row.string("purchased_on"))
+        }
+        let rows = try db.query(
+            """
+            SELECT t.id, t.occurred_at, t.amount, t.payee, t.memo,
+                   c.name AS category_name, c.emoji AS category_emoji,
+                   a.name AS account_name, t.transfer_pair_id,
+                   t.needs_review, t.is_pending, t.status,
+                   t.account_id, t.category_id, t.instalment_plan_id
+            FROM transactions t
+            LEFT JOIN categories c ON c.id = t.category_id
+            LEFT JOIN accounts a ON a.id = t.account_id
+            WHERE t.deleted_at IS NULL AND t.instalment_plan_id IS NOT NULL
+            ORDER BY t.occurred_at
+            """
+        ).map(LocalLedger.transaction(from:))
+
+        var order: [String] = []
+        var grouped: [String: [Transaction]] = [:]
+        for row in rows {
+            guard let plan = row.instalmentPlanId else { continue }
+            if grouped[plan] == nil { order.append(plan) }
+            grouped[plan, default: []].append(row)
+        }
+        let day = ISO8601DateFormatter()
+        day.formatOptions = [.withFullDate]
+        return order.map { plan -> Schedule in
+            let instalments = grouped[plan] ?? []
+            let price = purchase[plan]
+            return Schedule(
+                id: plan,
+                // Un plan sans prix enregistré — base reprise d'un autre
+                // appareil, reprise qui n'a pas encore tourné — vaut ce qu'il
+                // prélève, comme dans la reprise elle-même.
+                purchase: price?.0 ?? round2(instalments.reduce(0) { $0 + abs($1.amount) }),
+                purchasedOn: price?.1.flatMap { day.date(from: $0 + "T00:00:00Z") }
+                    ?? instalments.first?.day,
+                instalments: instalments
+            )
+        }
+        .sorted {
+            switch ($0.next?.day, $1.next?.day) {
+            case let (left?, right?): return left < right
+            case (nil, _?): return false
+            case (_?, nil): return true
+            case (nil, nil): return $0.payee < $1.payee
+            }
+        }
+    }
+
     // MARK: -
 
     /// Midi, comme toute opération saisie à la main : la date compte, l'heure
@@ -212,4 +345,10 @@ enum LocalInstalments {
     }
 
     private static func round2(_ value: Double) -> Double { (value * 100).rounded() / 100 }
+}
+
+private extension Array where Element == Transaction {
+    /// La somme des échéances, positive : une dépense est négative au grand
+    /// livre et un échéancier se lit en « ce qu'il reste à payer ».
+    var sum: Double { reduce(0) { $0 + abs($1.amount) } }
 }

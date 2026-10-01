@@ -98,7 +98,36 @@ final class LocalStore {
          * exactement ce qu'elles étaient.
          */
         try addColumn("transactions", "instalment_plan_id", "TEXT")
+        /*
+         * Le prix d'achat, que les échéances ne disent pas.
+         *
+         * Un achat de 100 € en 3 fois avec 2 € de frais entre au grand livre
+         * comme trois lignes de 34 € : le prix affiché en magasin n'y figure
+         * nulle part, et les 2 € de frais sont donc irrécupérables une fois la
+         * sheet fermée. Or c'est le seul chiffre qui dise ce que la facilité
+         * de paiement coûte vraiment (voir `LocalInstalments.annualRate`).
+         *
+         * Une table à part plutôt qu'une colonne sur les lignes : le prix est
+         * un fait de l'échéancier, pas de chacune de ses échéances, et le
+         * rapprochement bancaire retire les lignes une par une — celle qui
+         * aurait porté le prix finirait par disparaître. Table propre à
+         * l'appareil, comme l'échéancier lui-même : le serveur n'a pas cette
+         * notion, donc elle ne figure pas dans `LocalSchema`, qui est le
+         * schéma de `db-sqlite` tel quel.
+         */
+        try database.exec(
+            """
+            CREATE TABLE IF NOT EXISTS instalment_plans (
+                id TEXT PRIMARY KEY,
+                purchase REAL NOT NULL,
+                purchased_on TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT (datetime('now'))
+              );
+            """
+        )
         try adoptOlderInstalmentPlans()
+        try carryPlansThroughSettlement()
+        try priceOlderPlansAtWhatTheyCharged()
         // `settings` is exactly (key, value) in this schema — no timestamps.
         try database.run(
             "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
@@ -201,6 +230,64 @@ final class LocalStore {
                         AND o.recorded_at = t.recorded_at
                         AND o.occurred_at <> t.occurred_at
                    )
+            """
+        )
+    }
+
+    /*
+     * Un échéancier survit à son prélèvement.
+     *
+     * Quand la banque prélève une échéance, `LocalWallet.settle` retire la
+     * ligne annoncée et garde celle de la banque — mais l'identifiant
+     * d'échéancier restait sur la ligne retirée. Un paiement en quatre fois
+     * perdait donc un membre à chaque prélèvement : « 4 échéances » devenait
+     * « 3 », puis « 2 », et « 2 sur 4 payées » était inécrivable puisque les
+     * payées n'étaient plus du plan.
+     *
+     * `settle` le transporte désormais. Pour les échéances déjà éteintes, la
+     * ligne retirée pointe encore vers celle qui l'a remplacée
+     * (`merge_suggested_tx_id`) : le lien est exact, il suffit de le suivre.
+     */
+    private func carryPlansThroughSettlement() throws {
+        try database.run(
+            """
+            UPDATE transactions AS b
+               SET instalment_plan_id = (
+                       SELECT t.instalment_plan_id FROM transactions t
+                        WHERE t.merge_suggested_tx_id = b.id
+                          AND t.instalment_plan_id IS NOT NULL
+                        LIMIT 1
+                   )
+             WHERE b.instalment_plan_id IS NULL
+               AND EXISTS (
+                     SELECT 1 FROM transactions t
+                      WHERE t.merge_suggested_tx_id = b.id
+                        AND t.instalment_plan_id IS NOT NULL
+                   )
+            """
+        )
+    }
+
+    /*
+     * Les échéanciers d'avant le prix d'achat valent ce qu'ils ont prélevé.
+     *
+     * Rien ne permet de retrouver un prix qui n'a jamais été écrit, et
+     * inventer des frais serait pire que de n'en pas afficher : on prend donc
+     * la somme des échéances, c'est-à-dire l'hypothèse « sans frais », qui est
+     * celle de la quasi-totalité des offres en plusieurs fois et la seule que
+     * le grand livre atteste. `INSERT OR IGNORE` : un échéancier déjà tarifé
+     * n'est jamais réécrit, et la reprise peut donc rejouer à chaque lancement.
+     */
+    private func priceOlderPlansAtWhatTheyCharged() throws {
+        try database.run(
+            """
+            INSERT OR IGNORE INTO instalment_plans (id, purchase, purchased_on)
+            SELECT t.instalment_plan_id,
+                   round(sum(abs(t.amount)), 2),
+                   min(substr(t.occurred_at, 1, 10))
+              FROM transactions t
+             WHERE t.instalment_plan_id IS NOT NULL AND t.deleted_at IS NULL
+             GROUP BY t.instalment_plan_id
             """
         )
     }

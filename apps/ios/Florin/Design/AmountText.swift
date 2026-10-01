@@ -31,6 +31,23 @@ enum Money {
         return text.replacingOccurrences(of: "-", with: "\u{2212}")
     }
 
+    /*
+     * Un taux annuel, écrit une fois pour toutes.
+     *
+     * Un chiffre après la virgule : la précision au-delà est fausse — le taux
+     * sort d'une dichotomie sur des échéances arrondies au centime — et
+     * l'ordre de grandeur est tout le message. Deux écrans l'affichent, la
+     * sheet qui propose le partage et celle qui relit l'échéancier : le même
+     * taux doit s'y lire pareil.
+     */
+    static func percent(_ rate: Double, locale: String) -> String {
+        let formatter = NumberFormatter()
+        formatter.locale = Locale(identifier: locale)
+        formatter.numberStyle = .percent
+        formatter.maximumFractionDigits = 1
+        return formatter.string(from: NSNumber(value: rate)) ?? "—"
+    }
+
     /// "12,3 k €" for axes and chips.
     static func compact(_ value: Double, locale: String, currency: String) -> String {
         let f = NumberFormatter()

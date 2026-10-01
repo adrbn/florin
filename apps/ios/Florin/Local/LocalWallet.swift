@@ -245,7 +245,8 @@ enum LocalWallet {
     static func settle(store: LocalStore) throws -> Int {
         let pending = try store.database.query(
             """
-            SELECT id, account_id, amount, payee, substr(occurred_at, 1, 10) AS day, category_id
+            SELECT id, account_id, amount, payee, substr(occurred_at, 1, 10) AS day,
+                   category_id, instalment_plan_id
             FROM transactions
             WHERE source = ? AND deleted_at IS NULL
             ORDER BY occurred_at
@@ -286,6 +287,25 @@ enum LocalWallet {
                     try store.database.run(
                         "UPDATE transactions SET category_id = ?, updated_at = datetime('now') WHERE id = ?",
                         [.text(category), .text(bankId)]
+                    )
+                }
+                /*
+                 * L'échéancier passe sur la ligne de la banque.
+                 *
+                 * Comme la catégorie, et pour la même raison : c'est le même
+                 * achat. Sans ce transport, un paiement en quatre fois perdait
+                 * une échéance à chaque prélèvement — le plan maigrissait au
+                 * lieu de se remplir, et « 2 sur 4 payées » n'était pas
+                 * calculable puisque les payées n'en faisaient plus partie.
+                 */
+                if let plan = row.string("instalment_plan_id") {
+                    try store.database.run(
+                        """
+                        UPDATE transactions
+                        SET instalment_plan_id = ?, updated_at = datetime('now')
+                        WHERE id = ?
+                        """,
+                        [.text(plan), .text(bankId)]
                     )
                 }
                 // The link stays on the retired payment, so this bank row is never

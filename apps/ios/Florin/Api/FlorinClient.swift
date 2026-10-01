@@ -141,8 +141,15 @@ struct FlorinClient: Sendable {
         try LocalInstalments.record(
             store: try localStore(), accountId: plan.accountId, payee: plan.payee,
             memo: plan.memo, categoryId: plan.categoryId, from: plan.first,
-            instalments: plan.instalments
+            instalments: plan.instalments, purchase: plan.purchase
         )
+    }
+
+    /// Les échéanciers du grand livre, regroupés par achat. Vide contre un
+    /// serveur, qui ne connaît ni les opérations à venir ni les échéanciers.
+    func instalmentPlans() throws -> [LocalInstalments.Schedule] {
+        guard isLocal else { return [] }
+        return try LocalInstalments.schedules(try localStore().database)
     }
 
     struct SyncResult: Decodable, Sendable {

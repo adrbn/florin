@@ -778,7 +778,7 @@ struct AddTransactionSheet: View {
                     Text(
                         "\(Money.string(fees, locale: localeTag, currency: currency))  ·  "
                             + t("v2.add.instalmentsPerYear", "{rate} par an",
-                                ["rate": Self.percent(rate, locale: localeTag)])
+                                ["rate": Money.percent(rate, locale: localeTag)])
                     )
                     .foregroundStyle(rate > 0.10 ? Florin.negative : Florin.text)
                     .fontWeight(.medium)
@@ -797,16 +797,6 @@ struct AddTransactionSheet: View {
         LocalInstalments.describe(amounts) {
             Money.string($0, locale: locale, currency: currency)
         }
-    }
-
-    /// Un taux annuel se lit à un chiffre après la virgule : la précision
-    /// au-delà est fausse, l'ordre de grandeur est tout le message.
-    private static func percent(_ value: Double, locale: String) -> String {
-        let formatter = NumberFormatter()
-        formatter.locale = Locale(identifier: locale)
-        formatter.numberStyle = .percent
-        formatter.maximumFractionDigits = 1
-        return formatter.string(from: NSNumber(value: value)) ?? "—"
     }
 
     /// Book at midday so a timezone shift can never move a transaction to the

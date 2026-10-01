@@ -3398,6 +3398,191 @@ struct InstalmentTests {
         )?.int)
         #expect(left == 2)
     }
+
+    /*
+     * Un échéancier maigrissait à chaque prélèvement.
+     *
+     * `settle` retire l'échéance annoncée et garde la ligne de la banque, mais
+     * l'identifiant d'échéancier restait sur la ligne retirée : un paiement en
+     * trois fois devenait un plan de deux échéances, puis d'une, et « 1 sur 3
+     * payée » était inécrivable puisque la payée n'en faisait plus partie.
+     */
+    @Test("un échéancier survit au prélèvement de ses échéances")
+    func aPlanOutlivesItsSettlements() throws {
+        let (store, account) = try ledger()
+        var parts = DateComponents()
+        parts.year = 2027; parts.month = 3; parts.day = 10; parts.hour = 12
+        let day = try #require(calendar.date(from: parts))
+        try LocalInstalments.record(
+            store: store, accountId: account, payee: "Le Comptoir", memo: nil,
+            categoryId: nil, from: day, instalments: [100, 100, 100],
+            purchase: 300, calendar: calendar
+        )
+        try store.database.run(
+            """
+            INSERT INTO transactions
+                (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
+                 source, status, needs_review)
+            VALUES (?, ?, '2027-03-12T10:00:00Z', -100, 'EUR', 'ACHAT CB LE COMPTOIR',
+                    'achat cb le comptoir', 'enable_banking', 'cleared', 0)
+            """,
+            [.text(UUID().uuidString), .text(account)]
+        )
+        #expect(try LocalWallet.settle(store: store) == 1)
+
+        let plan = try #require(try LocalInstalments.schedules(store.database).first)
+        #expect(try LocalInstalments.schedules(store.database).count == 1)
+        // Trois échéances, et toujours trois : une payée, deux à venir.
+        #expect(plan.count == 3)
+        #expect(plan.paidCount == 1)
+        #expect(plan.paid == 100)
+        #expect(plan.remaining == 200)
+        #expect(plan.total == 300)
+        #expect(plan.isFree)
+        #expect(plan.next?.date.hasPrefix("2027-04-10") == true)
+        #expect(!plan.isOver)
+    }
+
+    /// Celles qui ont été éteintes avant que `settle` ne transporte le plan :
+    /// la ligne retirée pointe encore vers celle qui l'a remplacée, et c'est
+    /// assez pour les rattacher au lancement suivant.
+    @Test("les échéances déjà prélevées rejoignent leur échéancier")
+    func settledInstalmentsRejoinTheirPlan() throws {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("florin-carry-\(UUID().uuidString).db")
+        let account = UUID().uuidString
+        let plan = UUID().uuidString
+        let bankRow = UUID().uuidString
+        do {
+            let store = try LocalStore(url: url)
+            try store.database.exec("""
+            INSERT INTO accounts (id, name, kind, currency)
+              VALUES ('\(account)', 'CCP', 'checking', 'EUR');
+            """)
+            // La ligne de la banque, sans échéancier, comme `settle` la laissait.
+            try store.database.run(
+                """
+                INSERT INTO transactions
+                    (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
+                     source, status)
+                VALUES (?, ?, '2027-03-12T10:00:00Z', -100, 'EUR', 'ACHAT CB LE COMPTOIR',
+                        'achat cb le comptoir', 'enable_banking', 'cleared')
+                """,
+                [.text(bankRow), .text(account)]
+            )
+            // L'échéance retirée, qui porte encore le plan et le lien.
+            try store.database.run(
+                """
+                INSERT INTO transactions
+                    (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
+                     source, status, is_pending, instalment_plan_id,
+                     deleted_at, merge_suggested_tx_id)
+                VALUES (?, ?, '2027-03-10T12:00:00Z', -100, 'EUR', 'Le Comptoir', 'le comptoir',
+                        'ios_shortcut', 'scheduled', 1, ?, '2027-03-13 09:00:00', ?)
+                """,
+                [.text(UUID().uuidString), .text(account), .text(plan), .text(bankRow)]
+            )
+            // Et l'échéance encore à venir.
+            try store.database.run(
+                """
+                INSERT INTO transactions
+                    (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
+                     source, status, is_pending, instalment_plan_id)
+                VALUES (?, ?, '2027-04-10T12:00:00Z', -100, 'EUR', 'Le Comptoir', 'le comptoir',
+                        'ios_shortcut', 'scheduled', 1, ?)
+                """,
+                [.text(UUID().uuidString), .text(account), .text(plan)]
+            )
+        }
+
+        // Relancer l'app, c'est rouvrir la base.
+        let store = try LocalStore(url: url)
+        #expect(try store.database.scalar(
+            "SELECT instalment_plan_id FROM transactions WHERE id = ?", [.text(bankRow)]
+        )?.string == plan)
+
+        let schedule = try #require(try LocalInstalments.schedules(store.database).first)
+        #expect(schedule.count == 2)
+        #expect(schedule.paidCount == 1)
+        #expect(schedule.remaining == 100)
+        // Et le prix de reprise est ce que l'échéancier prélève : sans frais.
+        #expect(schedule.purchase == 200)
+        #expect(schedule.isFree)
+    }
+
+    @Test("les frais sont ce que l'échéancier prélève au-delà du prix")
+    func feesAreWhatThePlanChargesOverThePrice() throws {
+        let (store, account) = try ledger()
+        var parts = DateComponents()
+        parts.year = 2027; parts.month = 3; parts.day = 10; parts.hour = 12
+        let day = try #require(calendar.date(from: parts))
+        try LocalInstalments.record(
+            store: store, accountId: account, payee: "Le Comptoir", memo: nil,
+            categoryId: nil, from: day, instalments: [102, 102, 102],
+            purchase: 300, calendar: calendar
+        )
+        let plan = try #require(try LocalInstalments.schedules(store.database).first)
+        #expect(plan.purchase == 300)
+        #expect(plan.total == 306)
+        #expect(plan.fees == 6)
+        #expect(!plan.isFree)
+        // 6 € sur 300 prêtés deux mois : bien au-delà de 2 %.
+        #expect((plan.annualRate ?? 0) > 0.2)
+
+        // Sans prix annoncé, l'échéancier vaut ce qu'il prélève.
+        try LocalInstalments.record(
+            store: store, accountId: account, payee: "Chez Rosa", memo: nil,
+            categoryId: nil, from: day, instalments: [50, 50], calendar: calendar
+        )
+        let free = try #require(
+            try LocalInstalments.schedules(store.database).first { $0.payee == "Chez Rosa" }
+        )
+        #expect(free.purchase == 100)
+        #expect(free.fees == 0)
+        #expect(free.isFree)
+    }
+
+    /// L'écran pose une question — « qu'est-ce qui tombe ensuite ? » — et
+    /// l'ordre y répond. Un échéancier soldé n'attend plus rien et passe en
+    /// dernier.
+    @Test("le plus pressé d'abord, les soldés à la fin")
+    func plansAreOrderedByTheirNextInstalment() throws {
+        let (store, account) = try ledger()
+        func day(_ month: Int) throws -> Date {
+            var parts = DateComponents()
+            parts.year = 2027; parts.month = month; parts.day = 10; parts.hour = 12
+            return try #require(calendar.date(from: parts))
+        }
+        try LocalInstalments.record(
+            store: store, accountId: account, payee: "Juin", memo: nil, categoryId: nil,
+            from: try day(6), instalments: [20, 20], calendar: calendar
+        )
+        try LocalInstalments.record(
+            store: store, accountId: account, payee: "Avril", memo: nil, categoryId: nil,
+            from: try day(4), instalments: [20, 20], calendar: calendar
+        )
+        // Un échéancier dont tout est prélevé : plus rien à annoncer.
+        let over = UUID().uuidString
+        for date in ["2027-01-10", "2027-02-10"] {
+            try store.database.run(
+                """
+                INSERT INTO transactions
+                    (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
+                     source, status, instalment_plan_id)
+                VALUES (?, ?, ?, -20, 'EUR', 'Soldé', 'solde',
+                        'enable_banking', 'cleared', ?)
+                """,
+                [.text(UUID().uuidString), .text(account), .text(date + "T12:00:00Z"),
+                 .text(over)]
+            )
+        }
+
+        let plans = try LocalInstalments.schedules(store.database)
+        #expect(plans.map(\.payee) == ["Avril", "Juin", "Soldé"])
+        #expect(plans.last?.isOver == true)
+        #expect(plans.last?.remaining == 0)
+        #expect(plans.last?.paidCount == 2)
+    }
 }
 
 // MARK: - Spending nobody has filed

@@ -94,6 +94,8 @@ struct TransactionList<Banner: View>: View {
     @State private var selection: Set<String>?
     @State private var upcomingExpanded = false
     @State private var instalmentsExpanded = false
+    /// L'échéancier dont on regarde le détail.
+    @State private var openPlan: LocalInstalments.Schedule?
     @FocusState private var searchFocused: Bool
 
     init(
@@ -316,6 +318,9 @@ struct TransactionList<Banner: View>: View {
             },
             isLocalLedger: model.isLocalLedger
         )
+        .sheet(item: $openPlan) { plan in
+            InstalmentPlanSheet(plan: plan, locale: locale, currency: currency, t: t)
+        }
         .sheet(item: $detail) { tx in
             TransactionDetailSheet(
                 tx: tx,
@@ -597,21 +602,44 @@ struct TransactionList<Banner: View>: View {
                         }
                     }
 
-                    if !instalments.isEmpty {
+                    /*
+                     * Un achat par ligne, pas une échéance par ligne.
+                     *
+                     * Le pli annonçait « 10 opérations » et en listait dix,
+                     * toutes au même niveau : les quatre échéances d'un voyage
+                     * mêlées aux quatre d'un flacon de parfum, à un jour près
+                     * les unes des autres. Or il n'y avait pas dix dépenses à
+                     * venir, il y avait trois achats — et c'est de l'achat
+                     * qu'on se souvient, pas de sa troisième mensualité.
+                     *
+                     * Le total du pli est ce qu'il reste à payer, somme des
+                     * échéances non encore prélevées ; chaque ligne ouvre son
+                     * échéancier.
+                     */
+                    if !schedules.isEmpty {
                         UpcomingGroup(
-                            transactions: instalments,
+                            items: schedules,
+                            total: -schedules.reduce(0) { $0 + $1.remaining },
                             locale: locale,
                             currency: currency,
                             t: t,
                             symbol: "calendar",
                             caption: t(
-                                "v2.activity.instalmentCount",
-                                "{count} mensualités à venir",
-                                ["count": instalments.count]
+                                "v2.activity.instalmentPlanCount",
+                                "{count} paiements en plusieurs fois",
+                                ["count": schedules.count]
                             ),
                             expanded: $instalmentsExpanded
-                        ) { tx in
-                            row(tx)
+                        ) { plan in
+                            Button {
+                                UISelectionFeedbackGenerator().selectionChanged()
+                                openPlan = plan
+                            } label: {
+                                InstalmentPlanRow(
+                                    plan: plan, locale: locale, currency: currency, t: t
+                                )
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
 
@@ -813,6 +841,16 @@ struct TransactionList<Banner: View>: View {
      */
     private var instalments: [Transaction] {
         model.rows.filter { $0.isUpcoming && $0.isInstalment }
+    }
+
+    /// Les échéanciers encore en cours — un achat soldé n'attend plus rien et
+    /// n'a donc rien à annoncer. Filtrés sur le compte regardé : la page d'un
+    /// compte ne parle que de lui.
+    private var schedules: [LocalInstalments.Schedule] {
+        model.schedules.filter {
+            !$0.isOver
+                && (model.filter.accountId == nil || $0.accountId == model.filter.accountId)
+        }
     }
 
     private var days: [Day] {

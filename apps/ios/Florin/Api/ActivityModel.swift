@@ -190,6 +190,9 @@ final class ActivityModel: ObservableObject {
     @Published private(set) var reviewCount = 0
     @Published private(set) var accounts: [Account] = []
     @Published private(set) var categories: [Category] = []
+    /// Les achats payés en plusieurs fois, regroupés par échéancier plutôt
+    /// que listés échéance par échéance. Vides contre un serveur.
+    @Published private(set) var schedules: [LocalInstalments.Schedule] = []
     @Published private(set) var loading = false
     @Published private(set) var failure: String?
     @Published var toast: ToastMessage?
@@ -223,6 +226,9 @@ final class ActivityModel: ObservableObject {
             reviewCount = page.reviewCount
             accounts = page.accounts
             categories = page.categories
+            // Les échéanciers ne se paginent pas : ils tiennent en quelques
+            // achats, et un plan à moitié chargé ne dit rien de juste.
+            schedules = (try? client.instalmentPlans()) ?? []
             reachedEnd = page.transactions.count >= page.total
         } catch {
             guard token == generation else { return }

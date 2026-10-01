@@ -431,8 +431,19 @@ struct Hairline: View {
 /// date it sits *above* everything that actually happened, because its date is
 /// in the future. Out of the totals already; out of the way here, behind one
 /// line that says how many and what they come to.
-struct UpcomingGroup<Row: View>: View {
-    let transactions: [Transaction]
+/*
+ * Un pli, un décompte, un total — et ce qu'on y range.
+ *
+ * Générique sur l'élément, et plus seulement sur les transactions : un
+ * échéancier n'est pas une opération, mais il attend de la même façon, se
+ * replie de la même façon et totalise de la même façon. Le total est donné de
+ * l'extérieur pour cette raison — ce qu'il reste à payer sur quatre achats
+ * n'est pas la somme de lignes qu'on afficherait.
+ */
+struct UpcomingGroup<Item: Identifiable, Row: View>: View {
+    let items: [Item]
+    /// Ce que le groupe pèse, en haut à droite du pli.
+    let total: Double
     let locale: String
     let currency: String
     let t: Strings
@@ -448,9 +459,40 @@ struct UpcomingGroup<Row: View>: View {
     /// card belongs to nothing on screen.
     var footer: AnyView?
     @Binding var expanded: Bool
-    @ViewBuilder var row: (Transaction) -> Row
+    @ViewBuilder var row: (Item) -> Row
 
-    private var total: Double { transactions.reduce(0) { $0 + $1.amount } }
+    init(
+        items: [Item], total: Double, locale: String, currency: String, t: Strings,
+        symbol: String = "clock", tint: Color = Florin.accent, caption: String? = nil,
+        footer: AnyView? = nil, expanded: Binding<Bool>,
+        @ViewBuilder row: @escaping (Item) -> Row
+    ) {
+        self.items = items
+        self.total = total
+        self.locale = locale
+        self.currency = currency
+        self.t = t
+        self.symbol = symbol
+        self.tint = tint
+        self.caption = caption
+        self.footer = footer
+        self._expanded = expanded
+        self.row = row
+    }
+
+    /// Le cas d'origine : des opérations, dont le total est la somme.
+    init(
+        transactions: [Transaction], locale: String, currency: String, t: Strings,
+        symbol: String = "clock", tint: Color = Florin.accent, caption: String? = nil,
+        footer: AnyView? = nil, expanded: Binding<Bool>,
+        @ViewBuilder row: @escaping (Transaction) -> Row
+    ) where Item == Transaction {
+        self.init(
+            items: transactions, total: transactions.reduce(0) { $0 + $1.amount },
+            locale: locale, currency: currency, t: t, symbol: symbol, tint: tint,
+            caption: caption, footer: footer, expanded: expanded, row: row
+        )
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -465,7 +507,7 @@ struct UpcomingGroup<Row: View>: View {
                     Text(
                         caption
                             ?? t("v2.activity.upcomingCount", "{count} en prévision",
-                                 ["count": transactions.count])
+                                 ["count": items.count])
                     )
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(Florin.text2)
@@ -487,9 +529,9 @@ struct UpcomingGroup<Row: View>: View {
             .buttonStyle(.plain)
 
             if expanded {
-                ForEach(Array(transactions.enumerated()), id: \.element.id) { index, tx in
+                ForEach(items) { item in
                     Hairline()
-                    row(tx)
+                    row(item)
                 }
                 if let footer {
                     Hairline()
