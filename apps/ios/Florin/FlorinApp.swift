@@ -398,6 +398,19 @@ struct MainTabs: View {
         UISelectionFeedbackGenerator().selectionChanged()
     }
 
+    /*
+     * Retaper l'onglet où l'on est : retour à son accueil.
+     *
+     * Un onglet laissé sur un lien profond — « À vérifier », un compte
+     * ouvert — n'est pas à son accueil même s'il est déjà en haut. On efface
+     * donc d'abord ce que le lien avait demandé, puis `BackToTop` ferme ce
+     * qui est posé par-dessus et remonte.
+     */
+    private func backHome() {
+        if paths[selection] != nil { paths[selection] = nil }
+        BackToTop.run()
+    }
+
     var body: some View {
         ZStack(alignment: .bottom) {
             TabView(selection: $selection) {
@@ -461,6 +474,15 @@ struct MainTabs: View {
             )
         }
         .onChange(of: selection) { _, _ in chrome.reset() }
+        /*
+         * Retaper l'onglet où l'on est : retour à son accueil.
+         *
+         * Un onglet laissé sur un lien profond — « À vérifier », un compte
+         * ouvert — n'est pas à son accueil même s'il est en haut. On efface
+         * donc d'abord ce que le lien avait demandé, puis `BackToTop` ferme
+         * ce qui est posé par-dessus et remonte.
+         */
+        .onChange(of: chrome.homeTaps) { _, _ in backHome() }
         // Settings is presented by RootView — see there.
         .florinToast($model.toast)
     }

@@ -3880,3 +3880,81 @@ struct UnfiledSpendingTests {
         #expect(day.spent == 9)
     }
 }
+
+// MARK: - Retour à l'accueil
+
+@MainActor
+@Suite("Back to top")
+struct BackToTopTests {
+    private func scroller(
+        frame: CGRect, content: CGSize, in parent: UIView
+    ) -> UIScrollView {
+        let view = UIScrollView(frame: frame)
+        view.contentSize = content
+        parent.addSubview(view)
+        return view
+    }
+
+    private var window: UIWindow {
+        UIWindow(frame: CGRect(x: 0, y: 0, width: 400, height: 800))
+    }
+
+    @Test("La liste qu'on a sous les yeux, pas celle de l'onglet d'à côté")
+    func picksTheVisibleList() {
+        let window = window
+        // L'onglet voisin reste monté, posé hors de la fenêtre.
+        _ = scroller(
+            frame: CGRect(x: 400, y: 0, width: 400, height: 800),
+            content: CGSize(width: 400, height: 4000), in: window
+        )
+        let shown = scroller(
+            frame: CGRect(x: 0, y: 0, width: 400, height: 800),
+            content: CGSize(width: 400, height: 4000), in: window
+        )
+        #expect(BackToTop.content(of: window) === shown)
+    }
+
+    @Test("Un graphique qui défile de côté n'est pas le contenu")
+    func ignoresHorizontalStrips() {
+        let window = window
+        _ = scroller(
+            frame: CGRect(x: 0, y: 100, width: 400, height: 200),
+            content: CGSize(width: 2000, height: 200), in: window
+        )
+        #expect(BackToTop.content(of: window) == nil)
+    }
+
+    @Test("Une liste cachée ne compte pas")
+    func ignoresHidden() {
+        let window = window
+        let hidden = scroller(
+            frame: CGRect(x: 0, y: 0, width: 400, height: 800),
+            content: CGSize(width: 400, height: 4000), in: window
+        )
+        hidden.isHidden = true
+        #expect(BackToTop.content(of: window) == nil)
+    }
+
+    @Test("Entre deux listes visibles, la plus grande est le contenu")
+    func prefersTheLargest() {
+        let window = window
+        _ = scroller(
+            frame: CGRect(x: 0, y: 0, width: 400, height: 200),
+            content: CGSize(width: 400, height: 900), in: window
+        )
+        let main = scroller(
+            frame: CGRect(x: 0, y: 200, width: 400, height: 600),
+            content: CGSize(width: 400, height: 4000), in: window
+        )
+        #expect(BackToTop.content(of: window) === main)
+    }
+
+    @Test("Un appui compte, deux appuis comptent deux fois")
+    func tapsAreCounted() {
+        let chrome = ChromeState()
+        #expect(chrome.homeTaps == 0)
+        chrome.goHome()
+        chrome.goHome()
+        #expect(chrome.homeTaps == 2)
+    }
+}

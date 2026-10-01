@@ -44,6 +44,7 @@
 		3342203CA12166B860659D6E /* TransactionDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDF4A709768A421F61F9223E /* TransactionDetailSheet.swift */; };
 		378E13284CB5ABEB3C6AE3D9 /* Reachability.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A2E5050FDA9374F4898E6D9 /* Reachability.swift */; };
 		3BCEA79D2F2EA9DB9E6B4D7A /* TabRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECD89E78054CE99B6649A8C1 /* TabRoute.swift */; };
+		3DB8542360A0625818EF305A /* BackToTop.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE0BA5FC009AF1C4E26FBB15 /* BackToTop.swift */; };
 		3DD25A73F3793CF67F645C69 /* BankAccountMapping.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBE8CAD1297A4EAF97189D6B /* BankAccountMapping.swift */; };
 		3E18BDAFAC60B0589BF66BE5 /* ServerStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B08B65B00C5393966C2613C /* ServerStore.swift */; };
 		3E8CC100EEDBF44277F78B0A /* ServerFieldsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84E153B45F8DCF03658782FF /* ServerFieldsCard.swift */; };
@@ -298,6 +299,7 @@
 		F3AFD81B650F2340FC3E4131 /* FlorinClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlorinClient.swift; sourceTree = "<group>"; };
 		F9FF9CB03E7CF5B13778FE51 /* SubscriptionsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionsSection.swift; sourceTree = "<group>"; };
 		FAB80DF308FB7FBBFF1A0EDD /* SeedCategories.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = SeedCategories.json; sourceTree = "<group>"; };
+		FE0BA5FC009AF1C4E26FBB15 /* BackToTop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackToTop.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -428,6 +430,7 @@
 		9A989DE3F156C0B779D8DDE8 /* Components */ = {
 			isa = PBXGroup;
 			children = (
+				FE0BA5FC009AF1C4E26FBB15 /* BackToTop.swift */,
 				E1DD2E38FDF8F23D07715D59 /* BottomScrim.swift */,
 				86665E5949173D99AC181418 /* EmptyStart.swift */,
 				263DE84037C85CC838A30F67 /* FloatingTabBar.swift */,
@@ -690,6 +693,7 @@
 				162512FDDD1ED76892717E8D /* AppLock.swift in Sources */,
 				BFA47E4D7AF9314C5E8EA77E /* Appearance.swift in Sources */,
 				FB68C376EEC17B22E8F62093 /* AttachTransferSheet.swift in Sources */,
+				3DB8542360A0625818EF305A /* BackToTop.swift in Sources */,
 				17D4B2646AC31C7B1D3AF40D /* Backdrop.swift in Sources */,
 				5196C67AFB53DC1E360AD057 /* BackgroundRefresh.swift in Sources */,
 				3DD25A73F3793CF67F645C69 /* BankAccountMapping.swift in Sources */,

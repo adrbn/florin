@@ -16,6 +16,17 @@ final class ChromeState: ObservableObject {
 
     func reset() {}
 
+    /*
+     * Un appui sur l'onglet où l'on est déjà.
+     *
+     * Compté, et non signalé par un booléen : deux appuis de suite veulent
+     * dire deux fois le même geste, et un drapeau qu'il faudrait rabaisser
+     * ensuite aurait raté le second.
+     */
+    @Published private(set) var homeTaps = 0
+
+    func goHome() { homeTaps &+= 1 }
+
     func setSheetOpen(_ open: Bool) {
         guard open != sheetOpen else { return }
         withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) { sheetOpen = open }
@@ -36,16 +47,54 @@ final class ChromeState: ObservableObject {
 /// an impression of it — and its easing and haptics come along for free. The
 /// SwiftUI items sit on top purely as visuals; plain `Text` and `Image` do not
 /// consume touches, so taps fall through to the control underneath.
+/*
+ * Le segment déjà choisi ne dit rien, alors on l'écoute nous-mêmes.
+ *
+ * `UISegmentedControl` n'émet `valueChanged` que lorsque la sélection
+ * change : retaper l'onglet où l'on est ne produit aucun événement, et
+ * comme les libellés SwiftUI ne prennent pas les touches (voir plus bas),
+ * le geste n'arrive nulle part. On compare donc la sélection avant et après
+ * le suivi du doigt — inchangée, c'est qu'on était déjà là.
+ *
+ * Relevé à `endTracking` et pas dans un `UITapGestureRecognizer` : l'ordre
+ * entre un geste et le suivi d'un `UIControl` n'est pas garanti, et lire la
+ * sélection au mauvais moment ferait passer chaque changement d'onglet pour
+ * un retour à l'accueil.
+ */
+private final class ReselectableSegmentedControl: UISegmentedControl {
+    var onReselect: (() -> Void)?
+    private var before: Int?
+
+    override func beginTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
+        before = selectedSegmentIndex
+        return super.beginTracking(touch, with: event)
+    }
+
+    override func endTracking(_ touch: UITouch?, with event: UIEvent?) {
+        let was = before
+        before = nil
+        super.endTracking(touch, with: event)
+        // Un doigt relevé hors du contrôle n'a rien choisi : la sélection est
+        // inchangée elle aussi, et ce n'est pas pour autant un appui.
+        guard let was, was == selectedSegmentIndex,
+              let point = touch?.location(in: self), bounds.contains(point)
+        else { return }
+        onReselect?()
+    }
+}
+
 private struct SegmentedSelection: UIViewRepresentable {
     let size: CGSize
     let count: Int
     let tint: Color
     @Binding var index: Int
+    let onReselect: () -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     func makeUIView(context: Context) -> UISegmentedControl {
-        let control = UISegmentedControl(items: Array(repeating: "", count: count))
+        let control = ReselectableSegmentedControl(items: Array(repeating: "", count: count))
+        control.onReselect = onReselect
         control.selectedSegmentIndex = index
         control.backgroundColor = .clear
         control.selectedSegmentTintColor = UIColor(tint)
@@ -149,7 +198,8 @@ struct FloatingTabBar: View {
                     size: geo.size,
                     count: TabRoute.tabs.count,
                     tint: Florin.accent.opacity(0.26),
-                    index: indexBinding
+                    index: indexBinding,
+                    onReselect: chrome.goHome
                 )
             }
         }
