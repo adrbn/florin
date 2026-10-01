@@ -3958,3 +3958,37 @@ struct BackToTopTests {
         #expect(chrome.homeTaps == 2)
     }
 }
+
+
+@MainActor
+@Suite("Tab bar")
+struct TabBarTests {
+    /*
+     * `updateUIView` repasse à chaque disposition, et UIKit reconstruit les
+     * sous-vues du contrôle quand il change de taille : poser l'observateur
+     * doit pouvoir être redemandé sans en empiler un deuxième, sinon un seul
+     * appui compterait double.
+     */
+    @Test("Poser l'observateur deux fois n'en met qu'un")
+    func watcherIsPostedOnce() {
+        let control = ReselectableSegmentedControl(items: ["a", "b", "c"])
+        control.watchTouches()
+        let after = control.gestureRecognizers?.count ?? 0
+        control.watchTouches()
+        control.watchTouches()
+        #expect(after == 1)
+        #expect(control.gestureRecognizers?.count == after)
+    }
+
+    @Test("L'observateur ne vole pas la touche au contrôle")
+    func watcherDoesNotStealTouches() {
+        let control = ReselectableSegmentedControl(items: ["a", "b"])
+        control.watchTouches()
+        let watcher = control.gestureRecognizers?.first
+        // Un reconnaisseur qui annule la touche dans la vue empêcherait la
+        // sélection elle-même : c'est ce qui avait cassé la barre autrefois.
+        #expect(watcher?.cancelsTouchesInView == false)
+        #expect(watcher?.delaysTouchesBegan == false)
+        #expect(watcher?.delaysTouchesEnded == false)
+    }
+}

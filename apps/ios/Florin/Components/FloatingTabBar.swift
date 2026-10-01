@@ -48,38 +48,73 @@ final class ChromeState: ObservableObject {
 /// SwiftUI items sit on top purely as visuals; plain `Text` and `Image` do not
 /// consume touches, so taps fall through to the control underneath.
 /*
- * Le segment déjà choisi ne dit rien, alors on l'écoute nous-mêmes.
+ * Le segment déjà choisi ne dit rien, alors on écoute les touches elles-mêmes.
  *
- * `UISegmentedControl` n'émet `valueChanged` que lorsque la sélection
- * change : retaper l'onglet où l'on est ne produit aucun événement, et
- * comme les libellés SwiftUI ne prennent pas les touches (voir plus bas),
- * le geste n'arrive nulle part. On compare donc la sélection avant et après
- * le suivi du doigt — inchangée, c'est qu'on était déjà là.
+ * `UISegmentedControl` n'émet `valueChanged` que lorsque la sélection change :
+ * retaper l'onglet où l'on est ne produit aucun événement, et comme les
+ * libellés SwiftUI ne prennent pas les touches (voir plus bas), le geste
+ * n'arrive nulle part.
  *
- * Relevé à `endTracking` et pas dans un `UITapGestureRecognizer` : l'ordre
- * entre un geste et le suivi d'un `UIControl` n'est pas garanti, et lire la
- * sélection au mauvais moment ferait passer chaque changement d'onglet pour
- * un retour à l'accueil.
+ * Deux crochets ont été essayés avant celui-ci. `beginTracking`/`endTracking`
+ * d'abord : mesuré sur l'appareil, UIKit ne les appelle jamais pour ce
+ * contrôle, qui ne passe pas par la mécanique de suivi d'`UIControl`. Un
+ * `UITapGestureRecognizer` ensuite, écarté parce qu'il entre en concurrence
+ * avec la sélection au lieu de l'observer.
+ *
+ * Reste ce qui ne dépend d'aucun interne : un observateur qui ne reconnaît
+ * jamais rien. La fenêtre remet chaque touche à tous les reconnaisseurs des
+ * vues traversées avant de la remettre à la vue elle-même, quelle que soit la
+ * façon dont celle-ci la traitera ensuite. Celui-ci note la sélection au
+ * poser du doigt, échoue aussitôt pour ne gêner personne, et compare au tour
+ * de boucle suivant — après que le contrôle a eu le sien. Inchangée, c'est
+ * qu'on était déjà là.
  */
-private final class ReselectableSegmentedControl: UISegmentedControl {
-    var onReselect: (() -> Void)?
-    private var before: Int?
+private final class TouchWatcher: UIGestureRecognizer {
+    var onDown: (() -> Void)?
+    var onUp: ((CGPoint) -> Void)?
 
-    override func beginTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
-        before = selectedSegmentIndex
-        return super.beginTracking(touch, with: event)
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
+        super.touchesBegan(touches, with: event)
+        onDown?()
     }
 
-    override func endTracking(_ touch: UITouch?, with event: UIEvent?) {
-        let was = before
-        before = nil
-        super.endTracking(touch, with: event)
-        // Un doigt relevé hors du contrôle n'a rien choisi : la sélection est
-        // inchangée elle aussi, et ce n'est pas pour autant un appui.
-        guard let was, was == selectedSegmentIndex,
-              let point = touch?.location(in: self), bounds.contains(point)
-        else { return }
-        onReselect?()
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent) {
+        super.touchesEnded(touches, with: event)
+        if let touch = touches.first, let view { onUp?(touch.location(in: view)) }
+        // Échouer, et non reconnaître : un reconnaisseur qui aboutit annule la
+        // touche pour la vue, c'est-à-dire pour la sélection elle-même.
+        state = .failed
+    }
+
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent) {
+        super.touchesCancelled(touches, with: event)
+        state = .failed
+    }
+}
+
+final class ReselectableSegmentedControl: UISegmentedControl {
+    var onReselect: (() -> Void)?
+
+    func watchTouches() {
+        guard gestureRecognizers?.contains(where: { $0 is TouchWatcher }) != true else { return }
+        let watcher = TouchWatcher()
+        watcher.cancelsTouchesInView = false
+        watcher.delaysTouchesBegan = false
+        watcher.delaysTouchesEnded = false
+        var before: Int?
+        watcher.onDown = { [weak self] in before = self?.selectedSegmentIndex }
+        watcher.onUp = { [weak self] point in
+            let was = before
+            before = nil
+            // Un doigt relevé hors du contrôle n'a rien choisi : la sélection
+            // est inchangée elle aussi, et ce n'est pas pour autant un appui.
+            guard let self, let was, bounds.contains(point) else { return }
+            DispatchQueue.main.async { [weak self] in
+                guard let self, was == selectedSegmentIndex else { return }
+                onReselect?()
+            }
+        }
+        addGestureRecognizer(watcher)
     }
 }
 
@@ -95,6 +130,7 @@ private struct SegmentedSelection: UIViewRepresentable {
     func makeUIView(context: Context) -> UISegmentedControl {
         let control = ReselectableSegmentedControl(items: Array(repeating: "", count: count))
         control.onReselect = onReselect
+        control.watchTouches()
         control.selectedSegmentIndex = index
         control.backgroundColor = .clear
         control.selectedSegmentTintColor = UIColor(tint)
@@ -115,6 +151,7 @@ private struct SegmentedSelection: UIViewRepresentable {
         // Re-run after every layout pass: UIKit rebuilds these subviews when the
         // control resizes, which brings the hidden backgrounds straight back.
         context.coordinator.stripChrome(control)
+        (control as? ReselectableSegmentedControl)?.watchTouches()
     }
 
     func sizeThatFits(
