@@ -840,7 +840,7 @@ struct TransactionList<Banner: View>: View {
      * autre phrase, parce que ce n'est pas la même attente.
      */
     private var instalments: [Transaction] {
-        model.rows.filter { $0.isUpcoming && $0.isInstalment }
+        model.rows.filter { $0.isScheduled && $0.isInstalment }
     }
 
     /// Les échéanciers encore en cours — un achat soldé n'attend plus rien et

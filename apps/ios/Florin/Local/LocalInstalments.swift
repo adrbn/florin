@@ -254,8 +254,19 @@ enum LocalInstalments {
         var accountId: String? { instalments.first?.accountId }
 
         var count: Int { instalments.count }
-        var due: [Transaction] { instalments.filter(\.isUpcoming) }
-        var settled: [Transaction] { instalments.filter { !$0.isUpcoming } }
+        /*
+         * Payée veut dire prélevée, pas « sa date est passée ».
+         *
+         * `isUpcoming` répond à une question de date, et c'est ce qu'il faut
+         * pour une liste d'opérations. Un échéancier, lui, n'avance que quand
+         * la banque débite : au 4 octobre à 00:00, la mensualité du 4 passait
+         * en « payée » sans qu'un centime ait bougé, et le reste à payer
+         * fondait d'autant. Une échéance reste donc à venir tant qu'elle est
+         * annoncée — `settle` l'éteint en transportant le plan sur le vrai
+         * débit, et c'est ce débit qui la compte comme payée.
+         */
+        var due: [Transaction] { instalments.filter(\.isScheduled) }
+        var settled: [Transaction] { instalments.filter { !$0.isScheduled } }
         var paidCount: Int { settled.count }
 
         /// Ce que l'échéancier prélève en tout — frais compris, donc pas

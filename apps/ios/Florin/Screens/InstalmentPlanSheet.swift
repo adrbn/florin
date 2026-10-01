@@ -282,24 +282,24 @@ struct InstalmentPlanSheet: View {
             Text("\(rank) / \(plan.count)")
                 .font(.system(size: 12, weight: .semibold))
                 .monospacedDigit()
-                .foregroundStyle(tx.isUpcoming ? Florin.text2 : Florin.text3)
+                .foregroundStyle(tx.isScheduled ? Florin.text2 : Florin.text3)
                 .frame(width: 42, alignment: .leading)
             VStack(alignment: .leading, spacing: 2) {
                 Text(DayLabel.string(tx.day, locale: locale, t: t))
                     .font(.system(size: 14.5, weight: isNext ? .semibold : .medium))
                     .foregroundStyle(Florin.text)
                 Text(
-                    tx.isUpcoming
+                    tx.isScheduled
                         ? t("v2.activity.scheduled", "Prévu")
                         : t("v2.instalments.settled", "Prélevée")
                 )
                 .font(.system(size: 12))
-                .foregroundStyle(tx.isUpcoming ? Florin.accent : Florin.text3)
+                .foregroundStyle(tx.isScheduled ? Florin.accent : Florin.text3)
             }
             Spacer(minLength: 8)
             AmountText(
                 value: abs(tx.amount), locale: locale, currency: currency,
-                tone: tx.isUpcoming ? .neutral : .muted
+                tone: tx.isScheduled ? .neutral : .muted
             )
         }
         .padding(.horizontal, Florin.gutter)

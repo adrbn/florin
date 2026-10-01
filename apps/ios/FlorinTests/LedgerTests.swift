@@ -3583,6 +3583,36 @@ struct InstalmentTests {
         #expect(plans.last?.remaining == 0)
         #expect(plans.last?.paidCount == 2)
     }
+
+    /*
+     * Une date qui arrive n'est pas un prélèvement.
+     *
+     * Le partage payé / à venir reposait sur `isUpcoming`, qui est une
+     * question de date : le 4 octobre à 00:00, la mensualité du 4 se
+     * comptait comme payée et le reste à payer fondait de son montant,
+     * sans qu'un centime ait bougé. La banque prélève quand elle veut,
+     * parfois des jours plus tard — seule son écriture solde une échéance.
+     */
+    @Test("une échéance en retard de prélèvement reste à payer")
+    func anOverdueInstalmentIsStillOwed() throws {
+        let (store, account) = try ledger()
+        var parts = DateComponents()
+        parts.year = 2020; parts.month = 1; parts.day = 10; parts.hour = 12
+        let longPast = try #require(calendar.date(from: parts))
+        try LocalInstalments.record(
+            store: store, accountId: account, payee: "Le Comptoir", memo: nil,
+            categoryId: nil, from: longPast, instalments: [50, 50],
+            purchase: 100, calendar: calendar
+        )
+
+        let plan = try #require(try LocalInstalments.schedules(store.database).first)
+        // Deux échéances datées de 2020, aucune prélevée : tout reste dû.
+        #expect(plan.paidCount == 0)
+        #expect(plan.paid == 0)
+        #expect(plan.remaining == 100)
+        #expect(!plan.isOver)
+        #expect(plan.next?.date.hasPrefix("2020-01-10") == true)
+    }
 }
 
 // MARK: - Spending nobody has filed
