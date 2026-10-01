@@ -54,6 +54,14 @@ enum CategoryHint {
         return built
     }
 
+    /// Préchauffer, pour qui sait déjà qu'il va demander : la feuille de
+    /// saisie interroge à la troisième lettre du bénéficiaire, et payer là la
+    /// relecture de huit mille lignes se verrait au clavier.
+    static func warm() async {
+        guard let store = LocalStore.shared else { return }
+        await Task.detached(priority: .userInitiated) { _ = memory(store) }.value
+    }
+
     /// Ce qu'une mémoire donnée propose : le candidat du catégoriseur, gardé
     /// seulement s'il vaut mieux qu'un tirage au sort. Sans état ni cache —
     /// c'est la règle elle-même, et c'est elle que les tests interrogent.

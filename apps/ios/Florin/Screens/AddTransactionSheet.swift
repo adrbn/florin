@@ -69,6 +69,9 @@ struct AddTransactionSheet: View {
      */
     @State private var instalmentCount = 1
     @State private var instalmentEach = ""
+    /// Vrai dès que la catégorie affichée vient du classificateur et non
+    /// d'un choix. On ne devine plus une fois que quelqu'un a tranché.
+    @State private var guessedCategory = false
     @State private var saving = false
     @State private var errorMessage: String?
 
@@ -234,6 +237,12 @@ struct AddTransactionSheet: View {
             // rest of the sheet hides what was actually opened to change.
             amountFocused = kind != .transfer && !isEditing
         }
+        // Relire le grand livre prend un instant : autant le faire pendant
+        // que la feuille s'ouvre, pas entre deux lettres tapées.
+        .task { if !isEditing { await CategoryHint.warm() } }
+        .onChange(of: amount) { guess() }
+        .onChange(of: kind) { guess() }
+        .onChange(of: accountId) { guess() }
     }
 
     /*
@@ -334,6 +343,7 @@ struct AddTransactionSheet: View {
                     TextField(t("v2.add.payee", "Bénéficiaire"), text: $payee)
                         .textInputAutocapitalization(.words)
                         .font(.system(size: 15.5, weight: .medium))
+                        .onChange(of: payee) { guess() }
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 15)
@@ -397,7 +407,7 @@ struct AddTransactionSheet: View {
             if kind != .transfer {
             pickerRow(symbol: "tag", label: t("v2.add.category", "Catégorie")) {
                 Menu {
-                    Picker("", selection: $categoryId) {
+                    Picker("", selection: chosenCategory) {
                         Text(t("v2.common.uncategorized", "Sans catégorie")).tag("")
                         ForEach(categories) { category in
                             Text("\(category.emoji.map { $0 + " " } ?? "")\(category.name)")
@@ -406,10 +416,19 @@ struct AddTransactionSheet: View {
                     }
                 } label: {
                     let selected = categories.first { $0.id == categoryId }
-                    menuValue(
-                        selected.map { "\($0.emoji.map { $0 + " " } ?? "")\($0.name)" }
-                            ?? t("v2.common.uncategorized", "Sans catégorie")
-                    )
+                    HStack(spacing: 6) {
+                        if guessedCategory && !categoryId.isEmpty {
+                            // Dire que c'est une supposition, parce qu'une
+                            // valeur déjà remplie se lit comme une décision.
+                            Text(t("v2.add.guessed", "proposée"))
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(Florin.text3)
+                        }
+                        menuValue(
+                            selected.map { "\($0.emoji.map { $0 + " " } ?? "")\($0.name)" }
+                                ?? t("v2.common.uncategorized", "Sans catégorie")
+                        )
+                    }
                 }
             }
                 Hairline()
@@ -494,6 +513,57 @@ struct AddTransactionSheet: View {
         .background(Florin.accent.opacity(0.14), in: Capsule())
         .frame(maxWidth: 200, alignment: .trailing)
     }
+
+    /*
+     * La catégorie devinée pendant qu'on tape le bénéficiaire.
+     *
+     * `CategoryHint` répond déjà à cette question ailleurs dans l'app — le
+     * meilleur candidat du catégoriseur, gardé même sous le seuil
+     * d'application, parce qu'une proposition attend un geste et ne peut donc
+     * rien classer de travers. C'est la même règle ici, juste posée plus tôt :
+     * au moment de la saisie plutôt qu'à la relecture.
+     *
+     * Deux choses ne sont jamais écrasées : une catégorie choisie à la main,
+     * et celle d'une opération qu'on est en train de modifier.
+     */
+
+    /// Seul un choix humain passe par là ; la devinette écrit `categoryId`
+    /// directement et ne se fait donc pas passer pour une décision.
+    private var chosenCategory: Binding<String> {
+        Binding(
+            get: { categoryId },
+            set: { value in
+                categoryId = value
+                guessedCategory = false
+            }
+        )
+    }
+
+    private func guess() {
+        // Le montant compte dans le score, et un zéro n'est pas neutre :
+        // `-0.0 >= 0` est vrai, ce qui rendrait une recette recevable
+        // pour une dépense. On attend donc un chiffre.
+        guard !isEditing, kind != .transfer, magnitude > 0 else { return }
+        guard categoryId.isEmpty || guessedCategory else { return }
+        let name = payee.trimmingCharacters(in: .whitespaces)
+        // Deux lettres ne décrivent personne, et vider le champ efface la
+        // proposition plutôt que de laisser traîner la précédente.
+        guard name.count >= 3 else {
+            if guessedCategory { categoryId = ""; guessedCategory = false }
+            return
+        }
+        guard let hit = CategoryHint.suggest(
+            payee: name,
+            amount: kind == .expense ? -abs(magnitude) : abs(magnitude),
+            accountId: accountId,
+            date: String(
+                ISO8601DateFormatter.florinNoFraction.string(from: noonOn(date)).prefix(10)
+            )
+        ), categories.contains(where: { $0.id == hit.categoryId }) else { return }
+        categoryId = hit.categoryId
+        guessedCategory = true
+    }
+
 
     private func pickerRow<Content: View>(
         symbol: String,
