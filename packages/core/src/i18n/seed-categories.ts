@@ -58,7 +58,7 @@ export function getSeedCategories(locale: string): SeedCategoryGroup[] {
       color: '#3b82f6',
       categories: [
         { name: s(L.rent), emoji: '🏠', isFixed: true },
-        { name: s(L.insurance), emoji: '📄', isFixed: true },
+        { name: s(L.insurance), emoji: '🛡️', isFixed: true },
         { name: s(L.subscriptions), emoji: '🔄', isFixed: true },
       ],
     },
