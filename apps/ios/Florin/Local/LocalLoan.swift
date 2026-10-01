@@ -199,4 +199,93 @@ enum LocalLoan {
             fromSchedule: true
         )
     }
+
+    /*
+     * Ce que le contrat prévoit, face à ce que le journal a vu passer.
+     *
+     * Le capital restant dû se déduit du NOMBRE de mensualités enregistrées :
+     * une seule qui manque, et la dette garde une marche de capital qu'elle
+     * devrait avoir rendue — 113,47 € sur un prêt de 10 000 € à 84 mois, soit
+     * plus que la mensualité n'en rembourse à ce stade. Et rien ne le disait :
+     * l'écran affichait un montant faux avec le même aplomb qu'un vrai.
+     *
+     * C'est arrivé pour une raison qui se reproduira : la banque prélève le
+     * 30, le 30 février n'existe pas, l'échéance est tombée le 2 mars, et le
+     * rapprochement automatique — qui tolère cinq jours d'écart pour ne jamais
+     * payer deux fois la même — a pris le miroir du 28 février pour le sien.
+     *
+     * On ne corrige donc PAS cette tolérance : elle est ce qui empêche les
+     * doublons, et un doublon avait déjà divisé la dette par deux. On ne
+     * tente pas non plus d'apparier un pour un — deux prélèvements peuvent
+     * légitimement tomber le même mois quand celui du mois d'avant a glissé.
+     *
+     * On compte ce qui ne peut pas mentir : depuis la première mensualité,
+     * le contrat en prévoit une par mois. Si le journal en a moins, il manque
+     * quelque chose, et le dire vaut mieux que de deviner laquelle.
+     */
+    /*
+     * Une échéance n'est pas en retard le jour même.
+     *
+     * La banque prélève « le 30 », ce qui veut dire le 30, le 2, ou le lundi
+     * suivant. Compter une mensualité comme due dès sa date ferait apparaître
+     * le même avertissement chaque mois pendant quelques jours, pour un
+     * prélèvement parfaitement normal — et un avertissement qui crie au loup
+     * tous les mois n'est plus lu quand il a raison.
+     *
+     * On compare donc deux nombres arrêtés à la MÊME date : ce que le contrat
+     * prévoyait au-delà de ce délai, et ce que le journal avait enregistré à
+     * cette date-là. Sans cela, une mensualité ancienne qui manque se trouve
+     * compensée par une récente qui vient d'arriver, et le trou disparaît.
+     */
+    static let settlementGrace: TimeInterval = 7 * 86_400
+
+    static func expectedPayments(
+        firstPayment: Date, termMonths: Int, asOf now: Date = Date(),
+        calendar: Calendar = Calendar(identifier: .gregorian)
+    ) -> Int {
+        guard termMonths > 0, firstPayment <= now else { return 0 }
+        let months = calendar.dateComponents(
+            [.month], from: calendar.startOfDay(for: firstPayment),
+            to: calendar.startOfDay(for: now)
+        ).month ?? 0
+        // Le mois écoulé compte la mensualité qui l'ouvrait : un prêt dont la
+        // première échéance est tombée hier en a déjà prélevé une.
+        return min(max(months + 1, 0), termMonths)
+    }
+
+    /// Combien il en manque au journal, en arrêtant les deux comptes au même
+    /// jour. `nil` quand le prêt n'est pas assez renseigné pour que la
+    /// question ait un sens.
+    static func missingPayments(
+        _ db: SQLiteDatabase, accountId: String, asOf now: Date = Date(),
+        calendar: Calendar = Calendar(identifier: .gregorian)
+    ) throws -> Int? {
+        let cutoff = now.addingTimeInterval(-settlementGrace)
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "UTC")
+        formatter.dateFormat = "yyyy-MM-dd"
+
+        guard let row = try db.query(
+            """
+            SELECT loan_start_date, loan_term_months,
+                   (SELECT count(*) FROM transactions
+                    WHERE account_id = a.id AND transfer_pair_id IS NOT NULL
+                      AND deleted_at IS NULL
+                      AND substr(occurred_at, 1, 10) <= ?) AS made
+            FROM accounts a WHERE a.id = ? AND a.kind = 'loan'
+            """,
+            [.text(formatter.string(from: cutoff)), .text(accountId)]
+        ).first,
+            let start = row.string("loan_start_date"),
+            let first = Timestamp.parse(start),
+            let term = row.int("loan_term_months"), term > 0
+        else { return nil }
+
+        let expected = expectedPayments(
+            firstPayment: first, termMonths: term, asOf: cutoff, calendar: calendar
+        )
+        return max(0, expected - (row.int("made") ?? 0))
+    }
 }

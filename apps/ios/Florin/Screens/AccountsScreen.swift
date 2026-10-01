@@ -630,7 +630,53 @@ struct AccountDetailScreen: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            if let missing = missingPayments, missing > 0 {
+                instalmentGap(missing)
+            }
         }
+    }
+
+    /*
+     * Un montant faux doit le dire lui-même.
+     *
+     * Une mensualité absente du journal ne se voit nulle part : le capital
+     * restant dû reste un nombre plausible, simplement trop élevé d'une marche
+     * de capital. Le seul endroit où la contradiction est visible, c'est entre
+     * le calendrier du contrat et ce que le journal a enregistré — alors on la
+     * montre là, sous le chiffre qu'elle fausse.
+     */
+    @ViewBuilder
+    private func instalmentGap(_ missing: Int) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(Florin.warn)
+                .frame(width: 22)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(t(
+                    "v2.loan.gap.title", "{count} mensualité(s) manquante(s)",
+                    ["count": missing]
+                ))
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(Florin.text)
+                Text(t(
+                    "v2.loan.gap.hint",
+                    "Le capital restant dû est donc surestimé. Classez le prélèvement oublié dans la catégorie du prêt pour le rattacher."
+                ))
+                .font(.system(size: 12))
+                .foregroundStyle(Florin.text2)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 4)
+        }
+        .padding(.vertical, 2)
+    }
+
+    /// Ce qui manque, vu depuis l'écran — le calcul est dans `LocalLoan`.
+    private var missingPayments: Int? {
+        guard let account, account.kind == "loan", let store = LocalStore.shared
+        else { return nil }
+        return try? LocalLoan.missingPayments(store.database, accountId: account.id)
     }
 
     private var loanIsConfigured: Bool {

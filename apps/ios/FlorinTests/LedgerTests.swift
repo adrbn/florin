@@ -537,6 +537,160 @@ struct LoanMirrorTests {
         #expect(mirrors(store, on: loan) == 1)
     }
 
+    /*
+     * Le trou qui ne se voyait pas.
+     *
+     * La banque prélève le 30 ; le 30 février n'existe pas, donc l'échéance
+     * tombe le 2 mars. Le rapprochement automatique tolère cinq jours pour ne
+     * jamais payer deux fois la même mensualité — et prend donc le miroir du
+     * 28 février pour celui du 2 mars. La mensualité manque, le capital
+     * restant dû garde une marche de capital, et rien ne le dit.
+     *
+     * On ne touche pas à cette tolérance : c'est elle qui empêche les
+     * doublons. On compare le journal au calendrier du contrat.
+     */
+    @Test("une mensualité manquante se compte, même quand le rapprochement l'a ratée")
+    func aMissedInstalmentIsCounted() throws {
+        let calendar = Calendar(identifier: .gregorian)
+        var parts = DateComponents()
+        parts.year = 2024; parts.month = 6; parts.day = 30
+        let first = try #require(calendar.date(from: parts))
+        func asOf(_ y: Int, _ m: Int, _ d: Int) throws -> Date {
+            var p = DateComponents()
+            p.year = y; p.month = m; p.day = d
+            return try #require(calendar.date(from: p))
+        }
+        // Du 30 juin 2024 au 1er octobre 2026 : 28 échéances prélevées.
+        #expect(
+            LocalLoan.expectedPayments(
+                firstPayment: first, termMonths: 84, asOf: try asOf(2026, 10, 1),
+                calendar: calendar
+            ) == 28
+        )
+        // La veille de la première : aucune.
+        #expect(
+            LocalLoan.expectedPayments(
+                firstPayment: first, termMonths: 84, asOf: try asOf(2024, 6, 29),
+                calendar: calendar
+            ) == 0
+        )
+        // Le jour même : la première est tombée.
+        #expect(
+            LocalLoan.expectedPayments(
+                firstPayment: first, termMonths: 84, asOf: try asOf(2024, 6, 30),
+                calendar: calendar
+            ) == 1
+        )
+        // Un prêt soldé n'en compte pas davantage que sa durée.
+        #expect(
+            LocalLoan.expectedPayments(
+                firstPayment: first, termMonths: 84, asOf: try asOf(2040, 1, 1),
+                calendar: calendar
+            ) == 84
+        )
+    }
+
+    /// Une mensualité qui manque coûte une marche de CAPITAL, pas une
+    /// mensualité : c'est pour ça que l'écart ne saute pas aux yeux.
+    @Test("une mensualité de moins surestime la dette d'une marche de capital")
+    func oneMissedInstalmentOverstatesTheDebt() throws {
+        func debt(_ payments: Int) -> Double {
+            LocalLoan.liability(
+                principal: 10_000, annualRate: 0.039, termMonths: 84,
+                monthlyPayment: 135.91, paymentsMade: payments
+            ).remainingDebt
+        }
+        let short = debt(27)
+        let right = debt(28)
+        #expect(short > right)
+        // L'écart est la part de capital d'une mensualité, pas son montant.
+        let step = short - right
+        #expect(step > 100 && step < 135.91)
+    }
+
+    /*
+     * Le scénario vécu, rejoué.
+     *
+     * Vingt-sept mensualités au journal, vingt-huit prélevées — celle du mois
+     * où la banque a débité deux jours plus tard. Le trou doit se compter ;
+     * une fois la ligne rattachée, il doit se taire.
+     */
+    @Test("le trou se compte, et se tait une fois comblé")
+    func theGapIsCountedThenSilent() throws {
+        let calendar = Calendar(identifier: .gregorian)
+        let (store, _, loan, _) = try ledger()
+        func at(_ y: Int, _ m: Int, _ d: Int) throws -> Date {
+            var p = DateComponents()
+            p.year = y; p.month = m; p.day = d
+            return try #require(calendar.date(from: p))
+        }
+        try store.database.run(
+            """
+            UPDATE accounts SET loan_original_principal = 10000, loan_interest_rate = 0.039,
+                loan_term_months = 84, loan_monthly_payment = 135.91,
+                loan_start_date = '2024-06-30 00:00:00'
+            WHERE id = ?
+            """,
+            [.text(loan)]
+        )
+        func mirror(_ day: String) throws {
+            try store.database.run(
+                """
+                INSERT INTO transactions
+                    (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
+                     source, status, needs_review, transfer_pair_id)
+                VALUES (?, ?, ?, 135.91, 'EUR', 'Mensualite', 'mensualite',
+                        'manual', 'cleared', 0, ?)
+                """,
+                [.text(UUID().uuidString), .text(loan), .text(day + "T12:00:00Z"),
+                 .text(UUID().uuidString)]
+            )
+        }
+        // Vingt-sept mensualités de juin 2024 à août 2026, mars manquant,
+        // plus celle de septembre qui vient de tomber.
+        var y = 2024, m = 6, posed = 0
+        while (y, m) <= (2026, 8) {
+            if !(y == 2026 && m == 3) { try mirror(String(format: "%04d-%02d-28", y, m)); posed += 1 }
+            m += 1
+            if m == 13 { y += 1; m = 1 }
+        }
+        #expect(posed == 26)
+        try mirror("2026-09-30")
+
+        let now = try at(2026, 10, 1)
+        // Septembre est trop récent pour compter d'un côté comme de l'autre :
+        // sans cette symétrie il comblerait le trou de mars.
+        #expect(try LocalLoan.missingPayments(
+            store.database, accountId: loan, asOf: now, calendar: calendar) == 1)
+
+        try mirror("2026-03-02")
+        #expect(try LocalLoan.missingPayments(
+            store.database, accountId: loan, asOf: now, calendar: calendar) == 0)
+    }
+
+    /// Le jour du prélèvement n'est pas un retard : la banque dit « le 30 »
+    /// et tient parole le 30, le 2, ou le lundi suivant.
+    @Test("une échéance toute fraîche ne déclenche pas l'alerte")
+    func afreshDueDateIsNotAGap() throws {
+        let calendar = Calendar(identifier: .gregorian)
+        let (store, _, loan, _) = try ledger()
+        try store.database.run(
+            """
+            UPDATE accounts SET loan_original_principal = 10000, loan_term_months = 84,
+                loan_monthly_payment = 135.91, loan_start_date = '2024-06-30 00:00:00'
+            WHERE id = ?
+            """,
+            [.text(loan)]
+        )
+        // Rien n'est enregistré du tout, mais on se place le jour même de la
+        // première échéance : elle n'a pas encore eu le temps d'être prélevée.
+        var p = DateComponents()
+        p.year = 2024; p.month = 6; p.day = 30
+        let firstDay = try #require(calendar.date(from: p))
+        #expect(try LocalLoan.missingPayments(
+            store.database, accountId: loan, asOf: firstDay, calendar: calendar) == 0)
+    }
+
     @Test("a nearby amount is not the instalment")
     func exactToTheCent() throws {
         let (store, ccp, loan, _) = try ledger()
