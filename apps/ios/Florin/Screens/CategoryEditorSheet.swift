@@ -34,7 +34,7 @@ struct CategoryEditorSheet: View {
     private static let palette = [
         "🛒", "🍽️", "🚗", "🏠", "💡", "📱", "🚌", "⛽️", "🏥", "💊",
         "👕", "🎬", "🎁", "✈️", "🏋️", "📚", "🐾", "☕️", "🍺", "💇",
-        "🧾", "🛡️", "💳", "🎓", "🔧", "🌱", "🎵", "💼", "🧸", "❓",
+        "🧾", "☂️", "💳", "🎓", "🔧", "🌱", "🎵", "💼", "🧸", "❓",
     ]
 
     init(draft: CategoryDraft, t: Strings, onSave: @escaping (String, String, Bool) async -> Void) {
