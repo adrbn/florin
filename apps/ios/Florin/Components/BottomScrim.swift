@@ -57,3 +57,74 @@ struct BottomScrim: View {
         .allowsHitTesting(false)
     }
 }
+
+/// The same thing at the top of the screen.
+///
+/// A tab root hides the navigation bar and lets its content scroll under the
+/// clock, so rows arrived at the status bar at full contrast and the time sat
+/// on top of a figure. This thins them out before they get there.
+///
+/// Two differences from the bottom. The colour is the page's own ground, not
+/// `Florin.bg`: up there the backdrop is at its most saturated, and a neutral
+/// fade read as a grey slab laid across the top of the screen. And it is
+/// invisible at rest — nothing is under the clock until you scroll — so it
+/// fades in over the first few points instead of being always on.
+struct TopScrim: View {
+    /// The section's hue, as `Backdrop` receives it.
+    let tint: Color
+    /// How far the page has scrolled from rest.
+    let scrolled: CGFloat
+
+    /// The status bar / island, measured rather than assumed.
+    private static var safeTop: CGFloat {
+        (UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first?.windows.first(where: { $0.isKeyWindow })?.safeAreaInsets.top) ?? 59
+    }
+
+    var body: some View {
+        ZStack {
+            // Mirrors the bottom's ramp, turned over: two layers so the blur
+            // arrives gradually rather than at a line, both confined to the
+            // extreme edge.
+            ForEach(0..<2, id: \.self) { layer in
+                let end = 0.66 - Double(layer) * 0.22
+                Rectangle()
+                    .fill(.ultraThinMaterial)
+                    .mask(
+                        LinearGradient(
+                            stops: [
+                                .init(color: .black.opacity(0.9), location: max(0, end - 0.34)),
+                                .init(color: .clear, location: end),
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+            }
+
+            // The ground as it is at the very top of the screen — `Backdrop`'s
+            // first stop — so the fade reads as the page itself thickening,
+            // with no edge and no change of hue.
+            ZStack {
+                Florin.bg
+                tint.opacity(0.62)
+            }
+            .mask(
+                LinearGradient(
+                    stops: [
+                        .init(color: .black.opacity(0.92), location: 0),
+                        .init(color: .black.opacity(0.60), location: 0.5),
+                        .init(color: .clear, location: 1),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+        }
+        .frame(height: Self.safeTop + 34)
+        .opacity(min(max(scrolled / 16, 0), 1))
+        .ignoresSafeArea(.container, edges: .top)
+        .allowsHitTesting(false)
+    }
+}

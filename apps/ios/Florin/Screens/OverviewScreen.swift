@@ -379,8 +379,8 @@ struct OverviewScreen: View {
             .scrollIndicators(.hidden)
             // Drives the tab bar's collapse, same signal the web tabs report.
             .modifier(ScrollReporter { chrome.scrolled(to: $0) })
-            // iOS 26 fades content into the bars instead of hard-clipping it.
-            .modifier(SoftScrollEdge())
+            // Le haut de l'écran : contenu fondu sous l'horloge — voir là-bas.
+            .modifier(SoftScrollEdge(tint: TabRoute.overview.tint))
             // Pull down to actually pull the banks, not just re-read the server.
             .refreshable { model.refresh() }
         )

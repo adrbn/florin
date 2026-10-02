@@ -26,7 +26,7 @@ struct TabScaffold<Content: View>: View {
                 .padding(.bottom, 116)
             }
             .scrollIndicators(.hidden)
-            .modifier(SoftScrollEdge())
+            .modifier(SoftScrollEdge(tint: tint))
             .refreshable { await refresh?() }
         }
     }
@@ -205,13 +205,45 @@ struct ScreenSection<Content: View>: View {
     }
 }
 
-/// iOS 26 fades content into the bars instead of hard-clipping it.
+/// What the top edge of a scrolling page does.
+///
+/// Two things, and they are not the same thing. iOS 26's own effect fades
+/// content into the *bars* instead of hard-clipping it — but a tab root has no
+/// bars: it hides the navigation bar so the headline can be ours, which leaves
+/// the status bar with nothing but the page under it. `TopScrim` is what covers
+/// that, in the page's own colour. See there.
 struct SoftScrollEdge: ViewModifier {
+    /// The section's hue, for the scrim.
+    let tint: Color
+    /// How far the page has scrolled from rest, read from the scroll view
+    /// itself so no screen has to report it.
+    @State private var scrolled: CGFloat = 0
+
     func body(content: Content) -> some View {
-        if #available(iOS 26.0, *) {
-            content.scrollEdgeEffectStyle(.soft, for: .top)
+        tracked(system(content))
+            .overlay(alignment: .top) { TopScrim(tint: tint, scrolled: scrolled) }
+    }
+
+    private func system(_ content: Content) -> some View {
+        Group {
+            if #available(iOS 26.0, *) {
+                content.scrollEdgeEffectStyle(.soft, for: .top)
+            } else {
+                content
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func tracked<V: View>(_ view: V) -> some View {
+        if #available(iOS 18.0, *) {
+            view.onScrollGeometryChange(for: CGFloat.self) { geometry in
+                geometry.contentOffset.y + geometry.contentInsets.top
+            } action: { _, distance in
+                scrolled = distance
+            }
         } else {
-            content
+            view
         }
     }
 }
