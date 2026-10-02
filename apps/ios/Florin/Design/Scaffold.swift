@@ -26,7 +26,7 @@ struct TabScaffold<Content: View>: View {
                 .padding(.bottom, 116)
             }
             .scrollIndicators(.hidden)
-            .modifier(SoftScrollEdge(tint: tint))
+            .modifier(SoftScrollEdge())
             .refreshable { await refresh?() }
         }
     }
@@ -210,18 +210,16 @@ struct ScreenSection<Content: View>: View {
 /// Two things, and they are not the same thing. iOS 26's own effect fades
 /// content into the *bars* instead of hard-clipping it — but a tab root has no
 /// bars: it hides the navigation bar so the headline can be ours, which leaves
-/// the status bar with nothing but the page under it. `TopScrim` is what covers
-/// that, in the page's own colour. See there.
+/// the status bar with nothing but the page under it. `TopScrim` is what blurs
+/// what arrives there. See there.
 struct SoftScrollEdge: ViewModifier {
-    /// The section's hue, for the scrim.
-    let tint: Color
     /// How far the page has scrolled from rest, read from the scroll view
     /// itself so no screen has to report it.
     @State private var scrolled: CGFloat = 0
 
     func body(content: Content) -> some View {
         tracked(system(content))
-            .overlay(alignment: .top) { TopScrim(tint: tint, scrolled: scrolled) }
+            .overlay(alignment: .top) { TopScrim(scrolled: scrolled) }
     }
 
     private func system(_ content: Content) -> some View {
