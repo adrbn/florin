@@ -105,9 +105,9 @@ struct TopScrim: View {
         Rectangle()
             .fill(.ultraThinMaterial)
             // Just enough to stop the material reading as a pale strip.
-            .overlay(Color.black.opacity(0.14))
+            .overlay(Color.black.opacity(0.08))
             .mask(Self.ramp)
-            .frame(height: Self.safeTop + 24)
+            .frame(height: Self.safeTop + 16)
             .opacity(min(max(scrolled / 20, 0), 1))
             .ignoresSafeArea(.container, edges: .top)
             .allowsHitTesting(false)
