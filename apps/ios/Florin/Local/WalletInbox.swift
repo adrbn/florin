@@ -28,11 +28,9 @@ enum WalletInbox {
     /// Le nom à donner au fichier dans « Ajouter au fichier ».
     static let fileName = "paiements.txt"
 
-    /// Deux paiements identiques chez le même marchand à moins de ça d'écart
-    /// sont le même paiement. Large devant le décalage entre l'action native
-    /// et celle de Florin, qui se suivent dans la même automatisation ; étroit
-    /// devant deux achats réellement distincts.
-    static let window: TimeInterval = 300
+    /// Conservé pour la mise en place et les tests ; la règle elle-même vit
+    /// dans `LocalWallet.sameTapWindow`, qu'appliquent les trois chemins.
+    static var window: TimeInterval { LocalWallet.sameTapWindow }
 
     private static let log = Logger(subsystem: "com.adrbn.florin", category: "wallet-inbox")
 
@@ -163,28 +161,14 @@ enum WalletInbox {
 
     // MARK: - Le rattrapage
 
-    /// Le grand livre a-t-il déjà ce paiement ? Les lignes supprimées
-    /// comptent : celles que la banque a confirmées le sont.
+    /// Le grand livre a-t-il déjà ce paiement ? Une seule définition, celle
+    /// que `LocalWallet.record` applique aussi à l'action et à la file — sans
+    /// quoi les deux côtés du filet ne diraient pas la même chose.
     static func alreadyKnown(store: LocalStore, _ entry: Entry) -> Bool {
         guard let amount = LocalWallet.parseAmount(entry.amountText) else { return false }
-        let stamp = DateFormatter()
-        stamp.locale = Locale(identifier: "en_US_POSIX")
-        stamp.timeZone = .current
-        stamp.dateFormat = "yyyy-MM-dd HH:mm:ss"
-        let payee = entry.merchant.trimmingCharacters(in: .whitespacesAndNewlines)
-        return (try? store.database.scalar(
-            """
-            SELECT 1 FROM transactions
-            WHERE source = ? AND normalized_payee = ? AND abs(amount + ?) < 0.005
-              AND abs(julianday(replace(substr(occurred_at, 1, 19), 'T', ' '))
-                      - julianday(?)) * 86400.0 <= ?
-            LIMIT 1
-            """,
-            [
-                .text(LocalWallet.source), .text(LocalLedger.normalize(payee.isEmpty ? "Apple Pay" : payee)),
-                .real(amount), .text(stamp.string(from: entry.at)), .real(window),
-            ]
-        )) != nil
+        return LocalWallet.alreadyRecorded(
+            store: store, amount: amount, payee: entry.merchant, at: entry.at
+        )
     }
 
     /*

@@ -3143,6 +3143,39 @@ struct WalletInboxTests {
         #expect(WalletInbox.drain(store: store, at: file, now: tapped) == 0)
     }
 
+    /*
+     * Et dans l'autre sens, qui est celui qui a doublé pour de vrai.
+     *
+     * `recordedPaymentIsNotDoubled` couvre l'ordre attendu : l'action écrit,
+     * le fichier se tait. L'ordre s'inverse dès que le rattrapage passe avant
+     * que l'action n'ait eu son tour — l'app rouverte pendant que
+     * l'automatisation court — et là plus rien ne retenait l'action, qui
+     * n'interrogeait pas le grand livre.
+     *
+     * Le fichier date à la minute et l'action à la seconde : les deux lignes
+     * ne portaient donc même pas la même heure, et aucune lecture de l'écran
+     * ne pouvait les faire reconnaître comme une seule tape.
+     */
+    @Test("a payment the file already recovered is not written again by the action")
+    func recoveredPaymentIsNotDoubledByTheAction() throws {
+        let (store, file) = try ledger()
+        // Le fichier porte l'heure à la minute, comme Raccourcis l'écrit.
+        let minute = Date(
+            timeIntervalSinceReferenceDate:
+                (tapped.timeIntervalSinceReferenceDate / 60).rounded(.down) * 60
+        )
+        try "\(stamp(minute))|4,10 €|MA BANQUE|Le Comptoir\n"
+            .write(to: file, atomically: true, encoding: .utf8)
+        #expect(WalletInbox.drain(store: store, at: file, now: minute) == 1)
+
+        // L'action de Florin arrive ensuite, à la seconde près.
+        try LocalWallet.record(
+            store: store, amountText: "4,10 €", merchant: "Le Comptoir",
+            card: "MA BANQUE", accountId: nil, on: tapped
+        )
+        #expect(try store.database.scalar("SELECT COUNT(*) FROM transactions")?.int == 1)
+    }
+
     /// Deux cafés identiques dans la même journée restent deux cafés.
     @Test("the same amount at the same shop an hour later is another payment")
     func twoIdenticalPaymentsAreKept() throws {

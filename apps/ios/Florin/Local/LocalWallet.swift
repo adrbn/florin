@@ -88,6 +88,12 @@ enum LocalWallet {
         return (id, row?.string("name") ?? "")
     }
 
+    /// Deux tapes identiques chez le même marchand à moins de ça d'écart sont
+    /// la même tape. Large devant l'écart entre les chemins — le fichier date
+    /// à la minute, l'action à la seconde — et étroit devant deux achats
+    /// réellement distincts.
+    static let sameTapWindow: TimeInterval = 300
+
     @discardableResult
     static func record(
         store: LocalStore,
@@ -136,11 +142,65 @@ enum LocalWallet {
             parts.year!, parts.month!, parts.day!, parts.hour!, parts.minute!, parts.second!
         )
 
+        /*
+         * La même tape, déjà écrite par l'autre chemin.
+         *
+         * Trois chemins mènent ici — l'action de Raccourcis, la file reprise
+         * au lancement, le fichier rattrapé — et ils décrivent tous la même
+         * carte présentée une fois. Le filet n'existait que du côté du
+         * fichier, qui interroge le grand livre avant d'écrire : l'ordre
+         * habituel voulait que l'action passe la première et que le fichier
+         * se taise. Quand l'app se rouvre pendant que l'automatisation court,
+         * l'ordre s'inverse, et plus rien ne retenait l'action.
+         *
+         * La question se pose donc ici, où tout le monde passe, plutôt qu'à
+         * une entrée sur trois.
+         */
+        if alreadyRecorded(store: store, amount: amount, payee: label, at: day) {
+            return Recorded(payee: label, amount: amount, accountName: account.name)
+        }
+
         try insertUpcoming(
             store: store, accountId: account.id, occurredAt: occurred,
             amount: -amount, payee: label, memo: memo, categoryId: nil
         )
         return Recorded(payee: label, amount: amount, accountName: account.name)
+    }
+
+    /*
+     * Deux tapes identiques de ce côté-ci de la fenêtre sont une seule tape.
+     *
+     * Les lignes supprimées comptent : une opération que la banque a reprise
+     * est précisément celle qu'il ne faut pas réécrire.
+     *
+     * La fenêtre absorbe l'écart entre les chemins — le fichier date à la
+     * minute, l'action à la seconde — et reste étroite devant deux achats
+     * réellement distincts. Deux cafés du même prix à cinq minutes d'écart
+     * sont possibles ; le second est alors perdu ici, et revient par la ligne
+     * de la banque, qui finit toujours par arriver.
+     */
+    static func alreadyRecorded(
+        store: LocalStore, amount: Double, payee: String, at moment: Date
+    ) -> Bool {
+        let stamp = DateFormatter()
+        stamp.locale = Locale(identifier: "en_US_POSIX")
+        stamp.timeZone = .current
+        stamp.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        let name = payee.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (try? store.database.scalar(
+            """
+            SELECT 1 FROM transactions
+            WHERE source = ? AND normalized_payee = ? AND abs(amount + ?) < 0.005
+              AND abs(julianday(replace(substr(occurred_at, 1, 19), 'T', ' '))
+                      - julianday(?)) * 86400.0 <= ?
+            LIMIT 1
+            """,
+            [
+                .text(source),
+                .text(LocalLedger.normalize(name.isEmpty ? "Apple Pay" : name)),
+                .real(amount), .text(stamp.string(from: moment)), .real(sameTapWindow),
+            ]
+        )) != nil
     }
 
     /*
