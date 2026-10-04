@@ -44,7 +44,10 @@ struct SubscriptionsSection: View {
             }
         }
         .sheet(item: $naming) { merchant in
-            MerchantNameSheet(key: merchant.key, bankLabel: merchant.label, t: t)
+            MerchantNameSheet(
+                key: merchant.key, bankLabel: merchant.label, t: t,
+                title: t("v2.merchant.titleSeries", "Renommer l'abonnement")
+            )
         }
     }
 
@@ -97,8 +100,13 @@ struct SubscriptionsSection: View {
         .padding(.horizontal, Florin.gutter)
     }
 
+    /// Ce que la feuille renomme : la série, pas le marchand — voir
+    /// `MerchantNames.seriesKey`.
     private func merchant(_ sub: SubscriptionMatch) -> NamedMerchant {
-        NamedMerchant(key: MerchantNames.key(sub.payee), label: PayeeText.clean(sub.payee))
+        NamedMerchant(
+            key: MerchantNames.seriesKey(sub.payee, amount: sub.amount),
+            label: PayeeText.clean(sub.payee)
+        )
     }
 
     // MARK: - Words for a rhythm and a date
@@ -158,17 +166,21 @@ private struct SubscriptionRow: View {
 
     var body: some View {
         let key = MerchantNames.key(sub.payee)
-        let face = logos.face(forKey: key)
+        // Le nom de la série d'abord, celui du marchand ensuite : un
+        // intermédiaire de paiement n'a qu'un nom pour tout ce qu'il encaisse.
+        let series = MerchantNames.seriesKey(sub.payee, amount: sub.amount)
+        let given = names.name(forKey: series)
+        let face = logos.face(forKey: series) ?? logos.face(forKey: key)
         Button(action: open) {
             HStack(spacing: 12) {
                 Bubble(
-                    label: names.name(forKey: key) ?? sub.payee,
+                    label: given ?? names.name(forKey: key) ?? sub.payee,
                     emoji: face?.emoji,
                     systemImage: face == nil ? "repeat" : nil,
                     logo: face?.logo
                 )
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(PayeeText.merchant(sub.payee))
+                    Text(given ?? PayeeText.merchant(sub.payee))
                         .font(.system(size: 14.5, weight: .medium))
                         .foregroundStyle(Florin.text)
                         .lineLimit(1)

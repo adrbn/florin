@@ -2862,6 +2862,55 @@ struct TruncatedLabelTests {
 }
 
 /*
+ * Nommer un abonnement sans renommer le rail qui l'encaisse.
+ *
+ * Un intermédiaire de paiement prélève pour des dizaines de marchands sous
+ * son seul nom : un abonnement y côtoie des dizaines d'autres
+ * prélèvements sans rapport. Le nom donné à l'abonnement doit donc tenir à l'écart des
+ * clés de marchand — et la règle de troncature, qui ne compare que des
+ * préfixes, est précisément ce qui pourrait les rapprocher.
+ */
+@Suite("Subscription keys")
+struct SeriesKeyTests {
+    private let payee = "PRELEVEMENT DE Passerelle Europe S.a, l. et Cie S.C.A, REF : 1234567890123"
+
+    @Test("A series carries its merchant and its amount")
+    func keyCarriesBoth() {
+        let key = MerchantNames.seriesKey(payee, amount: -7.40)
+        #expect(MerchantNames.series(of: key)?.cents == 740)
+        #expect(MerchantNames.series(of: key)?.merchant == MerchantNames.key(payee))
+        #expect(key != MerchantNames.seriesKey(payee, amount: -18.20))
+        // Le signe de l'opération ne fait pas deux séries.
+        #expect(key == MerchantNames.seriesKey(payee, amount: 7.40))
+    }
+
+    @Test("A merchant key is never read as a series")
+    func merchantKeysAreNotSeries() {
+        #expect(MerchantNames.series(of: MerchantNames.key(payee)) == nil)
+        #expect(MerchantNames.series(of: "§") == nil)
+        #expect(MerchantNames.series(of: "§999") == nil)
+        #expect(MerchantNames.series(of: "§ passerelle") == nil)
+    }
+
+    @Test("Naming the subscription leaves the merchant's other charges alone")
+    func seriesDoesNotReachTheMerchant() {
+        let table = [MerchantNames.seriesKey(payee, amount: 7.40): "Mon nuage"]
+        #expect(MerchantNames.resolve(MerchantNames.key(payee), in: table) == nil)
+        #expect(MerchantNames.resolve(
+            MerchantNames.seriesKey(payee, amount: 18.20), in: table) == nil)
+        #expect(MerchantNames.resolve(
+            MerchantNames.seriesKey(payee, amount: 7.40), in: table) == "Mon nuage")
+    }
+
+    @Test("And naming the merchant does not name one of its subscriptions")
+    func merchantDoesNotReachTheSeries() {
+        let table = [MerchantNames.key(payee): "Passerelle"]
+        #expect(MerchantNames.resolve(
+            MerchantNames.seriesKey(payee, amount: 7.40), in: table) == nil)
+    }
+}
+
+/*
  * Un virement dont la banque change le libellé.
  *
  * Le salaire arrive annoncé sous un numéro de compte, puis comptabilisé sous

@@ -181,6 +181,9 @@ final class LocalStore {
             let rows = try database.query("SELECT match_key FROM \(table) ORDER BY updated_at ASC")
             for row in rows {
                 guard let old = row.string("match_key") else { continue }
+                // Une clé de série n'est pas un libellé : la recalculer la
+                // détruirait.
+                if old.hasPrefix(MerchantNames.seriesSign) { continue }
                 let fresh = MerchantNames.key(old)
                 guard fresh != old, !fresh.isEmpty else { continue }
                 try database.run(

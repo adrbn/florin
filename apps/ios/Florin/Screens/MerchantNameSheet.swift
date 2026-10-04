@@ -16,6 +16,8 @@ struct MerchantNameSheet: View {
     let t: Strings
     /// What the row shows without a logo, so the preview matches it.
     var categoryEmoji: String?
+    /// « Renommer le marchand », sauf quand la clé ne désigne qu'une série.
+    var title: String?
 
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var logos = MerchantLogos.shared
@@ -36,11 +38,13 @@ struct MerchantNameSheet: View {
     private let existing: String?
     private let existingMark: MerchantLogos.Mark?
 
-    init(key: String, bankLabel: String, t: Strings, categoryEmoji: String? = nil) {
+    init(key: String, bankLabel: String, t: Strings, categoryEmoji: String? = nil,
+         title: String? = nil) {
         self.key = key
         self.bankLabel = bankLabel
         self.t = t
         self.categoryEmoji = categoryEmoji
+        self.title = title
         let existing = MerchantNames.shared.name(forKey: key)
         self.existing = existing
         let mark = MerchantLogos.shared.mark(forKey: key)
@@ -184,11 +188,17 @@ struct MerchantNameSheet: View {
                     }
 
                     if let count {
-                        Text(t(
-                            "v2.merchant.reach",
-                            "S'applique à ses {count} opérations, et à celles qui arriveront.",
-                            ["count": count]
-                        ))
+                        Text(MerchantNames.series(of: key) != nil
+                            ? t(
+                                "v2.merchant.reachSeries",
+                                "S'applique à ses {count} opérations de ce montant, et à celles qui arriveront. Les autres opérations de ce bénéficiaire gardent leur nom.",
+                                ["count": count]
+                            )
+                            : t(
+                                "v2.merchant.reach",
+                                "S'applique à ses {count} opérations, et à celles qui arriveront.",
+                                ["count": count]
+                            ))
                         .font(.system(size: 13.5))
                         .foregroundStyle(Florin.text2)
                         .fixedSize(horizontal: false, vertical: true)
@@ -222,7 +232,7 @@ struct MerchantNameSheet: View {
                 .padding(.bottom, 24)
             }
             .scrollDismissesKeyboard(.interactively)
-            .navigationTitle(t("v2.merchant.title", "Renommer le marchand"))
+            .navigationTitle(title ?? t("v2.merchant.title", "Renommer le marchand"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -251,7 +261,7 @@ struct MerchantNameSheet: View {
             previewSite = domain
         }
         .alert(
-            t("v2.merchant.title", "Renommer le marchand"),
+            title ?? t("v2.merchant.title", "Renommer le marchand"),
             isPresented: Binding(get: { failure != nil }, set: { if !$0 { failure = nil } })
         ) {
             Button("OK", role: .cancel) { failure = nil }

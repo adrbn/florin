@@ -42,6 +42,41 @@ final class MerchantNames: ObservableObject {
         fold(merchantWords(payee))
     }
 
+    /*
+     * Nommer un abonnement, pas le rail qui l'encaisse.
+     *
+     * Un intermédiaire de paiement encaisse pour quelqu'un d'autre : le
+     * relevé ne porte que son nom à lui. Sur des dizaines de prélèvements d'un
+     * même intermédiaire, un seul montant est l'abonnement qu'on veut nommer :
+     * renommer le marchand mentirait sur tous les autres, et un nom faux ne
+     * se voit pas alors qu'un nom manquant se voit.
+     *
+     * Un abonnement porte donc sa propre clé : le marchand ET le montant au
+     * centime. Le signe la rend étrangère aux clés de marchand — aucun
+     * libellé nettoyé ne commence par « § » — y compris à la règle de
+     * troncature de `resolve`, qui ne compare que des préfixes.
+     *
+     * Ce qu'on y perd, et qui se voit : un abonnement dont le prix change
+     * reprend le nom de son marchand, le temps qu'on le renomme.
+     */
+    static let seriesSign = "§"
+
+    static func seriesKey(_ payee: String, amount: Double) -> String {
+        "\(seriesSign)\(cents(amount)) \(key(payee))"
+    }
+
+    /// Le marchand et le montant que porte une clé de série, si c'en est une.
+    static func series(of key: String) -> (merchant: String, cents: Int)? {
+        guard key.hasPrefix(seriesSign) else { return nil }
+        let rest = key.dropFirst()
+        guard let space = rest.firstIndex(of: " "),
+              let cents = Int(rest[..<space]), !rest[rest.index(after: space)...].isEmpty
+        else { return nil }
+        return (String(rest[rest.index(after: space)...]), cents)
+    }
+
+    static func cents(_ amount: Double) -> Int { Int((abs(amount) * 100).rounded()) }
+
     /// The same trimming, with the bank's own casing left on: what `key` is
     /// computed from, and what a screen shows when no name has been given.
     static func merchantWords(_ payee: String) -> String {
@@ -203,23 +238,30 @@ final class MerchantNames: ObservableObject {
     }
 
     /*
-     * Combien d'opérations portent ce marchand.
+     * Combien d'opérations ce nom atteindra.
      *
      * La clé se calcule en Swift, pas en SQL, donc on la calcule une fois par
      * libellé distinct plutôt qu'une fois par ligne : trois mille opérations
-     * tiennent en quelques centaines de libellés.
+     * tiennent en quelques centaines de libellés. Une clé de série ajoute le
+     * montant au regroupement, et ne compte que les opérations de ce
+     * montant-là.
      */
     func usage(ofKey key: String) -> Int {
+        let series = Self.series(of: key)
+        let merchant = series?.merchant ?? key
         guard let store = LocalStore.shared,
               let rows = try? store.database.query(
                   """
-                  SELECT payee, count(*) AS n FROM transactions
-                  WHERE deleted_at IS NULL GROUP BY payee
+                  SELECT payee, amount, count(*) AS n FROM transactions
+                  WHERE deleted_at IS NULL GROUP BY payee, amount
                   """
               ) else { return 0 }
         return rows.reduce(0) { total, row in
             guard let payee = row.string("payee"),
-                  Self.sameMerchant(Self.key(payee), key) else { return total }
+                  Self.sameMerchant(Self.key(payee), merchant) else { return total }
+            if let cents = series?.cents, cents != Self.cents(row.double("amount") ?? 0) {
+                return total
+            }
             return total + (row.int("n") ?? 0)
         }
     }
