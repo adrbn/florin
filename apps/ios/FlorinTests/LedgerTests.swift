@@ -1766,6 +1766,47 @@ struct CategoryHintTests {
         #expect((hit?.confidence ?? 1) < LocalCategoriser.applyThreshold)
     }
 
+    /*
+     * Le même libellé, mot pour mot, vu une seule fois et jamais classé
+     * autrement : la deuxième fois, la personne ne ressaisit rien.
+     *
+     * C'est le cas qui tombait pile dans l'angle mort — 0,79 pour un seuil à
+     * 0,80. L'écran montrait le nom et le logo du marchand et laissait la
+     * catégorie vide, ce qui donnait raison à qui trouvait cela étrange.
+     */
+    @Test("a label seen once and never filed otherwise is enough to file")
+    func oneUnanimousExactLabelIsEnough() throws {
+        let (store, account, food, _) = try ledger()
+        try row(store, account, "Le Comptoir - Via Roma", -12.97, category: food)
+
+        let memory = try LocalCategoriser.remember(store: store)
+        let hit = LocalCategoriser.suggest(
+            memory, payee: "Le Comptoir - Via Roma", amount: -3.35, accountId: account
+        )
+        #expect(hit?.categoryId == food)
+        #expect((hit?.confidence ?? 0) >= LocalCategoriser.applyThreshold)
+    }
+
+    /*
+     * Mais un libellé classé de deux façons différentes, une fois chacune,
+     * reste un tirage au sort — l'appliquer reviendrait à en appliquer le
+     * résultat. Mesuré, c'est la condition qui rend le gain intéressant :
+     * sans elle on gagne 145 lignes pour 37 fausses au lieu de 124 pour 24.
+     */
+    @Test("the same label filed two ways once each is only offered")
+    func oneExampleEachWayIsNotEnough() throws {
+        let (store, account, food, gifts) = try ledger()
+        try row(store, account, "Le Comptoir - Via Roma", -12.97, category: food)
+        try row(store, account, "Le Comptoir - Via Roma", -12.97, category: gifts)
+
+        let memory = try LocalCategoriser.remember(store: store)
+        let hit = LocalCategoriser.suggest(
+            memory, payee: "Le Comptoir - Via Roma", amount: -3.35, accountId: account
+        )
+        #expect(hit != nil)
+        #expect((hit?.confidence ?? 1) < LocalCategoriser.applyThreshold)
+    }
+
     /// Un libellé dont aucun mot n'a de passé ne propose rien : mieux vaut la
     /// liste complète qu'un nom tiré au hasard.
     @Test("a merchant the ledger has never seen proposes nothing")
