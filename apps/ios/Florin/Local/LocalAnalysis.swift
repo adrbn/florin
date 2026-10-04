@@ -346,6 +346,7 @@ enum LocalAnalysis {
             LEFT JOIN categories c ON c.id = t.category_id
             WHERE t.deleted_at IS NULL AND t.status = 'cleared' AND t.is_pending = 0 AND substr(t.occurred_at, 1, 10) <= date('now')
               AND t.amount < 0 AND t.transfer_pair_id IS NULL
+              AND t.instalment_plan_id IS NULL
               AND a.is_archived = 0 AND t.occurred_at >= ?
             ORDER BY t.occurred_at
             """,
@@ -407,6 +408,34 @@ enum LocalAnalysis {
             let isMonthly = abs(cadence - 30) <= 7
             let isWeekly = abs(cadence - 7) <= 2
             guard isMonthly || isWeekly else { continue }
+
+            /*
+             * Un abonnement, c'est aussi quelque chose qui court encore.
+             *
+             * Quatre mensualités égales chez le même marchand, c'est le profil
+             * exact d'un abonnement — et c'est aussi celui d'un achat en
+             * quatre fois. Celles que Florin connaît sont écartées plus haut
+             * par leur échéancier, mais un paiement fractionné que la banque
+             * n'annonce pas comme tel n'a aucune marque : il ressemble trait
+             * pour trait à un abonnement, jusqu'au jour où il s'arrête.
+             *
+             * Ce jour-là, la différence devient visible, et c'est la seule
+             * qu'on puisse voir sans deviner. Le radar projette un coût
+             * annuel ; le projeter sur une série finie, c'est facturer pour
+             * toujours un achat déjà soldé — et le même raisonnement vaut pour
+             * un abonnement résilié, qui pesait lui aussi sur le total.
+             *
+             * Deux cadences de battement avant de la déclarer éteinte : large
+             * devant un prélèvement en retard ou une comptabilisation lente,
+             * étroit devant une série réellement terminée.
+             *
+             * Une série finie encore en cours reste indiscernable d'un
+             * abonnement, et rien ici ne prétend le contraire.
+             */
+            let sinceLast = calendar.dateComponents(
+                [.day], from: days.last ?? Date(), to: Date()
+            ).day ?? 0
+            guard sinceLast <= cadence * 2 else { continue }
 
             let tolerance = max(4, Int(Double(cadence) * 0.3))
             let strays = gaps.filter { abs($0 - cadence) > tolerance }.count

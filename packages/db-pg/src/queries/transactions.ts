@@ -15,6 +15,11 @@ import { parseAmountSearch } from '@florin/core/lib/transactions'
 import type { PgDB } from '../client'
 import { accounts, transactions } from '../schema'
 
+/** Le jour de l'opération est arrivé. */
+const DATE_REACHED = sql`${transactions.occurredAt} <= now()`
+/** Il ne l'est pas encore. */
+const FUTURE_DATED = sql`${transactions.occurredAt} > now()`
+
 /**
  * Build the WHERE clause for list/count transaction queries. Factored out so
  * both use the exact same predicate.
@@ -31,6 +36,7 @@ function buildTransactionConditions(db: PgDB, options: ListTransactionsOptions) 
     categoryId,
     minAmount,
     maxAmount,
+    phase,
   } = options
   const activeAccountIds = db
     .select({ id: accounts.id })
@@ -55,6 +61,28 @@ function buildTransactionConditions(db: PgDB, options: ListTransactionsOptions) 
   }
   if (excludeTransfers) {
     conditions.push(isNull(transactions.transferPairId))
+  }
+  /*
+   * Ce qui s'est passé d'un côté, ce qui attend de l'autre.
+   *
+   * Une annonce est datée dans le futur, donc un tri par date la place avant
+   * tout le reste : les douze « dernières opérations » finissaient par ne
+   * montrer que des paiements qui n'avaient pas eu lieu. Les deux phases sont
+   * exactement complémentaires, donc les deux listes bout à bout redonnent la
+   * liste entière, sans trou ni doublon.
+   */
+  if (phase === 'settled') {
+    conditions.push(eq(transactions.isPending, false))
+    conditions.push(eq(transactions.needsReview, false))
+    conditions.push(DATE_REACHED)
+  } else if (phase === 'waiting') {
+    conditions.push(
+      or(
+        eq(transactions.isPending, true),
+        FUTURE_DATED,
+        and(eq(transactions.needsReview, true), DATE_REACHED),
+      )!,
+    )
   }
   if (payeeSearch && payeeSearch.trim().length > 0) {
     const needle = `%${payeeSearch.trim()}%`

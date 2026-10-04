@@ -915,5 +915,7 @@
   "v2.analysis.calendarCaption": "Dépenses par jour, sur {days} jours",
   "v2.analysis.busiestDay": "Jour le plus lourd",
   "v2.analysis.quietDays": "{count} jours sans dépense",
-  "v2.analysis.perActiveDay": "{amount} les jours de dépense"
+  "v2.analysis.perActiveDay": "{amount} les jours de dépense",
+  "onboarding.wizard.progress": "Étape {n} sur {total} : {label}",
+  "tour.progress": "Étape {n} sur {total}"
 }

@@ -1972,6 +1972,68 @@ struct SubscriptionTests {
         #expect(try LocalAnalysis.subscriptions(store.database).isEmpty)
     }
 
+    /*
+     * Quatre mensualités égales, c'est aussi un achat en quatre fois.
+     *
+     * Florin connaît ses propres échéanciers : ces lignes portent un
+     * `instalment_plan_id`, et le radar n'a donc rien à deviner. Sans cette
+     * exclusion, un achat de 136 € payé en quatre fois était annoncé comme
+     * 408 € par an, pour toujours.
+     */
+    @Test("an instalment plan is not a subscription")
+    func instalmentPlanIsNotASubscription() throws {
+        let (store, account) = try ledger()
+        let plan = UUID().uuidString
+        for instalment in 0..<4 {
+            let daysAgo = 5 + instalment * 30
+            try store.database.run(
+                """
+                INSERT INTO transactions (id, account_id, occurred_at, amount, currency, payee,
+                    normalized_payee, source, status, is_pending, instalment_plan_id)
+                VALUES (?, ?, ?, ?, 'EUR', ?, ?, 'enable_banking', 'cleared', 0, ?)
+                """,
+                [.text(UUID().uuidString), .text(account), .text("\(day(daysAgo))T00:00:00Z"),
+                 .real(-34), .text("ACHAT CB LE COMPTOIR"),
+                 .text(LocalLedger.normalize("ACHAT CB LE COMPTOIR")), .text(plan)]
+            )
+        }
+
+        #expect(try LocalAnalysis.subscriptions(store.database).isEmpty)
+    }
+
+    /*
+     * Une série qui s'est arrêtée ne coûte plus rien par an.
+     *
+     * Un paiement fractionné que la banque n'annonce pas comme tel n'a aucune
+     * marque : il ressemble trait pour trait à un abonnement. Ce qui finit par
+     * le trahir, c'est qu'il s'arrête — et le même raisonnement rend sa
+     * projection annuelle à un abonnement résilié.
+     */
+    @Test("a run that stopped is no longer charged for the year")
+    func afinishedRunIsDropped() throws {
+        let (store, account) = try ledger()
+        // Quatre mensualités, la dernière il y a plus de quatre mois.
+        for instalment in 0..<4 {
+            try charge(
+                store, account, "ACHAT CB LE COMPTOIR", -34,
+                daysAgo: 130 + instalment * 30
+            )
+        }
+
+        #expect(try LocalAnalysis.subscriptions(store.database).isEmpty)
+    }
+
+    /// Mais un prélèvement en retard d'un cycle court toujours.
+    @Test("a late charge does not retire a live subscription")
+    func aLateChargeStillCounts() throws {
+        let (store, account) = try ledger()
+        for month in 0..<5 {
+            try charge(store, account, "PRELEVEMENT LE COMPTOIR", -9.99, daysAgo: 40 + month * 30)
+        }
+
+        #expect(try LocalAnalysis.subscriptions(store.database).count == 1)
+    }
+
     /// Two payments is a coincidence, and a price that moves every month is
     /// not one price.
     @Test("two charges, or a moving amount, are not enough")

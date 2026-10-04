@@ -382,6 +382,18 @@ export interface ListTransactionsOptions {
   categoryId?: string
   minAmount?: number
   maxAmount?: number
+  /**
+   * Ce qui s'est passé, ou ce qui attend encore.
+   *
+   * Une opération annoncée mais pas comptabilisée est datée dans le futur, et
+   * une liste triée par date la met donc devant tout le reste. « Dernières
+   * opérations » affichait alors des paiements qui n'ont pas eu lieu à la
+   * place de ceux qui ont eu lieu — jusqu'à remplir les douze lignes.
+   *
+   * `settled` ne garde que ce que la banque a comptabilisé et qui ne demande
+   * pas de décision ; `waiting` est exactement le complément.
+   */
+  phase?: 'settled' | 'waiting'
 }
 
 export interface PaginatedResult<T> {

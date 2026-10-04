@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useT } from '../../../i18n/context'
 
 export interface WizardStep {
@@ -17,6 +17,28 @@ interface WizardShellProps {
 export function WizardShell({ steps, onComplete }: WizardShellProps) {
   const t = useT()
   const [currentIndex, setCurrentIndex] = useState(0)
+  const stepRef = useRef<HTMLDivElement>(null)
+  const landed = useRef(false)
+
+  /*
+   * Changer d'étape ne se voyait qu'à l'écran.
+   *
+   * Le contenu est remplacé sur place, sans rien qui bouge dans l'ordre de
+   * lecture : un lecteur d'écran restait sur le bouton « Suivant » et ne
+   * lisait rien de la nouvelle étape. Poser le focus sur le bloc d'étape le
+   * fait annoncer son nom puis son titre, c'est-à-dire exactement ce qui
+   * vient de changer.
+   *
+   * Pas au premier rendu : voler le focus à l'ouverture d'une page est aussi
+   * désagréable que ne pas le déplacer du tout.
+   */
+  useEffect(() => {
+    if (!landed.current) {
+      landed.current = true
+      return
+    }
+    stepRef.current?.focus()
+  }, [currentIndex])
 
   const isFirst = currentIndex === 0
   const isLast = currentIndex === steps.length - 1
@@ -36,8 +58,24 @@ export function WizardShell({ steps, onComplete }: WizardShellProps) {
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-xl flex-col items-center justify-center gap-8 px-4 py-12">
-      {/* Progress dots */}
-      <div className="flex items-center gap-2">
+      {/*
+        Progress dots. L'`aria-label` posé sur chaque point était perdu : sur
+        un `div` sans rôle, il n'est pas restitué. La barre entière porte donc
+        la progression, et les points redeviennent ce qu'ils sont, de la
+        décoration.
+      */}
+      <div
+        className="flex items-center gap-2"
+        role="progressbar"
+        aria-valuemin={1}
+        aria-valuemax={steps.length}
+        aria-valuenow={currentIndex + 1}
+        aria-valuetext={t(
+          'onboarding.wizard.progress',
+          { n: currentIndex + 1, total: steps.length, label: current?.label ?? '' },
+          'Step {n} of {total}: {label}',
+        )}
+      >
         {steps.map((step, i) => (
           <div
             key={step.id}
@@ -49,13 +87,21 @@ export function WizardShell({ steps, onComplete }: WizardShellProps) {
                   ? 'w-2 bg-primary/60'
                   : 'w-2 bg-muted',
             ].join(' ')}
-            aria-label={step.label}
+            aria-hidden="true"
           />
         ))}
       </div>
 
       {/* Step content */}
-      <div className="w-full">{current?.content}</div>
+      <div
+        ref={stepRef}
+        tabIndex={-1}
+        role="group"
+        aria-label={current?.label}
+        className="w-full outline-none"
+      >
+        {current?.content}
+      </div>
 
       {/* Navigation */}
       <div className="flex w-full items-center justify-between">

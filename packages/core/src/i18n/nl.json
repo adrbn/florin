@@ -915,5 +915,7 @@
   "v2.analysis.calendarCaption": "Uitgaven per dag, over {days} dagen",
   "v2.analysis.busiestDay": "Zwaarste dag",
   "v2.analysis.quietDays": "{count} dagen zonder uitgaven",
-  "v2.analysis.perActiveDay": "{amount} op dagen met uitgaven"
+  "v2.analysis.perActiveDay": "{amount} op dagen met uitgaven",
+  "onboarding.wizard.progress": "Stap {n} van {total}: {label}",
+  "tour.progress": "Stap {n} van {total}"
 }

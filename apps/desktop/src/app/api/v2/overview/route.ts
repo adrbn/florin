@@ -45,6 +45,26 @@ function requestedLocale(request: Request): SupportedLocale | null {
     : null
 }
 
+/*
+ * Les douze qui ont eu lieu, puis tout ce qui attend.
+ *
+ * Une seule requête triée par date mettait les annonces en tête — elles sont
+ * datées dans le futur — et « Dernières opérations » montrait donc des
+ * paiements qui n'avaient pas encore eu lieu à la place de ceux qui venaient
+ * d'avoir lieu, jusqu'à occuper les douze lignes. L'écran natif lit déjà son
+ * grand livre local comme ça ; c'est l'API qui ne suivait pas.
+ *
+ * Les deux phases sont complémentaires : bout à bout, elles ne perdent ni ne
+ * répètent aucune ligne.
+ */
+async function recentRows() {
+  const [settled, waiting] = await Promise.all([
+    queries.listTransactions({ limit: 12, phase: 'settled' }),
+    queries.listTransactions({ limit: 200, phase: 'waiting' }),
+  ])
+  return [...settled, ...waiting]
+}
+
 export async function GET(request: Request) {
   const [
     netWorth,
@@ -70,7 +90,7 @@ export async function GET(request: Request) {
     queries.getSavingsRates(),
     queries.getNetWorthAllocation(),
     queries.listAccounts(),
-    queries.listTransactions({ limit: 12, excludeTransfers: false }),
+    recentRows(),
     queries.getInvestmentSnapshot(),
     countNeedsReview(),
     getUserLocale(),
