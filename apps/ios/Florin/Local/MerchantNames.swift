@@ -58,8 +58,76 @@ final class MerchantNames: ObservableObject {
             words = Array(words[..<cut])
         }
 
-        let trimmed = words.joined(separator: " ").trimmingCharacters(in: .whitespaces)
+        words = withoutPaperwork(words)
+
+        var trimmed = words.joined(separator: " ").trimmingCharacters(in: .whitespaces)
+        while let last = trimmed.last, " ,;-".contains(last) { trimmed.removeLast() }
         return trimmed.isEmpty ? PayeeText.clean(payee) : trimmed
+    }
+
+    /*
+     * Ce que l'immatriculation ajoute au nom, et qui n'est pas le nom.
+     *
+     * Une fois le rail retiré et la référence coupée, il reste ce que le
+     * marchand a déclaré au registre du commerce : « Le Comptoir S.a, l. et
+     * Cie S.c.a, », « Télécom SA », « Loueur SRL ». Personne ne dit ça. Et la
+     * caisse ajoute souvent son propre numéro — « Supermarché 1357 » — ou le
+     * masque de la carte collé au nom — « Cartepay**4321* ».
+     *
+     * Trois coupes, et seulement trois, chacune bornée parce qu'un nom perdu
+     * ne se voit pas alors qu'un nom bizarre se voit :
+     *
+     *   - la forme juridique, jamais en tête (un marchand peut s'appeler « SA »)
+     *   - l'initiale ponctuée, pas avant le troisième mot : « Le Comptoir
+     *     Grenier S, » est de la paperasse, « Paypartage A, Jeanne D » est un
+     *     bénéficiaire
+     *   - le numéro de caisse à trois chiffres ou plus, sauf une année, parce
+     *     que « Le Comptoir 1971 » et « Cotisation Février 2026 » disent
+     *     quelque chose
+     *
+     * Un nombre d'un ou deux chiffres reste : « Le Comptoir 87 » est peut-être
+     * le nom de l'enseigne, et on n'a aucun moyen de le savoir.
+     */
+    private static func withoutPaperwork(_ words: [String]) -> [String] {
+        var words = words
+        for (index, word) in words.enumerated() {
+            if index > 0, legalForms.contains(fold(word.filter { !punctuation.contains($0) })) {
+                words = Array(words[..<index])
+                break
+            }
+            if index >= 2, word.range(of: #"^[A-Za-z]{1,2}[.,;]+$"#, options: .regularExpression) != nil {
+                words = Array(words[..<index])
+                break
+            }
+        }
+        while words.count > 1, let last = words.last, isStoreCode(last) {
+            words.removeLast()
+        }
+        if let last = words.last,
+           let mask = last.range(of: #"\*+[\d*]*$"#, options: .regularExpression),
+           mask.lowerBound != last.startIndex {
+            words[words.count - 1] = String(last[..<mask.lowerBound])
+        }
+        return words
+    }
+
+    /// La forme juridique telle qu'elle s'écrit une fois la ponctuation ôtée :
+    /// « S.a, », « S.r.l. » et « Srl » se lisent tous pareil.
+    private static let legalForms: Set<String> = [
+        "sa", "sarl", "sas", "srl", "spa", "sca", "sc", "bv", "nv",
+        "gmbh", "ltd", "llc", "inc", "plc", "ag", "cie", "kg",
+    ]
+
+    /// « S.a, » et « Srl » doivent se lire pareil : la ponctuation part du
+    /// mot entier, pas seulement de ses bords.
+    private static let punctuation: Set<Character> = [".", ",", ";", "(", ")"]
+
+    /// Le numéro que la caisse ajoute — mais pas une année, qui fait partie
+    /// du nom (« Le Comptoir 1971 ») ou le date (« Cotisation Février 2026 »).
+    private static func isStoreCode(_ word: String) -> Bool {
+        guard word.count >= 3, word.allSatisfy(\.isNumber) else { return false }
+        if word.count == 4, let year = Int(word), (1900...2100).contains(year) { return false }
+        return true
     }
 
     /// Ce qui reste du rail une fois le premier mot retiré.

@@ -128,6 +128,7 @@ final class LocalStore {
         try adoptOlderInstalmentPlans()
         try carryPlansThroughSettlement()
         try priceOlderPlansAtWhatTheyCharged()
+        try rekeyMerchantNames()
         // `settings` is exactly (key, value) in this schema — no timestamps.
         try database.run(
             "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
@@ -156,6 +157,40 @@ final class LocalStore {
      * libellé d'origine — c'est le cas des annonces, que la banque publie sans
      * référence stable, donc précisément celles qui se font renommer.
      */
+    /*
+     * Les renommages, recalés quand la règle qui les range change.
+     *
+     * Un nom donné à la main est rangé sous la clé du marchand, et cette clé
+     * est ce que `MerchantNames.merchantWords` tire du libellé. Resserrer ce
+     * calcul — retirer la forme juridique, le numéro de caisse — déplace donc
+     * les clés : « prel de telecom sa » devient « telecom », et le renommage
+     * rangé sous l'ancienne clé ne répond plus à rien. Silencieusement : la
+     * ligne réaffiche le libellé de la banque comme si on ne l'avait jamais
+     * renommée.
+     *
+     * Les clés sont donc réécrites par la règle du jour. Rien à versionner :
+     * le calcul est un point fixe, donc une clé déjà à jour ne bouge pas et la
+     * passe ne fait rien aux lancements suivants.
+     *
+     * Deux anciennes clés peuvent se ranger sous la même nouvelle — « le
+     * comptoir » et « le comptoir srl ». `OR REPLACE` garde la dernière
+     * écrite, et l'ordre par `updated_at` fait que c'est la plus récente.
+     */
+    private func rekeyMerchantNames() throws {
+        for table in ["payee_aliases", "merchant_marks"] {
+            let rows = try database.query("SELECT match_key FROM \(table) ORDER BY updated_at ASC")
+            for row in rows {
+                guard let old = row.string("match_key") else { continue }
+                let fresh = MerchantNames.key(old)
+                guard fresh != old, !fresh.isEmpty else { continue }
+                try database.run(
+                    "UPDATE OR REPLACE \(table) SET match_key = ? WHERE match_key = ?",
+                    [.text(fresh), .text(old)]
+                )
+            }
+        }
+    }
+
     /// Ajoute une colonne à une table déjà créée. SQLite n'a pas d'`ADD COLUMN
     /// IF NOT EXISTS` : lire la table est la seule façon de savoir.
     private func addColumn(_ table: String, _ column: String, _ type: String) throws {

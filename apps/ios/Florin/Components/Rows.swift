@@ -109,7 +109,7 @@ enum RowText {
 /// Same cleaning rules as the web `cleanPayee` / `humanizePayee`.
 enum PayeeText {
     private static let leadWords: Set<String> = [
-        "achat", "cb", "carte", "paiement", "prlv", "prelevement", "prélèvement",
+        "achat", "cb", "carte", "paiement", "prlv", "prel", "prelevement", "prélèvement",
         "vir", "virement", "sepa", "ach", "pos", "tpe", "retrait", "dab", "facture",
         // La marque que Florin met devant le miroir d'un virement. Elle dit
         // d'où vient la ligne, pas qui a été payé : la laisser dans le nom

@@ -1304,7 +1304,7 @@ struct MerchantNameTests {
     func directDebit() {
         #expect(MerchantNames.key(
             "PRELEVEMENT DE TELECOM SA REF : 9876543210987654321012345 0 Votre abonnement mobile: 06XXXXX"
-        ) == "telecom sa")
+        ) == "telecom")
         #expect(MerchantNames.key(
             "PRELEVEMENT DE BOX INTERNET REF : abcd-12345678 IDENT : FR00ZZZ000000 MANDAT : BOX-ABCDEF-1"
         ) == "box internet")
@@ -1318,6 +1318,59 @@ struct MerchantNameTests {
         #expect(MerchantNames.key(
             "VIREMENT INSTANTANE DE PAYPAL 76543210987654321 INSTANT TRANSFER"
         ) == "paypal")
+    }
+
+    /*
+     * Ce que le registre du commerce ajoute au nom n'est pas le nom.
+     *
+     * Ces libellés sont inventés, mais la forme est celle de la banque : la
+     * forme juridique derrière le nom, le numéro de caisse, le masque de la
+     * carte collé au nom.
+     */
+    @Test("the paperwork around a name is not the name", arguments: [
+        ("ACHAT CB LE COMPTOIR SRL 07.09.26 EUR          4,10 CARTE NO  123", "le comptoir"),
+        ("PREL DE LE COMPTOIR SA, 1234567890123, 1234567890123", "le comptoir"),
+        ("ACHAT CB LE COMPTOIR S.a, l. et Cie S.c.a, 07.09.26 EUR 4,10", "le comptoir"),
+        ("ACHAT CB LE COMPTOIR GRENIER S, LE COMPTOIR, 07.09.26", "le comptoir grenier"),
+        ("ACHAT CB SUPERMARCHE 1357 07.09.26 EUR         12,00 CARTE NO  123", "supermarche"),
+        ("ACHAT CB CARTEPAY**4321* 07.09.26 EUR         10,00 CARTE NO  123", "cartepay"),
+    ])
+    func paperwork(_ payee: String, _ key: String) {
+        #expect(MerchantNames.key(payee) == key)
+    }
+
+    /// Chaque coupe est bornée, parce qu'un nom perdu ne se voit pas.
+    @Test("what may belong to the name is kept", arguments: [
+        ("ACHAT CB LE COMPTOIR 87 07.09.26 EUR           4,10", "le comptoir 87"),
+        ("ACHAT CB LE COMPTOIR 1971 07.09.26 EUR          4,10", "le comptoir 1971"),
+        ("ACHAT CB SA MAJESTE 07.09.26 EUR          4,10", "sa majeste"),
+        ("VIREMENT INSTANTANE A, JEANNE D", "a, jeanne d"),
+        ("VIREMENT INSTANTANE DE PAYPARTAGE A, JEANNE D", "paypartage a, jeanne d"),
+    ])
+    func bounded(_ payee: String, _ key: String) {
+        #expect(MerchantNames.key(payee) == key)
+    }
+
+    /*
+     * La clé d'une clé est elle-même.
+     *
+     * C'est ce qui rend la remise à niveau des renommages (`rekeyMerchantNames`)
+     * sûre : elle recalcule les clés à chaque lancement, donc elle ne doit rien
+     * faire aux clés déjà à jour. Sans ce point fixe, chaque lancement rognerait
+     * un peu plus le nom rangé en base.
+     */
+    @Test("the key of a key is itself, so the rekeying may run on every launch")
+    func fixpoint() {
+        for payee in [
+            "ACHAT CB LE COMPTOIR SRL 07.09.26 EUR          4,10 CARTE NO  123",
+            "PRELEVEMENT DE TELECOM SA REF : 9876543210987654321012345",
+            "ACHAT CB SUPERMARCHE 1357 07.09.26 EUR         12,00",
+            "ACHAT CB CARTEPAY**4321* 07.09.26 EUR         10,00",
+            "VIREMENT INSTANTANE DE PAYPARTAGE A, JEANNE D",
+        ] {
+            let key = MerchantNames.key(payee)
+            #expect(MerchantNames.key(key) == key)
+        }
     }
 
     @Test("two merchants never share a key")
