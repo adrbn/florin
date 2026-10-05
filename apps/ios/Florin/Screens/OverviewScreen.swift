@@ -711,7 +711,10 @@ struct OverviewScreen: View {
             .buttonStyle(.plain)
             .accessibilityLabel(data.t("v2.settings.title", "Réglages"))
 
-            Button { route(.activity, TabRoute.activity.rootPath) } label: {
+            // « ?search » demande à Activité d'ouvrir le clavier en arrivant :
+            // une loupe qui pose un champ sans le donner fait faire deux
+            // gestes là où on en attend un.
+            Button { route(.activity, TabRoute.activity.rootPath + "?search") } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 15, weight: .semibold))
@@ -723,6 +726,8 @@ struct OverviewScreen: View {
                 .padding(.horizontal, 16)
                 .frame(height: 44)
                 .florinGlass(in: Capsule())
+                // Sans ça, le vide à droite du texte ne prend pas le tap.
+                .contentShape(Capsule())
             }
             .buttonStyle(.plain)
 

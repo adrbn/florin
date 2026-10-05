@@ -286,6 +286,37 @@ enum LocalInstalments {
         /// La prochaine échéance à tomber, s'il en reste.
         var next: Transaction? { due.first }
         var isOver: Bool { due.isEmpty }
+
+        /*
+         * Le pli obéit au même filtre que la liste sous lui.
+         *
+         * Les échéanciers ne se paginent pas et ne passent donc pas par la
+         * requête : ils arrivaient entiers, et « 5 paiements en plusieurs
+         * fois » restait affiché au-dessus de quatre résultats de recherche
+         * qui n'avaient rien à voir. Un pli qui répond à une question qu'on
+         * n'a pas posée se lit comme un résultat.
+         *
+         * Les mêmes champs que la recherche SQL — le libellé de la banque, le
+         * nom donné au marchand, les notes — et un échéancier tombe dès qu'une
+         * de ses échéances répond, parce que c'est l'achat qu'on cherche.
+         */
+        func matches(_ filter: TxFilter) -> Bool {
+            // Une échéance est une dépense annoncée : ni une entrée, ni une
+            // ligne en attente de décision.
+            if filter.direction == .income || filter.needsReview { return false }
+            if let account = filter.accountId, accountId != account { return false }
+            if let category = filter.categoryId,
+               !instalments.contains(where: { $0.categoryId == category }) { return false }
+            if let from = filter.from, !due.contains(where: { $0.day >= from }) { return false }
+            if let to = filter.to, !due.contains(where: { $0.day <= to }) { return false }
+
+            let needle = filter.search.trimmingCharacters(in: .whitespaces).lowercased()
+            guard !needle.isEmpty else { return true }
+            if payee.lowercased().contains(needle) { return true }
+            if let given = MerchantNames.shared.name(for: payee)?.lowercased(),
+               given.contains(needle) { return true }
+            return instalments.contains { ($0.memo ?? "").lowercased().contains(needle) }
+        }
     }
 
     /// Les échéanciers du grand livre, le plus pressé d'abord.

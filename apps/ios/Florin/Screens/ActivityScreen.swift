@@ -12,6 +12,8 @@ struct ActivityScreen: View {
     var onOpenSettings: () -> Void = {}
     /// Set by a link from elsewhere in the app ("À vérifier" on the dashboard).
     var startNeedsReview = false
+    /// Arrivé par la loupe d'Aperçu : le clavier s'ouvre tout seul.
+    var startSearching = false
 
     /// The served table when there is one, the bundled one until then: this tab
     /// can be opened before the first feed arrives, and `.empty` would draw the
@@ -37,6 +39,7 @@ struct ActivityScreen: View {
              */
             onLedgerChanged: { await overview.load(showSpinner: false) },
             startNeedsReview: startNeedsReview,
+            startSearching: startSearching,
             onProfile: onOpenSettings
         )
     }
@@ -72,6 +75,7 @@ struct TransactionList<Banner: View>: View {
     var heroValue: Double?
     var heroCaption: String?
     var startNeedsReview = false
+    var startSearching = false
     var showsBack = false
     var onProfile: () -> Void = {}
     /// Boutons propres à l'écran qui héberge la liste, posés à gauche des
@@ -110,6 +114,7 @@ struct TransactionList<Banner: View>: View {
         heroValue: Double? = nil,
         heroCaption: String? = nil,
         startNeedsReview: Bool = false,
+        startSearching: Bool = false,
         showsBack: Bool = false,
         onProfile: @escaping () -> Void = {},
         extraActions: AnyView? = nil,
@@ -126,6 +131,7 @@ struct TransactionList<Banner: View>: View {
         self.heroValue = heroValue
         self.heroCaption = heroCaption
         self.startNeedsReview = startNeedsReview
+        self.startSearching = startSearching
         self.showsBack = showsBack
         self.onProfile = onProfile
         self.extraActions = extraActions
@@ -291,6 +297,10 @@ struct TransactionList<Banner: View>: View {
         }
         .task {
             if startNeedsReview { model.filter.needsReview = true }
+            // Venir d'une loupe et trouver un champ qu'il faut encore toucher,
+            // c'est la moitié du geste. La vue est neuve (son identité porte
+            // le jeton de la route), donc l'ouverture est bien une arrivée.
+            if startSearching { searchFocused = true }
             if let preset {
                 model.filter.accountId = preset.accountId
                 model.filter.categoryId = preset.categoryId
@@ -502,6 +512,11 @@ struct TransactionList<Banner: View>: View {
         .frame(height: 44)
         .frame(maxWidth: .infinity)
         .florinGlass(in: Capsule())
+        // Un champ de texte ne fait que la hauteur de sa ligne : dans une
+        // capsule de 44 points, viser au-dessus ou au-dessous du texte, ou la
+        // loupe, ne faisait rien. La capsule entière donne le clavier.
+        .contentShape(Capsule())
+        .onTapGesture { searchFocused = true }
         // Debounced: firing a query per keystroke over a LAN server means the
         // list flickers through four intermediate result sets on the way to
         // "carrefour".
@@ -844,13 +859,10 @@ struct TransactionList<Banner: View>: View {
     }
 
     /// Les échéanciers encore en cours — un achat soldé n'attend plus rien et
-    /// n'a donc rien à annoncer. Filtrés sur le compte regardé : la page d'un
-    /// compte ne parle que de lui.
+    /// n'a donc rien à annoncer. Soumis au filtre courant comme le reste de la
+    /// page : voir `Schedule.matches`.
     private var schedules: [LocalInstalments.Schedule] {
-        model.schedules.filter {
-            !$0.isOver
-                && (model.filter.accountId == nil || $0.accountId == model.filter.accountId)
-        }
+        model.schedules.filter { !$0.isOver && $0.matches(model.filter) }
     }
 
     private var days: [Day] {

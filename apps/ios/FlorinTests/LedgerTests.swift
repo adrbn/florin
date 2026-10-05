@@ -2870,6 +2870,73 @@ struct TruncatedLabelTests {
  * clés de marchand — et la règle de troncature, qui ne compare que des
  * préfixes, est précisément ce qui pourrait les rapprocher.
  */
+/*
+ * Le pli des échéanciers suit le filtre de la page.
+ *
+ * Il arrive entier — les échéanciers ne se paginent pas — donc c'est l'écran
+ * qui doit l'accorder à ce que la liste montre, sinon « 5 paiements en
+ * plusieurs fois » s'affiche au-dessus de quatre résultats sans rapport.
+ */
+@Suite("Instalment fold obeys the filter")
+struct InstalmentFilterTests {
+    private func plan() throws -> LocalInstalments.Schedule {
+        let store = try LocalStore(
+            url: URL(fileURLWithPath: NSTemporaryDirectory())
+                .appendingPathComponent("florin-fold-\(UUID().uuidString).db")
+        )
+        let account = UUID().uuidString
+        try store.database.exec("""
+        INSERT INTO accounts (id, name, kind, currency)
+          VALUES ('\(account)', 'CCP', 'checking', 'EUR');
+        """)
+        let calendar = Calendar(identifier: .gregorian)
+        var parts = DateComponents()
+        parts.year = 2027; parts.month = 3; parts.day = 10; parts.hour = 12
+        let day = try #require(calendar.date(from: parts))
+        try LocalInstalments.record(
+            store: store, accountId: account, payee: "Le Comptoir", memo: "ski",
+            categoryId: nil, from: day, instalments: [100, 100, 100],
+            purchase: 300, calendar: calendar
+        )
+        return try #require(try LocalInstalments.schedules(store.database).first)
+    }
+
+    @Test("No filter, nothing hidden")
+    func unfilteredPasses() throws {
+        #expect(try plan().matches(TxFilter()))
+    }
+
+    @Test("A search that misses the purchase drops its fold")
+    func searchExcludes() throws {
+        let plan = try plan()
+        var filter = TxFilter()
+        filter.search = "comptoir"
+        #expect(plan.matches(filter))
+        filter.search = "  SKI "
+        #expect(plan.matches(filter))
+        filter.search = "cadeau"
+        #expect(!plan.matches(filter))
+    }
+
+    @Test("An instalment is a spend that is already decided")
+    func directionAndQueue() throws {
+        let plan = try plan()
+        var income = TxFilter()
+        income.direction = .income
+        #expect(!plan.matches(income))
+        var queue = TxFilter()
+        queue.needsReview = true
+        #expect(!plan.matches(queue))
+    }
+
+    @Test("Another account's purchase is not this account's")
+    func accountExcludes() throws {
+        var filter = TxFilter()
+        filter.accountId = "un-autre-compte"
+        #expect(try !plan().matches(filter))
+    }
+}
+
 @Suite("Subscription keys")
 struct SeriesKeyTests {
     private let payee = "PRELEVEMENT DE Passerelle Europe S.a, l. et Cie S.C.A, REF : 1234567890123"

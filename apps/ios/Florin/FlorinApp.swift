@@ -438,7 +438,8 @@ struct MainTabs: View {
                     overview: model,
                     route: route,
                     onOpenSettings: openSettings,
-                    startNeedsReview: paths[.activity]?.contains("needsReview") == true
+                    startNeedsReview: paths[.activity]?.contains("needsReview") == true,
+                    startSearching: paths[.activity]?.contains("?search") == true
                 )
                 .id(paths[.activity] ?? TabRoute.activity.rootPath)
                 .hideSystemTabBar()
