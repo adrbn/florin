@@ -310,12 +310,22 @@ enum LocalInstalments {
             if let from = filter.from, !due.contains(where: { $0.day >= from }) { return false }
             if let to = filter.to, !due.contains(where: { $0.day <= to }) { return false }
 
-            let needle = filter.search.trimmingCharacters(in: .whitespaces).lowercased()
-            guard !needle.isEmpty else { return true }
-            if payee.lowercased().contains(needle) { return true }
-            if let given = MerchantNames.shared.name(for: payee)?.lowercased(),
-               given.contains(needle) { return true }
-            return instalments.contains { ($0.memo ?? "").lowercased().contains(needle) }
+            // Mot à mot, comme la page : voir `TxSearch`. Le montant cherché
+            // est celui d'une échéance — c'est ce qui est écrit sur la ligne.
+            let tokens = TxSearch.tokens(filter.search)
+            guard !tokens.isEmpty else { return true }
+            let given = MerchantNames.shared.name(for: payee)
+            return tokens.allSatisfy { token in
+                // Le prix d'achat aussi : c'est le nombre dont on se souvient,
+                // pas celui de la mensualité.
+                if let range = TxSearch.amountRange(token),
+                   abs(purchase) >= range.low, abs(purchase) < range.high { return true }
+                return instalments.contains { part in
+                    TxSearch.matches(
+                        token, texts: [payee, given, part.memo], amount: part.amount
+                    )
+                }
+            }
         }
     }
 

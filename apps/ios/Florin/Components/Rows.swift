@@ -127,7 +127,12 @@ enum PayeeText {
             dropped += 1
         }
         // Drop the trailing capture date and anything after it.
-        if let cut = words.firstIndex(where: { $0.range(of: #"^\d{2}[./-]\d{2}[./-]\d{2,4}$"#, options: .regularExpression) != nil }) {
+        //
+        // La ponctuation qui colle à la date en fait partie : certaines
+        // banques écrivent « 07.03.26, EUR 11,50 », et la virgule suffisait à
+        // ce que la date ne soit plus une date — le libellé restait entier,
+        // montant et numéro de carte compris, en guise de nom de commerçant.
+        if let cut = words.firstIndex(where: { $0.range(of: #"^\d{2}[./-]\d{2}[./-]\d{2,4}[,;.]?$"#, options: .regularExpression) != nil }) {
             words = Array(words[..<cut])
         }
         /*

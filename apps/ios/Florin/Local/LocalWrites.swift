@@ -18,21 +18,8 @@ enum LocalLedger {
         var clauses = ["t.deleted_at IS NULL"]
         var values: [SQLiteValue] = []
 
-        if !filter.search.trimmingCharacters(in: .whitespaces).isEmpty {
-            // Matched on the normalized payee as well as the raw one: bank
-            // labels carry case and punctuation nobody types.
-            // And on the name given to the merchant: someone who renamed "SARL LE
-            // COMPTOIR" to "Chez Marco" searches for Chez Marco. The key is contained
-            // in the lower-cased label, which is what `instr` checks.
-            clauses.append(
-                """
-                (lower(t.payee) LIKE ? OR t.normalized_payee LIKE ? OR lower(coalesce(t.memo,'')) LIKE ?
-                 OR EXISTS (SELECT 1 FROM payee_aliases a
-                            WHERE lower(a.display_name) LIKE ? AND instr(lower(t.payee), a.match_key) > 0))
-                """
-            )
-            let needle = "%" + filter.search.lowercased().trimmingCharacters(in: .whitespaces) + "%"
-            values.append(contentsOf: [.text(needle), .text(needle), .text(needle), .text(needle)])
+        if let search = searchClause(filter.search, into: &values) {
+            clauses.append(search)
         }
         switch filter.direction {
         case .expense: clauses.append("t.amount < 0")
@@ -102,6 +89,74 @@ enum LocalLedger {
             accounts: try LocalQueries.readAccounts(db),
             categories: try LocalQueries.readCategories(db)
         )
+    }
+
+    // MARK: - Chercher
+
+    /*
+     * Chercher comme on s'en souvient.
+     *
+     * On ne se souvient pas d'un libellé de banque : on se souvient de deux
+     * ou trois bouts. Or le libellé n'écrit rien comme on le tape — il met
+     * deux espaces au milieu d'un nom, colle la date au commerçant, et ne
+     * contient pas le montant sous la forme où on le lirait. Chercher la
+     * phrase entière d'un coup ne trouve donc plus rien dès le deuxième mot.
+     *
+     * Chaque mot tapé doit se retrouver quelque part — le libellé brut, sa
+     * forme normalisée, la note, le nom qu'on a donné au marchand, la
+     * catégorie, le compte, le montant — et tous doivent se retrouver. Ce
+     * sont les mots qui comptent, ni leur ordre ni ce qui les sépare.
+     *
+     * Ce que ça ne peut pas faire, et qui se voit : la banque tronque
+     * elle-même certains noms (« LE COMPTOIR G. » pour Le Comptoir du
+     * Grenier). Le mot absent du relevé reste introuvable — le montant,
+     * lui, le retrouve.
+     */
+    private static func searchClause(
+        _ query: String, into values: inout [SQLiteValue]
+    ) -> String? {
+        let tokens = query.lowercased().split(whereSeparator: \.isWhitespace).map(String.init)
+        guard !tokens.isEmpty else { return nil }
+
+        return tokens.map { token -> String in
+            /*
+             * Un nombre ne se cherche pas comme un mot.
+             *
+             * « 8 » pris comme fragment de texte se retrouve dans la date du
+             * 18, dans le numéro de carte, dans le centime de 3,85 : la moitié
+             * du grand livre répondait. Un nombre cherche donc un montant, et
+             * le texte seulement s'il y tient un mot entier — la forme
+             * normalisée sépare déjà les chiffres, donc « 731 » retrouve le
+             * numéro de carte sans que « 8 » retrouve « 18 ».
+             */
+            if let range = TxSearch.amountRange(token) {
+                values.append(.text("% " + token + " %"))
+                values.append(.real(range.low))
+                values.append(.real(range.high))
+                return """
+                (' ' || t.normalized_payee || ' ' LIKE ?
+                 OR (abs(t.amount) >= ? AND abs(t.amount) < ?))
+                """
+            }
+
+            let branches = [
+                "lower(t.payee) LIKE ?",
+                "t.normalized_payee LIKE ?",
+                "lower(coalesce(t.memo,'')) LIKE ?",
+                """
+                EXISTS (SELECT 1 FROM payee_aliases a
+                        WHERE lower(a.display_name) LIKE ?
+                          AND instr(lower(t.payee), a.match_key) > 0)
+                """,
+                "EXISTS (SELECT 1 FROM categories c WHERE c.id = t.category_id AND lower(c.name) LIKE ?)",
+                "EXISTS (SELECT 1 FROM accounts ac WHERE ac.id = t.account_id AND lower(ac.name) LIKE ?)",
+            ]
+            values.append(contentsOf: Array(
+                repeating: SQLiteValue.text("%" + token + "%"), count: branches.count
+            ))
+            return "(" + branches.joined(separator: " OR ") + ")"
+        }
+        .joined(separator: " AND ")
     }
 
     static func transaction(from row: SQLiteRow) -> Transaction {

@@ -527,8 +527,28 @@ struct TransactionList<Banner: View>: View {
                 .submitLabel(.search)
                 .focused($searchFocused)
                 .onSubmit { commitSearch(draft) }
+            // Effacer sans viser la touche retour arrière : la croix rend la
+            // page entière d'un geste, et garde le clavier pour la suite.
+            if !draft.isEmpty {
+                Button {
+                    draft = ""
+                    commitSearch("")
+                    searchFocused = true
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 16))
+                        .foregroundStyle(Florin.text3)
+                        .frame(width: 32, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(t("v2.common.clear", "Effacer"))
+                .transition(.opacity)
+            }
         }
-        .padding(.horizontal, 16)
+        .animation(.snappy(duration: 0.18), value: draft.isEmpty)
+        .padding(.leading, 16)
+        .padding(.trailing, draft.isEmpty ? 16 : 6)
         .frame(height: 44)
         .frame(maxWidth: .infinity)
         .florinGlass(in: Capsule())

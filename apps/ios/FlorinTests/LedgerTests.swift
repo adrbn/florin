@@ -2937,6 +2937,47 @@ struct InstalmentFilterTests {
     }
 }
 
+@Suite("Searching by words and amounts")
+struct TxSearchTests {
+    @Test("Un entier cherche l'euro, un décimal le centime")
+    func amountRanges() {
+        let euro = TxSearch.amountRange("8")
+        #expect(euro?.low == 8)
+        #expect(euro?.high == 9)
+        let cents = TxSearch.amountRange("8,50")
+        #expect(cents.map { $0.low < 8.5 && 8.5 < $0.high } == true)
+        #expect(cents.map { $0.high < 8.51 } == true)
+        #expect(TxSearch.amountRange("comptoir") == nil)
+    }
+
+    @Test("Le montant cherché est celui qu'on a payé, signe compris")
+    func amountIgnoresSign() {
+        #expect(TxSearch.matches("8", texts: [], amount: -8.40))
+        #expect(TxSearch.matches("8,40", texts: [], amount: -8.40))
+        #expect(!TxSearch.matches("8,40", texts: [], amount: -8.50))
+        #expect(!TxSearch.matches("9", texts: [], amount: -8.40))
+    }
+
+    @Test("Un nombre ne se retrouve pas dans un morceau d'un autre nombre")
+    func numberIsNotAFragment() {
+        #expect(!TxSearch.matches("8", texts: ["le comptoir 18 11 25"], amount: -5))
+        #expect(TxSearch.matches("731", texts: ["carte no 731 oc"], amount: -5))
+    }
+
+    @Test("Les mots comptent, pas leur ordre ni ce qui les sépare")
+    func tokensIgnoreSpacing() {
+        #expect(TxSearch.tokens("  comptoir   grenier ") == ["comptoir", "grenier"])
+        #expect(TxSearch.tokens("   ").isEmpty)
+    }
+
+    @Test("La virgule collée à la date ne la déguise plus en nom")
+    func dateWithTrailingComma() {
+        let label = "ACHAT CB LE COMPTOIR 07.03.26, EUR 11,50 CARTE NO 731, OC"
+        #expect(PayeeText.clean(label) == "LE COMPTOIR")
+        #expect(PayeeText.clean("ACHAT CB LE COMPTOIR 07.03.26 EUR 11,50") == "LE COMPTOIR")
+    }
+}
+
 @Suite("Subscription keys")
 struct SeriesKeyTests {
     private let payee = "PRELEVEMENT DE Passerelle Europe S.a, l. et Cie S.C.A, REF : 1234567890123"
