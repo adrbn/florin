@@ -1,5 +1,21 @@
 import SwiftUI
 
+extension Notification.Name {
+    /*
+     * « Donne le clavier au champ de recherche d'Activité. »
+     *
+     * Passer la demande par le chemin de l'onglet la rendait coûteuse : le
+     * chemin porte un jeton qui change à chaque route, et l'identité de la
+     * vue est ce chemin — Activité était donc reconstruite entièrement. On
+     * voyait la barre disparaître en fondu puis revenir, et le champ à qui on
+     * venait de donner le focus n'existait déjà plus.
+     *
+     * Une notification ne touche pas à l'identité : l'écran est déjà là, son
+     * champ aussi, et le clavier monte.
+     */
+    static let florinFocusSearch = Notification.Name("florin.focusSearch")
+}
+
 /// Activité, natively — and the review queue with it.
 ///
 /// There is no separate "à vérifier" screen because there is no separate list:
@@ -12,13 +28,16 @@ struct ActivityScreen: View {
     var onOpenSettings: () -> Void = {}
     /// Set by a link from elsewhere in the app ("À vérifier" on the dashboard).
     var startNeedsReview = false
-    /// Arrivé par la loupe d'Aperçu : le clavier s'ouvre tout seul.
-    var startSearching = false
+
 
     /// The served table when there is one, the bundled one until then: this tab
     /// can be opened before the first feed arrives, and `.empty` would draw the
     /// title and the whole list in French.
     private var t: Strings { overview.overview?.t ?? .device }
+
+    /// Incrémenté par la loupe d'Aperçu. Seul cet écran écoute : une page de
+    /// compte héberge la même liste et n'a pas à prendre le clavier avec elle.
+    @State private var searchRequest = 0
 
     var body: some View {
         TransactionList(
@@ -39,9 +58,12 @@ struct ActivityScreen: View {
              */
             onLedgerChanged: { await overview.load(showSpinner: false) },
             startNeedsReview: startNeedsReview,
-            startSearching: startSearching,
+            searchRequest: searchRequest,
             onProfile: onOpenSettings
         )
+        .onReceive(NotificationCenter.default.publisher(for: .florinFocusSearch)) { _ in
+            searchRequest += 1
+        }
     }
 }
 
@@ -75,7 +97,8 @@ struct TransactionList<Banner: View>: View {
     var heroValue: Double?
     var heroCaption: String?
     var startNeedsReview = false
-    var startSearching = false
+    /// Change quand on demande le clavier ; voir `florinFocusSearch`.
+    var searchRequest = 0
     var showsBack = false
     var onProfile: () -> Void = {}
     /// Boutons propres à l'écran qui héberge la liste, posés à gauche des
@@ -114,7 +137,7 @@ struct TransactionList<Banner: View>: View {
         heroValue: Double? = nil,
         heroCaption: String? = nil,
         startNeedsReview: Bool = false,
-        startSearching: Bool = false,
+        searchRequest: Int = 0,
         showsBack: Bool = false,
         onProfile: @escaping () -> Void = {},
         extraActions: AnyView? = nil,
@@ -131,7 +154,7 @@ struct TransactionList<Banner: View>: View {
         self.heroValue = heroValue
         self.heroCaption = heroCaption
         self.startNeedsReview = startNeedsReview
-        self.startSearching = startSearching
+        self.searchRequest = searchRequest
         self.showsBack = showsBack
         self.onProfile = onProfile
         self.extraActions = extraActions
@@ -297,16 +320,13 @@ struct TransactionList<Banner: View>: View {
         }
         .task {
             if startNeedsReview { model.filter.needsReview = true }
-            // Venir d'une loupe et trouver un champ qu'il faut encore toucher,
-            // c'est la moitié du geste. La vue est neuve (son identité porte
-            // le jeton de la route), donc l'ouverture est bien une arrivée.
-            if startSearching { searchFocused = true }
             if let preset {
                 model.filter.accountId = preset.accountId
                 model.filter.categoryId = preset.categoryId
             }
             if model.rows.isEmpty { await model.reload() }
         }
+        .onChange(of: searchRequest) { _, _ in searchFocused = true }
         .transactionActions(
             request: $menuRequest,
             categories: model.categories,

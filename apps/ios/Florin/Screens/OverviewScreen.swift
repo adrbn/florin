@@ -13,6 +13,8 @@ struct OverviewScreen: View {
     /// selection with it, or the user lands on a screen the bar says they are
     /// not on.
     var route: (TabRoute, String) -> Void = { _, _ in }
+    /// La loupe : passe à Activité et y ouvre le clavier.
+    var onSearch: () -> Void = {}
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.colorScheme) private var colorScheme
     @State private var pushed: [String] = []
@@ -711,10 +713,9 @@ struct OverviewScreen: View {
             .buttonStyle(.plain)
             .accessibilityLabel(data.t("v2.settings.title", "Réglages"))
 
-            // « ?search » demande à Activité d'ouvrir le clavier en arrivant :
-            // une loupe qui pose un champ sans le donner fait faire deux
+            // Une loupe qui pose un champ sans le donner fait faire deux
             // gestes là où on en attend un.
-            Button { route(.activity, TabRoute.activity.rootPath + "?search") } label: {
+            Button(action: onSearch) {
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 15, weight: .semibold))

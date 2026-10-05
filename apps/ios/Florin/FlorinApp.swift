@@ -406,6 +406,28 @@ struct MainTabs: View {
      * donc d'abord ce que le lien avait demandé, puis `BackToTop` ferme ce
      * qui est posé par-dessus et remonte.
      */
+    /*
+     * La loupe d'Aperçu : l'onglet, puis le clavier.
+     *
+     * Aucun chemin n'est écrit — ce n'est pas un lien profond, et un chemin
+     * change l'identité d'Activité, donc la reconstruit. On remet d'abord
+     * l'onglet à son accueil si un lien l'avait emmené ailleurs.
+     *
+     * La demande part après la bascule : l'onglet peut n'avoir jamais été
+     * ouvert (TabView ne construit que ce qu'on regarde), et un champ qui
+     * n'existe pas encore ne prend pas le clavier.
+     */
+    private func focusSearch() {
+        if paths[.activity] != nil { paths[.activity] = nil }
+        chrome.reset()
+        withAnimation(.snappy(duration: 0.22)) { selection = .activity }
+        UISelectionFeedbackGenerator().selectionChanged()
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(260))
+            NotificationCenter.default.post(name: .florinFocusSearch, object: nil)
+        }
+    }
+
     private func backHome() {
         if paths[selection] != nil { paths[selection] = nil }
         BackToTop.run()
@@ -414,7 +436,9 @@ struct MainTabs: View {
     var body: some View {
         ZStack(alignment: .bottom) {
             TabView(selection: $selection) {
-                OverviewScreen(model: model, chrome: chrome, route: route)
+                OverviewScreen(
+                    model: model, chrome: chrome, route: route, onSearch: focusSearch
+                )
                     .hideSystemTabBar()
                     .tag(TabRoute.overview)
 
@@ -438,8 +462,7 @@ struct MainTabs: View {
                     overview: model,
                     route: route,
                     onOpenSettings: openSettings,
-                    startNeedsReview: paths[.activity]?.contains("needsReview") == true,
-                    startSearching: paths[.activity]?.contains("?search") == true
+                    startNeedsReview: paths[.activity]?.contains("needsReview") == true
                 )
                 .id(paths[.activity] ?? TabRoute.activity.rootPath)
                 .hideSystemTabBar()
