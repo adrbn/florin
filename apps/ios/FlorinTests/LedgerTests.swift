@@ -1996,6 +1996,49 @@ struct CategoryHintTests {
     }
 }
 
+@Suite("Une mensualité vue depuis le prêt")
+struct DebtRepaymentRowTests {
+    private func row(amount: Double, kind: String?) -> Transaction {
+        var tx = Transaction(
+            id: "t1", date: "2026-03-02T00:00:00Z", amount: amount,
+            payee: "\u{21B3} PRELEVEMENT CREDIT MAISON", memo: nil,
+            categoryName: nil, categoryEmoji: nil, accountName: "Prêt",
+            isTransfer: true, needsReview: false, isPending: false, isScheduled: false,
+            accountId: "a1", categoryId: nil
+        )
+        tx.accountKind = kind
+        return tx
+    }
+
+    @Test("du capital parti de la dette, pas de l'argent reçu")
+    func positiveOnALoanIsARepayment() {
+        #expect(row(amount: 165.13, kind: "loan").isDebtRepayment)
+        #expect(
+            RowText.subtitle(
+                title: "Crédit Maison", category: nil, account: "Prêt", when: "2 mars",
+                isTransfer: true, isDebtRepayment: true
+            ) == "Capital remboursé · 2 mars"
+        )
+    }
+
+    @Test("ailleurs, un crédit reste un crédit")
+    func elsewhereAPositiveIsIncome() {
+        // La même ligne sur un compte courant est bien une rentrée, et sur le
+        // prêt un débit — une mise à disposition — reste un débit.
+        #expect(!row(amount: 165.13, kind: "checking").isDebtRepayment)
+        #expect(!row(amount: -165.13, kind: "loan").isDebtRepayment)
+        // Et un grand livre servi par le serveur, qui n'envoie pas le genre du
+        // compte, retrouve simplement le comportement d'avant.
+        #expect(!row(amount: 165.13, kind: nil).isDebtRepayment)
+        #expect(
+            RowText.subtitle(
+                title: "Crédit Maison", category: nil, account: "CCP", when: "2 mars",
+                isTransfer: true
+            ) == "Virement · CCP"
+        )
+    }
+}
+
 @Suite("Subscriptions")
 struct SubscriptionTests {
     private func ledger() throws -> (LocalStore, account: String) {

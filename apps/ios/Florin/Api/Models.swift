@@ -278,6 +278,23 @@ struct Transaction: Decodable, Sendable, Identifiable {
     /// Vide pour tout le reste, c'est-à-dire pour presque tout.
     var instalmentPlanId: String?
 
+    /*
+     * Le genre du compte, parce que le signe ne veut pas dire la même chose
+     * sur un passif.
+     *
+     * Sur un compte courant, +165,13 € est une rentrée, et le vert le dit
+     * bien. Sur un prêt, la même ligne est la mensualité qui ronge la dette :
+     * la lire comme un encaissement, c'est croire qu'on a été remboursé alors
+     * qu'on a remboursé. Le grand livre garde les deux faces et leurs signes —
+     * c'est ce qui fait bouger les deux soldes — mais l'affichage a besoin de
+     * savoir sur quel genre de compte il écrit.
+     */
+    var accountKind: String?
+
+    /// Une mensualité vue depuis le prêt : elle fait baisser la dette, elle
+    /// n'entre pas d'argent.
+    var isDebtRepayment: Bool { accountKind == "loan" && amount > 0 }
+
     /// Une échéance d'un achat payé en plusieurs fois — à distinguer d'une
     /// opération simplement annoncée : la banque n'a rien promis, c'est vous
     /// qui savez qu'elle viendra.
@@ -291,7 +308,7 @@ struct Transaction: Decodable, Sendable, Identifiable {
             accountName: accountName, isTransfer: isTransfer,
             needsReview: false, isPending: isPending, isScheduled: isScheduled,
             accountId: accountId, categoryId: categoryId,
-            instalmentPlanId: instalmentPlanId
+            instalmentPlanId: instalmentPlanId, accountKind: accountKind
         )
     }
 

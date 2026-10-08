@@ -79,8 +79,20 @@ enum RowText {
         account: String,
         when: String,
         isTransfer: Bool,
+        isDebtRepayment: Bool = false,
         t: Strings = .empty
     ) -> String {
+        /*
+         * Vue depuis le prêt, une mensualité n'est pas un virement reçu.
+         *
+         * Les deux jambes portent le même nom et ne se distinguent que par le
+         * compte d'où on les regarde — mais dire « Virement · Prêt étudiant »
+         * sous un montant vert laissait croire à une rentrée. Ce qui s'est
+         * passé de ce côté-là a un nom : du capital est parti de la dette.
+         */
+        if isDebtRepayment {
+            return join(t("v2.loan.repaid", "Capital remboursé"), when)
+        }
         /*
          * Un virement ne manque pas de catégorie, il n'en a pas.
          *
@@ -314,6 +326,7 @@ struct TransactionRowView: View {
                 ? tx.accountName
                 : DayLabel.string(tx.day, locale: locale, t: t),
             isTransfer: tx.isTransfer,
+            isDebtRepayment: tx.isDebtRepayment,
             t: t
         )
     }
@@ -326,7 +339,10 @@ struct TransactionRowView: View {
             Bubble(
                 label: tx.categoryName ?? tx.payee,
                 emoji: face?.emoji ?? tx.categoryEmoji,
-                systemImage: tx.isTransfer ? "arrow.left.arrow.right" : nil,
+                // Une mensualité ne va pas dans les deux sens : elle descend.
+                systemImage: tx.isDebtRepayment
+                    ? "arrow.down.right"
+                    : (tx.isTransfer ? "arrow.left.arrow.right" : nil),
                 logo: face?.logo
             )
             VStack(alignment: .leading, spacing: 2) {
@@ -341,7 +357,20 @@ struct TransactionRowView: View {
             }
             Spacer(minLength: 8)
             VStack(alignment: .trailing, spacing: 2) {
-                AmountText(value: tx.amount, locale: locale, currency: currency, signed: true, tone: .auto)
+                /*
+                 * Le vert mentait.
+                 *
+                 * `+165,13 €` sur le compte du prêt se lit « on m'a remboursé »
+                 * quand la vérité est l'inverse. Sans signe et sans couleur, le
+                 * chiffre redevient ce qu'il est — ce qui a été remboursé ce
+                 * mois-là — et le restant dû, juste au-dessus, dit le reste.
+                 */
+                AmountText(
+                    value: tx.isDebtRepayment ? abs(tx.amount) : tx.amount,
+                    locale: locale, currency: currency,
+                    signed: !tx.isDebtRepayment,
+                    tone: tx.isDebtRepayment ? .neutral : .auto
+                )
                 /*
                  * Both states, when both are true.
                  *
