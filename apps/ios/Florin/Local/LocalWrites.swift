@@ -579,8 +579,11 @@ enum LocalLedger {
         let id: String
         let loan: String
         let day: Double
+        let month: String
         let amount: Double
         let payee: String
+        /// Rangé sous la catégorie du prêt : on l'a dit, ce n'est pas déduit.
+        let decided: Bool
     }
 
     private static func loanSides(_ store: LocalStore) throws -> (
@@ -592,8 +595,9 @@ enum LocalLedger {
                       let day = row.double("day"), let amount = row.double("amount")
                 else { return nil }
                 return LoanSide(
-                    id: id, loan: loan, day: day, amount: amount,
-                    payee: row.string("payee") ?? ""
+                    id: id, loan: loan, day: day, month: row.string("month") ?? "",
+                    amount: amount, payee: row.string("payee") ?? "",
+                    decided: (row.int("decided") ?? 0) != 0
                 )
             }
         }
@@ -610,6 +614,8 @@ enum LocalLedger {
         let debits = try sides(
             """
             SELECT t.id, t.payee, julianday(t.occurred_at) AS day, abs(t.amount) AS amount,
+                   strftime('%Y-%m', t.occurred_at) AS month,
+                   c.linked_loan_account_id IS NOT NULL AS decided,
                    coalesce(c.linked_loan_account_id, loan.id) AS loan_id
             FROM transactions t
             JOIN accounts a ON a.id = t.account_id AND a.kind <> 'loan'
@@ -626,7 +632,9 @@ enum LocalLedger {
         let mirrors = try sides(
             """
             SELECT m.id, m.payee, m.account_id AS loan_id,
-                   julianday(m.occurred_at) AS day, m.amount AS amount
+                   julianday(m.occurred_at) AS day,
+                   strftime('%Y-%m', m.occurred_at) AS month, 0 AS decided,
+                   m.amount AS amount
             FROM transactions m
             JOIN accounts a ON a.id = m.account_id AND a.kind = 'loan'
             WHERE m.deleted_at IS NULL AND m.amount > 0
@@ -649,10 +657,27 @@ enum LocalLedger {
         }
 
         let pending = debits.filter { !claim($0, within: 0) }
-        return (
-            unpaired: pending.filter { !claim($0, within: 5) }.map(\.id),
-            unclaimed: mirrors.filter { !taken.contains($0.id) }
-        )
+        let loose = pending.filter { !claim($0, within: 5) }
+
+        /*
+         * Une échéance classée est une décision ; le montant seul est un
+         * indice, et ne se devine pas deux fois dans le même mois.
+         *
+         * Un achat de 165,13 € existe, une seconde mensualité du même contrat
+         * dans le même mois non. Ranger explicitement deux débits sous la
+         * catégorie du prêt, en revanche, dit qu'il y en a bien eu deux — un
+         * rattrapage, un impayé repris — et ça, on l'écrit.
+         */
+        let adrift = Set(loose.map(\.id))
+        var months = Set(debits.filter { !adrift.contains($0.id) }.map { $0.loan + $0.month })
+        var unpaired: [String] = []
+        for debit in loose {
+            let month = debit.loan + debit.month
+            if !debit.decided, months.contains(month) { continue }
+            months.insert(month)
+            unpaired.append(debit.id)
+        }
+        return (unpaired: unpaired, unclaimed: mirrors.filter { !taken.contains($0.id) })
     }
 
     /*
