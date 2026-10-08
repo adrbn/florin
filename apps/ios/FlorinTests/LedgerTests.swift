@@ -394,6 +394,37 @@ struct LoanMirrorTests {
         return id
     }
 
+    @discardableResult
+    private func instalment(
+        _ store: LocalStore, on account: String, day: String, category: String? = nil
+    ) throws -> String {
+        let id = UUID().uuidString
+        try store.database.run(
+            """
+            INSERT INTO transactions
+                (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
+                 category_id, source, status, needs_review)
+            VALUES (?, ?, ?, -165.13, 'EUR', 'PRELEVEMENT CREDIT MAISON',
+                    'prelevement credit maison', ?, 'enable_banking', 'cleared', 1)
+            """,
+            [.text(id), .text(account), .text(day), category.map { .text($0) } ?? .null]
+        )
+        return id
+    }
+
+    private func counterpart(_ store: LocalStore, on loan: String, day: String) throws {
+        try store.database.run(
+            """
+            INSERT INTO transactions
+                (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
+                 source, status, needs_review, transfer_pair_id)
+            VALUES (?, ?, ?, 165.13, 'EUR', '\u{21B3} PRELEVEMENT CREDIT MAISON',
+                    'prelevement credit maison', 'server', 'cleared', 0, ?)
+            """,
+            [.text(UUID().uuidString), .text(loan), .text(day), .text(UUID().uuidString)]
+        )
+    }
+
     private func mirrors(_ store: LocalStore, on loan: String) -> Int {
         ((try? store.database.scalar(
             "SELECT count(*) FROM transactions WHERE account_id = ? AND deleted_at IS NULL",
@@ -763,6 +794,63 @@ struct LoanMirrorTests {
             [.text(id), .text(ccp)]
         )
         #expect(try LocalLedger.reconcileLoanMirrors(store: store) == 0)
+        #expect(mirrors(store, on: loan) == 1)
+    }
+
+    @Test("une mensualité à deux jours de la précédente garde la sienne")
+    func consecutiveInstalmentsAcrossAMonthEnd() throws {
+        let (store, ccp, loan, category) = try ledger()
+        // Le 28 février et le 2 mars sont deux échéances, à deux jours l'une de
+        // l'autre. Demander « existe-t-il une contrepartie à cinq jours » répondait
+        // oui pour mars en lui montrant celle de février, qui appartient au
+        // prélèvement du 28 : la mensualité de mars s'écrivait quand on reposait la
+        // catégorie, puis repartait comme doublon au lancement suivant.
+        try instalment(store, on: ccp, day: "2026-02-28", category: category)
+        try counterpart(store, on: loan, day: "2026-02-28")
+        try instalment(store, on: ccp, day: "2026-03-02", category: category)
+
+        #expect(try LocalLedger.reconcileLoanMirrors(store: store) == 1)
+        #expect(mirrors(store, on: loan) == 2)
+        // Et elle tient : le lancement suivant ne la reprend pas.
+        #expect(try LocalLedger.dropDuplicateLoanMirrors(store: store) == 0)
+        #expect(try LocalLedger.reconcileLoanMirrors(store: store) == 0)
+        #expect(mirrors(store, on: loan) == 2)
+    }
+
+    @Test("un ajustement de solde du même montant n'est pas une échéance")
+    func adjustmentIsNotAnInstalment() throws {
+        let (store, ccp, loan, _) = try ledger()
+        let other = UUID().uuidString
+        try store.database.run(
+            """
+            INSERT INTO categories (id, group_id, name)
+            VALUES (?, (SELECT id FROM category_groups LIMIT 1), 'Ajustement')
+            """,
+            [.text(other)]
+        )
+        // Un ajustement de solde du montant de la mensualité reste un ajustement :
+        // une ligne déjà rangée ailleurs est une décision, pas une échéance.
+        let id = try payment(store, on: ccp)
+        try store.database.run(
+            "UPDATE transactions SET category_id = ? WHERE id = ?",
+            [.text(other), .text(id)]
+        )
+        #expect(try LocalLedger.reconcileLoanMirrors(store: store) == 0)
+        #expect(mirrors(store, on: loan) == 0)
+
+        // Et une correction posée sur le prêt n'est pas une contrepartie orpheline :
+        // elle ne prétend pas être l'autre face de quoi que ce soit, donc elle reste.
+        try store.database.run(
+            """
+            INSERT INTO transactions
+                (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
+                 source, status, needs_review)
+            VALUES (?, ?, '2026-08-05', 9.40, 'EUR', 'Correction de solde',
+                    'correction de solde', 'manual', 'cleared', 0)
+            """,
+            [.text(UUID().uuidString), .text(loan)]
+        )
+        #expect(try LocalLedger.dropDuplicateLoanMirrors(store: store) == 0)
         #expect(mirrors(store, on: loan) == 1)
     }
 

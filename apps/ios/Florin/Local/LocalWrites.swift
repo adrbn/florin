@@ -556,44 +556,122 @@ enum LocalLedger {
      * the very instalment it represents — 136 € out, 136 € in, nothing spent.
      */
     /*
-     * Instalments already filed, from before there was a mirror to write.
+     * Les deux faces d'un remboursement, appariées une pour une.
      *
-     * `backfill` only looks at rows with no category, so a repayment the
-     * categoriser filed last month is invisible to it for ever. Those are
-     * precisely the ones missing their counterpart — on this ledger, twenty-six
-     * repayments on the current account against twenty-four on the loan.
+     * « Existe-t-il une contrepartie à cinq jours d'ici » n'est pas la même
+     * question que « ai-je la mienne ». Le prélèvement du 2 mars voyait celle
+     * du 28 février — qui appartenait au prélèvement du 28 — et se croyait
+     * donc déjà inscrit. La mensualité de mars n'a jamais tenu : reposer la
+     * catégorie l'écrivait, le lancement suivant la reprenait comme doublon,
+     * les deux gardes lisant la même fenêtre en sens contraire. Une mensualité
+     * manquait au compteur, et son montant à la dette affichée.
      *
-     * Cheap when there is nothing to do: one indexed lookup that finds no rows.
+     * On apparie donc, au lieu de constater. Le même jour d'abord, c'est
+     * ainsi que les deux lignes s'écrivent ; ce qui reste cherche sa voisine
+     * dans les cinq jours, parce qu'une banque poste parfois les deux faces de
+     * part et d'autre d'une fin de mois. Une contrepartie déjà prise ne compte
+     * plus pour personne — c'est tout ce qui manquait.
+     *
+     * Reste alors deux listes exactes : les prélèvements sans contrepartie, à
+     * écrire, et les contreparties sans prélèvement, à reprendre.
      */
+    private struct LoanSide {
+        let id: String
+        let loan: String
+        let day: Double
+        let amount: Double
+        let payee: String
+    }
+
+    private static func loanSides(_ store: LocalStore) throws -> (
+        unpaired: [String], unclaimed: [LoanSide]
+    ) {
+        func sides(_ sql: String) throws -> [LoanSide] {
+            try store.database.query(sql).compactMap { row in
+                guard let id = row.string("id"), let loan = row.string("loan_id"),
+                      let day = row.double("day"), let amount = row.double("amount")
+                else { return nil }
+                return LoanSide(
+                    id: id, loan: loan, day: day, amount: amount,
+                    payee: row.string("payee") ?? ""
+                )
+            }
+        }
+
+        /*
+         * Ce qui se présente comme un remboursement.
+         *
+         * La catégorie liée au prêt le dit explicitement. À défaut, et
+         * seulement si rien n'a été classé, le montant le dit : un débit égal
+         * à la mensualité du contrat au centime près. Une ligne déjà rangée
+         * ailleurs — un ajustement de solde du même montant, par exemple — est
+         * une décision, et ne se laisse pas relire comme une échéance.
+         */
+        let debits = try sides(
+            """
+            SELECT t.id, t.payee, julianday(t.occurred_at) AS day, abs(t.amount) AS amount,
+                   coalesce(c.linked_loan_account_id, loan.id) AS loan_id
+            FROM transactions t
+            JOIN accounts a ON a.id = t.account_id AND a.kind <> 'loan'
+            LEFT JOIN categories c ON c.id = t.category_id
+            LEFT JOIN accounts loan
+                   ON loan.kind = 'loan' AND loan.loan_monthly_payment > 0
+                  AND t.category_id IS NULL
+                  AND abs(abs(t.amount) - loan.loan_monthly_payment) < 0.005
+            WHERE t.deleted_at IS NULL AND t.amount < 0
+              AND coalesce(c.linked_loan_account_id, loan.id) IS NOT NULL
+            ORDER BY t.occurred_at
+            """
+        )
+        let mirrors = try sides(
+            """
+            SELECT m.id, m.payee, m.account_id AS loan_id,
+                   julianday(m.occurred_at) AS day, m.amount AS amount
+            FROM transactions m
+            JOIN accounts a ON a.id = m.account_id AND a.kind = 'loan'
+            WHERE m.deleted_at IS NULL AND m.amount > 0
+            ORDER BY m.occurred_at
+            """
+        )
+
+        var taken = Set<String>()
+        func claim(_ debit: LoanSide, within days: Double) -> Bool {
+            let free = mirrors.filter {
+                !taken.contains($0.id) && $0.loan == debit.loan
+                    && abs($0.amount - debit.amount) < 0.005
+                    && abs($0.day - debit.day) <= days
+            }
+            guard let nearest = free.min(by: {
+                abs($0.day - debit.day) < abs($1.day - debit.day)
+            }) else { return false }
+            taken.insert(nearest.id)
+            return true
+        }
+
+        let pending = debits.filter { !claim($0, within: 0) }
+        return (
+            unpaired: pending.filter { !claim($0, within: 5) }.map(\.id),
+            unclaimed: mirrors.filter { !taken.contains($0.id) }
+        )
+    }
+
     /*
-     * Instalments paid twice, taken back.
+     * Les contreparties écrites deux fois, reprises.
      *
-     * A catch-up that matched on pair ids wrote a second counterpart for every
-     * repayment on an imported ledger, because there the two legs of a transfer
-     * carry different ids. The loan then read fifty-three instalments where
-     * there were twenty-six, and the remaining debt roughly halved.
+     * Un rattrapage qui s'appariait sur les identifiants de virement a écrit
+     * une seconde contrepartie pour chaque remboursement d'un grand livre
+     * importé, où les deux faces portent des identifiants distincts : le prêt
+     * lisait cinquante-trois échéances là où il y en avait vingt-six.
      *
-     * One repayment per calendar month is the rule the schedule assumes, so
-     * anything beyond the first in a month is the mistake. The oldest row is
-     * kept — it is the one that came from the server, with the real date.
+     * Ne part que ce qui porte la marque de la contrepartie et que plus aucun
+     * prélèvement ne réclame. Un ajustement de solde posé sur le prêt, lui,
+     * reste — il ne prétend pas être l'autre face de quoi que ce soit.
      */
     @discardableResult
     static func dropDuplicateLoanMirrors(store: LocalStore) throws -> Int {
-        let extra = try store.database.query(
-            """
-            SELECT m.id FROM transactions m
-            JOIN accounts a ON a.id = m.account_id AND a.kind = 'loan'
-            WHERE m.deleted_at IS NULL
-              AND EXISTS (
-                SELECT 1 FROM transactions k
-                WHERE k.account_id = m.account_id AND k.deleted_at IS NULL
-                  AND abs(k.amount - m.amount) < 0.005
-                  AND abs(julianday(k.occurred_at) - julianday(m.occurred_at)) <= 5
-                  AND (k.created_at < m.created_at
-                       OR (k.created_at = m.created_at AND k.id < m.id))
-              )
-            """
-        ).compactMap { $0.string("id") }
+        let extra = try loanSides(store).unclaimed
+            .filter { $0.payee.hasPrefix(Transfers.mirrorMark) }
+            .map(\.id)
         guard !extra.isEmpty else { return 0 }
         try store.database.transaction {
             for id in extra {
@@ -603,86 +681,18 @@ enum LocalLedger {
         return extra.count
     }
 
+    /*
+     * Les remboursements dont la contrepartie manque, écrite.
+     *
+     * `backfill` ne regarde que les lignes sans catégorie, donc une échéance
+     * que le classeur a rangée le mois dernier lui est invisible à jamais —
+     * et ce sont précisément celles-là qui n'ont pas leur autre face.
+     *
+     * Rien à faire coûte deux lectures indexées et aucune écriture.
+     */
     @discardableResult
     static func reconcileLoanMirrors(store: LocalStore) throws -> Int {
-        let orphans = try store.database.query(
-            """
-            SELECT t.id FROM transactions t
-            JOIN categories c ON c.id = t.category_id
-            WHERE c.linked_loan_account_id IS NOT NULL
-              AND t.deleted_at IS NULL
-              /*
-               * Matched on what the row IS, not on a shared identifier.
-               *
-               * A ledger imported from a server has the two legs of a transfer
-               * under different pair ids — the import mints one per leg — so
-               * asking "does a row share my pair id" answers no for every
-               * repayment that already has a counterpart, and the catch-up
-               * writes a second one. That turned twenty-six instalments into
-               * fifty-three and halved the debt.
-               *
-               * Same loan, same day, opposite amount is the same repayment
-               * whatever either row calls its pair.
-               */
-              AND NOT EXISTS (
-                SELECT 1 FROM transactions m
-                WHERE m.account_id = c.linked_loan_account_id
-                  AND m.deleted_at IS NULL
-                  AND abs(m.amount + t.amount) < 0.005
-                  AND abs(julianday(m.occurred_at) - julianday(t.occurred_at)) <= 5
-              )
-            """
-        ).compactMap { $0.string("id") }
-
-        /*
-         * The instalment, recognised by its amount.
-         *
-         * Waiting to be told which category means "this is the loan" is a lot
-         * of ceremony for a debit that is the same to the cent every month and
-         * already has its amount written on the loan. So a payment matching the
-         * contract's mensualité exactly, leaving a cash account, is treated as
-         * one — no category needed, nothing to configure beyond the contract
-         * itself.
-         *
-         * Two guards keep it honest. The match is to the cent, not
-         * approximate: an ordinary purchase of 165,13 € is possible and a
-         * purchase of 135,90 € is not this. And one per calendar month per
-         * loan, so a coincidence in a month already accounted for is ignored
-         * rather than paying the loan twice.
-         */
-        let detected = try store.database.query(
-            """
-            SELECT t.id FROM transactions t
-            JOIN accounts a ON a.id = t.account_id
-            JOIN accounts loan ON loan.kind = 'loan' AND loan.loan_monthly_payment > 0
-            WHERE t.deleted_at IS NULL AND a.kind <> 'loan'
-              AND t.amount < 0
-              AND abs(abs(t.amount) - loan.loan_monthly_payment) < 0.005
-              /*
-               * A window, because a month boundary is not one.
-               *
-               * "One counterpart per calendar month" looked like the rule and
-               * is not: a debit taken on the 30th of April is the May
-               * instalment, and the bank dates the two sides differently often
-               * enough that they land either side of a month end. The guard
-               * then saw no counterpart in "the same month" and wrote a second
-               * one — which is how twenty-six repayments became twenty-eight.
-               *
-               * Five days around the payment is what a bank's own posting
-               * spread looks like, and no two instalments of the same loan are
-               * that close together.
-               */
-              AND NOT EXISTS (
-                SELECT 1 FROM transactions m
-                WHERE m.account_id = loan.id AND m.deleted_at IS NULL
-                  AND abs(m.amount + t.amount) < 0.005
-                  AND abs(julianday(m.occurred_at) - julianday(t.occurred_at)) <= 5
-              )
-            GROUP BY t.id
-            """
-        ).compactMap { $0.string("id") }
-
-        let all = Array(Set(orphans + detected))
+        let all = try loanSides(store).unpaired
         guard !all.isEmpty else { return 0 }
         try store.database.transaction {
             for id in all {
