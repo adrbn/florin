@@ -170,12 +170,28 @@ final class MerchantNames: ObservableObject {
 
     /// Un mot qui porte une référence plutôt qu'un nom.
     private static func isReference(_ word: String) -> Bool {
-        if ["ref", "ref:", ":", "ident", "mandat"].contains(fold(word)) { return true }
+        // Le deux-points seul ne survit pas au repli, qui ôte la ponctuation.
+        if word == ":" { return true }
+        if ["ref", "ident", "mandat"].contains(fold(word)) { return true }
         return word.filter(\.isNumber).count >= 5
     }
 
+    /*
+     * Deux caisses qui ponctuent différemment ne font pas deux marchands.
+     *
+     * Le relevé écrit « PAS COMMERCIA », Wallet transmet « P.a.s. Commerciale
+     * Ita » : même boutique, mais les points faisaient deux clés étrangères
+     * l'une à l'autre, hors de portée même de la règle de troncature, qui ne
+     * compare que des préfixes. Le marchand renommé une fois sous le libellé
+     * de la banque redevenait anonyme sous celui d'Apple Pay.
+     *
+     * La ponctuation part donc de la clé, comme elle partait déjà du mot
+     * quand il fallait reconnaître « S.a, » et « Srl ». Elle reste intacte à
+     * l'affichage, qui passe par `merchantWords`.
+     */
     private static func fold(_ text: String) -> String {
         text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+            .filter { !punctuation.contains($0) }
             .split(whereSeparator: \.isWhitespace)
             .joined(separator: " ")
     }
@@ -263,6 +279,33 @@ final class MerchantNames: ObservableObject {
                 return total
             }
             return total + (row.int("n") ?? 0)
+        }
+    }
+
+    /*
+     * Les autres libellés que leur propriétaire a nommés pareil.
+     *
+     * Une boutique encaisse sous sa raison sociale, et on la saisit à la main
+     * sous le nom qu'on lui donne : deux libellés qui n'ont pas une lettre en
+     * commun, donc deux clés étrangères l'une à l'autre. Rien dans les données
+     * ne les rapproche — sauf le nom qu'on leur a donné à toutes les deux, qui
+     * est précisément la façon dont on dit « c'est le même ».
+     *
+     * Ce lien ne vaut que par le nom : il se défait en renommant, et il ne
+     * déborde pas sur la catégorie ni sur le rapprochement des doublons, qui
+     * ne se décident pas sur un nom d'affichage.
+     */
+    func keysSharingName(with key: String) -> [String] {
+        Self.keysSharing(nameOf: key, in: table())
+    }
+
+    /// Le nom se résout comme partout ailleurs — une clé tronquée porte le
+    /// nom de sa voisine — sinon le libellé que la banque a coupé n'aurait
+    /// pas de nom, donc pas de jumeau, donc pas de tête.
+    static func keysSharing(nameOf key: String, in names: [String: String]) -> [String] {
+        guard let name = resolve(key, in: names).map(fold), !name.isEmpty else { return [] }
+        return names.compactMap { other, given in
+            other != key && fold(given) == name ? other : nil
         }
     }
 

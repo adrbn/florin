@@ -93,6 +93,13 @@ enum LocalLedger {
 
     // MARK: - Chercher
 
+    /// Le libellé débarrassé de sa ponctuation, comme l'est une clé de
+    /// marchand : sans ça, « P.a.s. Commerciale » ne contient pas la clé
+    /// « pas commercial » et le nom donné ne retrouve plus ses opérations.
+    private static let unpunctuatedPayee = [".", ",", ";", "(", ")"]
+        .reduce("lower(t.payee)") { sql, mark in "replace(\(sql), '\(mark)', '')" }
+
+
     /*
      * Chercher comme on s'en souvient.
      *
@@ -146,7 +153,7 @@ enum LocalLedger {
                 """
                 EXISTS (SELECT 1 FROM payee_aliases a
                         WHERE lower(a.display_name) LIKE ?
-                          AND instr(lower(t.payee), a.match_key) > 0)
+                          AND instr(\(Self.unpunctuatedPayee), a.match_key) > 0)
                 """,
                 "EXISTS (SELECT 1 FROM categories c WHERE c.id = t.category_id AND lower(c.name) LIKE ?)",
                 "EXISTS (SELECT 1 FROM accounts ac WHERE ac.id = t.account_id AND lower(ac.name) LIKE ?)",

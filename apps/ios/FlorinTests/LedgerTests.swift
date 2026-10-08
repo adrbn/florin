@@ -1344,8 +1344,9 @@ struct MerchantNameTests {
         ("ACHAT CB LE COMPTOIR 87 07.09.26 EUR           4,10", "le comptoir 87"),
         ("ACHAT CB LE COMPTOIR 1971 07.09.26 EUR          4,10", "le comptoir 1971"),
         ("ACHAT CB SA MAJESTE 07.09.26 EUR          4,10", "sa majeste"),
-        ("VIREMENT INSTANTANE A, JEANNE D", "a, jeanne d"),
-        ("VIREMENT INSTANTANE DE PAYPARTAGE A, JEANNE D", "paypartage a, jeanne d"),
+        // La virgule part de la clé, pas le bénéficiaire qu'elle sépare.
+        ("VIREMENT INSTANTANE A, JEANNE D", "a jeanne d"),
+        ("VIREMENT INSTANTANE DE PAYPARTAGE A, JEANNE D", "paypartage a jeanne d"),
     ])
     func bounded(_ payee: String, _ key: String) {
         #expect(MerchantNames.key(payee) == key)
@@ -2934,6 +2935,62 @@ struct InstalmentFilterTests {
         var filter = TxFilter()
         filter.accountId = "un-autre-compte"
         #expect(try !plan().matches(filter))
+    }
+}
+
+@Suite("Une boutique, deux caisses")
+struct MerchantPunctuationTests {
+    /// Le relevé coupe et crie, Wallet ponctue : même boutique.
+    private let bank = "ACHAT CB PMC COMMERCIA 06.10.26 EUR          3,70 CARTE NO  731 OC"
+    private let wallet = "P.m.c. Commerciale Grenier"
+
+    @Test("Les points de la caisse ne font pas un second marchand")
+    func punctuationDoesNotSplit() {
+        #expect(MerchantNames.sameMerchant(
+            MerchantNames.key(bank), MerchantNames.key(wallet)
+        ))
+    }
+
+    @Test("Renommé sous le libellé de la banque, nommé sous celui d'Apple Pay")
+    func renameReachesBothLabels() {
+        let table = [MerchantNames.key(bank): "Chez Mamie"]
+        #expect(MerchantNames.resolve(MerchantNames.key(wallet), in: table) == "Chez Mamie")
+    }
+
+    @Test("La ponctuation reste à l'affichage")
+    func displayKeepsPunctuation() {
+        #expect(MerchantNames.merchantWords(wallet) == wallet)
+    }
+}
+
+@Suite("Le même nom, la même tête")
+struct SharedNameTests {
+    private let names = [
+        "pas commercial": "Chez Mamie",
+        "chez mamie": "chez  MAMIE",
+        "le comptoir": "Le Comptoir",
+        "sans nom": "",
+    ]
+
+    @Test("Deux libellés nommés pareil se retrouvent, casse et espaces compris")
+    func twinsFound() {
+        #expect(Set(MerchantNames.keysSharing(nameOf: "pas commercial", in: names))
+            == ["chez mamie"])
+        #expect(Set(MerchantNames.keysSharing(nameOf: "chez mamie", in: names))
+            == ["pas commercial"])
+    }
+
+    @Test("Une clé tronquée hérite du nom de sa voisine, donc de ses jumeaux")
+    func truncatedKeyFindsTwins() {
+        #expect(Set(MerchantNames.keysSharing(nameOf: "pas commerciale grenier", in: names))
+            == ["pas commercial", "chez mamie"])
+    }
+
+    @Test("Un nom unique, un nom vide ou une clé inconnue ne jumellent personne")
+    func noTwins() {
+        #expect(MerchantNames.keysSharing(nameOf: "le comptoir", in: names).isEmpty)
+        #expect(MerchantNames.keysSharing(nameOf: "sans nom", in: names).isEmpty)
+        #expect(MerchantNames.keysSharing(nameOf: "jamais vu", in: names).isEmpty)
     }
 }
 

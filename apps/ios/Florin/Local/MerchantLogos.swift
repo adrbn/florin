@@ -84,9 +84,28 @@ final class MerchantLogos: ObservableObject {
         located(key)?.mark
     }
 
-    /// La marque de ce marchand, sous sa clé ou sous une troncature de
-    /// celle-ci. La plus longue gagne : c'est la plus précise.
+    /*
+     * La marque de ce marchand — la sienne d'abord, celle de son nom ensuite.
+     *
+     * Une boutique encaisse sous sa raison sociale et se saisit à la main
+     * sous le nom qu'on lui donne : deux libellés sans une lettre en commun,
+     * dont un seul a reçu une tête. Leur donner le même nom est la seule
+     * façon qu'on ait de dire que c'est le même endroit — alors la tête suit.
+     *
+     * Rien n'est recopié : le lien se lit à chaque affichage, donc changer la
+     * photo d'un côté la change des deux, et renommer le défait.
+     */
     private func located(_ key: String) -> (key: String, mark: Mark)? {
+        if let own = marked(key) { return own }
+        for twin in MerchantNames.shared.keysSharingName(with: key) {
+            if let found = marked(twin) { return found }
+        }
+        return nil
+    }
+
+    /// Sous sa clé, ou sous une troncature de celle-ci. La plus longue gagne :
+    /// c'est la plus précise.
+    private func marked(_ key: String) -> (key: String, mark: Mark)? {
         let table = table()
         if let exact = table[key] { return (key, exact) }
         guard key.count >= MerchantNames.truncationFloor else { return nil }
