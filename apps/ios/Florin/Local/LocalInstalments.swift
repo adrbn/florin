@@ -220,6 +220,53 @@ enum LocalInstalments {
         return instalments.count
     }
 
+    /*
+     * Oublier un échéancier sans effacer ce qui s'est passé.
+     *
+     * Un achat saisi en double, ou saisi pour rien, n'a aucune sortie : ses
+     * échéances ne sont listées nulle part ailleurs que dans le pli, qui ne
+     * sait qu'ouvrir la fiche. Il fallait donc pouvoir le défaire d'un bloc.
+     *
+     * Mais un échéancier mêle deux natures. Ce qui est encore annoncé n'a
+     * jamais eu lieu : on le jette, doucement comme partout ailleurs. Ce que
+     * la banque a déjà prélevé a eu lieu, échéancier ou pas — `settle` a
+     * transporté le plan sur le vrai débit — et l'effacer serait effacer de
+     * l'argent qui est sorti. Ces lignes-là sont seulement détachées : elles
+     * redeviennent des dépenses ordinaires.
+     *
+     * Rendu : le nombre d'échéances jetées.
+     */
+    @discardableResult
+    static func forget(store: LocalStore, planId: String) throws -> Int {
+        let due = try store.database.query(
+            """
+            SELECT id FROM transactions
+            WHERE instalment_plan_id = ? AND deleted_at IS NULL AND status = 'scheduled'
+            """,
+            [.text(planId)]
+        ).compactMap { $0.string("id") }
+
+        try store.database.transaction {
+            for id in due {
+                try store.database.run(
+                    "UPDATE transactions SET deleted_at = datetime('now') WHERE id = ?",
+                    [.text(id)]
+                )
+            }
+            try store.database.run(
+                """
+                UPDATE transactions SET instalment_plan_id = NULL, updated_at = datetime('now')
+                WHERE instalment_plan_id = ?
+                """,
+                [.text(planId)]
+            )
+            try store.database.run(
+                "DELETE FROM instalment_plans WHERE id = ?", [.text(planId)]
+            )
+        }
+        return due.count
+    }
+
     // MARK: - La lecture
 
     /*

@@ -350,7 +350,15 @@ struct TransactionList<Banner: View>: View {
             isLocalLedger: model.isLocalLedger
         )
         .sheet(item: $openPlan) { plan in
-            InstalmentPlanSheet(plan: plan, locale: locale, currency: currency, t: t)
+            InstalmentPlanSheet(
+                plan: plan, locale: locale, currency: currency, t: t,
+                onForget: {
+                    model.toast = ToastMessage(
+                        text: t("v2.instalments.forgotten", "Échéancier supprimé"), kind: .success
+                    )
+                    Task { await model.reload() }
+                }
+            )
         }
         .sheet(item: $detail) { tx in
             TransactionDetailSheet(

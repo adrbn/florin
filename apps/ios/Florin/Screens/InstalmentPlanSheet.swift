@@ -115,9 +115,13 @@ struct InstalmentPlanSheet: View {
     let locale: String
     let currency: String
     let t: Strings
+    /// Appelé quand l'échéancier vient d'être oublié : la page dessous ne
+    /// sait pas toute seule qu'elle a une ligne de moins.
+    var onForget: (() -> Void)?
 
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var logos = MerchantLogos.shared
+    @State private var confirming = false
 
     private var title: String { PayeeText.title(plan.payee, category: plan.categoryName) }
 
@@ -131,6 +135,7 @@ struct InstalmentPlanSheet: View {
                         header
                         summary
                         schedule
+                        forget
                     }
                     .padding(.horizontal, Florin.gutter)
                     .padding(.vertical, 14)
@@ -146,6 +151,51 @@ struct InstalmentPlanSheet: View {
             }
         }
         .presentationDetents([.large])
+    }
+
+    /*
+     * Défaire un achat qu'on n'aurait pas dû saisir.
+     *
+     * En bas, et en rouge seulement sur le mot : c'est la seule sortie d'un
+     * échéancier saisi en double, mais ce n'est pas ce qu'on vient faire ici.
+     *
+     * Le texte de la confirmation dit les deux moitiés, parce qu'elles n'ont
+     * pas le même poids : les échéances à venir partent à la corbeille, celles
+     * que la banque a déjà prélevées restent — c'est de l'argent sorti, il ne
+     * disparaît pas parce qu'on oublie le plan qui l'expliquait.
+     */
+    private var forget: some View {
+        Button(role: .destructive) {
+            confirming = true
+        } label: {
+            Text(t("v2.instalments.forget", "Supprimer l'échéancier"))
+                .font(.system(size: 15, weight: .medium))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 13)
+                .background(Florin.negative.opacity(0.14), in: RoundedRectangle(cornerRadius: 14))
+        }
+        .tint(Florin.negative)
+        .confirmationDialog(
+            t("v2.instalments.forget", "Supprimer l'échéancier"),
+            isPresented: $confirming, titleVisibility: .visible
+        ) {
+            Button(t("v2.common.delete", "Supprimer"), role: .destructive) {
+                guard let store = LocalStore.shared else { return }
+                try? LocalInstalments.forget(store: store, planId: plan.id)
+                onForget?()
+                dismiss()
+            }
+            Button(t("v2.common.cancel", "Annuler"), role: .cancel) {}
+        } message: {
+            Text(
+                plan.paidCount == 0
+                    ? t("v2.instalments.forgetAll", "Ses {count} échéances partent à la corbeille.",
+                        ["count": plan.count])
+                    : t("v2.instalments.forgetSome",
+                        "Ses {due} échéances à venir partent à la corbeille. Les {paid} déjà prélevées restent, comme dépenses ordinaires.",
+                        ["due": plan.due.count, "paid": plan.paidCount])
+            )
+        }
     }
 
     // MARK: -

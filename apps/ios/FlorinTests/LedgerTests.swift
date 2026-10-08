@@ -3858,6 +3858,41 @@ struct InstalmentTests {
         return calendar
     }
 
+    /*
+     * Oublier un échéancier n'oublie pas l'argent déjà sorti.
+     *
+     * Les deux moitiés d'un plan n'ont pas le même statut : ce qui est encore
+     * annoncé n'a jamais eu lieu, ce que la banque a prélevé a eu lieu. La
+     * suppression ne doit emporter que la première.
+     */
+    @Test("supprimer l'échéancier jette les échéances à venir, pas les prélevées")
+    func forgettingKeepsWhatWasCharged() throws {
+        let (store, account) = try ledger()
+        try LocalInstalments.record(
+            store: store, accountId: account, payee: "Boutique", memo: nil,
+            categoryId: nil, from: Date(), instalments: [25, 25, 25, 25],
+            purchase: 100, calendar: calendar
+        )
+        let plan = try #require(try LocalInstalments.schedules(store.database).first)
+
+        // La banque en prélève une : elle devient une dépense pour de bon.
+        let charged = try #require(plan.due.first?.id)
+        try store.database.run(
+            "UPDATE transactions SET status = 'cleared', is_pending = 0 WHERE id = ?",
+            [.text(charged)]
+        )
+
+        #expect(try LocalInstalments.forget(store: store, planId: plan.id) == 3)
+        #expect(try LocalInstalments.schedules(store.database).isEmpty, "le plan a disparu")
+
+        let alive = try store.database.query(
+            "SELECT id, instalment_plan_id FROM transactions WHERE deleted_at IS NULL"
+        )
+        #expect(alive.count == 1, "seule la ligne prélevée survit")
+        #expect(alive.first?.string("id") == charged)
+        #expect(alive.first?.string("instalment_plan_id") == nil, "détachée, pas effacée")
+    }
+
     @Test("the split is exact to the cent")
     func splitIsExact() {
         #expect(LocalInstalments.split(100, over: 3) == [33.34, 33.33, 33.33])

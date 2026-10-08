@@ -18,8 +18,19 @@ DEVICE="${FLORIN_DEVICE:-EA0252BB-60FE-5E8D-8CAD-CA836A1005B0}"
 BUNDLE="com.adrbn.florin"
 APP="${1:-}"
 
+# Sans chemin donné, on construit.
+#
+# Le script se contentait de ramasser le premier Florin.app traînant dans
+# DerivedData. Il annonçait « installé » en posant un build de la veille, et
+# on cherchait ensuite pourquoi le correctif n'avait rien changé à l'écran.
+# Un produit périmé ressemble trait pour trait à un produit à jour.
+DD="${DERIVED_DATA:-/tmp/florin-dd-rel}"
 if [ -z "$APP" ]; then
-  APP=$(find "${DERIVED_DATA:-/tmp/florin-dd-rel}/Build/Products" -maxdepth 3 -name "Florin.app" 2>/dev/null | head -1)
+  cd "$(dirname "$0")/.."
+  xcodebuild -project Florin.xcodeproj -scheme Florin -configuration Release \
+    -destination 'generic/platform=iOS' -derivedDataPath "$DD" \
+    -allowProvisioningUpdates build -quiet || exit 1
+  APP=$(find "$DD/Build/Products" -maxdepth 3 -name "Florin.app" 2>/dev/null | head -1)
 fi
 if [ -z "$APP" ] || [ ! -d "$APP" ]; then
   echo "Florin.app introuvable — passe son chemin en argument." >&2
