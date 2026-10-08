@@ -166,6 +166,7 @@ struct PlanScreen: View {
             }
         }
         .task { if model.plan == nil { await model.load() } }
+        .reloadsOnLedgerChange { await model.load() }
 
         .sheet(item: $sheet) { destination in
             switch destination {

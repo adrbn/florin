@@ -326,6 +326,7 @@ struct TransactionList<Banner: View>: View {
             }
             if model.rows.isEmpty { await model.reload() }
         }
+        .reloadsOnLedgerChange { await model.reload() }
         .onChange(of: searchRequest) { _, _ in searchFocused = true }
         .transactionActions(
             request: $menuRequest,
@@ -653,7 +654,7 @@ struct TransactionList<Banner: View>: View {
                             t: t,
                             expanded: $upcomingExpanded
                         ) { tx in
-                            row(tx)
+                            row(tx, folded: true)
                         }
                     }
 
@@ -804,7 +805,7 @@ struct TransactionList<Banner: View>: View {
         .padding(.vertical, 11)
     }
 
-    private func row(_ tx: Transaction) -> some View {
+    private func row(_ tx: Transaction, folded: Bool = false) -> some View {
         let picking = selection != nil && tx.needsReview
         let picked = selection?.contains(tx.id) == true
 
@@ -813,7 +814,9 @@ struct TransactionList<Banner: View>: View {
             UISelectionFeedbackGenerator().selectionChanged()
             if picked { selection?.remove(tx.id) } else { selection?.insert(tx.id) }
         } label: {
-            TransactionRowView(tx: tx, locale: locale, currency: currency, t: t)
+            TransactionRowView(
+                hideUpcomingChip: folded, tx: tx, locale: locale, currency: currency, t: t
+            )
                 /*
                  * The row paints nothing.
                  *

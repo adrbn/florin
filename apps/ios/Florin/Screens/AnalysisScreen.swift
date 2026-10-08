@@ -91,6 +91,7 @@ struct AnalysisScreen: View {
             )
         }
         .task { if model.data == nil { await model.load() } }
+        .reloadsOnLedgerChange { await model.load() }
     }
 
     private var tabBinding: Binding<Tab> {

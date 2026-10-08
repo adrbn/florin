@@ -20,6 +20,11 @@ final class SQLiteDatabase {
     private var handle: OpaquePointer?
     private let queue = DispatchQueue(label: "florin.sqlite")
 
+    /// Les lignes écrites sur cette connexion depuis son ouverture — insérées,
+    /// modifiées ou supprimées. Compté par SQLite, donc par construction à
+    /// jour : voir `LedgerStamp`.
+    var changes: Int { queue.sync { Int(sqlite3_total_changes(handle)) } }
+
     enum Failure: LocalizedError {
         case open(String)
         case prepare(String, sql: String)

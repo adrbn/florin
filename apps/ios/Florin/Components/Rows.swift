@@ -290,6 +290,11 @@ struct TransactionRowView: View {
     /// Set inside the "en prévision" group, where the header already says it —
     /// and where only the rows the bank happens to flag would wear the chip,
     /// making two of three look different for no reason a reader could act on.
+    ///
+    /// Vaut aussi pour « Prévu » : dans ce pli, tout est prévu. Les deux
+    /// mentions empilées sous le montant faisaient des lignes de trois
+    /// hauteurs différentes selon ce que la banque avait bien voulu marquer,
+    /// là où le reste de la page tient sur une.
     var hideUpcomingChip = false
     /// Set where every row is the same day and the header already says which.
     /// Repeating the date under each payee is noise, and it is the half that
@@ -399,7 +404,7 @@ struct TransactionRowView: View {
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
                         .background(Florin.warn.opacity(0.16), in: Capsule())
-                } else if tx.isScheduled {
+                } else if tx.isScheduled, !hideUpcomingChip {
                     Text(t("v2.activity.scheduled", "Prévu"))
                         .font(.system(size: 11)).foregroundStyle(Florin.text3)
                 }

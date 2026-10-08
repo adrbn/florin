@@ -355,6 +355,52 @@ struct LoanTests {
     }
 }
 
+// MARK: - Une page périmée
+
+/*
+ * Ce qui dit à un onglet qu'il a raté quelque chose.
+ *
+ * Les onglets ne se rechargent pas en y revenant, exprès. Il faut donc un
+ * signal, et il doit être juste dans les deux sens : bouger à chaque
+ * écriture, d'où qu'elle vienne, et ne pas bouger pour une simple lecture —
+ * sinon chaque aller-retour recharge tout et on a troqué une liste périmée
+ * contre une liste qui saute.
+ */
+@Suite("Le compteur d'écritures")
+struct LedgerStampTests {
+    private func store() throws -> LocalStore {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("florin-stamp-\(UUID().uuidString).db")
+        return try LocalStore(url: url)
+    }
+
+    @Test("une écriture le fait avancer, une lecture non")
+    func writesMoveItAndReadsDoNot() throws {
+        let store = try store()
+        let account = UUID().uuidString
+        try store.database.run(
+            "INSERT INTO accounts (id, name, kind, currency) VALUES (?, 'CCP', 'checking', 'EUR')",
+            [.text(account)]
+        )
+
+        let before = store.database.changes
+        _ = try store.database.query("SELECT count(*) AS n FROM transactions")
+        #expect(store.database.changes == before, "lire n'écrit rien")
+
+        try store.database.run(
+            """
+            INSERT INTO transactions
+                (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
+                 source, status, needs_review)
+            VALUES (?, ?, '2026-10-08', -19.91, 'EUR', 'Boutique', 'boutique',
+                    'manual', 'scheduled', 0)
+            """,
+            [.text(UUID().uuidString), .text(account)]
+        )
+        #expect(store.database.changes > before, "une ligne écrite se voit")
+    }
+}
+
 // MARK: - Filing a repayment
 
 @Suite("Loan mirror", .serialized)
