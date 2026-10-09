@@ -1806,6 +1806,53 @@ struct RefundTests {
         return id
     }
 
+    /*
+     * Un centime porte une direction que zéro n'a pas.
+     *
+     * La feuille de saisie interroge le catégoriseur dès trois lettres du
+     * bénéficiaire, souvent avant le montant. À zéro, `fits` laisse passer
+     * les catégories de recettes — `-0.0 >= 0` est vrai — donc une dépense
+     * pouvait se faire proposer « Gains ». D'où le centime signé plutôt que
+     * le silence : la direction est dite, la taille ne l'est pas encore.
+     */
+    @Test("a signed penny rules out earnings where zero cannot")
+    func aPennyCarriesTheDirection() throws {
+        let (store, account, _, extra) = try ledger()
+        for _ in 0..<3 { try row(store, account, "Boutique Centre", 24.90, category: extra) }
+
+        let memory = try LocalCategoriser.remember(store: store)
+        // Sans direction, la seule réponse du grand livre est une recette.
+        #expect(LocalCategoriser.suggest(
+            memory, payee: "Boutique Centre", amount: 0, accountId: account
+        )?.categoryId == extra)
+        // Avec elle, cette réponse n'est plus recevable.
+        #expect(LocalCategoriser.suggest(
+            memory, payee: "Boutique Centre", amount: -0.01, accountId: account
+        ) == nil)
+    }
+
+    /*
+     * Le total pèse ce que le compte compte.
+     *
+     * La liste se pagine : additionner les lignes rendues donnerait le total
+     * de la première page, faux et invisible. La somme sort donc de la même
+     * requête et du même filtre que le compte.
+     */
+    @Test("the page's total weighs every matching row, not the page")
+    func pageSumCoversTheWholeFilter() throws {
+        let (store, account, clothes, _) = try ledger()
+        try row(store, account, "Boutique Centre", -10, category: clothes)
+        try row(store, account, "Boutique Centre", -5.50, category: clothes)
+        try row(store, account, "Pressing du coin", -3, category: clothes)
+
+        var filter = TxFilter()
+        filter.search = "Boutique"
+        let page = try LocalLedger.page(store: store, filter: filter, offset: 0, limit: 1)
+        #expect(page.transactions.count == 1)
+        #expect(page.total == 2)
+        #expect(page.sum == -15.50)
+    }
+
     /// Six purchases at one shop, then the shop pays one of them back.
     ///
     /// The suggestion is what is asserted, not the write: a credit whose label

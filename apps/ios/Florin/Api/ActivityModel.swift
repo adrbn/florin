@@ -61,6 +61,17 @@ struct TxFilter: Equatable, Sendable {
 
 struct TransactionPage: Decodable, Sendable {
     let total: Int
+    /*
+     * Ce que pèsent les lignes comptées, et pas seulement celles chargées.
+     *
+     * La liste se pagine : additionner `transactions` donnerait le total de
+     * la première page, ce qui est faux et ne se voit pas. La somme vient
+     * donc de la même requête que le compte, sur le même filtre.
+     *
+     * Optionnelle : la route v2 du serveur ne la rend pas, et son absence
+     * doit se lire « inconnue » plutôt que « zéro ».
+     */
+    var sum: Double?
     let reviewCount: Int
     let transactions: [Transaction]
     let accounts: [Account]
@@ -187,6 +198,9 @@ final class ActivityModel: ObservableObject {
     @Published var filter = TxFilter()
     @Published private(set) var rows: [Transaction] = []
     @Published private(set) var total = 0
+    /// Ce que pèsent les lignes comptées. Inconnu contre un serveur, qui ne
+    /// le rend pas — voir `TransactionPage.sum`.
+    @Published private(set) var sum: Double?
     @Published private(set) var reviewCount = 0
     @Published private(set) var accounts: [Account] = []
     @Published private(set) var categories: [Category] = []
@@ -223,6 +237,7 @@ final class ActivityModel: ObservableObject {
             guard token == generation else { return }
             rows = page.transactions
             total = page.total
+            sum = page.sum
             reviewCount = page.reviewCount
             accounts = page.accounts
             categories = page.categories
@@ -254,6 +269,7 @@ final class ActivityModel: ObservableObject {
                 reachedEnd = rows.count >= page.total
             }
             total = page.total
+            sum = page.sum
         } catch {
             reachedEnd = true
         }

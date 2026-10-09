@@ -568,15 +568,35 @@ struct AddTransactionSheet: View {
         .frame(maxWidth: 200, alignment: .trailing)
     }
 
+    /*
+     * Le montant signé, et un centime tant qu'il n'est pas tapé.
+     *
+     * De tout le montant, la devinette a surtout besoin du SIGNE : c'est lui
+     * qui décide qu'une catégorie de recettes n'est pas recevable pour une
+     * dépense (`LocalCategoriser.fits`). À zéro il n'y a pas de signe —
+     * `-0.0 >= 0` est vrai — donc on préférait ne rien répondre, et le
+     * bénéficiaire tapé avant le montant ne proposait jamais rien. C'est
+     * pourtant l'ordre naturel dès qu'on touche le champ du nom.
+     *
+     * Un centime dit « une dépense, taille inconnue ». Le montant ne pèse de
+     * toute façon dans le score que s'il retombe au centime près ou dans le
+     * même ordre de grandeur, et tout se recalcule à la première touche du
+     * clavier numérique.
+     */
+    private var signedAmount: Double {
+        let size = max(magnitude, 0.01)
+        return kind == .expense ? -size : size
+    }
+
     /// Ce que le grand livre propose pour ce qui est écrit — les candidats,
     /// pas le seul candidat. Même question que `guess`, donc même moment.
     private func refreshHints() {
-        guard kind != .transfer, magnitude > 0 else { categoryHints = []; return }
+        guard kind != .transfer else { categoryHints = []; return }
         let name = payee.trimmingCharacters(in: .whitespaces)
         guard name.count >= 3 else { categoryHints = []; return }
         categoryHints = CategoryHint.shortlist(
             payee: name,
-            amount: kind == .expense ? -abs(magnitude) : abs(magnitude),
+            amount: signedAmount,
             accountId: accountId,
             date: String(
                 ISO8601DateFormatter.florinNoFraction.string(from: noonOn(date)).prefix(10)
@@ -599,10 +619,7 @@ struct AddTransactionSheet: View {
      */
     private func guess() {
         refreshHints()
-        // Le montant compte dans le score, et un zéro n'est pas neutre :
-        // `-0.0 >= 0` est vrai, ce qui rendrait une recette recevable
-        // pour une dépense. On attend donc un chiffre.
-        guard !isEditing, kind != .transfer, magnitude > 0 else { return }
+        guard !isEditing, kind != .transfer else { return }
         guard categoryId.isEmpty || guessedCategory else { return }
         let name = payee.trimmingCharacters(in: .whitespaces)
         // Deux lettres ne décrivent personne, et vider le champ efface la
@@ -613,7 +630,7 @@ struct AddTransactionSheet: View {
         }
         guard let hit = CategoryHint.suggest(
             payee: name,
-            amount: kind == .expense ? -abs(magnitude) : abs(magnitude),
+            amount: signedAmount,
             accountId: accountId,
             date: String(
                 ISO8601DateFormatter.florinNoFraction.string(from: noonOn(date)).prefix(10)

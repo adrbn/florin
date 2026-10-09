@@ -586,6 +586,12 @@ struct TransactionList<Banner: View>: View {
         text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
     }
 
+    /// La liste répond à une question posée : une recherche, ou un filtre.
+    private var narrowed: Bool {
+        model.filter.isFiltered
+            || !model.filter.search.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
     private var filterButton: some View {
         ZStack(alignment: .topTrailing) {
             CircleButton(symbol: "line.3.horizontal.decrease", size: 44) { filtering = true }
@@ -671,6 +677,23 @@ struct TransactionList<Banner: View>: View {
         HStack {
             Text(t("v2.activity.count", "{count} opérations", ["count": model.total]))
             Spacer()
+            /*
+             * Ce que pèse la liste qu'on regarde.
+             *
+             * « 95 opérations » dit combien, jamais combien ça fait — et
+             * chercher un marchand, c'est presque toujours demander la
+             * seconde. Le total vient de la requête, pas des lignes chargées,
+             * sinon il ne compterait que la première page.
+             *
+             * Seulement quand la liste est resserrée : le solde net de tout
+             * le grand livre ne répond à aucune question, et la somme d'une
+             * page de virements internes encore moins.
+             */
+            if narrowed, let sum = model.sum {
+                Text(Money.string(sum, locale: locale, currency: currency))
+                    .monospacedDigit()
+                    .foregroundStyle(sum < 0 ? Florin.negative : Florin.positive)
+            }
             if model.loading { ProgressView().controlSize(.mini) }
             /*
              * Selecting works on the tab that is only about selecting.

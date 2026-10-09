@@ -58,6 +58,9 @@ enum LocalLedger {
         let total = try db.scalar(
             "SELECT count(*) FROM transactions t WHERE \(whereClause)", values
         )?.int ?? 0
+        let sum = try db.scalar(
+            "SELECT coalesce(sum(t.amount), 0) FROM transactions t WHERE \(whereClause)", values
+        )?.double ?? 0
 
         let rows = try db.query(
             """
@@ -78,6 +81,7 @@ enum LocalLedger {
 
         return TransactionPage(
             total: total,
+            sum: sum,
             reviewCount: try db.scalar(
                 """
                 SELECT count(*) FROM transactions
