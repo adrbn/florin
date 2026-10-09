@@ -229,6 +229,24 @@ final class MerchantNames: ObservableObject {
     static func resolve(_ key: String, in table: [String: String]) -> String? {
         guard !key.isEmpty else { return nil }
         if let exact = table[key] { return exact }
+
+        /*
+         * Saisir le nom qu'on lit est une façon de dire « c'est lui ».
+         *
+         * Le relevé porte « ACHAT CB ONE*boutique c 07.10.26 USD … » ; la
+         * boutique a été renommée une fois, et c'est ce nom-là qu'on voit
+         * partout. Le même achat saisi à la main se tape donc sous ce nom —
+         * et produisait un parfait inconnu : deux clés sans une lettre en
+         * commun, deux têtes, deux marchands dans l'analyse.
+         *
+         * C'est déjà la règle qui relie deux libellés nommés pareil (voir
+         * `keysSharing(nameOf:)`) ; elle ne s'appliquait pas au libellé qui
+         * EST le nom, faute d'avoir un nom à lui. Le plus petit nom l'emporte
+         * à égalité de pli, pour que la réponse ne dépende pas de l'ordre du
+         * dictionnaire.
+         */
+        if let given = table.values.filter({ fold($0) == key }).min() { return given }
+
         guard key.count >= truncationFloor else { return nil }
         var best: (key: String, name: String)?
         for (other, name) in table where other.count >= truncationFloor {

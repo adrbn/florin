@@ -3163,6 +3163,26 @@ struct SharedNameTests {
             == ["pas commercial", "chez mamie"])
     }
 
+    /*
+     * Le cas d'un achat saisi à la main sous le nom qu'on lit à l'écran.
+     *
+     * Le relevé écrit « ACHAT CB ONE*… » et on a renommé une fois ; le même
+     * achat retapé à la main porte le nom, pas le libellé. Sans lien, c'était
+     * un second marchand — autre tête, autre ligne dans l'analyse.
+     */
+    @Test("Le libellé qui EST le nom donné retrouve le marchand")
+    func typingTheGivenNameFindsIt() {
+        // « one boutique c » est ce que la banque écrit, « Boutique » ce
+        // qu'on lit : les deux clés n'ont pas une lettre en commun.
+        let given = ["one boutique c": "Boutique"]
+        #expect(MerchantNames.resolve("boutique", in: given) == "Boutique")
+        #expect(MerchantNames.keysSharing(nameOf: "boutique", in: given) == ["one boutique c"])
+
+        // Et le lien ne s'invente pas : un nom que personne ne porte reste
+        // sans marchand, même long.
+        #expect(MerchantNames.resolve("jamais entendu", in: given) == nil)
+    }
+
     @Test("Un nom unique, un nom vide ou une clé inconnue ne jumellent personne")
     func noTwins() {
         #expect(MerchantNames.keysSharing(nameOf: "le comptoir", in: names).isEmpty)
