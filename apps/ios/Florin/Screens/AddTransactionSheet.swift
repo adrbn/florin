@@ -455,15 +455,20 @@ struct AddTransactionSheet: View {
 
             Hairline()
 
-            if offersInstalments {
-                instalmentRow
-                Hairline()
-            }
-
-            // Une échéance est déjà une opération à venir : le proposer une
-            // seconde fois laisserait croire qu'on peut partager sans l'être.
-            if offersUpcoming && instalmentCount == 1 {
-                Toggle(isOn: $upcoming) {
+            /*
+             * « En prévision » d'abord, et il ne disparaît plus.
+             *
+             * Une échéance est toujours en prévision, donc le réglage n'a
+             * plus rien à décider dès qu'on paie en plusieurs fois — il
+             * s'effaçait. Un réglage qui s'évapore ne se lit pas comme
+             * « déjà répondu » mais comme « plus disponible », et on se
+             * demande si la ligne sera bien annoncée. Il reste donc là,
+             * allumé, éteint à la main : la réponse est visible, et la
+             * phrase dessous dit d'où elle vient.
+             */
+            if offersUpcoming {
+                let forced = instalmentCount > 1
+                Toggle(isOn: forced ? .constant(true) : $upcoming) {
                     HStack(spacing: 13) {
                         Image(systemName: "clock")
                             .font(.system(size: 15, weight: .medium))
@@ -473,17 +478,29 @@ struct AddTransactionSheet: View {
                             Text(t("v2.wallet.guide.flowUpcoming", "En prévision"))
                                 .font(.system(size: 14.5))
                                 .foregroundStyle(Florin.text)
-                            Text(t("v2.add.upcomingHint", "Jusqu'à ce que la banque l'enregistre"))
-                                .font(.system(size: 12))
-                                .foregroundStyle(Florin.text3)
-                                .fixedSize(horizontal: false, vertical: true)
+                            Text(
+                                forced
+                                    ? t("v2.add.upcomingAlways",
+                                        "Une échéance est toujours en prévision")
+                                    : t("v2.add.upcomingHint",
+                                        "Jusqu'à ce que la banque l'enregistre")
+                            )
+                            .font(.system(size: 12))
+                            .foregroundStyle(Florin.text3)
+                            .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                 }
                 .tint(Florin.accent)
+                .disabled(forced)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
 
+                Hairline()
+            }
+
+            if offersInstalments {
+                instalmentRow
                 Hairline()
             }
 
@@ -597,7 +614,9 @@ struct AddTransactionSheet: View {
         if !matches.isEmpty {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
+                    let typed = MerchantNames.key(payee)
                     ForEach(matches, id: \.key) { merchant in
+                        let chosen = merchant.key == typed
                         Button {
                             UISelectionFeedbackGenerator().selectionChanged()
                             payee = merchant.name
@@ -613,11 +632,18 @@ struct AddTransactionSheet: View {
                                     .font(.system(size: 13.5, weight: .medium))
                                     .foregroundStyle(Florin.text)
                                     .lineLimit(1)
+                                if chosen {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 11, weight: .bold))
+                                        .foregroundStyle(Florin.accent)
+                                }
                             }
                             .padding(.leading, 6)
                             .padding(.trailing, 11)
                             .padding(.vertical, 6)
-                            .background(Florin.accent.opacity(0.13), in: Capsule())
+                            .background(
+                                Florin.accent.opacity(chosen ? 0.3 : 0.13), in: Capsule()
+                            )
                         }
                         .buttonStyle(.plain)
                     }
@@ -631,11 +657,11 @@ struct AddTransactionSheet: View {
     private var matchingPayees: [(name: String, key: String)] {
         guard kind != .transfer, payeeFocused, !known.isEmpty else { return [] }
         let typed = MerchantNames.key(payee)
-        return Array(
-            known.lazy
-                .filter { $0.key != typed && (typed.isEmpty || $0.key.contains(typed)) }
-                .prefix(5)
-        )
+        let hits = known.filter { typed.isEmpty || $0.key.contains(typed) }
+        // Le marchand exactement écrit passe devant et reste : la pastille
+        // cochée dit « c'est bien lui que tu connais ». Elle s'effaçait au
+        // moment précis où elle avait quelque chose à confirmer.
+        return Array((hits.filter { $0.key == typed } + hits.filter { $0.key != typed }).prefix(5))
     }
 
     private func pickerRow<Content: View>(
