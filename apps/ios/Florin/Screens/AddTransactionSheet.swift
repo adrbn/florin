@@ -39,6 +39,7 @@ struct AddTransactionSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @FocusState private var amountFocused: Bool
+    @FocusState private var payeeFocused: Bool
 
     /*
      * Three things a row can be, not two.
@@ -71,6 +72,9 @@ struct AddTransactionSheet: View {
     @State private var instalmentEach = ""
     /// Vrai dès que la catégorie affichée vient du classificateur et non
     /// d'un choix. On ne devine plus une fois que quelqu'un a tranché.
+    /// Les marchands déjà rencontrés, lus une fois à l'ouverture : le nom
+    /// affiché et la clé qu'il produit. Voir `LocalQueries.knownPayees`.
+    @State private var known: [(name: String, key: String)] = []
     @State private var guessedCategory = false
     @State private var saving = false
     @State private var errorMessage: String?
@@ -239,7 +243,14 @@ struct AddTransactionSheet: View {
         }
         // Relire le grand livre prend un instant : autant le faire pendant
         // que la feuille s'ouvre, pas entre deux lettres tapées.
-        .task { if !isEditing { await CategoryHint.warm() } }
+        .task {
+            if !isEditing { await CategoryHint.warm() }
+            // Une fois par ouverture : quelques centaines de libellés, et la
+            // liste ne bouge pas pendant qu'on remplit le formulaire.
+            if let store = LocalStore.shared {
+                known = (try? LocalQueries.knownPayees(store.database)) ?? []
+            }
+        }
         .onChange(of: amount) { guess() }
         .onChange(of: kind) { guess() }
         .onChange(of: accountId) { guess() }
@@ -343,10 +354,13 @@ struct AddTransactionSheet: View {
                     TextField(t("v2.add.payee", "Bénéficiaire"), text: $payee)
                         .textInputAutocapitalization(.words)
                         .font(.system(size: 15.5, weight: .medium))
+                        .focused($payeeFocused)
                         .onChange(of: payee) { guess() }
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 15)
+
+                suggestions
 
                 Hairline()
             }
@@ -564,6 +578,65 @@ struct AddTransactionSheet: View {
         guessedCategory = true
     }
 
+
+    /*
+     * Ce qu'on a déjà, plutôt que ce qu'on retape.
+     *
+     * Le nom d'un marchand est la seule chose qu'on connaisse de lui, et une
+     * lettre de travers en fabrique un second : sans tête, sans historique,
+     * une ligne de plus dans l'analyse. Les propositions ne corrigent pas
+     * après coup, elles évitent d'avoir à corriger.
+     *
+     * Le champ vide propose les plus fréquents, parce que c'est presque
+     * toujours l'un d'eux. Une proposition déjà exactement tapée disparaît :
+     * elle ne propose plus rien.
+     */
+    @ViewBuilder
+    private var suggestions: some View {
+        let matches = matchingPayees
+        if !matches.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(matches, id: \.key) { merchant in
+                        Button {
+                            UISelectionFeedbackGenerator().selectionChanged()
+                            payee = merchant.name
+                            payeeFocused = false
+                        } label: {
+                            HStack(spacing: 7) {
+                                let face = MerchantLogos.shared.face(for: merchant.name)
+                                Bubble(
+                                    label: merchant.name,
+                                    emoji: face?.emoji, size: 20, logo: face?.logo
+                                )
+                                Text(merchant.name)
+                                    .font(.system(size: 13.5, weight: .medium))
+                                    .foregroundStyle(Florin.text)
+                                    .lineLimit(1)
+                            }
+                            .padding(.leading, 6)
+                            .padding(.trailing, 11)
+                            .padding(.vertical, 6)
+                            .background(Florin.accent.opacity(0.13), in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+            .padding(.bottom, 13)
+        }
+    }
+
+    private var matchingPayees: [(name: String, key: String)] {
+        guard kind != .transfer, payeeFocused, !known.isEmpty else { return [] }
+        let typed = MerchantNames.key(payee)
+        return Array(
+            known.lazy
+                .filter { $0.key != typed && (typed.isEmpty || $0.key.contains(typed)) }
+                .prefix(5)
+        )
+    }
 
     private func pickerRow<Content: View>(
         symbol: String,

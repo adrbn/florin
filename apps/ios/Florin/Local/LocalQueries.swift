@@ -323,6 +323,49 @@ enum LocalQueries {
      * not a movement between accounts, and asking would be handing the user an
      * ambiguity the app invented.
      */
+    /*
+     * Les marchands déjà rencontrés, du plus fréquent au moins.
+     *
+     * Pour la saisie : on tape le nom qu'on a sous les yeux dans ses listes,
+     * et une faute de frappe fabrique un marchand de plus — pas de tête, pas
+     * d'historique, une ligne de plus dans l'analyse. Proposer ce qu'on a
+     * déjà fait coûte un geste de moins qu'une correction après coup.
+     *
+     * Les noms, pas les libellés : c'est ce qu'on lit, donc ce qu'on
+     * cherche. Deux libellés nommés pareil ne font donc qu'une proposition.
+     * Les virements n'en sont pas : leur « bénéficiaire » est un compte à
+     * soi, et le formulaire ne demande pas de nom dans ce cas-là.
+     *
+     * Rendu : (nom affiché, clé) — la clé est calculée ici une fois par
+     * libellé distinct plutôt qu'à chaque frappe.
+     */
+    static func knownPayees(_ db: SQLiteDatabase, limit: Int = 400) throws -> [(name: String, key: String)] {
+        let rows = try db.query(
+            """
+            SELECT payee, count(*) AS n FROM transactions
+            WHERE deleted_at IS NULL AND transfer_pair_id IS NULL
+              AND payee IS NOT NULL AND trim(payee) <> ''
+            GROUP BY payee ORDER BY n DESC
+            """
+        )
+        var seen = Set<String>()
+        var out: [(name: String, key: String)] = []
+        for row in rows {
+            guard let payee = row.string("payee") else { continue }
+            let name = MerchantNames.shared.name(for: payee) ?? MerchantNames.merchantWords(payee)
+            let trimmed = name.trimmingCharacters(in: .whitespaces)
+            // La clé du NOM, pas celle du libellé : c'est elle que produira
+            // le texte tapé, et c'est par elle que deux libellés nommés
+            // pareil se confondent en une seule proposition.
+            let key = MerchantNames.key(trimmed)
+            guard !trimmed.isEmpty, !key.isEmpty, !seen.contains(key) else { continue }
+            seen.insert(key)
+            out.append((name: trimmed, key: key))
+            if out.count >= limit { break }
+        }
+        return out
+    }
+
     static func danglingTransfers(_ db: SQLiteDatabase) throws -> [Transaction] {
         try db.query(
             """

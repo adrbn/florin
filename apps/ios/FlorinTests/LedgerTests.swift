@@ -3140,6 +3140,57 @@ struct MerchantPunctuationTests {
     }
 }
 
+/*
+ * Ce que le champ « Bénéficiaire » propose pendant qu'on tape.
+ *
+ * Trois exigences : des noms et non des libellés, un seul par marchand même
+ * quand deux libellés le désignent, et le plus fréquent d'abord — parce que
+ * c'est presque toujours celui-là.
+ */
+@Suite("Marchands proposés à la saisie", .serialized)
+struct KnownPayeeTests {
+    @Test("Les noms, une fois chacun, du plus fréquent au moins")
+    func suggestionsAreNamesDeduplicatedByMerchant() throws {
+        let store = try LocalStore(
+            url: URL(fileURLWithPath: NSTemporaryDirectory())
+                .appendingPathComponent("florin-known-\(UUID().uuidString).db")
+        )
+        let account = UUID().uuidString
+        try store.database.exec("""
+        INSERT INTO accounts (id, name, kind, currency)
+          VALUES ('\(account)', 'CCP', 'checking', 'EUR');
+        """)
+        func add(_ payee: String, _ times: Int, transfer: Bool = false) throws {
+            for index in 0..<times {
+                try store.database.run(
+                    """
+                    INSERT INTO transactions
+                        (id, account_id, occurred_at, amount, currency, payee,
+                         normalized_payee, source, status, needs_review, transfer_pair_id)
+                    VALUES (?, ?, '2026-10-01', -9.90, 'EUR', ?, ?, 'manual', 'cleared', 0, ?)
+                    """,
+                    [
+                        .text(UUID().uuidString), .text(account), .text(payee),
+                        .text(payee.lowercased()),
+                        transfer ? .text("pair-\(index)") : .null,
+                    ]
+                )
+            }
+        }
+        // Deux libellés pour le même marchand : la référence tombe, le nom
+        // reste, et il ne se propose qu'une fois.
+        try add("Boutique REF 123456", 3)
+        try add("Boutique", 1)
+        try add("Pressing du coin", 5)
+        // Un virement n'a pas de bénéficiaire à proposer.
+        try add("Livret", 9, transfer: true)
+
+        let known = try LocalQueries.knownPayees(store.database)
+        #expect(known.map(\.name) == ["Pressing du coin", "Boutique"])
+        #expect(known.map(\.key) == ["pressing du coin", "boutique"])
+    }
+}
+
 @Suite("Le même nom, la même tête")
 struct SharedNameTests {
     private let names = [
