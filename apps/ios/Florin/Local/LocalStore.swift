@@ -12,7 +12,44 @@ import Foundation
 /// It deliberately does not yet own anything. Nothing reads from it until a
 /// ported query has been proved to agree with the live figures to the cent.
 final class LocalStore {
-    static let shared = try? LocalStore()
+    /*
+     * Jamais un échec mis en cache.
+     *
+     * C'était `static let shared = try? LocalStore()` : une seule tentative
+     * pour toute la vie du processus, et un `try?` qui jetait la raison.
+     *
+     * Or l'app se lance aussi sans personne devant elle — `BGAppRefreshTask`,
+     * et surtout l'action Raccourcis qui enregistre un paiement juste après
+     * le passage de la carte, téléphone verrouillé au fond d'une poche. À cet
+     * instant la protection de données d'iOS refuse le fichier et l'ouverture
+     * échoue. Le `nil` restait. L'écran ouvert une heure plus tard, déverrouillé,
+     * retombait sur le même processus et le même `nil` : zéro compte, donc
+     * l'onboarding par-dessus un grand livre intact, et un import de
+     * sauvegarde qui repartait sans rien dire.
+     *
+     * Seule la réussite se garde : un échec est une tentative, pas un verdict.
+     */
+    static var shared: LocalStore? {
+        lock.lock()
+        defer { lock.unlock() }
+        if let opened { return opened }
+        do {
+            let store = try LocalStore()
+            opened = store
+            lastFailure = nil
+            return store
+        } catch {
+            lastFailure = error
+            return nil
+        }
+    }
+
+    /// Pourquoi la dernière ouverture a échoué — pour l'écran qui doit le dire
+    /// plutôt que de faire comme s'il n'y avait rien.
+    private(set) nonisolated(unsafe) static var lastFailure: Error?
+
+    private nonisolated(unsafe) static var opened: LocalStore?
+    private static let lock = NSLock()
 
     let database: SQLiteDatabase
     let url: URL

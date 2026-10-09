@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		00264CD2FF9819E72DFEBF14 /* LedgerUnavailable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06123341C48B7130B314E0C1 /* LedgerUnavailable.swift */; };
 		012BE24BDACB110AE8BBB323 /* Brand.swift in Sources */ = {isa = PBXBuildFile; fileRef = D01218C78CF2722622A51E5B /* Brand.swift */; };
 		02E0A5C7DD9F371326789EE1 /* TaskSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89E7EC2A6990567E31F4543F /* TaskSheet.swift */; };
 		0721A4ADB20B964A866C3EF8 /* BuySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BA7D5761878CB027DA9A53E /* BuySheet.swift */; };
@@ -174,6 +175,7 @@
 /* Begin PBXFileReference section */
 		00E74566417801045AB5E9C7 /* SettingsKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsKit.swift; sourceTree = "<group>"; };
 		053C4FF9EB60FEF2D22C6F7A /* Privacy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Privacy.swift; sourceTree = "<group>"; };
+		06123341C48B7130B314E0C1 /* LedgerUnavailable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LedgerUnavailable.swift; sourceTree = "<group>"; };
 		0E01B8AD2CC1890283839B9C /* ServerFields.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerFields.swift; sourceTree = "<group>"; };
 		1030F4E939DD8352B6EC5322 /* BankLogo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankLogo.swift; sourceTree = "<group>"; };
 		10D904FFFE7E0B55E4CE28DD /* SnapshotCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotCache.swift; sourceTree = "<group>"; };
@@ -427,6 +429,7 @@
 			isa = PBXGroup;
 			children = (
 				608F7E010F694A6297EE66C4 /* AddAccountSheet.swift */,
+				06123341C48B7130B314E0C1 /* LedgerUnavailable.swift */,
 				3F40F230793C30D443DAE5D6 /* LocalOnboarding.swift */,
 				54BBC64175156AE7D2F7FE08 /* OnboardingFlow.swift */,
 			);
@@ -735,6 +738,7 @@
 				5A0180922CA7EF9A05CD85BB /* InstalmentPlanSheet.swift in Sources */,
 				6C909140154AE3375A686776 /* KnownMerchants.swift in Sources */,
 				6FAFA48633A56ADD57425B2A /* LedgerStamp.swift in Sources */,
+				00264CD2FF9819E72DFEBF14 /* LedgerUnavailable.swift in Sources */,
 				A636000FF8D12DAA4D6FF8BC /* LoanSettingsSheet.swift in Sources */,
 				31B1D1DF613445C5C45A0568 /* LocalAnalysis.swift in Sources */,
 				A216024B009501059D290009 /* LocalBackup.swift in Sources */,
@@ -855,7 +859,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Florin/Florin.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 472;
+				CURRENT_PROJECT_VERSION = 473;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Florin/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;
@@ -876,7 +880,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = FlorinWidgets/FlorinWidgets.entitlements;
-				CURRENT_PROJECT_VERSION = 472;
+				CURRENT_PROJECT_VERSION = 473;
 				INFOPLIST_FILE = FlorinWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -981,7 +985,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = FlorinWidgets/FlorinWidgets.entitlements;
-				CURRENT_PROJECT_VERSION = 472;
+				CURRENT_PROJECT_VERSION = 473;
 				INFOPLIST_FILE = FlorinWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1064,7 +1068,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Florin/Florin.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 472;
+				CURRENT_PROJECT_VERSION = 473;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Florin/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;

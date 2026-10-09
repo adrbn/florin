@@ -198,8 +198,25 @@ struct OnboardingFlow: View {
                 onDone: {}
             )
         }
+        /*
+         * Un fichier refusé le dit.
+         *
+         * Ce `guard` repartait sans un mot quand la base n'était pas ouvrable :
+         * on choisissait sa sauvegarde, et l'écran d'avant revenait, inchangé,
+         * comme si le fichier n'allait pas. C'est précisément le moment où il
+         * faut parler — celui où quelqu'un croit avoir tout perdu et tient sa
+         * copie à la main.
+         */
         .fileImporter(isPresented: $picking, allowedContentTypes: [.data]) { result in
-            guard case let .success(url) = result, let store = LocalStore.shared else { return }
+            guard case let .success(url) = result else {
+                if case let .failure(error) = result { failure = error.localizedDescription }
+                return
+            }
+            guard let store = LocalStore.shared else {
+                failure = (LocalStore.lastFailure ?? LocalOnboarding.Failure.noStore)
+                    .localizedDescription
+                return
+            }
             saving = true
             Task {
                 do {

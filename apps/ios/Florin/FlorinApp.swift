@@ -174,6 +174,15 @@ struct RootView: View {
                         onRequestSettings: { showingSettings = true }
                     )
                     .id("\(onboarded)-\(landingTab.rawValue)")
+                } else if LocalStore.shared == nil {
+                    /*
+                     * Pas de comptes *et* pas de base : ce n'est pas un
+                     * premier lancement, c'est un fichier illisible pour
+                     * l'instant. `isComplete` répond zéro dans les deux cas,
+                     * et l'onboarding tombait donc par-dessus un grand livre
+                     * entier. Celui-ci ne propose rien d'autre que réessayer.
+                     */
+                    LedgerUnavailable(onRetry: { onboarded = UUID() })
                 } else if wantsServerForm {
                     /*
                      * The form, for people who came looking for it.
