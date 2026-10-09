@@ -124,6 +124,9 @@ struct TransactionList<Banner: View>: View {
     /// L'échéancier dont on regarde le détail.
     @State private var openPlan: LocalInstalments.Schedule?
     @FocusState private var searchFocused: Bool
+    /// Les marchands que le grand livre connaît, lus une fois : voir
+    /// `LocalQueries.knownPayees`.
+    @State private var knownPayees: [(name: String, key: String)] = []
 
     init(
         base: URL,
@@ -325,6 +328,9 @@ struct TransactionList<Banner: View>: View {
                 model.filter.categoryId = preset.categoryId
             }
             if model.rows.isEmpty { await model.reload() }
+            if let store = LocalStore.shared {
+                knownPayees = (try? LocalQueries.knownPayees(store.database)) ?? []
+            }
         }
         .reloadsOnLedgerChange { await model.reload() }
         .onChange(of: searchRequest) { _, _ in searchFocused = true }
@@ -475,6 +481,14 @@ struct TransactionList<Banner: View>: View {
     }
 
     private var header: some View {
+        VStack(spacing: 0) {
+            bar
+            searchHints
+        }
+        .padding(.bottom, heroValue == nil ? 14 : 24)
+    }
+
+    private var bar: some View {
         TopBar(onProfile: { showsBack ? dismiss() : onProfile() }, back: showsBack) {
             searchField
         } trailing: {
@@ -499,7 +513,77 @@ struct TransactionList<Banner: View>: View {
                 }
             }
         }
-        .padding(.bottom, heroValue == nil ? 14 : 24)
+    }
+
+    /*
+     * Ce qu'on cherche, proposé pendant qu'on le tape.
+     *
+     * Un nom de marchand se tape en entier avant de rendre une page, et une
+     * lettre de travers rend une liste vide — qui se lit « tu n'as jamais
+     * acheté là » alors qu'elle dit « ce n'est pas écrit comme ça ». Les
+     * pastilles répondent avec ce que le grand livre contient vraiment, et le
+     * champ vide propose les plus fréquents, parce que c'est presque toujours
+     * l'un d'eux.
+     *
+     * Une catégorie ne se cherche pas en texte : son nom n'est écrit sur
+     * aucune ligne. Sa pastille pose donc le filtre, ce que la feuille des
+     * filtres faisait en trois tapes.
+     */
+    @ViewBuilder
+    private var searchHints: some View {
+        SuggestionPills(items: searchItems, inset: Florin.gutter) { picked in
+            if let id = picked.id.hasPrefix(Self.categoryPill)
+                ? String(picked.id.dropFirst(Self.categoryPill.count)) : nil {
+                draft = ""
+                model.filter.categoryId = model.filter.categoryId == id ? nil : id
+                searchFocused = false
+                commitSearch("")
+            } else {
+                draft = picked.label
+                searchFocused = false
+                commitSearch(picked.label)
+            }
+        }
+        .padding(.top, searchItems.isEmpty ? 0 : 10)
+    }
+
+    /// Ce qui distingue une catégorie d'un marchand dans la bande : les deux
+    /// portent un identifiant, et seule une catégorie pose un filtre.
+    /// Calculée, parce qu'un type générique ne stocke pas de statique.
+    private static var categoryPill: String { "cat:" }
+
+    private var searchItems: [SuggestionPills.Item] {
+        guard searchFocused else { return [] }
+        let typed = draft.trimmingCharacters(in: .whitespaces)
+        let key = MerchantNames.key(typed)
+        let merchants = knownPayees
+            .filter { key.isEmpty || $0.key.contains(key) }
+            .prefix(3)
+            .map { merchant -> SuggestionPills.Item in
+                let face = MerchantLogos.shared.face(for: merchant.name)
+                return SuggestionPills.Item(
+                    id: merchant.key, label: merchant.name,
+                    emoji: face?.emoji, logo: face?.logo,
+                    chosen: merchant.key == key
+                )
+            }
+        let needle = Self.fold(typed)
+        let matched = needle.isEmpty
+            ? []
+            : model.categories
+                .filter { Self.fold($0.name).contains(needle) }
+                .prefix(2)
+                .map {
+                    SuggestionPills.Item(
+                        id: Self.categoryPill + $0.id, label: $0.name, emoji: $0.emoji,
+                        chosen: model.filter.categoryId == $0.id
+                    )
+                }
+        return merchants + matched
+    }
+
+    private static func fold(_ text: String) -> String {
+        text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
     }
 
     private var filterButton: some View {

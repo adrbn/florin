@@ -218,10 +218,31 @@ enum LocalCategoriser {
         _ memory: Memory, payee: String, amount: Double, accountId: String,
         date: String = ""
     ) -> Suggestion? {
-        let spoken = fromWords(memory, payee: payee, amount: amount, accountId: accountId)
+        let spoken = fromWords(memory, payee: payee, amount: amount, accountId: accountId).first
         if let spoken, spoken.confidence >= applyThreshold { return spoken }
         let beaten = rhythm(memory, date: date, amount: amount, accountId: accountId)
         return beaten ?? spoken
+    }
+
+    /*
+     * Les candidats, pas le candidat.
+     *
+     * Classer, c'est décider, et le moteur ne décide qu'au-dessus de 0,80 —
+     * mais il a presque toujours un deuxième et un troisième nom en main, et
+     * les jeter oblige à chercher dans soixante catégories ce qu'il tenait
+     * déjà. Le classement est celui-là même dont `suggest` prend la tête : une
+     * proposition ne peut donc pas contredire ce que l'application aurait
+     * appliqué tout seul.
+     */
+    static func shortlist(
+        _ memory: Memory, payee: String, amount: Double, accountId: String,
+        date: String = ""
+    ) -> [Suggestion] {
+        let spoken = fromWords(memory, payee: payee, amount: amount, accountId: accountId)
+        guard let beaten = rhythm(memory, date: date, amount: amount, accountId: accountId) else {
+            return spoken
+        }
+        return [beaten] + spoken.filter { $0.categoryId != beaten.categoryId }
     }
 
     /*
@@ -273,11 +294,12 @@ enum LocalCategoriser {
         return Suggestion(categoryId: categoryId, confidence: applyThreshold + 0.05)
     }
 
+    /// Les catégories que les mots désignent, la plus probable en tête.
     private static func fromWords(
         _ memory: Memory, payee: String, amount: Double, accountId: String
-    ) -> Suggestion? {
+    ) -> [Suggestion] {
         let tokens = Self.tokens(of: payee)
-        guard !tokens.isEmpty, !memory.isEmpty else { return nil }
+        guard !tokens.isEmpty, !memory.isEmpty else { return [] }
 
         /*
          * The same label, ignoring its reference numbers.
@@ -319,7 +341,7 @@ enum LocalCategoriser {
                 0.99,
                 (decided ? 0.73 : 0.62) + 0.1 * Double(min(best.value, 3)) + 0.07 * share
             )
-            return Suggestion(categoryId: best.key, confidence: confidence)
+            return runnersUp(ranked.map { ($0.key, Double($0.value)) }, confidence: confidence)
         }
 
         /*
@@ -331,15 +353,15 @@ enum LocalCategoriser {
          * charge whose merchant name matched eighteen past rows exactly.
          */
         let known = tokens.filter { memory.weights[$0] != nil }
-        guard !known.isEmpty else { return nil }
+        guard !known.isEmpty else { return [] }
         let mass = known.reduce(0.0) { $0 + (memory.weights[$1] ?? 0) }
-        guard mass > 0 else { return nil }
+        guard mass > 0 else { return [] }
 
         var visiting = Set<Int>()
         for token in known {
             for index in memory.postings[token] ?? [] { visiting.insert(index) }
         }
-        guard !visiting.isEmpty else { return nil }
+        guard !visiting.isEmpty else { return [] }
 
         var best: [String: Double] = [:]
         for index in visiting {
@@ -363,7 +385,7 @@ enum LocalCategoriser {
         }
 
         let ranked = best.sorted { $0.value > $1.value }
-        guard let winner = ranked.first, winner.value > 0 else { return nil }
+        guard let winner = ranked.first, winner.value > 0 else { return [] }
         let runnerUp = ranked.count > 1 ? ranked[1].value : 0
         // A strong match with an equally strong rival is a coin toss, and
         // deserves to be reported as one.
@@ -395,7 +417,19 @@ enum LocalCategoriser {
             }
         }
 
-        return Suggestion(categoryId: winner.key, confidence: confidence)
+        return runnersUp(ranked.map { ($0.key, $0.value) }, confidence: confidence)
+    }
+
+    /// Le classement, rendu en propositions : le premier porte la confiance
+    /// calculée, les suivants la part du score qu'ils en tiennent. Au-delà de
+    /// quatre, ce n'est plus une courte liste.
+    private static func runnersUp(
+        _ ranked: [(String, Double)], confidence: Double
+    ) -> [Suggestion] {
+        guard let top = ranked.first, top.1 > 0 else { return [] }
+        return ranked.prefix(4).map {
+            Suggestion(categoryId: $0.0, confidence: confidence * $0.1 / top.1)
+        }
     }
 
     /// Amounts are compared as whole cents so that floating point cannot make

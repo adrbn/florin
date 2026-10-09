@@ -23,7 +23,7 @@ struct TransactionDetailSheet: View {
     var isLocalLedger = false
 
     /// Ce que le grand livre propose pour cette ligne, s'il propose quelque chose.
-    @State private var hint: Category?
+    @State private var hints: [Category] = []
 
     @Environment(\.dismiss) private var dismiss
     @State private var picking = false
@@ -198,11 +198,11 @@ struct TransactionDetailSheet: View {
                 onTransfer: (!tx.isTransfer && tx.amount < 0 && accounts.count > 1)
                     ? { wantsTransfer = true }
                     : nil,
-                hint: hint
+                hints: hints
             )
             // Lue à l'ouverture, pas à chaque redessin : elle relit le grand
             // livre, et le sélecteur se redessine à chaque lettre tapée.
-            .task { hint = CategoryHint.category(for: tx, in: categories) }
+            .task { hints = CategoryHint.categories(for: tx, in: categories) }
         }
         .sheet(isPresented: $filing) {
             ReviewCategorySheet(

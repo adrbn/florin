@@ -84,6 +84,40 @@ enum CategoryHint {
     }
 
     /*
+     * Les trois réponses plausibles, au lieu d'une seule pré-remplie.
+     *
+     * Une valeur déjà posée se lit comme une décision, et quand elle est
+     * fausse il faut rouvrir soixante catégories pour la défaire. Trois
+     * pastilles disent l'inverse : voilà ce que je crois, voilà les deux
+     * autres, dis-moi. Le même plancher s'applique — un quatrième candidat à
+     * 0,1 n'est pas une idée.
+     */
+    static func shortlist(
+        _ memory: LocalCategoriser.Memory,
+        payee: String, amount: Double, accountId: String, date: String = "",
+        limit: Int = 3
+    ) -> [LocalCategoriser.Suggestion] {
+        let ranked = LocalCategoriser.shortlist(
+            memory, payee: payee, amount: amount, accountId: accountId, date: date
+        )
+        return Array(ranked.filter { $0.confidence >= floor }.prefix(limit))
+    }
+
+    /// La même question posée au grand livre de l'appareil, rendue en
+    /// catégories que l'écran peut afficher.
+    static func shortlist(
+        payee: String, amount: Double, accountId: String, date: String,
+        in categories: [Category], limit: Int = 3
+    ) -> [Category] {
+        guard let store = LocalStore.shared, let memory = memory(store) else { return [] }
+        return shortlist(
+            memory, payee: payee, amount: amount, accountId: accountId,
+            date: date, limit: limit
+        )
+        .compactMap { hit in categories.first { $0.id == hit.categoryId } }
+    }
+
+    /*
      * Rien à proposer à qui a déjà répondu.
      *
      * Une ligne classée porte une décision, et une ligne volontairement laissée
@@ -92,14 +126,17 @@ enum CategoryHint {
      * parce que le sélecteur est ouvert exprès : on ne propose que lorsque la
      * case est vide, et on ne propose jamais la catégorie déjà en place.
      */
-    static func category(for tx: Transaction, in categories: [Category]) -> Category? {
-        guard tx.categoryId == nil, tx.categoryName == nil, !tx.isTransfer else { return nil }
-        guard let hit = suggest(
+    static func categories(
+        for tx: Transaction, in categories: [Category], limit: Int = 3
+    ) -> [Category] {
+        guard tx.categoryId == nil, tx.categoryName == nil, !tx.isTransfer else { return [] }
+        return shortlist(
             payee: tx.payee,
             amount: tx.amount,
             accountId: tx.accountId ?? "",
-            date: String(tx.date.prefix(10))
-        ) else { return nil }
-        return categories.first { $0.id == hit.categoryId }
+            date: String(tx.date.prefix(10)),
+            in: categories,
+            limit: limit
+        )
     }
 }

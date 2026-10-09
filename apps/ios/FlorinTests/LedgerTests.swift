@@ -1995,6 +1995,33 @@ struct CategoryHintTests {
         #expect((hit?.confidence ?? 1) < LocalCategoriser.applyThreshold)
     }
 
+    /*
+     * Le deuxième nom existait, et il était jeté.
+     *
+     * Un libellé que le passé classe de deux façons ne donne pas de certitude,
+     * mais il donne deux réponses — et la liste des soixante catégories ne les
+     * connaît pas. La courte liste les rend dans l'ordre, et sa tête est
+     * exactement ce que `suggest` aurait répondu : proposer ne peut donc pas
+     * contredire ce que l'application aurait classé toute seule.
+     */
+    @Test("the shortlist keeps the runner-up and leads with the single answer")
+    func shortlistKeepsTheRunnerUp() throws {
+        let (store, account, food, gifts) = try ledger()
+        for _ in 0..<2 { try row(store, account, "Le Comptoir Via Roma", -12.97, category: food) }
+        try row(store, account, "Le Comptoir Grenier", -12.97, category: gifts)
+
+        let memory = try LocalCategoriser.remember(store: store)
+        let ranked = LocalCategoriser.shortlist(
+            memory, payee: "Le Comptoir Centre", amount: -3.35, accountId: account
+        )
+        #expect(Set(ranked.map(\.categoryId)) == Set([food, gifts]))
+        #expect(ranked.first?.categoryId == LocalCategoriser.suggest(
+            memory, payee: "Le Comptoir Centre", amount: -3.35, accountId: account
+        )?.categoryId)
+        // Un ordre qui n'ordonne rien mettrait le moins sûr en tête.
+        #expect(zip(ranked, ranked.dropFirst()).allSatisfy { $0.confidence >= $1.confidence })
+    }
+
     /// Un libellé dont aucun mot n'a de passé ne propose rien : mieux vaut la
     /// liste complète qu'un nom tiré au hasard.
     @Test("a merchant the ledger has never seen proposes nothing")
@@ -2030,7 +2057,7 @@ struct CategoryHintTests {
             isTransfer: false, needsReview: false, isPending: false, isScheduled: false,
             accountId: "a1", categoryId: "c1"
         )
-        #expect(CategoryHint.category(for: filed, in: categories) == nil)
+        #expect(CategoryHint.categories(for: filed, in: categories).isEmpty)
 
         let transfer = Transaction(
             id: "t2", date: "2026-05-04T10:00:00Z", amount: -4.20, payee: "Panetteria",
@@ -2038,7 +2065,7 @@ struct CategoryHintTests {
             isTransfer: true, needsReview: false, isPending: false, isScheduled: false,
             accountId: "a1", categoryId: nil
         )
-        #expect(CategoryHint.category(for: transfer, in: categories) == nil)
+        #expect(CategoryHint.categories(for: transfer, in: categories).isEmpty)
     }
 }
 
@@ -4676,5 +4703,40 @@ struct TabBarTests {
         #expect(watcher?.cancelsTouchesInView == false)
         #expect(watcher?.delaysTouchesBegan == false)
         #expect(watcher?.delaysTouchesEnded == false)
+    }
+}
+
+/*
+ * Reprendre le nom qu'on a déjà donné à côté.
+ *
+ * Deux libellés ne se réunissent que sous un nom identique au caractère près,
+ * et le retaper de mémoire est l'endroit exact où l'on fabrique un doublon.
+ */
+@Suite("Les noms donnés aux libellés voisins")
+struct NeighbourNameTests {
+    private let table = [
+        "one*boutique c": "Boutique",
+        "boutique paris": "Boutique",
+        "sarl le comptoir": "Chez Marco",
+        "pressing du coin": "Pressing",
+    ]
+
+    @Test("a name given to a label sharing a word is offered, once")
+    func sharedWordOffersTheName() {
+        // Deux libellés portent ce nom : il n'est proposé qu'une fois.
+        #expect(MerchantNames.neighbours(of: "achat boutique centre", in: table) == ["Boutique"])
+    }
+
+    /// Le nom déjà en place n'est pas une proposition : il est dans le champ.
+    @Test("the name already given is not offered back")
+    func theCurrentNameIsNotOffered() {
+        #expect(MerchantNames.neighbours(of: "boutique paris", in: table).isEmpty)
+    }
+
+    /// Un mot court rapprocherait la moitié du relevé : « coin » relie, « du » non.
+    @Test("only words long enough to mean something link two labels")
+    func shortWordsDoNotLink() {
+        #expect(MerchantNames.neighbours(of: "nettoyage du coin", in: table) == ["Pressing"])
+        #expect(MerchantNames.neighbours(of: "du", in: table).isEmpty)
     }
 }

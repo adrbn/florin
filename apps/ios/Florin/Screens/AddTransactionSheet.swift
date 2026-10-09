@@ -70,12 +70,17 @@ struct AddTransactionSheet: View {
      */
     @State private var instalmentCount = 1
     @State private var instalmentEach = ""
-    /// Vrai dès que la catégorie affichée vient du classificateur et non
-    /// d'un choix. On ne devine plus une fois que quelqu'un a tranché.
     /// Les marchands déjà rencontrés, lus une fois à l'ouverture : le nom
     /// affiché et la clé qu'il produit. Voir `LocalQueries.knownPayees`.
     @State private var known: [(name: String, key: String)] = []
+    /// Les catégories que le grand livre propose pour ce qui est écrit, la
+    /// plus probable en tête. Recalculées à chaque frappe, comme la devinette.
+    @State private var categoryHints: [Category] = []
+    /// Vrai dès que la catégorie affichée vient du classificateur et non
+    /// d'un choix. On ne devine plus une fois que quelqu'un a tranché.
     @State private var guessedCategory = false
+    /// Le sélecteur de catégorie, ouvert en feuille.
+    @State private var picking = false
     @State private var saving = false
     @State private var errorMessage: String?
 
@@ -254,6 +259,18 @@ struct AddTransactionSheet: View {
         .onChange(of: amount) { guess() }
         .onChange(of: kind) { guess() }
         .onChange(of: accountId) { guess() }
+        .sheet(isPresented: $picking) {
+            CategoryPicker(
+                categories: categories,
+                selected: categories.first { $0.id == categoryId }?.name,
+                t: t,
+                onPick: { id in
+                    categoryId = id ?? ""
+                    guessedCategory = false
+                },
+                hints: categoryHints
+            )
+        }
     }
 
     /*
@@ -419,16 +436,18 @@ struct AddTransactionSheet: View {
             // describe it, and money moved between them is not spending to
             // classify.
             if kind != .transfer {
+            /*
+             * Le sélecteur, pas un menu de soixante lignes.
+             *
+             * Un `Picker` en menu déroule tout le plan comptable d'un bloc,
+             * sans groupes et sans recherche : trouver « Abonnements &
+             * services » y est un défilement au pouce. `CategoryPicker` est
+             * déjà la feuille qu'ouvre chaque autre écran pour la même
+             * question — groupée, cherchable, et elle porte les mêmes
+             * propositions que les pastilles juste dessous.
+             */
             pickerRow(symbol: "tag", label: t("v2.add.category", "Catégorie")) {
-                Menu {
-                    Picker("", selection: chosenCategory) {
-                        Text(t("v2.common.uncategorized", "Sans catégorie")).tag("")
-                        ForEach(categories) { category in
-                            Text("\(category.emoji.map { $0 + " " } ?? "")\(category.name)")
-                                .tag(category.id)
-                        }
-                    }
-                } label: {
+                Button { picking = true } label: {
                     let selected = categories.first { $0.id == categoryId }
                     HStack(spacing: 6) {
                         if guessedCategory && !categoryId.isEmpty {
@@ -444,7 +463,11 @@ struct AddTransactionSheet: View {
                         )
                     }
                 }
+                .buttonStyle(.plain)
             }
+
+            categorySuggestions
+
                 Hairline()
             }
 
@@ -545,6 +568,23 @@ struct AddTransactionSheet: View {
         .frame(maxWidth: 200, alignment: .trailing)
     }
 
+    /// Ce que le grand livre propose pour ce qui est écrit — les candidats,
+    /// pas le seul candidat. Même question que `guess`, donc même moment.
+    private func refreshHints() {
+        guard kind != .transfer, magnitude > 0 else { categoryHints = []; return }
+        let name = payee.trimmingCharacters(in: .whitespaces)
+        guard name.count >= 3 else { categoryHints = []; return }
+        categoryHints = CategoryHint.shortlist(
+            payee: name,
+            amount: kind == .expense ? -abs(magnitude) : abs(magnitude),
+            accountId: accountId,
+            date: String(
+                ISO8601DateFormatter.florinNoFraction.string(from: noonOn(date)).prefix(10)
+            ),
+            in: categories
+        )
+    }
+
     /*
      * La catégorie devinée pendant qu'on tape le bénéficiaire.
      *
@@ -557,20 +597,8 @@ struct AddTransactionSheet: View {
      * Deux choses ne sont jamais écrasées : une catégorie choisie à la main,
      * et celle d'une opération qu'on est en train de modifier.
      */
-
-    /// Seul un choix humain passe par là ; la devinette écrit `categoryId`
-    /// directement et ne se fait donc pas passer pour une décision.
-    private var chosenCategory: Binding<String> {
-        Binding(
-            get: { categoryId },
-            set: { value in
-                categoryId = value
-                guessedCategory = false
-            }
-        )
-    }
-
     private func guess() {
+        refreshHints()
         // Le montant compte dans le score, et un zéro n'est pas neutre :
         // `-0.0 >= 0` est vrai, ce qui rendrait une recette recevable
         // pour une dépense. On attend donc un chiffre.
@@ -610,48 +638,18 @@ struct AddTransactionSheet: View {
      */
     @ViewBuilder
     private var suggestions: some View {
-        let matches = matchingPayees
-        if !matches.isEmpty {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    let typed = MerchantNames.key(payee)
-                    ForEach(matches, id: \.key) { merchant in
-                        let chosen = merchant.key == typed
-                        Button {
-                            UISelectionFeedbackGenerator().selectionChanged()
-                            payee = merchant.name
-                            payeeFocused = false
-                        } label: {
-                            HStack(spacing: 7) {
-                                let face = MerchantLogos.shared.face(for: merchant.name)
-                                Bubble(
-                                    label: merchant.name,
-                                    emoji: face?.emoji, size: 20, logo: face?.logo
-                                )
-                                Text(merchant.name)
-                                    .font(.system(size: 13.5, weight: .medium))
-                                    .foregroundStyle(Florin.text)
-                                    .lineLimit(1)
-                                if chosen {
-                                    Image(systemName: "checkmark")
-                                        .font(.system(size: 11, weight: .bold))
-                                        .foregroundStyle(Florin.accent)
-                                }
-                            }
-                            .padding(.leading, 6)
-                            .padding(.trailing, 11)
-                            .padding(.vertical, 6)
-                            .background(
-                                Florin.accent.opacity(chosen ? 0.3 : 0.13), in: Capsule()
-                            )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.horizontal, 16)
-            }
-            .padding(.bottom, 13)
+        SuggestionPills(items: matchingPayees.map { merchant in
+            let face = MerchantLogos.shared.face(for: merchant.name)
+            return SuggestionPills.Item(
+                id: merchant.key, label: merchant.name,
+                emoji: face?.emoji, logo: face?.logo,
+                chosen: merchant.key == MerchantNames.key(payee)
+            )
+        }) { picked in
+            payee = picked.label
+            payeeFocused = false
         }
+        .padding(.bottom, matchingPayees.isEmpty ? 0 : 13)
     }
 
     private var matchingPayees: [(name: String, key: String)] {
@@ -662,6 +660,29 @@ struct AddTransactionSheet: View {
         // cochée dit « c'est bien lui que tu connais ». Elle s'effaçait au
         // moment précis où elle avait quelque chose à confirmer.
         return Array((hits.filter { $0.key == typed } + hits.filter { $0.key != typed }).prefix(5))
+    }
+
+    /*
+     * Trois catégories plausibles, au lieu d'une seule pré-remplie.
+     *
+     * Une case déjà remplie se lit comme une décision : quand la devinette
+     * tombe à côté, il faut la défaire, ouvrir le sélecteur et chercher. Les
+     * pastilles rendent visible ce que le moteur tenait derrière son premier
+     * choix, et elles restent après la tape, cochées — un réglage qui
+     * s'évapore ne se lit pas comme « déjà répondu ».
+     */
+    @ViewBuilder
+    private var categorySuggestions: some View {
+        SuggestionPills(items: categoryHints.map { category in
+            SuggestionPills.Item(
+                id: category.id, label: category.name,
+                emoji: category.emoji, chosen: category.id == categoryId
+            )
+        }) { picked in
+            categoryId = picked.id
+            guessedCategory = false
+        }
+        .padding(.bottom, categoryHints.isEmpty ? 0 : 13)
     }
 
     private func pickerRow<Content: View>(

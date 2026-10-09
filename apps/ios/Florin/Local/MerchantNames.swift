@@ -327,6 +327,60 @@ final class MerchantNames: ObservableObject {
         }
     }
 
+    /*
+     * Les noms déjà donnés à des libellés voisins.
+     *
+     * Un même commerçant arrive sous deux libellés que rien ne rapproche — la
+     * raison sociale au terminal de paiement, l'enseigne sur Apple Pay, le nom
+     * qu'on tape à la main. Renommé une fois, il reste anonyme sous les
+     * autres, et c'est en tapant son nom qu'on a le plus besoin de savoir
+     * qu'il en a déjà un : le reprendre au caractère près est précisément ce
+     * qui réunit les deux (voir `keysSharing(nameOf:)`), là où une majuscule
+     * de travers fabrique un second marchand.
+     *
+     * Voisin veut dire : les deux portent un même mot, dans la clé ou dans le
+     * nom donné. Quatre lettres au moins, sinon « sas » et « paris »
+     * rapprocheraient la moitié du relevé.
+     */
+    static let neighbourWord = 4
+
+    func neighbours(of key: String) -> [String] {
+        Self.neighbours(of: key, in: table())
+    }
+
+    static func neighbours(
+        of key: String, in table: [String: String], limit: Int = 5
+    ) -> [String] {
+        let mine = words(of: series(of: key)?.merchant ?? key)
+        guard !mine.isEmpty else { return [] }
+        // Le nom en place n'est pas une proposition : il est déjà dans le champ.
+        let current = resolve(key, in: table).map(fold)
+        var scored: [(name: String, shared: Int)] = []
+        for (other, name) in table where other != key && !other.hasPrefix(seriesSign) {
+            guard fold(name) != current else { continue }
+            let shared = mine.intersection(words(of: other).union(words(of: name))).count
+            guard shared > 0 else { continue }
+            scored.append((name, shared))
+        }
+        var seen = Set<String>()
+        return scored
+            .sorted {
+                $0.shared != $1.shared
+                    ? $0.shared > $1.shared
+                    : $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+            }
+            .compactMap { seen.insert(fold($0.name)).inserted ? $0.name : nil }
+            .prefix(limit)
+            .map { $0 }
+    }
+
+    /// Les mots d'un libellé qui peuvent désigner un marchand : repliés, et
+    /// assez longs pour vouloir dire quelque chose.
+    private static func words(of text: String) -> Set<String> {
+        Set(fold(text).split(separator: " ").map(String.init))
+            .filter { $0.count >= neighbourWord }
+    }
+
     private func table() -> [String: String] {
         lock.lock()
         defer { lock.unlock() }

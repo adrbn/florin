@@ -34,6 +34,9 @@ struct MerchantNameSheet: View {
     @State private var picked: PhotosPickerItem?
     @State private var pictureChanged = false
     @FocusState private var focused: Bool
+    /// Les noms déjà donnés à des libellés voisins — voir
+    /// `MerchantNames.neighbours(of:)`.
+    @State private var nearby: [String] = []
 
     private let existing: String?
     private let existingMark: MerchantLogos.Mark?
@@ -90,6 +93,27 @@ struct MerchantNameSheet: View {
                             .padding(.vertical, 13)
                             .padding(.horizontal, 16)
                             .florinGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+
+                        /*
+                         * Le nom qu'on a déjà donné à côté.
+                         *
+                         * Deux libellés ne se réunissent que sous un nom
+                         * identique au caractère près : le retaper de mémoire
+                         * est l'endroit exact où l'on fabrique un doublon.
+                         * Les pastilles rendent le nom existant au lieu de le
+                         * faire deviner.
+                         */
+                        SuggestionPills(items: nearbyMatches.map { name in
+                            let face = MerchantLogos.shared.face(for: name)
+                            return SuggestionPills.Item(
+                                id: name, label: name,
+                                emoji: face?.emoji, logo: face?.logo,
+                                chosen: name == trimmed
+                            )
+                        }, inset: 0) { picked in
+                            name = picked.label
+                            focused = false
+                        }
                     }
 
                     VStack(alignment: .leading, spacing: 10) {
@@ -245,6 +269,7 @@ struct MerchantNameSheet: View {
         .presentationDragIndicator(.visible)
         .task {
             count = MerchantNames.shared.usage(ofKey: key)
+            nearby = MerchantNames.shared.neighbours(of: key)
             focused = true
         }
         .task(id: picked) {
@@ -268,6 +293,15 @@ struct MerchantNameSheet: View {
         } message: {
             Text(failure ?? "")
         }
+    }
+
+    /// Ce qui ressemble à ce qu'on écrit — et tout, quand rien n'y ressemble :
+    /// un nom neuf en cours de frappe ne doit pas faire disparaître ceux qui
+    /// restent à une tape.
+    private var nearbyMatches: [String] {
+        guard !trimmed.isEmpty else { return nearby }
+        let hits = nearby.filter { $0.localizedCaseInsensitiveContains(trimmed) }
+        return hits.isEmpty ? nearby : hits
     }
 
     /// La bulle et le nom, comme dans la liste des opérations.

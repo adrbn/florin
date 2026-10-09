@@ -112,7 +112,7 @@ struct TransactionActionsHost: ViewModifier {
 
     @State private var sheet: TxActionRequest?
     /// Ce que le grand livre propose pour la ligne en cours de classement.
-    @State private var hint: Category?
+    @State private var hints: [Category] = []
 
     func body(content: Content) -> some View {
         content
@@ -145,9 +145,9 @@ struct TransactionActionsHost: ViewModifier {
                 selected: tx.categoryName,
                 t: t,
                 onPick: { id in Task { await onPatch(tx, TxPatch(categoryId: .some(id))) } },
-                hint: hint
+                hints: hints
             )
-            .task { hint = CategoryHint.category(for: tx, in: categories) }
+            .task { hints = CategoryHint.categories(for: tx, in: categories) }
         case .rename:
             MerchantNameSheet(
                 key: MerchantNames.key(tx.payee),
