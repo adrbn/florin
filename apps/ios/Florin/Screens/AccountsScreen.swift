@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Comptes, natively.
 ///
@@ -447,6 +448,12 @@ struct AccountDetailScreen: View {
     @State private var renaming: Account?
     @State private var adding = false
     @State private var buying = false
+    /// Les achats saisis sur ce compte, pour pouvoir en défaire un.
+    @State private var purchases: [LocalHoldings.Recorded] = []
+    @State private var undoing: LocalHoldings.Recorded?
+    /// Le virement de retour que Florin croit reconnaître, s'il y en a un.
+    @State private var cashOut: LocalHoldings.CashOut?
+    @State private var pairing: LocalHoldings.CashOut?
 
     init(model: OverviewModel, route: ActivityRoute) {
         self.model = model
@@ -492,6 +499,7 @@ struct AccountDetailScreen: View {
         .task {
             guard let account, account.kind.hasPrefix("broker"), let id = route.accountId else { return }
             await portfolio.load(accountId: id)
+            loadPurchases()
         }
         .sheet(isPresented: $editingLoan) {
             if let account {
@@ -528,6 +536,7 @@ struct AccountDetailScreen: View {
                     onSaved: {
                         await model.load(showSpinner: false)
                         await portfolio.reload(accountId: account.id)
+                        loadPurchases()
                     }
                 )
             }
@@ -739,6 +748,10 @@ struct AccountDetailScreen: View {
                     }
                 }
 
+                if let out = cashOut {
+                    cashOutRow(out, locale: locale, currency: currency)
+                }
+
                 if !data.holdings.isEmpty {
                     Hairline()
                     VStack(spacing: 11) {
@@ -747,8 +760,162 @@ struct AccountDetailScreen: View {
                         }
                     }
                 }
+
+                /*
+                 * Les achats saisis, parce qu'un geste qu'on ne voit pas est
+                 * un geste qu'on ne peut pas défaire.
+                 *
+                 * Un achat n'est pas une opération du grand livre — voir la
+                 * note de `LocalHoldings.record` — donc il n'apparaissait
+                 * nulle part dans la liste en dessous : une quantité tapée de
+                 * travers restait, sans rien à ouvrir ni à supprimer. Les
+                 * voici là où ils ont eu lieu, avec la poubelle au bout.
+                 *
+                 * Les cinq derniers : au-delà on ne défait plus, on relit.
+                 */
+                if !purchases.isEmpty {
+                    Hairline()
+                    VStack(alignment: .leading, spacing: 9) {
+                        Text(t("v2.buy.history", "Achats enregistrés"))
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(Florin.text3)
+                        ForEach(purchases.prefix(5)) { purchase in
+                            purchaseRow(purchase, locale: locale, currency: currency)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
             .padding(.vertical, 4)
+            .confirmationDialog(
+                t("v2.buy.undoAsk", "Supprimer cet achat ?"),
+                isPresented: Binding(get: { undoing != nil }, set: { if !$0 { undoing = nil } }),
+                titleVisibility: .visible
+            ) {
+                Button(t("v2.common.delete", "Supprimer"), role: .destructive) {
+                    if let undoing { undo(undoing) }
+                }
+            } message: {
+                Text(t(
+                    "v2.buy.undoHint",
+                    "Les parts et les liquidités reviennent comme avant l'achat."
+                ))
+            }
+            .confirmationDialog(
+                t("v2.buy.cashOutAsk", "Ces liquidités sont-elles reparties par ce virement ?"),
+                isPresented: Binding(get: { pairing != nil }, set: { if !$0 { pairing = nil } }),
+                titleVisibility: .visible
+            ) {
+                Button(t("v2.buy.cashOutYes", "Oui, c'est ce virement")) {
+                    if let pairing { pair(pairing) }
+                }
+            } message: {
+                Text(t(
+                    "v2.buy.cashOutHint",
+                    "Les deux opérations deviennent un virement interne, et les liquidités quittent l'enveloppe."
+                ))
+            }
+        }
+    }
+
+    /// Un achat saisi : ce qu'il a pris, ce qu'il a coûté, et la poubelle.
+    private func purchaseRow(
+        _ purchase: LocalHoldings.Recorded, locale: String, currency: String
+    ) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(purchase.label)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Florin.text)
+                    .lineLimit(1)
+                Text(
+                    "\(DayLabel.string(purchase.recordedAt, locale: locale, t: t)) · "
+                        + Money.quantity(purchase.quantity, locale: locale)
+                )
+                .font(.system(size: 11))
+                .foregroundStyle(Florin.text3)
+            }
+            Spacer(minLength: 6)
+            AmountText(
+                value: -purchase.total, locale: locale, currency: currency,
+                decimals: true, size: 13
+            )
+            Button {
+                undoing = purchase
+            } label: {
+                Image(systemName: "trash")
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(Florin.negative)
+                    .frame(width: 30, height: 30)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(t("v2.buy.undo", "Supprimer cet achat"))
+        }
+    }
+
+    private func loadPurchases() {
+        guard model.base.scheme == "florin-local", let store = LocalStore.shared,
+              let id = route.accountId
+        else { return }
+        purchases = (try? LocalHoldings.purchases(store: store, accountId: id)) ?? []
+        cashOut = try? LocalHoldings.repatriation(
+            store: store, accountId: id, cash: portfolio.payload?.valuation.cash ?? 0
+        )
+    }
+
+    /// « Ces liquidités, tu les as déjà reprises ? » — une tape pour le dire.
+    private func cashOutRow(
+        _ out: LocalHoldings.CashOut, locale: String, currency: String
+    ) -> some View {
+        Button { pairing = out } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "arrow.uturn.left.circle")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Florin.text2)
+                Text(
+                    Money.string(out.amount, locale: locale, currency: currency, decimals: true)
+                        + " → " + out.accountName + " · "
+                        + DayLabel.string(out.day, locale: locale, t: t)
+                )
+                .font(.system(size: 11.5))
+                .foregroundStyle(Florin.text2)
+                .lineLimit(1)
+                Spacer(minLength: 4)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Florin.text3)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(Florin.text3.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func pair(_ out: LocalHoldings.CashOut) {
+        pairing = nil
+        guard let id = route.accountId else { return }
+        Task {
+            try? await model.attachTransfer(out.id, to: id)
+            await portfolio.reload(accountId: id)
+            loadPurchases()
+        }
+    }
+
+    private func undo(_ purchase: LocalHoldings.Recorded) {
+        undoing = nil
+        guard let store = LocalStore.shared, let id = route.accountId else { return }
+        do {
+            try LocalHoldings.undo(store: store, purchaseId: purchase.id)
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        } catch {
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
+        }
+        loadPurchases()
+        Task {
+            await model.load(showSpinner: false)
+            await portfolio.reload(accountId: id)
         }
     }
 

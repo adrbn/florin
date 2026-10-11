@@ -211,6 +211,20 @@ final class LocalStore {
                 ON receipt_items (transaction_id);
             CREATE INDEX IF NOT EXISTS receipt_items_receipt
                 ON receipt_items (receipt_id);
+            CREATE TABLE IF NOT EXISTS holding_purchases (
+                id TEXT PRIMARY KEY,
+                account_id TEXT NOT NULL,
+                holding_id TEXT NOT NULL,
+                label TEXT NOT NULL,
+                quantity REAL NOT NULL,
+                unit_price REAL NOT NULL,
+                total REAL NOT NULL,
+                previous_price REAL,
+                opened_line INTEGER NOT NULL DEFAULT 0,
+                recorded_at TEXT NOT NULL DEFAULT (datetime('now'))
+              );
+            CREATE INDEX IF NOT EXISTS holding_purchases_account
+                ON holding_purchases (account_id, recorded_at);
             """
         )
         try rekeyMerchantNames()

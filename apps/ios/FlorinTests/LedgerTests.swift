@@ -5064,3 +5064,246 @@ struct OrderSlipTests {
         #expect(order.total == 250.00)
     }
 }
+
+// MARK: - Défaire un achat de titres
+
+/*
+ * Un achat qu'on ne peut pas défaire.
+ *
+ * Un achat n'écrit pas d'opération — voir `LocalHoldings.record` — donc rien
+ * ne le listait et rien ne pouvait l'annuler : une quantité de travers
+ * restait, et il fallait retrancher des parts à la main. Ces tests tiennent
+ * les trois cas de l'annulation, dont le seul délicat : la ligne ouverte par
+ * cet achat disparaît, mais seulement si aucun autre ne s'y rattache.
+ */
+@Suite("Annuler un achat de titres")
+struct HoldingUndoTests {
+    private func broker() throws -> (LocalStore, account: String) {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("florin-buy-\(UUID().uuidString).db")
+        let store = try LocalStore(url: url)
+        let account = UUID().uuidString
+        try store.database.run(
+            """
+            INSERT INTO accounts (id, name, kind, currency, current_balance)
+            VALUES (?, 'Enveloppe', 'broker_portfolio', 'EUR', 1000)
+            """,
+            [.text(account)]
+        )
+        return (store, account)
+    }
+
+    private func holding(_ store: LocalStore, _ id: String) throws -> (Double, Double, Double?) {
+        let row = try store.database.query(
+            "SELECT quantity, cost_basis, last_price FROM holdings WHERE id = ?", [.text(id)]
+        ).first
+        return (row?.double("quantity") ?? 0, row?.double("cost_basis") ?? 0,
+                row?.double("last_price"))
+    }
+
+    private func cash(_ store: LocalStore, _ account: String) throws -> Double {
+        try store.database.scalar(
+            "SELECT current_balance FROM accounts WHERE id = ?", [.text(account)]
+        )?.double ?? 0
+    }
+
+    @Test("l'achat se voit, l'annulation rend les parts et l'argent")
+    func undoGivesBackSharesAndCash() throws {
+        let (store, account) = try broker()
+        try LocalHoldings.record(
+            store: store, accountId: account,
+            purchase: .init(
+                holdingId: nil, label: "Tracker Monde", quantity: 12.5,
+                unitPrice: 20, total: 250
+            )
+        )
+        let listed = try LocalHoldings.purchases(store: store, accountId: account)
+        #expect(listed.count == 1, "l'achat est listé")
+        #expect(listed.first?.quantity == 12.5)
+        #expect(try cash(store, account) == 750)
+
+        try LocalHoldings.undo(store: store, purchaseId: listed[0].id)
+        #expect(try cash(store, account) == 1000, "les liquidités reviennent")
+        #expect(
+            try store.database.scalar(
+                "SELECT count(*) FROM holdings WHERE account_id = ?", [.text(account)]
+            )?.double == 0,
+            "la ligne ouverte par cet achat disparaît"
+        )
+        #expect(try LocalHoldings.purchases(store: store, accountId: account).isEmpty)
+    }
+
+    @Test("un second achat sur la même ligne la garde, et le prix d'avant revient")
+    func undoKeepsALineAnotherPurchaseNeeds() throws {
+        let (store, account) = try broker()
+        try LocalHoldings.record(
+            store: store, accountId: account,
+            purchase: .init(
+                holdingId: nil, label: "Tracker Monde", quantity: 10,
+                unitPrice: 20, total: 200
+            )
+        )
+        let line = try LocalHoldings.lines(store: store, accountId: account)[0]
+        try LocalHoldings.record(
+            store: store, accountId: account,
+            purchase: .init(
+                holdingId: line.id, label: line.label, quantity: 5,
+                unitPrice: 22, total: 110
+            )
+        )
+        #expect(try holding(store, line.id) == (15, 310, 22))
+
+        let second = try LocalHoldings.purchases(store: store, accountId: account)[0]
+        #expect(second.unitPrice == 22, "le dernier d'abord")
+        try LocalHoldings.undo(store: store, purchaseId: second.id)
+
+        let (quantity, basis, price) = try holding(store, line.id)
+        #expect(quantity == 10, "la ligne reste, allégée du second achat")
+        #expect(basis == 200)
+        #expect(price == 20, "et affiche de nouveau le prix d'avant")
+        #expect(try cash(store, account) == 800)
+    }
+
+    @Test("annuler l'achat d'avant ne ressuscite pas son cours")
+    func undoingAnOlderPurchaseKeepsTheLatestPrice() throws {
+        let (store, account) = try broker()
+        try LocalHoldings.record(
+            store: store, accountId: account,
+            purchase: .init(
+                holdingId: nil, label: "Tracker Monde", quantity: 10,
+                unitPrice: 20, total: 200
+            )
+        )
+        let line = try LocalHoldings.lines(store: store, accountId: account)[0]
+        try LocalHoldings.record(
+            store: store, accountId: account,
+            purchase: .init(
+                holdingId: line.id, label: line.label, quantity: 5,
+                unitPrice: 22, total: 110
+            )
+        )
+        // Le premier des deux : il avait ouvert la ligne, mais le second s'y
+        // rattache, donc elle survit — et c'est le cours du second qui vaut.
+        let first = try LocalHoldings.purchases(store: store, accountId: account)[1]
+        #expect(first.unitPrice == 20)
+        try LocalHoldings.undo(store: store, purchaseId: first.id)
+
+        let (quantity, basis, price) = try holding(store, line.id)
+        #expect(quantity == 5)
+        #expect(basis == 110)
+        #expect(price == 22, "le cours le plus récent reste")
+        #expect(try cash(store, account) == 890)
+    }
+
+    @Test("la valeur du compte suit l'annulation")
+    func undoRevaluesTheAccount() throws {
+        let (store, account) = try broker()
+        try LocalHoldings.record(
+            store: store, accountId: account,
+            purchase: .init(
+                holdingId: nil, label: "Tracker Monde", quantity: 10,
+                unitPrice: 20, total: 200
+            )
+        )
+        #expect(
+            try store.database.scalar(
+                "SELECT market_value FROM accounts WHERE id = ?", [.text(account)]
+            )?.double == 200
+        )
+        let listed = try LocalHoldings.purchases(store: store, accountId: account)
+        try LocalHoldings.undo(store: store, purchaseId: listed[0].id)
+        #expect(
+            try store.database.scalar(
+                "SELECT market_value FROM accounts WHERE id = ?", [.text(account)]
+            )?.double == 0,
+            "plus de titres, plus de valeur de marché"
+        )
+    }
+}
+
+/*
+ * Les miettes d'après-achat, retrouvées sur l'autre compte.
+ *
+ * Elles restaient affichées dans l'enveloppe alors que la banque avait déjà vu
+ * l'argent revenir : l'entrée existait, rattachée à rien. `repatriation` la
+ * propose, et ces tests tiennent surtout ce qu'elle doit refuser — un montant
+ * qui ne colle pas, une entrée d'avant l'achat, une déjà appariée.
+ */
+@Suite("Les liquidités déjà reprises")
+struct RepatriationTests {
+    private func ledger() throws -> (LocalStore, broker: String, ccp: String) {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("florin-cashout-\(UUID().uuidString).db")
+        let store = try LocalStore(url: url)
+        let broker = UUID().uuidString, ccp = UUID().uuidString
+        try store.database.run(
+            """
+            INSERT INTO accounts (id, name, kind, currency, current_balance)
+            VALUES (?, 'Enveloppe', 'broker_portfolio', 'EUR', 6)
+            """,
+            [.text(broker)]
+        )
+        try store.database.run(
+            """
+            INSERT INTO accounts (id, name, kind, currency)
+            VALUES (?, 'Compte courant', 'checking', 'EUR')
+            """,
+            [.text(ccp)]
+        )
+        // Un achat daté, qui ouvre la fenêtre de recherche.
+        try store.database.run(
+            """
+            INSERT INTO holdings (id, account_id, label, quantity, cost_basis, currency,
+                                  last_price, last_price_at, created_at)
+            VALUES (?, ?, 'Tracker Monde', 10, 200, 'EUR', 20,
+                    '2026-10-06 10:00:00', '2026-10-06 10:00:00')
+            """,
+            [.text(UUID().uuidString), .text(broker)]
+        )
+        return (store, broker, ccp)
+    }
+
+    private func credit(
+        _ store: LocalStore, _ account: String, _ amount: Double, _ day: String,
+        paired: Bool = false
+    ) throws {
+        try store.database.run(
+            """
+            INSERT INTO transactions
+                (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
+                 transfer_pair_id, source, status, needs_review)
+            VALUES (?, ?, ?, ?, 'EUR', 'Virement reçu', 'virement recu', ?,
+                    'manual', 'cleared', 0)
+            """,
+            [
+                .text(UUID().uuidString), .text(account), .text(day), .real(amount),
+                paired ? .text(UUID().uuidString) : .null,
+            ]
+        )
+    }
+
+    @Test("le virement du bon montant, depuis l'achat, est proposé")
+    func findsTheReturningTransfer() throws {
+        let (store, broker, ccp) = try ledger()
+        try credit(store, ccp, 6, "2026-10-09")
+        let found = try LocalHoldings.repatriation(store: store, accountId: broker, cash: 6)
+        #expect(found?.amount == 6)
+        #expect(found?.accountName == "Compte courant")
+    }
+
+    @Test("un autre montant, une entrée d'avant l'achat, une déjà appariée : rien")
+    func ignoresWhatCannotBeIt() throws {
+        let (store, broker, ccp) = try ledger()
+        try credit(store, ccp, 42, "2026-10-09")
+        try credit(store, ccp, 6, "2026-10-01")
+        try credit(store, ccp, 6, "2026-10-09", paired: true)
+        #expect(try LocalHoldings.repatriation(store: store, accountId: broker, cash: 6) == nil)
+    }
+
+    @Test("sans liquidités, on ne propose rien")
+    func saysNothingWithoutIdleCash() throws {
+        let (store, broker, ccp) = try ledger()
+        try credit(store, ccp, 6, "2026-10-09")
+        #expect(try LocalHoldings.repatriation(store: store, accountId: broker, cash: 0) == nil)
+    }
+}

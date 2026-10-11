@@ -179,8 +179,17 @@ enum LocalHoldings {
         guard let kind else { throw Failure.missing }
         guard kind == "broker_portfolio" else { throw Failure.notABroker }
 
+        let lineId = purchase.holdingId ?? UUID().uuidString
+        /// Le prix affiché avant cet achat, pour que l'annulation rende la
+        /// ligne telle qu'elle était et non telle que cet achat l'a laissée.
+        let before = purchase.holdingId.flatMap { id in
+            try? store.database.scalar(
+                "SELECT last_price FROM holdings WHERE id = ?", [.text(id)]
+            )?.double
+        }
+
         try store.database.transaction {
-            if let holdingId = purchase.holdingId {
+            if purchase.holdingId != nil {
                 try store.database.run(
                     """
                     UPDATE holdings
@@ -191,7 +200,7 @@ enum LocalHoldings {
                     """,
                     [
                         .real(purchase.quantity), .real(purchase.total),
-                        .real(purchase.unitPrice), .text(holdingId),
+                        .real(purchase.unitPrice), .text(lineId),
                     ]
                 )
             } else {
@@ -203,12 +212,42 @@ enum LocalHoldings {
                     VALUES (?, ?, ?, ?, ?, 'EUR', ?, datetime('now'))
                     """,
                     [
-                        .text(UUID().uuidString), .text(accountId), .text(purchase.label),
+                        .text(lineId), .text(accountId), .text(purchase.label),
                         .real(purchase.quantity), .real(purchase.total),
                         .real(purchase.unitPrice),
                     ]
                 )
             }
+
+            /*
+             * La trace de l'achat, qui n'est pas une opération du grand livre.
+             *
+             * Sans elle il ne restait de l'achat qu'un cumul : une ligne de
+             * titres gonflée et des liquidités en moins, rien qui dise qu'un
+             * geste a eu lieu, donc rien à défaire. Une saisie de travers se
+             * corrigeait à la main, en retranchant soi-même des parts qu'on
+             * n'avait jamais vues écrites nulle part.
+             *
+             * Elle ne va pas dans `transactions` — voir la note ci-dessus : ce
+             * serait une dépense de cinq cents euros qui n'a pas eu lieu. Elle
+             * reste à côté, lue par le bandeau du portefeuille, et `undo` la
+             * rejoue à l'envers.
+             */
+            try store.database.run(
+                """
+                INSERT INTO holding_purchases
+                    (id, account_id, holding_id, label, quantity, unit_price,
+                     total, previous_price, opened_line)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    .text(UUID().uuidString), .text(accountId), .text(lineId),
+                    .text(purchase.label), .real(purchase.quantity),
+                    .real(purchase.unitPrice), .real(purchase.total),
+                    before.map { SQLiteValue.real($0) } ?? .null,
+                    .integer(purchase.holdingId == nil ? 1 : 0),
+                ]
+            )
 
             try store.database.run(
                 """
@@ -237,6 +276,191 @@ enum LocalHoldings {
         try store.database.run(
             "UPDATE accounts SET market_value = ?, updated_at = datetime('now') WHERE id = ?",
             [.real(round(value * 100) / 100), .text(accountId)]
+        )
+    }
+
+    // MARK: - Défaire un achat
+
+    struct Recorded: Identifiable {
+        let id: String
+        let holdingId: String
+        let label: String
+        let quantity: Double
+        let unitPrice: Double
+        let total: Double
+        let recordedAt: Date
+    }
+
+    /// Les achats saisis sur ce compte, le dernier d'abord.
+    static func purchases(store: LocalStore, accountId: String) throws -> [Recorded] {
+        try store.database.query(
+            """
+            SELECT id, holding_id, label, quantity, unit_price, total, recorded_at
+            FROM holding_purchases WHERE account_id = ?
+            ORDER BY recorded_at DESC, rowid DESC
+            """,
+            [.text(accountId)]
+        ).compactMap { row in
+            guard let id = row.string("id"), let holdingId = row.string("holding_id"),
+                  let label = row.string("label")
+            else { return nil }
+            return Recorded(
+                id: id, holdingId: holdingId, label: label,
+                quantity: row.double("quantity") ?? 0,
+                unitPrice: row.double("unit_price") ?? 0,
+                total: row.double("total") ?? 0,
+                recordedAt: Timestamp.parse(row.string("recorded_at")) ?? Date()
+            )
+        }
+    }
+
+    /*
+     * L'achat rejoué à l'envers : les parts partent, l'argent revient.
+     *
+     * Trois cas, et le premier est celui qui compte. Si cet achat avait ouvert
+     * la ligne et qu'aucun autre ne s'y rattache, la ligne disparaît — la
+     * laisser à zéro part afficherait un titre qu'on ne détient pas. Sinon on
+     * retranche. Et le dernier prix connu n'est remis à celui d'avant que si
+     * cet achat est le plus récent de sa ligne : un achat plus tardif a depuis
+     * dit le prix du marché, et le ressusciter serait une régression du cours.
+     */
+    static func undo(store: LocalStore, purchaseId: String) throws {
+        guard let row = try store.database.query(
+            """
+            SELECT account_id, holding_id, quantity, total, previous_price, opened_line
+            FROM holding_purchases WHERE id = ?
+            """,
+            [.text(purchaseId)]
+        ).first,
+            let accountId = row.string("account_id"),
+            let holdingId = row.string("holding_id")
+        else { throw Failure.missing }
+
+        let quantity = row.double("quantity") ?? 0
+        let total = row.double("total") ?? 0
+        let siblings = try store.database.scalar(
+            "SELECT count(*) FROM holding_purchases WHERE holding_id = ? AND id <> ?",
+            [.text(holdingId), .text(purchaseId)]
+        )?.double ?? 0
+        /// Par `rowid` et non par date : deux achats saisis dans la même
+        /// seconde portent le même horodatage, et « lequel est le plus
+        /// récent » n'a alors plus de réponse.
+        let newer = try store.database.scalar(
+            """
+            SELECT count(*) FROM holding_purchases
+            WHERE holding_id = ?
+              AND rowid > (SELECT rowid FROM holding_purchases WHERE id = ?)
+            """,
+            [.text(holdingId), .text(purchaseId)]
+        )?.double ?? 0
+
+        try store.database.transaction {
+            if siblings == 0, (row.double("opened_line") ?? 0) == 1 {
+                try store.database.run(
+                    "DELETE FROM holdings WHERE id = ?", [.text(holdingId)]
+                )
+            } else if newer == 0, let before = row.double("previous_price") {
+                try store.database.run(
+                    """
+                    UPDATE holdings
+                    SET quantity = quantity - ?, cost_basis = cost_basis - ?,
+                        last_price = ?, updated_at = datetime('now')
+                    WHERE id = ?
+                    """,
+                    [.real(quantity), .real(total), .real(before), .text(holdingId)]
+                )
+            } else {
+                try store.database.run(
+                    """
+                    UPDATE holdings
+                    SET quantity = quantity - ?, cost_basis = cost_basis - ?,
+                        updated_at = datetime('now')
+                    WHERE id = ?
+                    """,
+                    [.real(quantity), .real(total), .text(holdingId)]
+                )
+            }
+            try store.database.run(
+                """
+                UPDATE accounts
+                SET current_balance = round((current_balance + ?) * 100) / 100.0,
+                    updated_at = datetime('now')
+                WHERE id = ?
+                """,
+                [.real(total), .text(accountId)]
+            )
+            try store.database.run(
+                "DELETE FROM holding_purchases WHERE id = ?", [.text(purchaseId)]
+            )
+            try revalue(store, accountId: accountId)
+        }
+    }
+
+    // MARK: - Les liquidités qui ont déjà quitté l'enveloppe
+
+    struct CashOut: Identifiable {
+        /// L'opération candidate, celle qu'il suffit d'apparier.
+        let id: String
+        let accountName: String
+        let amount: Double
+        let day: Date
+    }
+
+    /*
+     * Le virement de retour, retrouvé plutôt que redemandé.
+     *
+     * Après un achat il reste des miettes : la part qu'on n'a pas pu investir.
+     * Elles ont deux fins possibles — attendre le prochain achat, ou repartir
+     * sur le compte courant. Dans le second cas la banque a déjà vu l'argent
+     * arriver, et Florin affiche pourtant toujours ces liquidités dans
+     * l'enveloppe : l'entrée est là, elle n'est simplement rattachée à rien.
+     *
+     * Plutôt qu'un formulaire de plus, on cherche l'entrée qui colle : le
+     * montant des liquidités qui dorment ici, à cinq centimes près, sur un
+     * autre compte, non appariée, depuis le dernier achat. C'est une
+     * proposition et pas une conclusion — l'appariement reste un geste, et il
+     * passe par `LocalWrites.attachTransfer`, qui sait déjà sortir l'argent du
+     * courtier.
+     */
+    static func repatriation(
+        store: LocalStore, accountId: String, cash: Double
+    ) throws -> CashOut? {
+        guard cash > 0.5 else { return nil }
+        let fromPurchase = try store.database.scalar(
+            "SELECT max(date(recorded_at)) FROM holding_purchases WHERE account_id = ?",
+            [.text(accountId)]
+        )?.string
+        // Le dernier achat, ou à défaut la dernière fois qu'une ligne a bougé :
+        // les achats d'avant cette table n'ont pas laissé de trace.
+        let fromHolding = try store.database.scalar(
+            """
+            SELECT max(date(coalesce(last_price_at, created_at)))
+            FROM holdings WHERE account_id = ?
+            """,
+            [.text(accountId)]
+        )?.string
+        guard let since = [fromPurchase, fromHolding].compactMap({ $0 }).max(),
+              !since.isEmpty
+        else { return nil }
+
+        guard let row = try store.database.query(
+            """
+            SELECT t.id, t.amount, t.occurred_at, a.name AS account_name
+            FROM transactions t JOIN accounts a ON a.id = t.account_id
+            WHERE t.deleted_at IS NULL AND t.transfer_pair_id IS NULL
+              AND t.account_id <> ? AND t.amount > 0
+              AND abs(t.amount - ?) <= 0.05
+              AND date(t.occurred_at) >= ?
+            ORDER BY t.occurred_at DESC LIMIT 1
+            """,
+            [.text(accountId), .real(cash), .text(since)]
+        ).first, let id = row.string("id") else { return nil }
+
+        return CashOut(
+            id: id,
+            accountName: row.string("account_name") ?? "",
+            amount: row.double("amount") ?? 0,
+            day: Timestamp.parse(row.string("occurred_at")) ?? Date()
         )
     }
 
