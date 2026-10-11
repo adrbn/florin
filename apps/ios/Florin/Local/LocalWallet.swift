@@ -220,6 +220,51 @@ enum LocalWallet {
         )
     }
 
+    /*
+     * L'argent qui revient, annoncé le jour où on l'apprend.
+     *
+     * Un remboursement n'arrive jamais sur le coup : le commerçant le lance
+     * quand ça l'arrange, et entre l'instant où l'on sait qu'il vient et
+     * celui où la banque le crédite il y a des jours. Jusqu'ici la seule
+     * façon de l'inscrire était la feuille de saisie, où tout est à retaper —
+     * le bénéficiaire, le montant, la catégorie — alors que la ligne de la
+     * dépense les porte déjà toutes.
+     *
+     * La date est celle du jour, pas celle de la dépense : c'est aujourd'hui
+     * qu'on attend l'argent. La catégorie est reprise, sans quoi le
+     * remboursement d'une course ne viendrait pas s'annuler là où la course a
+     * été comptée. Le libellé est repris tel quel, et c'est lui qui ramène le
+     * logo, le nom donné et le site — ils sont attachés au marchand, pas à la
+     * ligne.
+     *
+     * Écrite comme un paiement annoncé, et c'est tout l'intérêt : `settle`
+     * sait déjà faire céder la place à la ligne de la banque, et sait déjà
+     * qu'un crédit peut se poser sur un crédit comptabilisé jusqu'à quinze
+     * jours *avant* lui (voir son commentaire). Un remboursement saisi ici
+     * est donc apparié tout seul le jour où la banque le passe, sans
+     * doublon et sans un mot de code en plus.
+     *
+     * Rien dans les chiffres ne bouge en attendant : soldes, marge, reste à
+     * dépenser et taux d'épargne ne comptent que les lignes `cleared`. Un
+     * remboursement qui n'arriverait jamais encombre « en prévision » et ne
+     * ment sur rien.
+     */
+    static func recordRefund(store: LocalStore, of tx: Transaction) throws {
+        guard let accountId = tx.accountId else { throw Failure.noAccount }
+        let today = Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: Date())
+            ?? Date()
+        let note = Strings.device("v2.refund.memo", "Remboursement attendu")
+        try recordUpcoming(store: store, NewTransaction(
+            accountId: accountId,
+            amount: abs(tx.amount),
+            payee: tx.payee,
+            occurredAt: ISO8601DateFormatter.florinNoFraction.string(from: today),
+            memo: note,
+            categoryId: tx.categoryId,
+            upcoming: true
+        ))
+    }
+
     private static func insertUpcoming(
         store: LocalStore, accountId: String, occurredAt: String,
         amount: Double, payee: String, memo: String?, categoryId: String?,

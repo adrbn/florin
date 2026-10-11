@@ -63,6 +63,11 @@
 	     the next phone without having thought ahead. Nothing sensitive lives
 	     there: the ledger itself and the banking key stay in Application
 	     Support, which this does not expose. -->
+	<!-- Le scanner de tickets de caisse. Sans cette clé le système ne demande
+	     rien et l'appareil photo ne s'ouvre pas : l'app plante à l'ouverture
+	     du scanner. Les photos restent dans le conteneur de l'app. -->
+	<key>NSCameraUsageDescription</key>
+	<string>Florin ouvre l'appareil photo pour lire tes tickets de caisse. Les photos restent sur ton téléphone.</string>
 	<!-- Shown by the system the first time Face ID is asked for. Without it
 	     the prompt does not appear at all and the app looks broken. -->
 	<key>NSFaceIDUsageDescription</key>

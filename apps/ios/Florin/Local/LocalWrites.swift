@@ -144,9 +144,16 @@ enum LocalLedger {
                 values.append(.text("% " + token + " %"))
                 values.append(.real(range.low))
                 values.append(.real(range.high))
+                // Et le prix d'un article de ticket de caisse : « 8,90 »
+                // retrouve le vin, pas seulement les courses à 39 €.
+                values.append(.real(range.low))
+                values.append(.real(range.high))
                 return """
                 (' ' || t.normalized_payee || ' ' LIKE ?
-                 OR (abs(t.amount) >= ? AND abs(t.amount) < ?))
+                 OR (abs(t.amount) >= ? AND abs(t.amount) < ?)
+                 OR EXISTS (SELECT 1 FROM receipt_items ri
+                             WHERE ri.transaction_id = t.id
+                               AND abs(ri.amount) >= ? AND abs(ri.amount) < ?))
                 """
             }
 
@@ -161,6 +168,11 @@ enum LocalLedger {
                 """,
                 "EXISTS (SELECT 1 FROM categories c WHERE c.id = t.category_id AND lower(c.name) LIKE ?)",
                 "EXISTS (SELECT 1 FROM accounts ac WHERE ac.id = t.account_id AND lower(ac.name) LIKE ?)",
+                // Le nom d'un article lu sur un ticket de caisse.
+                """
+                EXISTS (SELECT 1 FROM receipt_items ri
+                        WHERE ri.transaction_id = t.id AND lower(ri.label) LIKE ?)
+                """,
             ]
             values.append(contentsOf: Array(
                 repeating: SQLiteValue.text("%" + token + "%"), count: branches.count

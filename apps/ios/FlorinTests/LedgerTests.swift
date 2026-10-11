@@ -4787,3 +4787,234 @@ struct NeighbourNameTests {
         #expect(MerchantNames.neighbours(of: "du", in: table).isEmpty)
     }
 }
+
+/*
+ * Un remboursement annoncé depuis la dépense elle-même.
+ *
+ * Deux choses à tenir. La ligne reprend ce que la dépense portait déjà, au
+ * lieu de le faire retaper — et surtout elle est écrite comme un paiement
+ * annoncé, pour que l'appariement de `settle` l'absorbe quand la banque
+ * crédite, au lieu de laisser un doublon derrière.
+ */
+@Suite("Un remboursement attendu", .serialized)
+struct AwaitedRefundTests {
+    private func ledger() throws -> (LocalStore, account: String) {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("florin-refund-\(UUID().uuidString).db")
+        let store = try LocalStore(url: url)
+        let account = UUID().uuidString
+        try store.database.exec("""
+        INSERT INTO accounts (id, name, kind, currency, current_balance, opening_balance, display_order)
+          VALUES ('\(account)', 'Compte courant', 'checking', 'EUR', 500, 500, 0);
+        INSERT INTO category_groups (id, name, kind, display_order)
+          VALUES ('g1', 'Besoins', 'expense', 0);
+        INSERT INTO categories (id, group_id, name, display_order)
+          VALUES ('c1', 'g1', 'Courses', 0);
+        """)
+        return (store, account)
+    }
+
+    private func spending(_ account: String, amount: Double = -39) -> Transaction {
+        Transaction(
+            id: UUID().uuidString, date: "2026-09-02T12:00:00Z", amount: amount,
+            payee: "Le Comptoir", memo: nil, categoryName: "Courses", categoryEmoji: nil,
+            accountName: "Compte courant", isTransfer: false, needsReview: false,
+            isPending: false, isScheduled: false, accountId: account, categoryId: "c1"
+        )
+    }
+
+    private func iso(daysAgo: Int) -> String {
+        let day = Calendar.current.date(byAdding: .day, value: -daysAgo, to: Date()) ?? Date()
+        return String(ISO8601DateFormatter.florinNoFraction.string(from: day).prefix(10))
+    }
+
+    @Test("la ligne reprend la dépense, à l'envers et à la date du jour")
+    func copiesTheSpending() throws {
+        let (store, account) = try ledger()
+        try LocalWallet.recordRefund(store: store, of: spending(account))
+
+        let rows = try store.database.query(
+            """
+            SELECT amount, payee, category_id, status, source, substr(occurred_at, 1, 10) AS day
+            FROM transactions WHERE deleted_at IS NULL
+            """
+        )
+        #expect(rows.count == 1)
+        let row = rows[0]
+        #expect(row.double("amount") == 39)
+        #expect(row.string("payee") == "Le Comptoir")
+        // Reprise, sinon le remboursement d'une course ne s'annule pas là où
+        // la course a été comptée.
+        #expect(row.string("category_id") == "c1")
+        // Le jour où on l'apprend, pas celui de la dépense.
+        #expect(row.string("day") == iso(daysAgo: 0))
+        #expect(row.string("status") == "scheduled")
+        // Écrite comme un paiement annoncé : c'est ce qui la fait apparier.
+        #expect(row.string("source") == "ios_shortcut")
+    }
+
+    /*
+     * Le crédit de la banque est souvent *antérieur* à l'annonce : on
+     * s'aperçoit du remboursement en lisant son relevé. `settle` le sait et
+     * accepte quinze jours en arrière pour un crédit — ce test est là pour que
+     * cette tolérance ne disparaisse pas sans qu'on le remarque.
+     */
+    @Test("elle cède la place au crédit que la banque a passé dix jours plus tôt")
+    func settlesOntoAnEarlierCredit() throws {
+        let (store, account) = try ledger()
+        try LocalWallet.recordRefund(store: store, of: spending(account))
+
+        let bank = UUID().uuidString
+        let label = "VIREMENT LE COMPTOIR REMBOURSEMENT"
+        try store.database.run(
+            """
+            INSERT INTO transactions (id, account_id, occurred_at, amount, payee,
+                normalized_payee, source, status, is_pending)
+            VALUES (?, ?, ?, 39, ?, ?, 'enable_banking', 'cleared', 0)
+            """,
+            [.text(bank), .text(account), .text("\(iso(daysAgo: 10))T00:00:00Z"),
+             .text(label), .text(LocalLedger.normalize(label))]
+        )
+
+        #expect(try LocalWallet.settle(store: store) == 1)
+        // L'annonce s'efface, le crédit de la banque reste, et la catégorie a
+        // suivi : un seul remboursement au grand livre, classé.
+        let live = try store.database.query(
+            "SELECT id, category_id FROM transactions WHERE deleted_at IS NULL"
+        )
+        #expect(live.count == 1)
+        #expect(live.first?.string("id") == bank)
+        #expect(live.first?.string("category_id") == "c1")
+    }
+}
+
+// MARK: - Les tickets de caisse
+
+/*
+ * Ce que la banque ne dira jamais : le détail d'une dépense.
+ *
+ * Deux choses à prouver, et elles sont indépendantes. D'abord le découpage :
+ * une ligne de ticket est un nom suivi d'un prix, et tout ce qui ressemble à
+ * ça sans en être — le total, la TVA, le rendu de monnaie — doublerait la
+ * facture s'il passait. Ensuite la recherche : un article enregistré doit se
+ * retrouver par son nom et par son prix, sinon il n'a servi à rien.
+ */
+@Suite("Un ticket de caisse")
+struct ReceiptTests {
+    @Test("un nom suivi d'un prix est un achat")
+    func readsPurchases() {
+        let items = ReceiptParser.items(from: [
+            "Pain complet 2,40",
+            "2 x Yaourt 1,49",
+            "Café moulu 500g   6,95 A",
+        ])
+        #expect(items == [
+            .init(label: "Pain complet", amount: 2.40),
+            .init(label: "2 x Yaourt", amount: 1.49),
+            .init(label: "Café moulu 500g", amount: 6.95),
+        ])
+    }
+
+    @Test("ce qui finit par un prix sans être un achat est écarté")
+    func skipsTheRest() {
+        let items = ReceiptParser.items(from: [
+            "Pain complet 2,40",
+            "TOTAL 2,40",
+            "SOUS-TOTAL 2,40",
+            "NET A PAYER 2,40",
+            "CB EMV 2,40",
+            "DONT TVA 20% 0,40",
+            "Rendu 0,00",
+            "TOTAL ARTICLES 1",
+            "MERCI DE VOTRE VISITE",
+        ])
+        #expect(items == [.init(label: "Pain complet", amount: 2.40)])
+    }
+
+    @Test("un mot écarté n'écarte pas l'achat qui commence pareil")
+    func keepsLookalikes() {
+        let items = ReceiptParser.items(from: ["Carte postale 1,20", "Totalement bio 3,00"])
+        #expect(items.count == 2)
+    }
+
+    @Test("les milliers ne se lisent pas comme des centimes")
+    func readsThousands() {
+        #expect(ReceiptParser.number("1 234,56") == 1234.56)
+        #expect(ReceiptParser.number("1.234,56") == 1234.56)
+        #expect(ReceiptParser.number("3.49") == 3.49)
+    }
+
+    // MARK: - Rangé, puis cherché
+
+    private func ledger() throws -> (LocalStore, tx: String) {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("florin-receipt-\(UUID().uuidString).db")
+        let store = try LocalStore(url: url)
+        let account = UUID().uuidString
+        let tx = UUID().uuidString
+        try store.database.exec("""
+        INSERT INTO accounts (id, name, kind, currency, current_balance, opening_balance, display_order)
+          VALUES ('\(account)', 'Compte courant', 'checking', 'EUR', 500, 500, 0);
+        INSERT INTO transactions
+            (id, account_id, amount, payee, normalized_payee, occurred_at, status, source)
+          VALUES ('\(tx)', '\(account)', -39, 'Le Comptoir', 'le comptoir',
+                  '2026-09-02T12:00:00Z', 'cleared', 'manual');
+        """)
+        return (store, tx)
+    }
+
+    private func page(_ store: LocalStore, _ search: String) throws -> TransactionPage {
+        var filter = TxFilter()
+        filter.search = search
+        return try LocalLedger.page(store: store, filter: filter, offset: 0, limit: 20)
+    }
+
+    @Test("un article se retrouve par son nom et par son prix")
+    func searchable() throws {
+        let (store, tx) = try ledger()
+        try LocalReceipts.save(
+            store: store, transactionId: tx, image: nil,
+            text: "Vin rouge 8,90",
+            items: [.init(label: "Vin rouge", amount: 8.90)]
+        )
+
+        #expect(try page(store, "vin").transactions.count == 1)
+        #expect(try page(store, "8,90").transactions.count == 1)
+        // Le prix d'un article, pas celui de l'opération : « 39 » marchait déjà.
+        #expect(try page(store, "pressing").transactions.isEmpty)
+        #expect(try page(store, "12,00").transactions.isEmpty)
+    }
+
+    @Test("plusieurs tickets s'additionnent, et le reste se voit")
+    func addsUp() throws {
+        let (store, tx) = try ledger()
+        try LocalReceipts.save(
+            store: store, transactionId: tx, image: nil, text: "",
+            items: [.init(label: "Vin rouge", amount: 8.90)]
+        )
+        try LocalReceipts.save(
+            store: store, transactionId: tx, image: nil, text: "",
+            items: [.init(label: "Pain complet", amount: 2.40)]
+        )
+
+        let receipts = try LocalReceipts.receipts(store: store, transactionId: tx)
+        #expect(receipts.count == 2)
+        let items = receipts.flatMap(\.items)
+        #expect(items.count == 2)
+        // 39 dépensés, 11,30 expliqués : le ticket du pressing manque encore.
+        #expect(abs(LocalReceipts.unexplained(total: -39, items: items) - 27.70) < 0.005)
+    }
+
+    @Test("un ticket retiré emporte ses articles")
+    func deletes() throws {
+        let (store, tx) = try ledger()
+        let receipt = try LocalReceipts.save(
+            store: store, transactionId: tx, image: nil, text: "",
+            items: [.init(label: "Vin rouge", amount: 8.90)]
+        )
+        try LocalReceipts.delete(store: store, receiptId: receipt.id)
+
+        #expect(try LocalReceipts.receipts(store: store, transactionId: tx).isEmpty)
+        #expect(try page(store, "vin").transactions.isEmpty)
+    }
+}

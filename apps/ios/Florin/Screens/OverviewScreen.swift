@@ -134,6 +134,7 @@ struct OverviewScreen: View {
             onPatch: { tx, patch in await model.patch(patch, to: tx.id) },
             onDelete: { tx in await model.delete(tx.id) },
             onAttach: { tx, accountId in try? await model.attachTransfer(tx.id, to: accountId) },
+            onRefunded: { await model.load(showSpinner: false) },
             isLocalLedger: model.base.scheme == "florin-local"
         )
         .sheet(item: $detail) { tx in
@@ -978,7 +979,8 @@ struct OverviewScreen: View {
                         .transactionMenu(
                             tx, t: data.t, locale: data.localeTag, currency: data.currency,
                             canTransfer: !tx.isTransfer && tx.amount < 0 && data.accounts.count > 1,
-                            request: $menuRequest
+                            request: $menuRequest,
+                            isLocalLedger: model.base.scheme == "florin-local"
                         )
                     }
                 }
@@ -1016,7 +1018,8 @@ struct OverviewScreen: View {
                         .transactionMenu(
                             tx, t: data.t, locale: data.localeTag, currency: data.currency,
                             canTransfer: !tx.isTransfer && tx.amount < 0 && data.accounts.count > 1,
-                            request: $menuRequest
+                            request: $menuRequest,
+                            isLocalLedger: model.base.scheme == "florin-local"
                         )
                     }
                 }
@@ -1045,7 +1048,8 @@ struct OverviewScreen: View {
                         .transactionMenu(
                             tx, t: data.t, locale: data.localeTag, currency: data.currency,
                             canTransfer: !tx.isTransfer && tx.amount < 0 && data.accounts.count > 1,
-                            request: $menuRequest
+                            request: $menuRequest,
+                            isLocalLedger: model.base.scheme == "florin-local"
                         )
                     }
                 }
@@ -1063,7 +1067,8 @@ struct OverviewScreen: View {
                         .transactionMenu(
                             tx, t: data.t, locale: data.localeTag, currency: data.currency,
                             canTransfer: !tx.isTransfer && tx.amount < 0 && data.accounts.count > 1,
-                            request: $menuRequest
+                            request: $menuRequest,
+                            isLocalLedger: model.base.scheme == "florin-local"
                         )
                     }
                 }

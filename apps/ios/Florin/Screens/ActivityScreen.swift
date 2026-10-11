@@ -353,6 +353,10 @@ struct TransactionList<Banner: View>: View {
                 await model.attachTransfer(tx.id, to: accountId, t: t)
                 await onLedgerChanged()
             },
+            onRefunded: {
+                await model.reload()
+                await onLedgerChanged()
+            },
             isLocalLedger: model.isLocalLedger
         )
         .sheet(item: $openPlan) { plan in
@@ -960,7 +964,8 @@ struct TransactionList<Banner: View>: View {
         .transactionMenu(
             tx, t: t, locale: locale, currency: currency,
             canTransfer: !tx.isTransfer && tx.amount < 0 && model.accounts.count > 1,
-            request: $menuRequest
+            request: $menuRequest,
+            isLocalLedger: model.isLocalLedger
         )
         .animation(.snappy(duration: 0.2), value: picking)
     }

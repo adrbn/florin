@@ -165,6 +165,54 @@ final class LocalStore {
         try adoptOlderInstalmentPlans()
         try carryPlansThroughSettlement()
         try priceOlderPlansAtWhatTheyCharged()
+        /*
+         * Le détail d'une dépense, tel que le ticket de caisse le dit.
+         *
+         * La banque ne connaît qu'un montant et une enseigne. Ce qu'on
+         * cherche six mois plus tard est pourtant l'inverse : non pas « 39 €
+         * de courses » mais la ligne du ticket, son nom et son prix. Elle
+         * n'existe nulle part ailleurs — ni la banque ni Apple Pay ne la
+         * transmettent — donc la photo du ticket est la seule source.
+         *
+         * Deux tables parce qu'une opération peut porter plusieurs tickets
+         * (une même carte, deux passages en caisse), et que le texte brut de
+         * la reconnaissance se garde avec sa photo : c'est ce qui permettra de
+         * relire un ticket plus tard, avec un découpage meilleur, sans
+         * redemander la photo.
+         *
+         * L'image reste un fichier (`receipts.image_path`) et non un BLOB : la
+         * base est désormais sauvegardée par iCloud, et y verser des photos la
+         * ferait grossir sans fin. `transaction_id` est répété sur les
+         * articles pour que la recherche n'ait qu'une jointure à faire.
+         *
+         * Table propre à l'appareil, comme `instalment_plans` : le serveur
+         * n'a pas cette notion.
+         */
+        try database.exec(
+            """
+            CREATE TABLE IF NOT EXISTS receipts (
+                id TEXT PRIMARY KEY,
+                transaction_id TEXT NOT NULL,
+                image_path TEXT,
+                raw_text TEXT,
+                scanned_at TEXT NOT NULL DEFAULT (datetime('now'))
+              );
+            CREATE INDEX IF NOT EXISTS receipts_transaction
+                ON receipts (transaction_id);
+            CREATE TABLE IF NOT EXISTS receipt_items (
+                id TEXT PRIMARY KEY,
+                receipt_id TEXT NOT NULL,
+                transaction_id TEXT NOT NULL,
+                label TEXT NOT NULL,
+                amount REAL NOT NULL,
+                line_no INTEGER NOT NULL DEFAULT 0
+              );
+            CREATE INDEX IF NOT EXISTS receipt_items_transaction
+                ON receipt_items (transaction_id);
+            CREATE INDEX IF NOT EXISTS receipt_items_receipt
+                ON receipt_items (receipt_id);
+            """
+        )
         try rekeyMerchantNames()
         // `settings` is exactly (key, value) in this schema — no timestamps.
         try database.run(
