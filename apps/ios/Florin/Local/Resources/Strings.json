@@ -849,7 +849,8 @@
     "v2.holding.remove": "Delete this line",
     "v2.holding.removeAsk": "Delete this line?",
     "v2.holding.removeHint": "What was paid in goes back to the account's cash, as if the purchase had not happened.",
-    "v2.holding.editHint": "The quantity and the price say what you hold. What was paid in is the money that actually left the account: correcting it moves no cash."
+    "v2.holding.editHint": "The quantity and the price say what you hold. What was paid in is the money that actually left the account: correcting it moves no cash.",
+    "v2.buy.payee": "Purchase {asset}"
   },
   "fr": {
     "v2.a11y.back": "Retour",
@@ -1701,7 +1702,8 @@
     "v2.holding.remove": "Supprimer cette ligne",
     "v2.holding.removeAsk": "Supprimer cette ligne ?",
     "v2.holding.removeHint": "Le versé retourne aux liquidités du compte, comme si l'achat n'avait pas eu lieu.",
-    "v2.holding.editHint": "La quantité et le cours disent ce que tu détiens. Le versé est l'argent réellement sorti du compte : le corriger ne déplace aucune liquidité."
+    "v2.holding.editHint": "La quantité et le cours disent ce que tu détiens. Le versé est l'argent réellement sorti du compte : le corriger ne déplace aucune liquidité.",
+    "v2.buy.payee": "Achat {asset}"
   },
   "nl": {
     "v2.a11y.back": "Terug",
@@ -2553,7 +2555,8 @@
     "v2.holding.remove": "Deze regel verwijderen",
     "v2.holding.removeAsk": "Deze regel verwijderen?",
     "v2.holding.removeHint": "Het ingelegde bedrag gaat terug naar het geld op de rekening, alsof de aankoop niet was gebeurd.",
-    "v2.holding.editHint": "Het aantal en de koers zeggen wat je bezit. Het ingelegde bedrag is het geld dat echt van de rekening is gegaan: dat verbeteren verplaatst geen geld."
+    "v2.holding.editHint": "Het aantal en de koers zeggen wat je bezit. Het ingelegde bedrag is het geld dat echt van de rekening is gegaan: dat verbeteren verplaatst geen geld.",
+    "v2.buy.payee": "Aankoop {asset}"
   },
   "it": {
     "v2.a11y.back": "Indietro",
@@ -3405,7 +3408,8 @@
     "v2.holding.remove": "Elimina questa riga",
     "v2.holding.removeAsk": "Eliminare questa riga?",
     "v2.holding.removeHint": "Il versato torna alla liquidità del conto, come se l'acquisto non fosse avvenuto.",
-    "v2.holding.editHint": "La quantità e il prezzo dicono quanto detieni. Il versato è il denaro uscito davvero dal conto: correggerlo non sposta liquidità."
+    "v2.holding.editHint": "La quantità e il prezzo dicono quanto detieni. Il versato è il denaro uscito davvero dal conto: correggerlo non sposta liquidità.",
+    "v2.buy.payee": "Acquisto {asset}"
   },
   "es": {
     "v2.a11y.back": "Atrás",
@@ -4257,7 +4261,8 @@
     "v2.holding.remove": "Eliminar esta línea",
     "v2.holding.removeAsk": "¿Eliminar esta línea?",
     "v2.holding.removeHint": "Lo aportado vuelve a la liquidez de la cuenta, como si la compra no hubiera ocurrido.",
-    "v2.holding.editHint": "La cantidad y el precio dicen lo que tienes. Lo aportado es el dinero que salió realmente de la cuenta: corregirlo no mueve liquidez."
+    "v2.holding.editHint": "La cantidad y el precio dicen lo que tienes. Lo aportado es el dinero que salió realmente de la cuenta: corregirlo no mueve liquidez.",
+    "v2.buy.payee": "Compra {asset}"
   },
   "ca": {
     "v2.a11y.back": "Enrere",
@@ -5109,7 +5114,8 @@
     "v2.holding.remove": "Suprimeix aquesta línia",
     "v2.holding.removeAsk": "Vols suprimir aquesta línia?",
     "v2.holding.removeHint": "L'aportat torna a la liquiditat del compte, com si la compra no hagués passat.",
-    "v2.holding.editHint": "La quantitat i el preu diuen què tens. L'aportat és el diner que va sortir realment del compte: corregir-lo no mou liquiditat."
+    "v2.holding.editHint": "La quantitat i el preu diuen què tens. L'aportat és el diner que va sortir realment del compte: corregir-lo no mou liquiditat.",
+    "v2.buy.payee": "Compra {asset}"
   },
   "de": {
     "v2.a11y.back": "Zurück",
@@ -5961,7 +5967,8 @@
     "v2.holding.remove": "Diese Zeile löschen",
     "v2.holding.removeAsk": "Diese Zeile löschen?",
     "v2.holding.removeHint": "Das Eingezahlte geht zurück in die Barmittel des Kontos, als hätte der Kauf nicht stattgefunden.",
-    "v2.holding.editHint": "Stückzahl und Kurs sagen, was du hältst. Das Eingezahlte ist das Geld, das wirklich vom Konto ging: es zu korrigieren bewegt keine Barmittel."
+    "v2.holding.editHint": "Stückzahl und Kurs sagen, was du hältst. Das Eingezahlte ist das Geld, das wirklich vom Konto ging: es zu korrigieren bewegt keine Barmittel.",
+    "v2.buy.payee": "Kauf {asset}"
   },
   "pt": {
     "v2.a11y.back": "Voltar",
@@ -6813,7 +6820,8 @@
     "v2.holding.remove": "Eliminar esta linha",
     "v2.holding.removeAsk": "Eliminar esta linha?",
     "v2.holding.removeHint": "O investido volta à liquidez da conta, como se a compra não tivesse acontecido.",
-    "v2.holding.editHint": "A quantidade e a cotação dizem o que detém. O investido é o dinheiro que saiu realmente da conta: corrigi-lo não move liquidez."
+    "v2.holding.editHint": "A quantidade e a cotação dizem o que detém. O investido é o dinheiro que saiu realmente da conta: corrigi-lo não move liquidez.",
+    "v2.buy.payee": "Compra {asset}"
   },
   "tr": {
     "v2.a11y.back": "Geri",
@@ -7665,6 +7673,7 @@
     "v2.holding.remove": "Bu satırı sil",
     "v2.holding.removeAsk": "Bu satır silinsin mi?",
     "v2.holding.removeHint": "Yatırılan tutar, alım hiç olmamış gibi hesabın nakdine geri döner.",
-    "v2.holding.editHint": "Adet ve fiyat neye sahip olduğunu söyler. Yatırılan, hesaptan gerçekten çıkan paradır: onu düzeltmek nakit hareketi yaratmaz."
+    "v2.holding.editHint": "Adet ve fiyat neye sahip olduğunu söyler. Yatırılan, hesaptan gerçekten çıkan paradır: onu düzeltmek nakit hareketi yaratmaz.",
+    "v2.buy.payee": "{asset} alımı"
   }
 }

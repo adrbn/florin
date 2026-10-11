@@ -838,6 +838,22 @@ enum LocalLedger {
     /// A soft delete, like every other surface: the row stays so a sync that
     /// re-fetches it from the bank does not resurrect it as new.
     static func delete(store: LocalStore, id: String) throws {
+        /*
+         * Supprimer l'opération d'un achat de titres, c'est défaire l'achat.
+         *
+         * Sinon la ligne s'en va et les parts restent : le compte affiche des
+         * titres que plus rien n'explique, et les liquidités manquent toujours.
+         * C'est le même geste que la poubelle du portefeuille, et il passe par
+         * le même chemin — `undo` remet les parts, l'argent, et met cette
+         * opération de côté lui-même.
+         */
+        if let purchase = try store.database.scalar(
+            "SELECT id FROM holding_purchases WHERE transaction_id = ?", [.text(id)]
+        )?.string {
+            try LocalHoldings.undo(store: store, purchaseId: purchase)
+            return
+        }
+
         try store.database.transaction {
             try store.database.run(
                 "UPDATE transactions SET deleted_at = datetime('now') WHERE id = ?",

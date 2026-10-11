@@ -227,6 +227,14 @@ final class LocalStore {
                 ON holding_purchases (account_id, recorded_at);
             """
         )
+        /*
+         * L'opération que l'achat de titres écrit désormais.
+         *
+         * `holding_purchases` est née sans elle : un achat ne laissait aucune
+         * ligne au grand livre. La colonne relie les deux, pour que défaire
+         * l'un retire l'autre.
+         */
+        try addColumn("holding_purchases", "transaction_id", "TEXT")
         try rekeyMerchantNames()
         // `settings` is exactly (key, value) in this schema — no timestamps.
         try database.run(

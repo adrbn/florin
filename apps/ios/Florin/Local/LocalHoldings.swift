@@ -180,6 +180,10 @@ enum LocalHoldings {
         guard kind == "broker_portfolio" else { throw Failure.notABroker }
 
         let lineId = purchase.holdingId ?? UUID().uuidString
+        /// « Achat » devant : l'affichage retire ce préfixe comme il retire
+        /// « CB » ou « PRLV » (voir `PayeeText.clean`), et la ligne se lit
+        /// donc sous le seul nom du titre tout en se cherchant par « achat ».
+        let label = Strings.device("v2.buy.payee", "Achat {asset}", ["asset": purchase.label])
         /// Le prix affiché avant cet achat, pour que l'annulation rende la
         /// ligne telle qu'elle était et non telle que cet achat l'a laissée.
         let before = purchase.holdingId.flatMap { id in
@@ -220,6 +224,39 @@ enum LocalHoldings {
             }
 
             /*
+             * L'achat, écrit comme une opération du compte.
+             *
+             * Il ne l'était pas : la ligne de titres montait, les liquidités
+             * baissaient, et l'historique du PEA ne montrait que les virements
+             * entrants — un « +500 » sans le « −500 » qui lui répond. Dans un
+             * grand livre rempli à la main les achats d'avant, eux, étaient
+             * écrits : deux conventions dans le même compte, et celle qui se
+             * lit est forcément la bonne.
+             *
+             * La crainte était qu'un achat compte comme une dépense. Elle
+             * tombe avec le genre `adjustment` : le calcul des dépenses ne
+             * retient que les montants négatifs des groupes `expense`, et
+             * celui des entrées que les positifs des groupes `income` — voir
+             * `setBalance`. Et sur un compte de titres, `recomputeBalance` ne
+             * fait rien : les liquidités d'un courtier ne se déduisent pas de
+             * ses lignes, donc écrire celle-ci ne déplace pas un centime.
+             */
+            let txId = UUID().uuidString
+            try store.database.run(
+                """
+                INSERT INTO transactions
+                    (id, account_id, occurred_at, amount, currency, payee,
+                     normalized_payee, category_id, source, status, needs_review, is_pending)
+                VALUES (?, ?, date('now'), ?, 'EUR', ?, ?, ?, 'manual', 'cleared', 0, 0)
+                """,
+                [
+                    .text(txId), .text(accountId), .real(-purchase.total),
+                    .text(label), .text(LocalLedger.normalize(label)),
+                    .text(try adjustmentCategory(store)),
+                ]
+            )
+
+            /*
              * La trace de l'achat, qui n'est pas une opération du grand livre.
              *
              * Sans elle il ne restait de l'achat qu'un cumul : une ligne de
@@ -237,15 +274,15 @@ enum LocalHoldings {
                 """
                 INSERT INTO holding_purchases
                     (id, account_id, holding_id, label, quantity, unit_price,
-                     total, previous_price, opened_line)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     total, previous_price, opened_line, transaction_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 [
                     .text(UUID().uuidString), .text(accountId), .text(lineId),
                     .text(purchase.label), .real(purchase.quantity),
                     .real(purchase.unitPrice), .real(purchase.total),
                     before.map { SQLiteValue.real($0) } ?? .null,
-                    .integer(purchase.holdingId == nil ? 1 : 0),
+                    .integer(purchase.holdingId == nil ? 1 : 0), .text(txId),
                 ]
             )
 
@@ -327,7 +364,8 @@ enum LocalHoldings {
     static func undo(store: LocalStore, purchaseId: String) throws {
         guard let row = try store.database.query(
             """
-            SELECT account_id, holding_id, quantity, total, previous_price, opened_line
+            SELECT account_id, holding_id, quantity, total, previous_price,
+                   opened_line, transaction_id
             FROM holding_purchases WHERE id = ?
             """,
             [.text(purchaseId)]
@@ -389,6 +427,12 @@ enum LocalHoldings {
                 """,
                 [.real(total), .text(accountId)]
             )
+            if let txId = row.string("transaction_id") {
+                try store.database.run(
+                    "UPDATE transactions SET deleted_at = datetime('now') WHERE id = ?",
+                    [.text(txId)]
+                )
+            }
             try store.database.run(
                 "DELETE FROM holding_purchases WHERE id = ?", [.text(purchaseId)]
             )
@@ -448,6 +492,14 @@ enum LocalHoldings {
 
         try store.database.transaction {
             try store.database.run("DELETE FROM holdings WHERE id = ?", [.text(holdingId)])
+            try store.database.run(
+                """
+                UPDATE transactions SET deleted_at = datetime('now')
+                WHERE id IN (SELECT transaction_id FROM holding_purchases
+                              WHERE holding_id = ? AND transaction_id IS NOT NULL)
+                """,
+                [.text(holdingId)]
+            )
             try store.database.run(
                 "DELETE FROM holding_purchases WHERE holding_id = ?", [.text(holdingId)]
             )

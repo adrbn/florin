@@ -5122,6 +5122,19 @@ struct HoldingUndoTests {
         #expect(listed.first?.quantity == 12.5)
         #expect(try cash(store, account) == 750)
 
+        // Et il se lit dans l'historique du compte, comme le virement qui
+        // l'a financé : un « +500 » sans son « −500 » ne s'explique pas.
+        let written = try store.database.query(
+            """
+            SELECT amount, payee FROM transactions
+            WHERE account_id = ? AND deleted_at IS NULL
+            """,
+            [.text(account)]
+        )
+        #expect(written.count == 1)
+        #expect(written.first?.double("amount") == -250)
+        #expect(written.first?.string("payee")?.contains("Tracker Monde") == true)
+
         try LocalHoldings.undo(store: store, purchaseId: listed[0].id)
         #expect(try cash(store, account) == 1000, "les liquidités reviennent")
         #expect(
@@ -5130,6 +5143,36 @@ struct HoldingUndoTests {
             )?.double == 0,
             "la ligne ouverte par cet achat disparaît"
         )
+        #expect(try LocalHoldings.purchases(store: store, accountId: account).isEmpty)
+        #expect(
+            try store.database.scalar(
+                """
+                SELECT count(*) FROM transactions
+                WHERE account_id = ? AND deleted_at IS NULL
+                """,
+                [.text(account)]
+            )?.double == 0,
+            "l'opération de l'achat part avec lui"
+        )
+    }
+
+    @Test("supprimer l'opération de l'achat défait l'achat")
+    func deletingTheRowUndoesThePurchase() throws {
+        let (store, account) = try broker()
+        try LocalHoldings.record(
+            store: store, accountId: account,
+            purchase: .init(
+                holdingId: nil, label: "Tracker Monde", quantity: 12.5,
+                unitPrice: 20, total: 250
+            )
+        )
+        let txId = try store.database.scalar(
+            "SELECT id FROM transactions WHERE account_id = ?", [.text(account)]
+        )?.string
+        try LocalLedger.delete(store: store, id: #require(txId))
+
+        #expect(try cash(store, account) == 1000, "les liquidités reviennent")
+        #expect(try LocalHoldings.lines(store: store, accountId: account).isEmpty)
         #expect(try LocalHoldings.purchases(store: store, accountId: account).isEmpty)
     }
 
