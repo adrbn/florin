@@ -453,6 +453,8 @@ struct AccountDetailScreen: View {
     @State private var undoing: LocalHoldings.Recorded?
     /// Le virement de retour que Florin croit reconnaître, s'il y en a un.
     @State private var cashOut: LocalHoldings.CashOut?
+    /// La ligne de titres qu'on corrige — une saisie se reprend.
+    @State private var editingHolding: Holding?
     @State private var pairing: LocalHoldings.CashOut?
 
     init(model: OverviewModel, route: ActivityRoute) {
@@ -540,6 +542,19 @@ struct AccountDetailScreen: View {
                     }
                 )
             }
+        }
+        .sheet(item: $editingHolding) { holding in
+            HoldingEditSheet(
+                holding: holding,
+                locale: model.overview?.localeTag ?? "fr-FR",
+                currency: model.overview?.currency ?? "EUR",
+                t: t,
+                onSaved: {
+                    await model.load(showSpinner: false)
+                    if let id = route.accountId { await portfolio.reload(accountId: id) }
+                    loadPurchases()
+                }
+            )
         }
         .sheet(item: $renaming) { account in
             AccountEditSheet(
@@ -756,7 +771,14 @@ struct AccountDetailScreen: View {
                     Hairline()
                     VStack(spacing: 11) {
                         ForEach(data.holdings) { holding in
-                            holdingRow(holding, locale: locale, currency: currency)
+                            if model.base.scheme == "florin-local" {
+                                Button { editingHolding = holding } label: {
+                                    holdingRow(holding, locale: locale, currency: currency)
+                                }
+                                .buttonStyle(.plain)
+                            } else {
+                                holdingRow(holding, locale: locale, currency: currency)
+                            }
                         }
                     }
                 }

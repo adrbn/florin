@@ -5307,3 +5307,76 @@ struct RepatriationTests {
         #expect(try LocalHoldings.repatriation(store: store, accountId: broker, cash: 0) == nil)
     }
 }
+
+/*
+ * Une ligne de titres se reprend.
+ *
+ * Elle était en écriture seule : on pouvait y ajouter des parts et jamais
+ * corriger une quantité ni effacer une ligne ouverte par méprise. Le partage
+ * tenu ici est celui qui compte — corriger la quantité ne déplace aucune
+ * liquidité (l'argent est bien parti, c'est le décompte qui était faux),
+ * tandis que supprimer la ligne rend le versé.
+ */
+@Suite("Corriger une ligne de titres")
+struct HoldingEditTests {
+    private func line() throws -> (LocalStore, account: String, holding: String) {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("florin-line-\(UUID().uuidString).db")
+        let store = try LocalStore(url: url)
+        let account = UUID().uuidString
+        try store.database.run(
+            """
+            INSERT INTO accounts (id, name, kind, currency, current_balance)
+            VALUES (?, 'Enveloppe', 'broker_portfolio', 'EUR', 1000)
+            """,
+            [.text(account)]
+        )
+        try LocalHoldings.record(
+            store: store, accountId: account,
+            purchase: .init(
+                holdingId: nil, label: "Tracker Monde", quantity: 58.8,
+                unitPrice: 4.25, total: 250
+            )
+        )
+        let holding = try LocalHoldings.lines(store: store, accountId: account)[0].id
+        return (store, account, holding)
+    }
+
+    @Test("corriger la quantité ne touche pas aux liquidités")
+    func fixingTheCountMovesNoCash() throws {
+        let (store, account, holding) = try line()
+        try LocalHoldings.update(
+            store: store, holdingId: holding, label: "Tracker Monde",
+            quantity: 5.88, unitPrice: 4.25, costBasis: 250
+        )
+        let row = try store.database.query(
+            "SELECT quantity, cost_basis FROM holdings WHERE id = ?", [.text(holding)]
+        ).first
+        #expect(row?.double("quantity") == 5.88)
+        #expect(row?.double("cost_basis") == 250, "le versé est resté le versé")
+        #expect(
+            try store.database.scalar(
+                "SELECT current_balance FROM accounts WHERE id = ?", [.text(account)]
+            )?.double == 750,
+            "aucun euro n'a bougé"
+        )
+    }
+
+    @Test("supprimer la ligne rend le versé et emporte ses achats")
+    func removingTheLineGivesTheMoneyBack() throws {
+        let (store, account, holding) = try line()
+        try LocalHoldings.remove(store: store, holdingId: holding)
+        #expect(
+            try store.database.scalar(
+                "SELECT current_balance FROM accounts WHERE id = ?", [.text(account)]
+            )?.double == 1000
+        )
+        #expect(try LocalHoldings.lines(store: store, accountId: account).isEmpty)
+        #expect(try LocalHoldings.purchases(store: store, accountId: account).isEmpty)
+        #expect(
+            try store.database.scalar(
+                "SELECT market_value FROM accounts WHERE id = ?", [.text(account)]
+            )?.double == 0
+        )
+    }
+}

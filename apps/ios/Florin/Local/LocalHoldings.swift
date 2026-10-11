@@ -396,6 +396,74 @@ enum LocalHoldings {
         }
     }
 
+    // MARK: - Corriger une ligne de titres
+
+    /*
+     * Une ligne de titres se corrige, et se supprime.
+     *
+     * Les achats d'avant `holding_purchases` n'ont pas laissé de trace : il
+     * n'y a rien à annuler pour eux, et pourtant c'est exactement là que les
+     * erreurs se sont accumulées. Plus généralement une ligne était en
+     * écriture seule — on pouvait y ajouter des parts et jamais en retirer,
+     * ni corriger une quantité, ni effacer une ligne ouverte par méprise.
+     *
+     * Les trois chiffres sont distincts et le restent : la quantité, le cours,
+     * et le versé. Corriger une quantité ne touche pas au versé — l'argent est
+     * réellement parti, c'est la quantité qui était fausse — donc rien ne
+     * bouge du côté des liquidités. Supprimer la ligne, si : le versé revient,
+     * puisqu'on vient de dire que cet achat n'a jamais eu lieu.
+     */
+    static func update(
+        store: LocalStore, holdingId: String, label: String,
+        quantity: Double, unitPrice: Double, costBasis: Double
+    ) throws {
+        guard let accountId = try store.database.scalar(
+            "SELECT account_id FROM holdings WHERE id = ?", [.text(holdingId)]
+        )?.string else { throw Failure.missing }
+
+        try store.database.transaction {
+            try store.database.run(
+                """
+                UPDATE holdings
+                SET label = ?, quantity = ?, cost_basis = ?, last_price = ?,
+                    last_price_at = datetime('now'), updated_at = datetime('now')
+                WHERE id = ?
+                """,
+                [
+                    .text(label), .real(quantity), .real(round(costBasis * 100) / 100),
+                    .real(unitPrice), .text(holdingId),
+                ]
+            )
+            try revalue(store, accountId: accountId)
+        }
+    }
+
+    /// La ligne disparaît et le versé retourne aux liquidités, avec les achats
+    /// qui s'y rattachaient : il n'y a plus rien à leur défaire.
+    static func remove(store: LocalStore, holdingId: String) throws {
+        guard let row = try store.database.query(
+            "SELECT account_id, cost_basis FROM holdings WHERE id = ?", [.text(holdingId)]
+        ).first, let accountId = row.string("account_id") else { throw Failure.missing }
+        let basis = row.double("cost_basis") ?? 0
+
+        try store.database.transaction {
+            try store.database.run("DELETE FROM holdings WHERE id = ?", [.text(holdingId)])
+            try store.database.run(
+                "DELETE FROM holding_purchases WHERE holding_id = ?", [.text(holdingId)]
+            )
+            try store.database.run(
+                """
+                UPDATE accounts
+                SET current_balance = round((current_balance + ?) * 100) / 100.0,
+                    updated_at = datetime('now')
+                WHERE id = ?
+                """,
+                [.real(basis), .text(accountId)]
+            )
+            try revalue(store, accountId: accountId)
+        }
+    }
+
     // MARK: - Les liquidités qui ont déjà quitté l'enveloppe
 
     struct CashOut: Identifiable {

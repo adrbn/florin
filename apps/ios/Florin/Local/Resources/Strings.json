@@ -845,7 +845,11 @@
     "v2.buy.undoHint": "The shares and the cash go back to what they were before the purchase.",
     "v2.buy.cashOutAsk": "Did this cash leave through that transfer?",
     "v2.buy.cashOutYes": "Yes, that transfer",
-    "v2.buy.cashOutHint": "The two entries become one internal transfer, and the cash leaves the wrapper."
+    "v2.buy.cashOutHint": "The two entries become one internal transfer, and the cash leaves the wrapper.",
+    "v2.holding.remove": "Delete this line",
+    "v2.holding.removeAsk": "Delete this line?",
+    "v2.holding.removeHint": "What was paid in goes back to the account's cash, as if the purchase had not happened.",
+    "v2.holding.editHint": "The quantity and the price say what you hold. What was paid in is the money that actually left the account: correcting it moves no cash."
   },
   "fr": {
     "v2.a11y.back": "Retour",
@@ -1693,7 +1697,11 @@
     "v2.buy.undoHint": "Les parts et les liquidités reviennent comme avant l'achat.",
     "v2.buy.cashOutAsk": "Ces liquidités sont-elles reparties par ce virement ?",
     "v2.buy.cashOutYes": "Oui, c'est ce virement",
-    "v2.buy.cashOutHint": "Les deux opérations deviennent un virement interne, et les liquidités quittent l'enveloppe."
+    "v2.buy.cashOutHint": "Les deux opérations deviennent un virement interne, et les liquidités quittent l'enveloppe.",
+    "v2.holding.remove": "Supprimer cette ligne",
+    "v2.holding.removeAsk": "Supprimer cette ligne ?",
+    "v2.holding.removeHint": "Le versé retourne aux liquidités du compte, comme si l'achat n'avait pas eu lieu.",
+    "v2.holding.editHint": "La quantité et le cours disent ce que tu détiens. Le versé est l'argent réellement sorti du compte : le corriger ne déplace aucune liquidité."
   },
   "nl": {
     "v2.a11y.back": "Terug",
@@ -2541,7 +2549,11 @@
     "v2.buy.undoHint": "De stukken en het geld gaan terug naar hoe ze voor de aankoop stonden.",
     "v2.buy.cashOutAsk": "Is dit geld via die overboeking weggegaan?",
     "v2.buy.cashOutYes": "Ja, die overboeking",
-    "v2.buy.cashOutHint": "De twee boekingen worden één interne overboeking, en het geld verlaat de mantel."
+    "v2.buy.cashOutHint": "De twee boekingen worden één interne overboeking, en het geld verlaat de mantel.",
+    "v2.holding.remove": "Deze regel verwijderen",
+    "v2.holding.removeAsk": "Deze regel verwijderen?",
+    "v2.holding.removeHint": "Het ingelegde bedrag gaat terug naar het geld op de rekening, alsof de aankoop niet was gebeurd.",
+    "v2.holding.editHint": "Het aantal en de koers zeggen wat je bezit. Het ingelegde bedrag is het geld dat echt van de rekening is gegaan: dat verbeteren verplaatst geen geld."
   },
   "it": {
     "v2.a11y.back": "Indietro",
@@ -3389,7 +3401,11 @@
     "v2.buy.undoHint": "Le quote e la liquidità tornano come prima dell'acquisto.",
     "v2.buy.cashOutAsk": "Questa liquidità è uscita con quel bonifico?",
     "v2.buy.cashOutYes": "Sì, è quel bonifico",
-    "v2.buy.cashOutHint": "Le due operazioni diventano un giroconto, e la liquidità lascia l'involucro."
+    "v2.buy.cashOutHint": "Le due operazioni diventano un giroconto, e la liquidità lascia l'involucro.",
+    "v2.holding.remove": "Elimina questa riga",
+    "v2.holding.removeAsk": "Eliminare questa riga?",
+    "v2.holding.removeHint": "Il versato torna alla liquidità del conto, come se l'acquisto non fosse avvenuto.",
+    "v2.holding.editHint": "La quantità e il prezzo dicono quanto detieni. Il versato è il denaro uscito davvero dal conto: correggerlo non sposta liquidità."
   },
   "es": {
     "v2.a11y.back": "Atrás",
@@ -4237,7 +4253,11 @@
     "v2.buy.undoHint": "Las participaciones y la liquidez vuelven a como estaban antes de la compra.",
     "v2.buy.cashOutAsk": "¿Esta liquidez salió con esa transferencia?",
     "v2.buy.cashOutYes": "Sí, es esa transferencia",
-    "v2.buy.cashOutHint": "Las dos operaciones pasan a ser una transferencia interna, y la liquidez sale de la envoltura."
+    "v2.buy.cashOutHint": "Las dos operaciones pasan a ser una transferencia interna, y la liquidez sale de la envoltura.",
+    "v2.holding.remove": "Eliminar esta línea",
+    "v2.holding.removeAsk": "¿Eliminar esta línea?",
+    "v2.holding.removeHint": "Lo aportado vuelve a la liquidez de la cuenta, como si la compra no hubiera ocurrido.",
+    "v2.holding.editHint": "La cantidad y el precio dicen lo que tienes. Lo aportado es el dinero que salió realmente de la cuenta: corregirlo no mueve liquidez."
   },
   "ca": {
     "v2.a11y.back": "Enrere",
@@ -5085,7 +5105,11 @@
     "v2.buy.undoHint": "Les participacions i la liquiditat tornen com abans de la compra.",
     "v2.buy.cashOutAsk": "Aquesta liquiditat ha sortit amb aquesta transferència?",
     "v2.buy.cashOutYes": "Sí, és aquesta transferència",
-    "v2.buy.cashOutHint": "Les dues operacions esdevenen una transferència interna, i la liquiditat surt de l'envoltori."
+    "v2.buy.cashOutHint": "Les dues operacions esdevenen una transferència interna, i la liquiditat surt de l'envoltori.",
+    "v2.holding.remove": "Suprimeix aquesta línia",
+    "v2.holding.removeAsk": "Vols suprimir aquesta línia?",
+    "v2.holding.removeHint": "L'aportat torna a la liquiditat del compte, com si la compra no hagués passat.",
+    "v2.holding.editHint": "La quantitat i el preu diuen què tens. L'aportat és el diner que va sortir realment del compte: corregir-lo no mou liquiditat."
   },
   "de": {
     "v2.a11y.back": "Zurück",
@@ -5933,7 +5957,11 @@
     "v2.buy.undoHint": "Anteile und Barmittel stehen wieder wie vor dem Kauf.",
     "v2.buy.cashOutAsk": "Ist dieses Guthaben mit jener Überweisung abgeflossen?",
     "v2.buy.cashOutYes": "Ja, diese Überweisung",
-    "v2.buy.cashOutHint": "Die beiden Buchungen werden eine interne Überweisung, und das Guthaben verlässt den Mantel."
+    "v2.buy.cashOutHint": "Die beiden Buchungen werden eine interne Überweisung, und das Guthaben verlässt den Mantel.",
+    "v2.holding.remove": "Diese Zeile löschen",
+    "v2.holding.removeAsk": "Diese Zeile löschen?",
+    "v2.holding.removeHint": "Das Eingezahlte geht zurück in die Barmittel des Kontos, als hätte der Kauf nicht stattgefunden.",
+    "v2.holding.editHint": "Stückzahl und Kurs sagen, was du hältst. Das Eingezahlte ist das Geld, das wirklich vom Konto ging: es zu korrigieren bewegt keine Barmittel."
   },
   "pt": {
     "v2.a11y.back": "Voltar",
@@ -6781,7 +6809,11 @@
     "v2.buy.undoHint": "As participações e a liquidez voltam ao que eram antes da compra.",
     "v2.buy.cashOutAsk": "Esta liquidez saiu com essa transferência?",
     "v2.buy.cashOutYes": "Sim, é essa transferência",
-    "v2.buy.cashOutHint": "As duas operações passam a ser uma transferência interna, e a liquidez sai do invólucro."
+    "v2.buy.cashOutHint": "As duas operações passam a ser uma transferência interna, e a liquidez sai do invólucro.",
+    "v2.holding.remove": "Eliminar esta linha",
+    "v2.holding.removeAsk": "Eliminar esta linha?",
+    "v2.holding.removeHint": "O investido volta à liquidez da conta, como se a compra não tivesse acontecido.",
+    "v2.holding.editHint": "A quantidade e a cotação dizem o que detém. O investido é o dinheiro que saiu realmente da conta: corrigi-lo não move liquidez."
   },
   "tr": {
     "v2.a11y.back": "Geri",
@@ -7629,6 +7661,10 @@
     "v2.buy.undoHint": "Paylar ve nakit, alımdan önceki haline döner.",
     "v2.buy.cashOutAsk": "Bu nakit o transferle mi çıktı?",
     "v2.buy.cashOutYes": "Evet, o transfer",
-    "v2.buy.cashOutHint": "İki kayıt tek bir iç transfer olur ve nakit kabuktan çıkar."
+    "v2.buy.cashOutHint": "İki kayıt tek bir iç transfer olur ve nakit kabuktan çıkar.",
+    "v2.holding.remove": "Bu satırı sil",
+    "v2.holding.removeAsk": "Bu satır silinsin mi?",
+    "v2.holding.removeHint": "Yatırılan tutar, alım hiç olmamış gibi hesabın nakdine geri döner.",
+    "v2.holding.editHint": "Adet ve fiyat neye sahip olduğunu söyler. Yatırılan, hesaptan gerçekten çıkan paradır: onu düzeltmek nakit hareketi yaratmaz."
   }
 }
