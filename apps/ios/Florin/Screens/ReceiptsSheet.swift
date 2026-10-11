@@ -239,14 +239,13 @@ struct ReceiptsSheet: View {
         guard !images.isEmpty else { return }
         reading = true
         Task.detached(priority: .userInitiated) {
-            var pages: [(Data?, String, [ReceiptParser.Item])] = []
-            for image in images {
+            let pages = images.map { image -> (Data?, String, [ReceiptParser.Item]) in
                 let lines = (try? ReceiptOCR.lines(from: image)) ?? []
-                pages.append((
+                return (
                     ReceiptOCR.thumbnail(image),
                     lines.joined(separator: "\n"),
                     ReceiptParser.items(from: lines)
-                ))
+                )
             }
             await MainActor.run {
                 reading = false

@@ -241,13 +241,19 @@ enum LocalHoldings {
     }
 
     /// The lines an account already holds, for the purchase form's picker.
-    static func lines(store: LocalStore, accountId: String) throws -> [(id: String, label: String)] {
+    ///
+    /// Avec le dernier prix connu, qui n'est pas un ornement : c'est lui qui
+    /// permet au formulaire de déduire la quantité du montant payé, le seul
+    /// des trois chiffres dont l'acheteur dispose à coup sûr.
+    static func lines(
+        store: LocalStore, accountId: String
+    ) throws -> [(id: String, label: String, lastPrice: Double?)] {
         try store.database.query(
-            "SELECT id, label FROM holdings WHERE account_id = ? ORDER BY label",
+            "SELECT id, label, last_price FROM holdings WHERE account_id = ? ORDER BY label",
             [.text(accountId)]
         ).compactMap { row in
             guard let id = row.string("id"), let label = row.string("label") else { return nil }
-            return (id, label)
+            return (id, label, row.double("last_price"))
         }
     }
 }

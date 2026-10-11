@@ -573,8 +573,11 @@ struct AccountDetailScreen: View {
                     CircleButton(symbol: "plus", size: 44) { adding = true }
                         .accessibilityLabel(t("v2.accounts.addTransaction", "Opération"))
                 }
+                // Un panier, pas une courbe : la courbe est ce que le compte
+                // montre déjà, et un bouton qui la reprend promet un graphique.
+                // Ce bouton enregistre un achat — c'est un caddie avec un plus.
                 if account.kind == "broker_portfolio" {
-                    CircleButton(symbol: "chart.line.uptrend.xyaxis", size: 44) { buying = true }
+                    CircleButton(symbol: "cart.badge.plus", size: 44) { buying = true }
                         .accessibilityLabel(t("v2.buy.title", "Enregistrer un achat"))
                 }
                 // Un crayon ouvre ce qu'il annonce. Le menu qu'il ouvrait avant

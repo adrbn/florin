@@ -835,7 +835,10 @@
     "v2.receipts.nothingRead": "No item read from this photo.",
     "v2.receipts.remainder": "Left to itemise",
     "v2.receipts.receiptTotal": "Receipt total",
-    "v2.receipts.delete": "Delete this receipt"
+    "v2.receipts.delete": "Delete this receipt",
+    "v2.buy.derivedHint": "The price is the one from the last purchase recorded. Correct it, or type the quantity directly if you have the broker's confirmation.",
+    "v2.buy.readSlip": "Read a screenshot of the order",
+    "v2.buy.slipUnread": "Nothing readable in this image. The figures are still yours to type."
   },
   "fr": {
     "v2.a11y.back": "Retour",
@@ -1673,7 +1676,10 @@
     "v2.receipts.nothingRead": "Aucun article lu sur cette photo.",
     "v2.receipts.remainder": "Reste à détailler",
     "v2.receipts.receiptTotal": "Total du ticket",
-    "v2.receipts.delete": "Supprimer ce ticket"
+    "v2.receipts.delete": "Supprimer ce ticket",
+    "v2.buy.derivedHint": "Le cours est celui du dernier achat enregistré. Corrige-le, ou saisis directement la quantité si tu as la confirmation du courtier.",
+    "v2.buy.readSlip": "Lire une capture de l'ordre",
+    "v2.buy.slipUnread": "Rien de lisible sur cette image. Les chiffres restent à saisir."
   },
   "nl": {
     "v2.a11y.back": "Terug",
@@ -2511,7 +2517,10 @@
     "v2.receipts.nothingRead": "Geen artikel gelezen op deze foto.",
     "v2.receipts.remainder": "Nog te specificeren",
     "v2.receipts.receiptTotal": "Totaal van de kassabon",
-    "v2.receipts.delete": "Deze kassabon verwijderen"
+    "v2.receipts.delete": "Deze kassabon verwijderen",
+    "v2.buy.derivedHint": "De koers is die van de laatst vastgelegde aankoop. Pas hem aan, of vul de hoeveelheid rechtstreeks in als je de bevestiging van de broker hebt.",
+    "v2.buy.readSlip": "Een schermafbeelding van de order lezen",
+    "v2.buy.slipUnread": "Niets leesbaars op deze afbeelding. De cijfers moeten nog worden ingevuld."
   },
   "it": {
     "v2.a11y.back": "Indietro",
@@ -3349,7 +3358,10 @@
     "v2.receipts.nothingRead": "Nessun articolo letto da questa foto.",
     "v2.receipts.remainder": "Resta da dettagliare",
     "v2.receipts.receiptTotal": "Totale dello scontrino",
-    "v2.receipts.delete": "Elimina questo scontrino"
+    "v2.receipts.delete": "Elimina questo scontrino",
+    "v2.buy.derivedHint": "Il prezzo è quello dell'ultimo acquisto registrato. Correggilo, oppure inserisci direttamente la quantità se hai la conferma del broker.",
+    "v2.buy.readSlip": "Leggi uno screenshot dell'ordine",
+    "v2.buy.slipUnread": "Niente di leggibile in questa immagine. I numeri restano da inserire."
   },
   "es": {
     "v2.a11y.back": "Atrás",
@@ -4187,7 +4199,10 @@
     "v2.receipts.nothingRead": "No se ha leído ningún artículo en esta foto.",
     "v2.receipts.remainder": "Queda por detallar",
     "v2.receipts.receiptTotal": "Total del tique",
-    "v2.receipts.delete": "Eliminar este tique"
+    "v2.receipts.delete": "Eliminar este tique",
+    "v2.buy.derivedHint": "El precio es el de la última compra registrada. Corrígelo, o escribe directamente la cantidad si tienes la confirmación del bróker.",
+    "v2.buy.readSlip": "Leer una captura de la orden",
+    "v2.buy.slipUnread": "No hay nada legible en esta imagen. Las cifras quedan por escribir."
   },
   "ca": {
     "v2.a11y.back": "Enrere",
@@ -5025,7 +5040,10 @@
     "v2.receipts.nothingRead": "No s'ha llegit cap article en aquesta foto.",
     "v2.receipts.remainder": "Queda per detallar",
     "v2.receipts.receiptTotal": "Total del tiquet",
-    "v2.receipts.delete": "Elimina aquest tiquet"
+    "v2.receipts.delete": "Elimina aquest tiquet",
+    "v2.buy.derivedHint": "El preu és el de la darrera compra registrada. Corregeix-lo, o escriu directament la quantitat si tens la confirmació del bróker.",
+    "v2.buy.readSlip": "Llegeix una captura de l'ordre",
+    "v2.buy.slipUnread": "No hi ha res llegible en aquesta imatge. Les xifres queden per escriure."
   },
   "de": {
     "v2.a11y.back": "Zurück",
@@ -5863,7 +5881,10 @@
     "v2.receipts.nothingRead": "Auf diesem Foto wurde kein Artikel gelesen.",
     "v2.receipts.remainder": "Noch aufzuschlüsseln",
     "v2.receipts.receiptTotal": "Summe des Kassenbons",
-    "v2.receipts.delete": "Diesen Kassenbon löschen"
+    "v2.receipts.delete": "Diesen Kassenbon löschen",
+    "v2.buy.derivedHint": "Der Kurs stammt vom zuletzt erfassten Kauf. Korrigiere ihn, oder gib die Stückzahl direkt ein, wenn du die Abrechnung des Brokers hast.",
+    "v2.buy.readSlip": "Screenshot der Order lesen",
+    "v2.buy.slipUnread": "Auf diesem Bild ist nichts lesbar. Die Zahlen bleiben einzutragen."
   },
   "pt": {
     "v2.a11y.back": "Voltar",
@@ -6701,7 +6722,10 @@
     "v2.receipts.nothingRead": "Nenhum artigo lido nesta foto.",
     "v2.receipts.remainder": "Falta detalhar",
     "v2.receipts.receiptTotal": "Total do recibo",
-    "v2.receipts.delete": "Eliminar este recibo"
+    "v2.receipts.delete": "Eliminar este recibo",
+    "v2.buy.derivedHint": "O preço é o da última compra registada. Corrige-o, ou escreve diretamente a quantidade se tiveres a confirmação do corretor.",
+    "v2.buy.readSlip": "Ler uma captura da ordem",
+    "v2.buy.slipUnread": "Nada legível nesta imagem. Os números ficam por introduzir."
   },
   "tr": {
     "v2.a11y.back": "Geri",
@@ -7539,6 +7563,9 @@
     "v2.receipts.nothingRead": "Bu fotoğrafta kalem okunamadı.",
     "v2.receipts.remainder": "Ayrıntılanacak kalan",
     "v2.receipts.receiptTotal": "Fiş toplamı",
-    "v2.receipts.delete": "Bu fişi sil"
+    "v2.receipts.delete": "Bu fişi sil",
+    "v2.buy.derivedHint": "Fiyat, kaydedilen son alıştan geliyor. Düzelt ya da aracı kurumun onayı elindeyse adedi doğrudan yaz.",
+    "v2.buy.readSlip": "Emrin ekran görüntüsünü oku",
+    "v2.buy.slipUnread": "Bu görüntüde okunabilir bir şey yok. Rakamları yine de sen yazacaksın."
   }
 }

@@ -5018,3 +5018,49 @@ struct ReceiptTests {
         #expect(try page(store, "vin").transactions.isEmpty)
     }
 }
+
+// MARK: - La confirmation d'un ordre
+
+/*
+ * Trois chiffres sur une capture d'écran, et lesquels.
+ *
+ * Le piège n'est pas de trouver des nombres — il y en a partout sur ces
+ * écrans — mais de ne pas prendre les frais pour le total, ni le cours pour
+ * la somme placée. Et une quantité fractionnée porte quatre décimales là où
+ * un montant en porte deux, donc la même règle ne peut pas servir aux deux.
+ */
+@Suite("Une confirmation d'ordre")
+struct OrderSlipTests {
+    @Test("chaque chiffre va au champ que son mot annonce")
+    func readsTheThree() {
+        let order = OrderSlip.read([
+            "Achat",
+            "Quantité 55,5555",
+            "Prix d'exécution 4,50 €",
+            "Frais 1,00 €",
+            "Montant total 250,00 €",
+        ])
+        #expect(order.quantity == 55.5555)
+        #expect(order.unitPrice == 4.50)
+        #expect(order.total == 250.00)
+    }
+
+    @Test("les frais ne passent pas pour le total")
+    func skipsFees() {
+        let order = OrderSlip.read(["Commission 1,00 €", "Total 250,00 €"])
+        #expect(order.total == 250.00)
+    }
+
+    @Test("un mot inconnu ne remplit rien plutôt que de deviner")
+    func guessesNothing() {
+        #expect(OrderSlip.read(["Référence 12,34", "Bla 9,99 €"]).isEmpty)
+    }
+
+    @Test("l'allemand et l'anglais se lisent aussi")
+    func otherLanguages() {
+        let order = OrderSlip.read(["Anzahl 12,5", "Kurs 20,00 €", "Gesamtbetrag 250,00 €"])
+        #expect(order.quantity == 12.5)
+        #expect(order.unitPrice == 20.00)
+        #expect(order.total == 250.00)
+    }
+}

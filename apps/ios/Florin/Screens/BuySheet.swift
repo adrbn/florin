@@ -1,3 +1,5 @@
+import UIKit
+import PhotosUI
 import SwiftUI
 
 /// Recording a purchase on an investment account.
@@ -16,25 +18,53 @@ struct BuySheet: View {
     let onSaved: () async -> Void
 
     @Environment(\.dismiss) private var dismiss
-    @State private var lines: [(id: String, label: String)] = []
+    @State private var lines: [(id: String, label: String, lastPrice: Double?)] = []
     /// nil until loaded; "" means a new line, whose name is typed below.
     @State private var holdingId: String?
     @State private var newLabel = ""
     @State private var quantityText = ""
     @State private var priceText = ""
     @State private var totalText = ""
-    /// True once the total has been typed over, so the derived value stops
-    /// overwriting a figure someone entered on purpose.
-    @State private var totalEdited = false
     @State private var failure: String?
+    /// La capture de la confirmation d'ordre, en cours de lecture.
+    @State private var shot: PhotosPickerItem?
+    @State private var reading = false
     @FocusState private var focus: Field?
 
     private enum Field { case label, quantity, price, total }
 
-    private var quantity: Double { OnboardingFlow.parse(quantityText) }
     private var price: Double { OnboardingFlow.parse(priceText) }
-    private var derivedTotal: Double { (quantity * price * 100).rounded() / 100 }
-    private var total: Double { totalEdited ? OnboardingFlow.parse(totalText) : derivedTotal }
+
+    /*
+     * Ce qu'on n'a pas saisi se déduit du reste.
+     *
+     * La feuille demandait la quantité, le prix unitaire et le total : trois
+     * chiffres, dont deux qu'il faut aller chercher dans l'historique du
+     * courtier — à supposer qu'on l'y trouve. Or un achat se décide dans
+     * l'autre sens : on place une somme, et le nombre de parts en découle.
+     *
+     * Le montant payé est donc la question, et le dernier cours connu de la
+     * ligne — que le grand livre garde déjà — donne la quantité. L'inverse
+     * marche aussi : la quantité saisie donne le total. Et quand les trois
+     * sont connus, rien n'est déduit du tout, parce que `quantité × cours` et
+     * le montant réellement débité diffèrent de quelques centimes et que
+     * c'est le second qui a bougé le compte.
+     *
+     * Chaque champ ne lit que ce qui a été *tapé*, jamais la valeur déduite
+     * de l'autre : sans quoi les deux se définiraient l'un par l'autre.
+     */
+    private var quantity: Double {
+        if !quantityText.isEmpty { return OnboardingFlow.parse(quantityText) }
+        guard price > 0 else { return 0 }
+        // Au millième de part : les courtiers fractionnent, et arrondir au
+        // titre entier ferait mentir la valeur du portefeuille.
+        return (OnboardingFlow.parse(totalText) / price * 1000).rounded() / 1000
+    }
+
+    private var total: Double {
+        if !totalText.isEmpty { return OnboardingFlow.parse(totalText) }
+        return (OnboardingFlow.parse(quantityText) * price * 100).rounded() / 100
+    }
 
     private var label: String {
         holdingId.flatMap { id in lines.first { $0.id == id }?.label }
@@ -51,6 +81,7 @@ struct BuySheet: View {
                 VStack(spacing: 18) {
                     line
                     figures
+                    slip
                     summary
                     action
                 }
@@ -80,6 +111,7 @@ struct BuySheet: View {
             // month; a picker that starts on "nouvelle ligne" would invite a
             // duplicate of the tracker already held.
             holdingId = lines.first?.id
+            fillPrice()
         }
         .alert(
             t("v2.buy.title", "Enregistrer un achat"),
@@ -99,11 +131,16 @@ struct BuySheet: View {
             RowGroup {
                 ForEach(Array(lines.enumerated()), id: \.element.id) { index, held in
                     if index > 0 { Hairline() }
-                    choice(held.label, picked: holdingId == held.id) { holdingId = held.id }
+                    choice(held.label, picked: holdingId == held.id) {
+                        holdingId = held.id
+                        priceText = ""
+                        fillPrice()
+                    }
                 }
                 if !lines.isEmpty { Hairline() }
                 choice(t("v2.buy.newLine", "Nouveau titre"), picked: holdingId == nil) {
                     holdingId = nil
+                    priceText = ""
                     focus = .label
                 }
             }
@@ -146,26 +183,107 @@ struct BuySheet: View {
         VStack(alignment: .leading, spacing: 10) {
             Eyebrow(text: t("v2.buy.order", "Ordre"))
             RowGroup {
-                field(t("v2.buy.quantity", "Quantité"), text: $quantityText, field: .quantity, unit: nil)
+                field(t("v2.buy.total", "Total payé"), text: totalBinding, field: .total, unit: "€")
                 Hairline()
                 field(t("v2.buy.unitPrice", "Prix unitaire"), text: $priceText, field: .price, unit: "€")
                 Hairline()
-                field(t("v2.buy.total", "Total payé"), text: totalBinding, field: .total, unit: "€")
+                field(
+                    t("v2.buy.quantity", "Quantité"), text: quantityBinding,
+                    field: .quantity, unit: nil
+                )
             }
+            Text(t(
+                "v2.buy.derivedHint",
+                "Le cours est celui du dernier achat enregistré. Corrige-le, ou saisis directement la quantité si tu as la confirmation du courtier."
+            ))
+            .font(.system(size: 12))
+            .foregroundStyle(Florin.text3)
+            .padding(.horizontal, 4)
+            .fixedSize(horizontal: false, vertical: true)
         }
     }
 
-    /// Follows the order until it is contradicted. A broker rounds the unit
-    /// price it prints, so 80 × 6,19 lands a few cents from the 496,43 € it
-    /// actually took — and the figure that matters is the one that left.
+    /// Chacun montre la valeur déduite tant qu'on ne l'a pas contredite, et
+    /// la saisie fait basculer le sens du calcul.
     private var totalBinding: Binding<String> {
         Binding(
-            get: {
-                if totalEdited { return totalText }
-                return derivedTotal > 0 ? String(format: "%.2f", derivedTotal) : ""
-            },
-            set: { totalEdited = true; totalText = $0 }
+            get: { totalText.isEmpty ? (total > 0 ? String(format: "%.2f", total) : "") : totalText },
+            set: { totalText = $0 }
         )
+    }
+
+    private var quantityBinding: Binding<String> {
+        Binding(
+            get: { quantityText.isEmpty ? (quantity > 0 ? trim(quantity) : "") : quantityText },
+            set: { quantityText = $0 }
+        )
+    }
+
+    /// Le cours de la ligne choisie, pour que la quantité se déduise sans
+    /// qu'on ait à aller le chercher. Jamais par-dessus un cours déjà tapé.
+    private func fillPrice() {
+        guard priceText.isEmpty else { return }
+        guard let id = holdingId,
+              let last = lines.first(where: { $0.id == id })?.lastPrice, last > 0
+        else { return }
+        priceText = String(format: "%.4f", last)
+            .replacingOccurrences(of: "0000", with: "00")
+    }
+
+    /*
+     * Les trois chiffres, lus sur la capture plutôt que recopiés.
+     *
+     * Le courtier les affiche tous les trois au moment de l'achat, et devient
+     * avare ensuite. Une capture d'écran faite là, dans la pellicule, est la
+     * seule copie facile de l'ordre — et la reconnaissance de texte sait la
+     * lire (voir `OrderSlip`). Ce qu'elle ne reconnaît pas reste à taper :
+     * aucun chiffre n'est deviné.
+     */
+    private var slip: some View {
+        PhotosPicker(selection: $shot, matching: .images, photoLibrary: .shared()) {
+            HStack(spacing: 8) {
+                if reading {
+                    ProgressView()
+                } else {
+                    Image(systemName: "text.viewfinder").font(.system(size: 15))
+                }
+                Text(t("v2.buy.readSlip", "Lire une capture de l'ordre"))
+                    .font(.system(size: 14.5, weight: .medium))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 13)
+            .florinGlass(in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(Florin.accent)
+        .disabled(reading)
+        .onChange(of: shot) { _, item in
+            guard let item else { return }
+            read(item)
+        }
+    }
+
+    private func read(_ item: PhotosPickerItem) {
+        reading = true
+        Task {
+            defer { reading = false; shot = nil }
+            guard let data = try? await item.loadTransferable(type: Data.self),
+                  let image = UIImage(data: data)
+            else { return }
+            let lines = (try? ReceiptOCR.lines(from: image)) ?? []
+            let order = OrderSlip.read(lines)
+            guard !order.isEmpty else {
+                failure = t(
+                    "v2.buy.slipUnread",
+                    "Rien de lisible sur cette image. Les chiffres restent à saisir."
+                )
+                return
+            }
+            if let value = order.unitPrice { priceText = String(format: "%.4f", value) }
+            if let value = order.quantity { quantityText = trim(value) }
+            if let value = order.total { totalText = String(format: "%.2f", value) }
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        }
     }
 
     private func field(
@@ -180,7 +298,7 @@ struct BuySheet: View {
                 .font(.system(size: 17, weight: .medium))
                 .monospacedDigit()
                 .multilineTextAlignment(.trailing)
-                .keyboardType(.numbersAndPunctuation)
+                .keyboardType(.decimalPad)
                 .focused($focus, equals: target)
                 .frame(maxWidth: 140)
             if let unit {
