@@ -45,6 +45,17 @@ enum ReceiptParser {
         "TVA", "DONT TVA", "TOTAL TVA", "HT", "TTC", "TAUX",
         "ARRONDI", "SOLDE", "POINTS", "FIDELITE", "CUMUL", "ECO PART",
         "SIRET", "TEL", "CAISSE", "VENDEUR", "DATE", "HEURE", "EUR",
+        // Italien — la caisse romaine imprime les mêmes lignes dans sa langue.
+        "TOTALE", "TOTALE COMPLESSIVO", "TOTALE EURO", "SUBTOTALE", "IMPONIBILE",
+        "IVA", "DI CUI IVA", "TOTALE IVA", "IMPORTO", "IMPORTO PAGATO",
+        "PAGAMENTO", "PAGAMENTO ELETTRONICO", "CONTANTI", "RESTO", "BANCOMAT",
+        "CARTA", "CARTA CREDITO", "CARTA DI CREDITO", "NON RISCOSSO",
+        // Anglais.
+        "SUBTOTAL", "SUB TOTAL", "TOTAL DUE", "AMOUNT DUE", "BALANCE DUE",
+        "AMOUNT PAID", "PAID", "CASH", "CHANGE", "CARD", "CREDIT CARD",
+        "DEBIT CARD", "TAX", "SALES TAX", "VAT", "CHANGE DUE",
+        // Espagnol.
+        "TOTAL A PAGAR", "IMPORTE", "EFECTIVO", "CAMBIO", "TARJETA",
     ]
 
     /// Le prix en fin de ligne, éventuellement précédé d'un signe et suivi du
@@ -53,32 +64,112 @@ enum ReceiptParser {
         pattern: #"(-?\s?\d{1,6}[.,]\d{2})\s*(?:[A-Za-z€]{1,4})?\s*$"#
     )
 
+    /*
+     * Un ticket ne tient pas toujours sur une ligne par article.
+     *
+     * Une caisse italienne imprime le nom sur une ligne et « 10 % 6,50 » sur
+     * la suivante ; un prix seul sous un nom seul est la même phrase coupée en
+     * deux, et pris ligne par ligne les deux moitiés sont jetées — c'est ce
+     * qui faisait lire d'un ticket de trois plats ses seules lignes de total.
+     *
+     * Le recollage ne regarde qu'une ligne en arrière : la dernière qui
+     * portait un nom sans prix. Tout le reste — une ligne de total, un prix
+     * déjà rattaché, une ligne de quantité « 2 X 4,80 » — l'efface, ce qui
+     * interdit à un prix de se rattacher à un nom dont une autre ligne le
+     * sépare.
+     */
     static func items(from lines: [String]) -> [Item] {
-        lines.compactMap(item(from:))
+        var items: [Item] = []
+        var pending: String?
+        for line in lines {
+            switch read(line) {
+            case let .purchase(item):
+                items.append(item)
+                pending = nil
+            case let .priceAlone(amount):
+                if let name = pending, !isNotAPurchase(name) {
+                    items.append(Item(label: name, amount: amount))
+                }
+                pending = nil
+            case let .nameAlone(name):
+                pending = name
+            case .quantity:
+                // « 2 X 4,80 » dit le prix d'une pièce, pas celui de la ligne :
+                // le nom reste en attente du prix qui vient après.
+                break
+            case .neither:
+                pending = nil
+            }
+        }
+        return items
     }
 
     static func item(from rawLine: String) -> Item? {
+        if case let .purchase(item) = read(rawLine) { return item }
+        return nil
+    }
+
+    /// Ce qu'une ligne porte : les deux moitiés d'un achat, une seule, ou rien.
+    enum Line: Equatable {
+        case purchase(Item)
+        case priceAlone(Double)
+        case nameAlone(String)
+        case quantity
+        case neither
+    }
+
+    static func read(_ rawLine: String) -> Line {
         let line = rawLine
             .replacingOccurrences(of: "\u{00A0}", with: " ")
             .split(whereSeparator: \.isWhitespace)
             .joined(separator: " ")
-        guard !line.isEmpty, let price else { return nil }
+        guard !line.isEmpty, let price else { return .neither }
         let range = NSRange(line.startIndex..., in: line)
         guard let hit = price.firstMatch(in: line, range: range),
               let found = Range(hit.range(at: 1), in: line),
-              let whole = Range(hit.range, in: line)
-        else { return nil }
+              let whole = Range(hit.range, in: line),
+              let amount = number(String(line[found]))
+        else { return name(of: line) }
 
-        let amount = number(String(line[found]))
-        guard let amount else { return nil }
-
-        let label = String(line[line.startIndex..<whole.lowerBound])
-            .trimmingCharacters(in: CharacterSet(charactersIn: " .·…:*xX"))
-        // Un prix tout seul n'apprend rien, et un nom d'une lettre non plus.
-        guard label.count >= 2, label.contains(where: \.isLetter) else { return nil }
-        guard !isNotAPurchase(label) else { return nil }
-        return Item(label: label, amount: amount)
+        let head = String(line[line.startIndex..<whole.lowerBound])
+            .trimmingCharacters(in: .whitespaces)
+        if head.range(of: #"^\d{1,3}\s*[xX*]$"#, options: .regularExpression) != nil {
+            return .quantity
+        }
+        let label = clean(head)
+        // Un nom d'une lettre n'apprend rien ; un prix que seul son taux de TVA
+        // précède appartient au nom de la ligne du dessus.
+        guard label.count >= 2, label.contains(where: \.isLetter) else {
+            return .priceAlone(amount)
+        }
+        guard !isNotAPurchase(label) else { return .neither }
+        return .purchase(Item(label: label, amount: amount))
     }
+
+    private static func name(of line: String) -> Line {
+        let label = clean(line)
+        guard label.count >= 2, label.contains(where: \.isLetter) else { return .neither }
+        return .nameAlone(label)
+    }
+
+    /// Le nom tel qu'on veut le relire : sans le code article que la caisse
+    /// met en tête (« 008 RAVIOLI » ) ni le taux de TVA qu'elle colle en queue
+    /// (« ACQUA 10% »). Un « 2 x Yaourt » garde son compte : trois chiffres au
+    /// moins pour un code, et toujours suivi de son nom.
+    private static func clean(_ raw: String) -> String {
+        let junk = CharacterSet(charactersIn: " .·…:*xX")
+        var label = raw.trimmingCharacters(in: junk)
+        for pattern in [itemCode, vatRate] {
+            guard let pattern else { continue }
+            label = pattern.stringByReplacingMatches(
+                in: label, range: NSRange(label.startIndex..., in: label), withTemplate: ""
+            )
+        }
+        return label.trimmingCharacters(in: junk)
+    }
+
+    private static let itemCode = try? NSRegularExpression(pattern: #"^\d{3,5}\s+(?=\S*\p{L})"#)
+    private static let vatRate = try? NSRegularExpression(pattern: #"\s*\d{1,2}([.,]\d{1,2})?\s*%$"#)
 
     /// Majuscules sans accent, et sans les chiffres ni les symboles de queue —
     /// c'est sous cette forme que la liste ci-dessus est écrite.

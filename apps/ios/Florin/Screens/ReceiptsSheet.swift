@@ -27,6 +27,10 @@ struct ReceiptsSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var receipts: [LocalReceipts.Receipt] = []
+    /// La photo gardée, décodée une fois par chargement : la vue se redessine
+    /// à chaque frappe de la feuille, pas le fichier.
+    @State private var photos: [String: UIImage] = [:]
+    @State private var viewing: Photo?
     @State private var scanning = false
     @State private var reading = false
     @State private var failure: String?
@@ -74,6 +78,9 @@ struct ReceiptsSheet: View {
         }
         .presentationDetents([.large])
         .task { load() }
+        .fullScreenCover(item: $viewing) { photo in
+            viewer(photo)
+        }
         .fullScreenCover(isPresented: $scanning) {
             ReceiptScanner { images in
                 scanning = false
@@ -131,6 +138,36 @@ struct ReceiptsSheet: View {
 
     private func card(_ receipt: LocalReceipts.Receipt) -> some View {
         RowGroup {
+            /*
+             * La photo, et pas seulement ce qu'on en a lu.
+             *
+             * Elle était gardée depuis le début — redressée et compressée par
+             * `ReceiptOCR.thumbnail` — mais rien ne la montrait : une ligne
+             * mal lue ne se vérifiait donc contre rien. Elle ouvre en grand,
+             * d'où elle se partage et s'enregistre.
+             */
+            if let image = photos[receipt.id], let path = receipt.imagePath {
+                Button {
+                    viewing = Photo(id: receipt.id, image: image, path: path)
+                } label: {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 148)
+                        .clipped()
+                        .overlay(alignment: .bottomTrailing) {
+                            Image(systemName: "arrow.up.left.and.arrow.down.right")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .padding(7)
+                                .background(.black.opacity(0.45), in: Circle())
+                                .padding(8)
+                        }
+                }
+                .buttonStyle(.plain)
+                Hairline()
+            }
             if receipt.items.isEmpty {
                 line(t("v2.receipts.nothingRead", "Aucun article lu sur cette photo."), nil)
             } else {
@@ -228,6 +265,56 @@ struct ReceiptsSheet: View {
     private func load() {
         guard let store = LocalStore.shared else { return }
         receipts = (try? LocalReceipts.receipts(store: store, transactionId: tx.id)) ?? []
+        photos = receipts.reduce(into: [:]) { photos, receipt in
+            guard let path = receipt.imagePath,
+                  let image = UIImage(contentsOfFile: url(path).path)
+            else { return }
+            photos[receipt.id] = image
+        }
+    }
+
+    private func url(_ path: String) -> URL {
+        guard let store = LocalStore.shared else { return URL(fileURLWithPath: path) }
+        return LocalReceipts.url(store: store, path: path)
+    }
+
+    /// La photo en grand : lue, partagée, enregistrée.
+    private func viewer(_ photo: Photo) -> some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+            Image(uiImage: photo.image)
+                .resizable()
+                .scaledToFit()
+                .ignoresSafeArea(edges: .bottom)
+            VStack {
+                HStack {
+                    Button { viewing = nil } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .padding(10)
+                            .background(.black.opacity(0.45), in: Circle())
+                    }
+                    .accessibilityLabel(t("v2.common.close", "Fermer"))
+                    Spacer()
+                    ShareLink(item: url(photo.path)) {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .padding(10)
+                            .background(.black.opacity(0.45), in: Circle())
+                    }
+                }
+                .padding(.horizontal, Florin.gutter)
+                Spacer()
+            }
+        }
+    }
+
+    struct Photo: Identifiable {
+        let id: String
+        let image: UIImage
+        let path: String
     }
 
     /*

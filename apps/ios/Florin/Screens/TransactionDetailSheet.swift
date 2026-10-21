@@ -40,6 +40,9 @@ struct TransactionDetailSheet: View {
     /// second one while the first is still dismissing silently drops it.
     @State private var wantsTransfer = false
     @State private var naming = false
+    /// Le détail de la dépense, que seul le ticket connaît. Il était derrière
+    /// un appui long sur la ligne — un geste que rien n'annonce.
+    @State private var receipting = false
     /// Observed so the title changes the moment the merchant is renamed.
     @ObservedObject private var names = MerchantNames.shared
 
@@ -81,6 +84,7 @@ struct TransactionDetailSheet: View {
 
     private var actionCount: Int {
         var n = 3   // catégoriser, modifier, supprimer
+        if isLocalLedger { n += 1 }   // ticket de caisse
         if tx.needsReview { n += 1 }
         if !tx.isTransfer, tx.amount < 0, accounts.count > 1 { n += 1 }
         return n
@@ -247,6 +251,9 @@ struct TransactionDetailSheet: View {
                 onSpending: {}
             )
         }
+        .sheet(isPresented: $receipting) {
+            ReceiptsSheet(tx: tx, locale: locale, currency: currency, t: t)
+        }
         .sheet(isPresented: $naming) {
             MerchantNameSheet(
                 key: MerchantNames.key(tx.payee),
@@ -347,6 +354,14 @@ struct TransactionDetailSheet: View {
             }
             SheetAction(label: t("v2.review.categorize", "Catégoriser"), symbol: "tag") {
                 picking = true
+            }
+            if isLocalLedger {
+                SheetAction(
+                    label: t("v2.receipts.open", "Ticket de caisse"),
+                    symbol: "doc.text.viewfinder"
+                ) {
+                    receipting = true
+                }
             }
             SheetAction(label: t("v2.common.edit", "Modifier"), symbol: "pencil") {
                 editing = true

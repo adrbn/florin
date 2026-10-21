@@ -4937,6 +4937,56 @@ struct ReceiptTests {
         #expect(items.count == 2)
     }
 
+    /*
+     * Le ticket d'une caisse italienne : rien n'y est à sa place.
+     *
+     * Le nom du plat est sur une ligne, son taux de TVA et son prix sur la
+     * suivante ; la quantité a sa propre ligne ; et sept lignes de pied de
+     * ticket finissent par un prix sans rien acheter. Pris tel quel, le
+     * découpage en rendait les sept lignes de pied et aucun plat.
+     *
+     * La remise, elle, reste : c'est une ligne qui change ce qui a été payé,
+     * et sans elle les articles ne retomberaient pas sur le montant de
+     * l'opération.
+     */
+    @Test("un article dont le prix est sur la ligne suivante se recolle")
+    func stitchesWrappedItems() {
+        let items = ReceiptParser.items(from: [
+            "DESCRIZIONE IVA EURO",
+            "012 TORTA DI MELE 2PZ",
+            "10% 7,00",
+            "2 X 2,50",
+            "031 FOCACCIA ROMANA 2PZ",
+            "10% 5,00",
+            "BIBITA 10% 2,00",
+            "SUBTOTALE 14,00",
+            "SCONTO -2,00",
+            "TOTALE COMPLESSIVO 12,00",
+            "DI CUI IVA 1,09",
+            "PAGAMENTO ELETTRONICO 12,00",
+            "IMPORTO PAGATO 12,00",
+            "CARTA CREDITO 12,00",
+        ])
+        #expect(items == [
+            .init(label: "TORTA DI MELE 2PZ", amount: 7.00),
+            .init(label: "FOCACCIA ROMANA 2PZ", amount: 5.00),
+            .init(label: "BIBITA", amount: 2.00),
+            .init(label: "SCONTO", amount: -2.00),
+        ])
+        // Et le ticket retombe exactement sur ce que la banque a débité.
+        #expect(items.reduce(0) { $0 + $1.amount } == 12.00)
+    }
+
+    @Test("un prix seul ne se recolle qu'à la ligne juste au-dessus")
+    func stitchesOnlyTheLineAbove() {
+        // La ligne de quantité dit le prix d'une pièce : elle ne vole pas le
+        // nom au prix de la ligne, qui est celui qu'on a payé.
+        #expect(ReceiptParser.items(from: ["Pain complet", "2 X 1,20", "2,40"])
+            == [.init(label: "Pain complet", amount: 2.40)])
+        // Et un total resté sans son prix n'en devient pas un achat.
+        #expect(ReceiptParser.items(from: ["NET A PAYER", "12,00"]).isEmpty)
+    }
+
     @Test("les milliers ne se lisent pas comme des centimes")
     func readsThousands() {
         #expect(ReceiptParser.number("1 234,56") == 1234.56)
