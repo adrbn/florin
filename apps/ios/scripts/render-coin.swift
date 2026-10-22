@@ -86,11 +86,27 @@ gold.roughness.contents = 0.46
 let cap = SCNMaterial()
 cap.lightingModel = .constant
 cap.diffuse.contents = face
-// Le cylindre pose la texture d'une face à l'endroit et l'autre en miroir :
-// c'est exactement ce qu'on veut, le dos d'une pièce est le reflet de sa face.
+
+/*
+ * Le dos, remis d'aplomb.
+ *
+ * Le cylindre pose sa texture à l'endroit sur une face et en miroir sur
+ * l'autre — ce qui est juste pour une pièce couchée. Mais la pièce est
+ * ensuite redressée d'un quart de tour (voir plus bas), et ce quart de tour
+ * emmène le miroir avec lui : l'axe du reflet passe de l'horizontale à la
+ * verticale, et le lys du dos sort la pointe en bas. Un demi-tour de la
+ * texture, et seulement sur cette face-là, le remet debout.
+ */
+let back = SCNMaterial()
+back.lightingModel = .constant
+back.diffuse.contents = face
+back.diffuse.contentsTransform = SCNMatrix4Mult(
+    SCNMatrix4MakeScale(-1, -1, 1),
+    SCNMatrix4MakeTranslation(1, 1, 0)
+)
 
 // L'ordre de SCNCylinder : flanc, dessus, dessous.
-coin.materials = [gold, cap, cap]
+coin.materials = [gold, cap, back]
 
 let node = SCNNode(geometry: coin)
 // Couchée : l'axe du cylindre devient horizontal, la pièce nous fait face.

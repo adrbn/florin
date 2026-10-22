@@ -87,22 +87,35 @@ enum ReceiptParser {
     static func items(from lines: [String], total: Double? = nil) -> [Item] {
         var items: [Item] = []
         var pending: String?
+        var each: Each?
         for line in lines {
             switch read(line) {
             case let .purchase(item):
-                items.append(item)
+                items.append(multiplied(item, by: each))
+                each = nil
                 pending = nil
             case let .priceAlone(amount):
                 if let name = pending, !isNotAPurchase(name) {
-                    items.append(Item(label: name, amount: amount))
+                    items.append(multiplied(Item(label: name, amount: amount), by: each))
                 }
+                each = nil
                 pending = nil
             case let .nameAlone(name):
                 pending = name
-            case .quantity, .noise:
-                // « 2 X 4,80 » dit le prix d'une pièce, pas celui de la ligne,
-                // et « 10% » seul ne dit rien du tout : le nom reste en
-                // attente du prix qui vient après. Une caisse italienne pose
+            case let .quantity(count, unit):
+                // « 2 X 4,80 » dit le prix d'une pièce, pas celui de la ligne :
+                // le nom reste en attente du prix qui vient après. La caisse
+                // pose cette ligne tantôt avant l'article, tantôt après — on
+                // la rattache donc à celui dont le compte tombe juste, et
+                // c'est le calcul qui tranche, pas la position.
+                let hint = Each(count: count, unit: unit)
+                if let last = items.last, multiplied(last, by: hint) != last {
+                    items[items.count - 1] = multiplied(last, by: hint)
+                } else {
+                    each = hint
+                }
+            case .noise:
+                // « 10% » seul ne dit rien du tout. Une caisse italienne pose
                 // le taux sur sa propre ligne, et ces lignes-là effaçaient le
                 // plat dont elles annonçaient le prix.
                 break
@@ -110,10 +123,26 @@ enum ReceiptParser {
                 // Un récapitulatif chiffré, lui, clôt ce qui précède : le nom
                 // resté sans prix n'en aura plus.
                 pending = nil
+                each = nil
             }
         }
         guard let total else { return items }
         return keeping(items, against: abs(total))
+    }
+
+    /// Ce qu'annonce une ligne de quantité : tant de pièces, à tant la pièce.
+    private struct Each {
+        let count: Int
+        let unit: Double
+    }
+
+    /// « BAO 9,60 » valait 2 × 4,80, et c'est tout ce que le ticket en dit de
+    /// plus que la banque. On ne l'écrit que si le compte tombe juste : une
+    /// quantité qui ne multiplie pas le prix de la ligne n'est pas la sienne.
+    private static func multiplied(_ item: Item, by each: Each?) -> Item {
+        guard let each, abs(abs(item.amount) - Double(each.count) * each.unit) <= cent
+        else { return item }
+        return Item(label: "\(item.label) ×\(each.count)", amount: item.amount)
     }
 
     /// Un centime près : ces montants viennent d'une lecture de photo, pas
@@ -157,8 +186,9 @@ enum ReceiptParser {
         case purchase(Item)
         case priceAlone(Double)
         case nameAlone(String)
-        /// « 2 X 4,80 » : le prix d'une pièce, que la ligne suivante multiplie.
-        case quantity
+        /// « 2 X 4,80 » : le compte, et le prix d'une pièce — la ligne
+        /// voisine porte le total qu'ils font.
+        case quantity(Int, Double)
         /// Un total, une TVA, un moyen de paiement : chiffré, mais pas acheté.
         case summary
         /// Ni nom ni prix — un taux seul, une étoile, un trait de séparation.
@@ -181,7 +211,7 @@ enum ReceiptParser {
         let head = String(line[line.startIndex..<whole.lowerBound])
             .trimmingCharacters(in: .whitespaces)
         if head.range(of: #"^\d{1,3}\s*[xX*]$"#, options: .regularExpression) != nil {
-            return .quantity
+            return .quantity(Int(head.filter(\.isNumber)) ?? 1, amount)
         }
         let label = clean(head)
         // Un nom d'une lettre n'apprend rien ; un prix que seul son taux de TVA

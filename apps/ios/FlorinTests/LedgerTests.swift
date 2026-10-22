@@ -4969,7 +4969,7 @@ struct ReceiptTests {
         ])
         #expect(items == [
             .init(label: "TORTA DI MELE 2PZ", amount: 7.00),
-            .init(label: "FOCACCIA ROMANA 2PZ", amount: 5.00),
+            .init(label: "FOCACCIA ROMANA 2PZ ×2", amount: 5.00),
             .init(label: "BIBITA", amount: 2.00),
             .init(label: "SCONTO", amount: -2.00),
         ])
@@ -5079,7 +5079,7 @@ struct ReceiptTests {
         ], total: -14.50)
         #expect(items == [
             .init(label: "RAVIOLI POLLO VAPORE 5PZ", amount: 6.50),
-            .init(label: "BAO ALLA PIASTRA 3PZ", amount: 9.60),
+            .init(label: "BAO ALLA PIASTRA 3PZ ×2", amount: 9.60),
             .init(label: "ACQUA", amount: 1.50),
             .init(label: "SCONTO", amount: -3.10),
         ])
@@ -5097,9 +5097,33 @@ struct ReceiptTests {
         // La ligne de quantité dit le prix d'une pièce : elle ne vole pas le
         // nom au prix de la ligne, qui est celui qu'on a payé.
         #expect(ReceiptParser.items(from: ["Pain complet", "2 X 1,20", "2,40"])
-            == [.init(label: "Pain complet", amount: 2.40)])
+            == [.init(label: "Pain complet ×2", amount: 2.40)])
         // Et un total resté sans son prix n'en devient pas un achat.
         #expect(ReceiptParser.items(from: ["NET A PAYER", "12,00"]).isEmpty)
+    }
+
+    /*
+     * « 2 X 4,80 » dit ce que la banque ne dira jamais : le prix à la pièce.
+     *
+     * La caisse pose cette ligne où elle veut — avant l'article chez l'une,
+     * après chez l'autre — et le ticket ne dit pas à qui elle appartient.
+     * C'est la multiplication qui le dit : deux fois 4,80 font les 9,60 de
+     * la ligne voisine, et ne font pas les 6,50 de l'autre.
+     */
+    @Test("la quantité s'écrit sur l'article dont elle fait le prix")
+    func marksTheMultipliedItem() {
+        #expect(ReceiptParser.items(from: ["Café 1,50", "3 X 2,00", "Thé 6,00"]) == [
+            .init(label: "Café", amount: 1.50),
+            .init(label: "Thé ×3", amount: 6.00),
+        ])
+        // Posée après, elle revient sur l'article qu'elle chiffre.
+        #expect(ReceiptParser.items(from: ["Thé 6,00", "3 X 2,00", "Café 1,50"]) == [
+            .init(label: "Thé ×3", amount: 6.00),
+            .init(label: "Café", amount: 1.50),
+        ])
+        // Et un compte qui ne tombe sur rien ne s'écrit nulle part.
+        #expect(ReceiptParser.items(from: ["2 X 4,80", "Thé 6,00"])
+            == [.init(label: "Thé", amount: 6.00)])
     }
 
     @Test("les milliers ne se lisent pas comme des centimes")
