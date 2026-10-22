@@ -95,8 +95,22 @@ coin.materials = [gold, cap, cap]
 let node = SCNNode(geometry: coin)
 // Couchée : l'axe du cylindre devient horizontal, la pièce nous fait face.
 node.eulerAngles = SCNVector3(CGFloat.pi / 2, 0, 0)
+
+/*
+ * La gravure d'aplomb.
+ *
+ * Coucher le cylindre amène aussi sa texture sur le flanc : le lys sortait
+ * du rendu couché, pointe à droite. On fait donc tourner la pièce d'un quart
+ * de tour sur son propre axe — comme on la tournerait entre deux doigts — et
+ * non sa texture : les deux faces tournent alors ensemble, alors qu'une
+ * image tournée aurait laissé le dos, qui est son miroir, la pointe en bas.
+ */
+let upright = SCNNode()
+upright.eulerAngles = SCNVector3(0, 0, CGFloat.pi / 2)
+upright.addChildNode(node)
+
 let spinner = SCNNode()
-spinner.addChildNode(node)
+spinner.addChildNode(upright)
 scene.rootNode.addChildNode(spinner)
 
 let camera = SCNCamera()

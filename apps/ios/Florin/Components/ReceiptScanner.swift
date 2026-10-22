@@ -70,7 +70,9 @@ enum ReceiptOCR {
         let request = VNRecognizeTextRequest()
         request.recognitionLevel = .accurate
         request.usesLanguageCorrection = false
-        request.recognitionLanguages = ["fr-FR", "en-US"]
+        // L'italien avec le français et l'anglais : un ticket se lit là où on
+        // est, pas là où l'app a été écrite.
+        request.recognitionLanguages = ["fr-FR", "it-IT", "en-US"]
         try VNImageRequestHandler(cgImage: page, orientation: .up).perform([request])
 
         let blocks = (request.results ?? []).compactMap { observation -> Block? in

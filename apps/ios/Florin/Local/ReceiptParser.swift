@@ -61,8 +61,13 @@ enum ReceiptParser {
 
     /// Le prix en fin de ligne, éventuellement précédé d'un signe et suivi du
     /// code de TVA que les caisses collent au montant (« 3,49 A », « 2.00 € »).
+    ///
+    /// L'espace autour de la virgule n'est pas une coquetterie : une caisse
+    /// thermique espace ses caractères, et la reconnaissance rend « 6, 50 »
+    /// aussi souvent que « 6,50 ». Sans cette tolérance la ligne n'a pas de
+    /// prix du tout, et l'article qu'elle chiffrait disparaît.
     private static let price = try? NSRegularExpression(
-        pattern: #"(-?\s?\d{1,6}[.,]\d{2})\s*(?:[A-Za-z€]{1,4})?\s*$"#
+        pattern: #"(-?\s?\d{1,6}\s?[.,]\s?\d{2})\s*(?:[A-Za-z€]{1,4})?\s*$"#
     )
 
     /*
@@ -94,11 +99,16 @@ enum ReceiptParser {
                 pending = nil
             case let .nameAlone(name):
                 pending = name
-            case .quantity:
-                // « 2 X 4,80 » dit le prix d'une pièce, pas celui de la ligne :
-                // le nom reste en attente du prix qui vient après.
+            case .quantity, .noise:
+                // « 2 X 4,80 » dit le prix d'une pièce, pas celui de la ligne,
+                // et « 10% » seul ne dit rien du tout : le nom reste en
+                // attente du prix qui vient après. Une caisse italienne pose
+                // le taux sur sa propre ligne, et ces lignes-là effaçaient le
+                // plat dont elles annonçaient le prix.
                 break
-            case .neither:
+            case .summary:
+                // Un récapitulatif chiffré, lui, clôt ce qui précède : le nom
+                // resté sans prix n'en aura plus.
                 pending = nil
             }
         }
@@ -147,8 +157,12 @@ enum ReceiptParser {
         case purchase(Item)
         case priceAlone(Double)
         case nameAlone(String)
+        /// « 2 X 4,80 » : le prix d'une pièce, que la ligne suivante multiplie.
         case quantity
-        case neither
+        /// Un total, une TVA, un moyen de paiement : chiffré, mais pas acheté.
+        case summary
+        /// Ni nom ni prix — un taux seul, une étoile, un trait de séparation.
+        case noise
     }
 
     static func read(_ rawLine: String) -> Line {
@@ -156,7 +170,7 @@ enum ReceiptParser {
             .replacingOccurrences(of: "\u{00A0}", with: " ")
             .split(whereSeparator: \.isWhitespace)
             .joined(separator: " ")
-        guard !line.isEmpty, let price else { return .neither }
+        guard !line.isEmpty, let price else { return .noise }
         let range = NSRange(line.startIndex..., in: line)
         guard let hit = price.firstMatch(in: line, range: range),
               let found = Range(hit.range(at: 1), in: line),
@@ -175,13 +189,13 @@ enum ReceiptParser {
         guard label.count >= 2, label.contains(where: \.isLetter) else {
             return .priceAlone(amount)
         }
-        guard !isNotAPurchase(label) else { return .neither }
+        guard !isNotAPurchase(label) else { return .summary }
         return .purchase(Item(label: label, amount: amount))
     }
 
     private static func name(of line: String) -> Line {
         let label = clean(line)
-        guard label.count >= 2, label.contains(where: \.isLetter) else { return .neither }
+        guard label.count >= 2, label.contains(where: \.isLetter) else { return .noise }
         return .nameAlone(label)
     }
 

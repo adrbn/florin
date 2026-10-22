@@ -5051,6 +5051,47 @@ struct ReceiptTests {
         #expect(items.reduce(0) { $0 + $1.amount } == 7.00)
     }
 
+    /*
+     * Le ticket romain, tel que la caisse l'imprime vraiment.
+     *
+     * Deux pièges de plus sur la même photo. Le taux de TVA tombe parfois sur
+     * sa propre ligne, et cette ligne-là ne dit rien : elle effaçait le plat
+     * dont la ligne suivante donnait le prix. Et une caisse thermique espace
+     * ses caractères — « 6, 50 » — ce qui ne ressemblait plus à un prix du
+     * tout, donc à rien.
+     */
+    @Test("un taux seul et une virgule espacée ne coûtent pas l'article")
+    func readsASpacedPriceUnderALoneVatRate() {
+        let items = ReceiptParser.items(from: [
+            "DESCRIZIONE IVA EURO",
+            "008 RAVIOLI POLLO VAPORE 5PZ",
+            "10%",
+            "6, 50",
+            "2 X 4,80",
+            "018 BAO ALLA PIASTRA 3PZ",
+            "10% 9,60",
+            "ACQUA 10% 1,50",
+            "SUBTOTALE 17,60",
+            "SCONTO -3,10",
+            "TOTALE COMPLESSIVO 14,50",
+            "DI CUI IVA 1,32",
+            "IMPORTO PAGATO 14,50",
+        ], total: -14.50)
+        #expect(items == [
+            .init(label: "RAVIOLI POLLO VAPORE 5PZ", amount: 6.50),
+            .init(label: "BAO ALLA PIASTRA 3PZ", amount: 9.60),
+            .init(label: "ACQUA", amount: 1.50),
+            .init(label: "SCONTO", amount: -3.10),
+        ])
+        #expect(items.reduce(0) { $0 + $1.amount } == 14.50)
+    }
+
+    @Test("un récapitulatif chiffré clôt le nom resté sans prix")
+    func summariesEndAPendingName() {
+        // Sans quoi le nom en attente irait chercher un prix bien plus bas.
+        #expect(ReceiptParser.items(from: ["NET A PAYER", "SOUS-TOTAL 3,00", "2,40"]).isEmpty)
+    }
+
     @Test("un prix seul ne se recolle qu'à la ligne juste au-dessus")
     func stitchesOnlyTheLineAbove() {
         // La ligne de quantité dit le prix d'une pièce : elle ne vole pas le
