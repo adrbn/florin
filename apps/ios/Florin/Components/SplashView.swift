@@ -138,6 +138,16 @@ struct SplashView: View {
                     depth: showingBack ? -Self.thickness / 2 : Self.thickness / 2
                 ))
         }
+        /*
+         * Une seule lueur, pas neuf.
+         *
+         * `shadow` posé sur un conteneur se propage à chaque enfant, qui la
+         * dessine pour son propre compte : les huit disques de la tranche et
+         * la face en faisaient neuf, empilées au même endroit, et la pièce
+         * est arrivée dans une boule de lumière. `compositingGroup` aplatit
+         * la pièce avant le filtre, qui n'a plus qu'une forme à éclairer.
+         */
+        .compositingGroup()
         .shadow(color: Color(red: 1, green: 0.82, blue: 0.42).opacity(0.28 * (1 - edgeness)),
                 radius: 18)
         .shadow(color: .black.opacity(0.5), radius: 14, y: 10)
