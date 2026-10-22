@@ -4977,6 +4977,42 @@ struct ReceiptTests {
         #expect(items.reduce(0) { $0 + $1.amount } == 12.00)
     }
 
+    /*
+     * Le récapitulatif ne se reconnaît pas à son libellé entier.
+     *
+     * Un ticket de supermarché le prouve trois fois sur la même photo : la
+     * caisse précise sa ligne (« TOTALE COMPLESSIVO »), colle le moyen de
+     * paiement derrière deux points (« Pagamento elettronico: VISA »), et la
+     * reconnaissance se trompe d'une lettre (« CONPLESSTVO »). Comparés
+     * entiers, les trois passaient pour des achats et quadruplaient le ticket.
+     *
+     * Les remises, elles, restent : ce sont elles qui font retomber les
+     * articles sur le montant débité.
+     */
+    @Test("un récapitulatif se reconnaît à sa tête de ligne")
+    func skipsSummariesByTheirHead() {
+        let items = ReceiptParser.items(from: [
+            "T PANE CASERECCIO K 10,00% 2,00",
+            "TAGLIO PREZZO 10,00% -0,50",
+            "T LATTE INTERO 1L K 4,00% 1,50",
+            "T.PARZIALE: 3,00",
+            "BAG RIUT, 44*20*38 MEDIA 22,00% 0,20",
+            "SUBTOTALE 3,20",
+            "TOTALE CONPLESSTVO 3,20",
+            "DI CUI IVA 0,25",
+            "Pagamento elettronico: VISA 3,20",
+            "Importo pagato 3,20",
+            "*** HAI RISPARMIATO *** 0,50",
+        ])
+        #expect(items == [
+            .init(label: "PANE CASERECCIO", amount: 2.00),
+            .init(label: "TAGLIO PREZZO", amount: -0.50),
+            .init(label: "LATTE INTERO 1L", amount: 1.50),
+            .init(label: "BAG RIUT, 44*20*38 MEDIA", amount: 0.20),
+        ])
+        #expect(items.reduce(0) { $0 + $1.amount } == 3.20)
+    }
+
     @Test("un prix seul ne se recolle qu'à la ligne juste au-dessus")
     func stitchesOnlyTheLineAbove() {
         // La ligne de quantité dit le prix d'une pièce : elle ne vole pas le

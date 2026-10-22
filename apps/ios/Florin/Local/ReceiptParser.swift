@@ -165,7 +165,18 @@ enum ReceiptParser {
                 in: label, range: NSRange(label.startIndex..., in: label), withTemplate: ""
             )
         }
-        return label.trimmingCharacters(in: junk)
+        label = label.trimmingCharacters(in: junk)
+        // Les caisses encadrent l'article de leurs propres lettres : le type de
+        // ligne devant, la classe de TVA derrière. Une lettre seule n'est un
+        // mot dans aucune des langues qu'un ticket écrit.
+        var words = label.split(separator: " ", omittingEmptySubsequences: true).map(String.init)
+        if words.count > 1, words[0].count == 1, words[0].first?.isLetter == true {
+            words.removeFirst()
+        }
+        if words.count > 1, words.last?.count == 1, words.last?.first?.isLetter == true {
+            words.removeLast()
+        }
+        return words.joined(separator: " ")
     }
 
     private static let itemCode = try? NSRegularExpression(pattern: #"^\d{3,5}\s+(?=\S*\p{L})"#)
@@ -185,12 +196,35 @@ enum ReceiptParser {
         return trimmed
     }
 
+    /*
+     * Ce qui annonce un récapitulatif, par sa tête de ligne.
+     *
+     * Le libellé entier ne suffit pas, et un vrai ticket le montre en trois
+     * façons : la caisse ajoute sa précision (« TOTALE COMPLESSIVO »), elle
+     * colle le moyen de paiement derrière deux points (« Pagamento
+     * elettronico: VISA »), et la reconnaissance se trompe d'une lettre
+     * (« TOTALE CONPLESSTVO »). Dans les trois cas la *tête* tient, et c'est
+     * elle qu'on compare.
+     *
+     * Par mots entiers, jamais par caractères : « TOTALEMENT BIO » commence
+     * par les lettres de « TOTAL » et reste un achat. Et seulement des têtes
+     * sans ambiguïté — « CARTE » n'en est pas une, « CARTE POSTALE » s'achète,
+     * donc elle reste dans la liste exacte au-dessus.
+     */
+    private static let summaryHeads: [String] = [
+        "TOTAL", "SOUS TOTAL", "SOUSTOTAL", "NET A PAYER", "A PAYER", "MONTANT",
+        "DONT", "RENDU", "NB ARTICLES", "NOMBRE ARTICLES",
+        "TOTALE", "SUBTOTALE", "PARZIALE", "T PARZIALE", "IMPORTO", "PAGAMENTO",
+        "DI CUI", "HAI RISPARMIATO", "RESTO", "CONTANTI", "NON RISCOSSO",
+        "SUBTOTAL", "SUB TOTAL", "AMOUNT", "BALANCE", "CHANGE", "YOU SAVED",
+        "IMPORTE", "EFECTIVO", "CAMBIO",
+    ]
+
     private static func isNotAPurchase(_ label: String) -> Bool {
         let folded = fold(label)
         if folded.isEmpty { return true }
-        // « DONT TVA », « DONT ECO-PART » : une ventilation du total, pas un achat.
-        if folded.hasPrefix("DONT ") { return true }
-        return notPurchases.contains(folded)
+        if notPurchases.contains(folded) { return true }
+        return summaryHeads.contains { folded == $0 || folded.hasPrefix($0 + " ") }
     }
 
     /// « 1 234,56 », « 1.234,56 », « -3.49 » : le séparateur décimal est le

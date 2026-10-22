@@ -83,8 +83,7 @@ struct TransactionDetailSheet: View {
     }
 
     private var actionCount: Int {
-        var n = 3   // catégoriser, modifier, supprimer
-        if isLocalLedger { n += 1 }   // ticket de caisse
+        var n = 3   // modifier, catégoriser, supprimer
         if tx.needsReview { n += 1 }
         if !tx.isTransfer, tx.amount < 0, accounts.count > 1 { n += 1 }
         return n
@@ -128,6 +127,25 @@ struct TransactionDetailSheet: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityHint(t("v2.merchant.title", "Renommer le marchand"))
+                }
+                /*
+                 * Le ticket de caisse, en petit.
+                 *
+                 * Une rangée pleine largeur de plus le mettait au même rang
+                 * que modifier ou supprimer, alors qu'il ne concerne qu'une
+                 * dépense sur dix et qu'on n'y revient presque jamais. Une
+                 * icône dans la barre se trouve quand on la cherche et ne pèse
+                 * rien quand on ne la cherche pas.
+                 */
+                if isLocalLedger {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button { receipting = true } label: {
+                            Image(systemName: "doc.text.viewfinder")
+                                .font(.system(size: 14, weight: .semibold))
+                        }
+                        .tint(Florin.text2)
+                        .accessibilityLabel(t("v2.receipts.open", "Ticket de caisse"))
+                    }
                 }
                 ToolbarItem(placement: .cancellationAction) {
                     // A glyph, not the word. "Fermer" in a toolbar draws a
@@ -352,19 +370,11 @@ struct TransactionDetailSheet: View {
                     }
                 }
             }
-            SheetAction(label: t("v2.review.categorize", "Catégoriser"), symbol: "tag") {
-                picking = true
-            }
-            if isLocalLedger {
-                SheetAction(
-                    label: t("v2.receipts.open", "Ticket de caisse"),
-                    symbol: "doc.text.viewfinder"
-                ) {
-                    receipting = true
-                }
-            }
             SheetAction(label: t("v2.common.edit", "Modifier"), symbol: "pencil") {
                 editing = true
+            }
+            SheetAction(label: t("v2.review.categorize", "Catégoriser"), symbol: "tag") {
+                picking = true
             }
             SheetAction(
                 label: t("v2.common.delete", "Supprimer"),
