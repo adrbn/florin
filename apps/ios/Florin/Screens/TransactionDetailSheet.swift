@@ -139,11 +139,24 @@ struct TransactionDetailSheet: View {
                  */
                 if isLocalLedger {
                     ToolbarItem(placement: .confirmationAction) {
+                        /*
+                         * Sans le verre du système.
+                         *
+                         * Un bouton de barre reçoit depuis iOS 26 une bulle de
+                         * verre qui réfracte ce qu'il y a dessous : sur le
+                         * dégradé de la feuille, l'appui en tirait une barre
+                         * claire en travers de l'icône. Un glyphe nu n'a rien
+                         * à réfracter, et discret est précisément ce qu'on lui
+                         * demande.
+                         */
                         Button { receipting = true } label: {
                             Image(systemName: "doc.text.viewfinder")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(Florin.text2)
+                                .frame(width: 32, height: 32)
+                                .contentShape(Rectangle())
                         }
-                        .tint(Florin.text2)
+                        .buttonStyle(.plain)
                         .accessibilityLabel(t("v2.receipts.open", "Ticket de caisse"))
                     }
                 }

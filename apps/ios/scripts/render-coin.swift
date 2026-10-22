@@ -17,11 +17,15 @@
 // Écrit Florin/Assets.xcassets/CoinSpin.imageset/coinspin.png : une grille de
 // COLUMNS × ROWS images couvrant un tour complet, dans l'ordre de lecture.
 //
+// La planche est déclarée ×3, et une image y fait exactement trois fois le
+// côté affiché par SplashView : un pixel rendu pour un pixel d'écran. Déclarée
+// ×1, iOS la rééchantillonne à l'affichage et la gravure devient molle.
+//
 import AppKit
 import SceneKit
 
-let cell = 176            // côté d'une image, en pixels (62 pt à l'écran, ×3)
-let columns = 6, rows = 4 // 24 images pour un tour : 15° entre deux
+let cell = 222            // côté d'une image, en pixels (74 pt à l'écran, ×3)
+let columns = 6, rows = 5 // 30 images pour un tour : 12° entre deux
 let frames = columns * rows
 
 let root = URL(fileURLWithPath: CommandLine.arguments.first.map {
@@ -46,29 +50,42 @@ let scene = SCNScene()
  */
 let sky = NSImage(size: NSSize(width: 64, height: 256), flipped: false) { rect in
     NSGradient(colors: [
-        NSColor(calibratedWhite: 1.0, alpha: 1),
-        NSColor(calibratedWhite: 0.55, alpha: 1),
-        NSColor(calibratedWhite: 0.12, alpha: 1),
+        NSColor(calibratedWhite: 0.80, alpha: 1),
+        NSColor(calibratedWhite: 0.46, alpha: 1),
+        NSColor(calibratedWhite: 0.14, alpha: 1),
     ])?.draw(in: rect, angle: -90)
     return true
 }
 scene.lightingEnvironment.contents = sky
-scene.lightingEnvironment.intensity = 1.0
+scene.lightingEnvironment.intensity = 0.85
 
 let coin = SCNCylinder(radius: 1, height: 0.17)
 coin.radialSegmentCount = 96
 
 let gold = SCNMaterial()
 gold.lightingModel = .physicallyBased
-gold.diffuse.contents = NSColor(srgbRed: 0.93, green: 0.76, blue: 0.36, alpha: 1)
+gold.diffuse.contents = NSColor(srgbRed: 0.87, green: 0.70, blue: 0.34, alpha: 1)
 gold.metalness.contents = 1.0
-gold.roughness.contents = 0.22
+// Un or bien poli ne renvoie qu'un trait de lumière, et ce trait traverse la
+// tranche d'un coup au milieu du tour : c'est exactement l'éclat qu'il ne
+// veut pas voir. Mat, la tranche se contente de tourner.
+gold.roughness.contents = 0.46
 
+/*
+ * La face n'est pas éclairée, et c'est volontaire.
+ *
+ * Le dessin porte déjà sa lumière : son relief, son listel, le satiné du
+ * métal y sont peints. Le repasser sous un éclairage physique l'éclaire deux
+ * fois — l'or vire au brun sous l'ombre ajoutée, la gravure se noie. C'est ce
+ * que donnait la première version, et c'est ce qu'il a appelé moche.
+ *
+ * Rendue telle quelle, la face est exactement celle que l'app affiche
+ * ailleurs ; la 3D ne sert qu'à ce que le dessin seul ne peut pas faire : une
+ * tranche, une perspective, une silhouette qui se referme.
+ */
 let cap = SCNMaterial()
-cap.lightingModel = .physicallyBased
+cap.lightingModel = .constant
 cap.diffuse.contents = face
-cap.metalness.contents = 0.55
-cap.roughness.contents = 0.42
 // Le cylindre pose la texture d'une face à l'endroit et l'autre en miroir :
 // c'est exactement ce qu'on veut, le dos d'une pièce est le reflet de sa face.
 
@@ -85,14 +102,17 @@ scene.rootNode.addChildNode(spinner)
 let camera = SCNCamera()
 camera.usesOrthographicProjection = false
 camera.fieldOfView = 23
-camera.wantsHDR = true
-camera.bloomIntensity = 0.06
-camera.bloomThreshold = 0.95
+// Ni HDR ni bloom : c'est le halo qu'ils fabriquent autour de la pièce qu'on
+// ne veut pas. Un or qui brille est un or peint, pas un or allumé.
+camera.wantsHDR = false
 let cameraNode = SCNNode()
 cameraNode.camera = camera
 // Un peu au-dessus : quelques degrés suffisent à faire un disque posé dans une
 // pièce plutôt qu'un cercle sur une page.
-cameraNode.position = SCNVector3(0, 0.55, 5.05)
+// Assez loin pour que la pièce ne touche jamais le bord de son image : une
+// ellipse de profil est plus haute que large, et la plus large des vues doit
+// garder sa marge, sinon un côté se coupe net au milieu du tour.
+cameraNode.position = SCNVector3(0, 0.55, 5.6)
 cameraNode.eulerAngles = SCNVector3(-0.108, 0, 0)
 scene.rootNode.addChildNode(cameraNode)
 
@@ -107,9 +127,10 @@ func light(_ kind: SCNLight.LightType, intensity: CGFloat, at p: SCNVector3) -> 
     n.look(at: SCNVector3(0, 0, 0))
     return n
 }
-scene.rootNode.addChildNode(light(.directional, intensity: 700, at: SCNVector3(-2.5, 3, 4)))
-scene.rootNode.addChildNode(light(.directional, intensity: 420, at: SCNVector3(3, -1, 2)))
-scene.rootNode.addChildNode(light(.omni, intensity: 140, at: SCNVector3(0, 0, 6)))
+// Deux lumières douces, et rien de frontal : la face s'éclaire toute seule,
+// seule la tranche a besoin d'être vue.
+scene.rootNode.addChildNode(light(.directional, intensity: 420, at: SCNVector3(-2.5, 3, 4)))
+scene.rootNode.addChildNode(light(.directional, intensity: 240, at: SCNVector3(3, -1, 2)))
 
 // MARK: - Le rendu
 
@@ -146,13 +167,32 @@ try png.write(to: outDir.appendingPathComponent("coinspin.png"))
 try """
 {
   "images" : [
-    { "filename" : "coinspin.png", "idiom" : "universal", "scale" : "1x" },
+    { "idiom" : "universal", "scale" : "1x" },
     { "idiom" : "universal", "scale" : "2x" },
-    { "idiom" : "universal", "scale" : "3x" }
+    { "filename" : "coinspin.png", "idiom" : "universal", "scale" : "3x" }
   ],
   "info" : { "author" : "xcode", "version" : 1 }
 }
 
 """.write(to: outDir.appendingPathComponent("Contents.json"), atomically: true, encoding: .utf8)
 
-print("\(frames) images, \(cell)px — \(outDir.path)/coinspin.png")
+/*
+ * Une planche de métal sur fond transparent pèse quatre mégaoctets en PNG
+ * vrai, pour une app qui en pèse cinq. Elle n'a pourtant que des ors : une
+ * palette de 256 couleurs la rend à l'œil nu identique et dix fois plus
+ * légère. Si l'outil n'est pas là, l'image reste juste — et lourde.
+ */
+let sheetURL = outDir.appendingPathComponent("coinspin.png")
+for tool in ["/opt/homebrew/bin/pngquant", "/usr/local/bin/pngquant"]
+where FileManager.default.isExecutableFile(atPath: tool) {
+    let task = Process()
+    task.executableURL = URL(fileURLWithPath: tool)
+    task.arguments = ["--force", "--skip-if-larger", "--quality", "65-92",
+                      "--output", sheetURL.path, "256", sheetURL.path]
+    try task.run()
+    task.waitUntilExit()
+    break
+}
+
+let weight = (try? FileManager.default.attributesOfItem(atPath: sheetURL.path)[.size]) ?? 0
+print("\(frames) images, \(cell)px, \(weight) octets — \(sheetURL.path)")

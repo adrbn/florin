@@ -68,6 +68,12 @@
 	     du scanner. Les photos restent dans le conteneur de l'app. -->
 	<key>NSCameraUsageDescription</key>
 	<string>Florin ouvre l'appareil photo pour lire tes tickets de caisse. Les photos restent sur ton téléphone.</string>
+	<!-- « Enregistrer dans Photos » depuis la visionneuse de ticket. Lire la
+	     photothèque ne demande rien — le sélecteur système tourne hors de
+	     l'app — mais y ajouter une image sans cette clé fait planter l'app au
+	     moment de l'enregistrement. -->
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Florin enregistre la photo d'un ticket dans tes Photos quand tu le demandes.</string>
 	<!-- Shown by the system the first time Face ID is asked for. Without it
 	     the prompt does not appear at all and the app looks broken. -->
 	<key>NSFaceIDUsageDescription</key>

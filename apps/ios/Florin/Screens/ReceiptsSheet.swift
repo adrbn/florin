@@ -1,3 +1,4 @@
+import PhotosUI
 import SwiftUI
 import UIKit
 
@@ -32,6 +33,9 @@ struct ReceiptsSheet: View {
     @State private var photos: [String: UIImage] = [:]
     @State private var viewing: Photo?
     @State private var scanning = false
+    /// Les jetons que rend la photothèque : des images à charger, pas des
+    /// images.
+    @State private var picked: [PhotosPickerItem] = []
     @State private var reading = false
     @State private var failure: String?
 
@@ -62,6 +66,7 @@ struct ReceiptsSheet: View {
                                 .foregroundStyle(Florin.negative)
                         }
                         scan
+                        importer
                     }
                     .padding(.horizontal, Florin.gutter)
                     .padding(.vertical, 14)
@@ -260,6 +265,35 @@ struct ReceiptsSheet: View {
         .disabled(reading)
     }
 
+    /*
+     * Un ticket qu'on n'a plus sous la main.
+     *
+     * Le scanner veut le papier devant l'objectif, et c'est le cas courant.
+     * Mais la photo est parfois déjà prise — le ticket est resté sur la table,
+     * la commande est arrivée par mail, quelqu'un d'autre l'a photographiée —
+     * et il n'y avait alors aucun chemin vers le même traitement. Le
+     * sélecteur système le donne sans demander l'accès à la photothèque : il
+     * tourne hors de l'app et ne rend que ce qui est choisi.
+     */
+    private var importer: some View {
+        PhotosPicker(selection: $picked, maxSelectionCount: 4, matching: .images) {
+            Label(
+                t("v2.receipts.import", "Importer une photo"),
+                systemImage: "photo.on.rectangle"
+            )
+            .font(.system(size: 14))
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+        }
+        .tint(Florin.text2)
+        .disabled(reading)
+        .onChange(of: picked) { _, items in
+            guard !items.isEmpty else { return }
+            picked = []
+            Task { await read(chosen: items) }
+        }
+    }
+
     // MARK: - Lire et ranger
 
     private func load() {
@@ -287,28 +321,36 @@ struct ReceiptsSheet: View {
                 .scaledToFit()
                 .ignoresSafeArea(edges: .bottom)
             VStack {
-                HStack {
-                    Button { viewing = nil } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .padding(10)
-                            .background(.black.opacity(0.45), in: Circle())
-                    }
-                    .accessibilityLabel(t("v2.common.close", "Fermer"))
+                HStack(spacing: 10) {
+                    Button { viewing = nil } label: { glyph("xmark") }
+                        .accessibilityLabel(t("v2.common.close", "Fermer"))
                     Spacer()
-                    ShareLink(item: url(photo.path)) {
-                        Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .padding(10)
-                            .background(.black.opacity(0.45), in: Circle())
-                    }
+                    // Sortir la photo de l'app : la photothèque pour la garder,
+                    // le partage pour l'envoyer. Le système demande lui-même
+                    // l'autorisation d'ajout, et un refus ne retire rien — la
+                    // photo reste là où elle a toujours été, dans l'app.
+                    Button {
+                        UIImageWriteToSavedPhotosAlbum(photo.image, nil, nil, nil)
+                        UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    } label: { glyph("square.and.arrow.down") }
+                        .accessibilityLabel(
+                            t("v2.receipts.saveToPhotos", "Enregistrer dans Photos")
+                        )
+                    ShareLink(item: url(photo.path)) { glyph("square.and.arrow.up") }
                 }
                 .padding(.horizontal, Florin.gutter)
                 Spacer()
             }
         }
+    }
+
+    /// Un rond sombre sous un symbole : lisible sur n'importe quelle photo.
+    private func glyph(_ name: String) -> some View {
+        Image(systemName: name)
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundStyle(.white)
+            .padding(10)
+            .background(.black.opacity(0.45), in: Circle())
     }
 
     struct Photo: Identifiable {
@@ -322,6 +364,18 @@ struct ReceiptsSheet: View {
      * aucune raison de tenir l'écran. Les photos partent donc sur une tâche
      * de fond, et l'écriture revient sur le fil principal où la base est lue.
      */
+    /// Les images choisies, chargées une par une puis lues comme un scan.
+    private func read(chosen items: [PhotosPickerItem]) async {
+        var images: [UIImage] = []
+        for item in items {
+            guard let data = try? await item.loadTransferable(type: Data.self),
+                  let image = UIImage(data: data)
+            else { continue }
+            images.append(image)
+        }
+        read(images)
+    }
+
     private func read(_ images: [UIImage]) {
         guard !images.isEmpty else { return }
         reading = true
