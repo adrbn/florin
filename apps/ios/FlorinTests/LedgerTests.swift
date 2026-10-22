@@ -5013,6 +5013,44 @@ struct ReceiptTests {
         #expect(items.reduce(0) { $0 + $1.amount } == 3.20)
     }
 
+    /*
+     * Ce qu'aucune liste de mots ne saura : la caisse d'un pays dont on ne
+     * lit pas la langue. Le ticket, lui, se vérifie tout seul — une ligne qui
+     * répète la somme de celles du dessus, ou le montant débité, ne vend
+     * rien.
+     */
+    @Test("un récapitulatif se reconnaît à son arithmétique, sans son mot")
+    func skipsSummariesByArithmetic() {
+        let items = ReceiptParser.items(from: [
+            "Chleb pszenny 2,00",
+            "Mleko 1L 1,50",
+            "RAZEM DO ZAPLATY 3,50",
+            "ZAPLACONO KARTA 3,50",
+        ], total: -3.50)
+        #expect(items == [
+            .init(label: "Chleb pszenny", amount: 2.00),
+            .init(label: "Mleko 1L", amount: 1.50),
+        ])
+    }
+
+    /*
+     * Et l'inverse, qui compte autant : trois articles dont le troisième
+     * coûte la somme des deux premiers. Il ressemble à un sous-total et n'en
+     * est pas un — c'est le montant débité qui tranche, lui vient de la
+     * banque.
+     */
+    @Test("un article qui ressemble à un sous-total reste si le débit le dit")
+    func keepsItemsThatLookLikeSubtotals() {
+        let items = ReceiptParser.items(from: [
+            "Savon 2,00",
+            "Eponge 1,50",
+            "Lessive 3,50",
+            "TOTAL 7,00",
+        ], total: -7.00)
+        #expect(items.count == 3)
+        #expect(items.reduce(0) { $0 + $1.amount } == 7.00)
+    }
+
     @Test("un prix seul ne se recolle qu'à la ligne juste au-dessus")
     func stitchesOnlyTheLineAbove() {
         // La ligne de quantité dit le prix d'une pièce : elle ne vole pas le

@@ -17,8 +17,9 @@ import Foundation
  *
  * La liste des mots à écarter est forcément incomplète : chaque enseigne
  * imprime ses tickets comme elle l'entend, et il n'existe pas de norme. Elle
- * est donc écrite pour se compléter sans rien casser — et surtout, la somme
- * des articles est confrontée au montant de l'opération (voir
+ * est donc écrite pour se compléter sans rien casser — et elle n'est pas
+ * seule : le ticket se vérifie par son arithmétique (voir `keeping`), et la
+ * somme des articles est confrontée au montant de l'opération (voir
  * `LocalReceipts.unexplained`), qui lui est sûr. C'est cet écart, et non une
  * confiance dans cette liste, qui dit si la lecture a réussi.
  */
@@ -78,7 +79,7 @@ enum ReceiptParser {
      * interdit à un prix de se rattacher à un nom dont une autre ligne le
      * sépare.
      */
-    static func items(from lines: [String]) -> [Item] {
+    static func items(from lines: [String], total: Double? = nil) -> [Item] {
         var items: [Item] = []
         var pending: String?
         for line in lines {
@@ -101,7 +102,39 @@ enum ReceiptParser {
                 pending = nil
             }
         }
-        return items
+        guard let total else { return items }
+        return keeping(items, against: abs(total))
+    }
+
+    /// Un centime près : ces montants viennent d'une lecture de photo, pas
+    /// d'un calcul.
+    private static let cent = 0.005
+
+    /*
+     * Le récapitulatif reconnu par le calcul, dans une langue qu'on ignore.
+     *
+     * La liste de mots ne connaîtra jamais toutes les caisses du monde, mais
+     * un ticket se vérifie lui-même : une ligne qui répète la somme des
+     * lignes au-dessus d'elle, ou qui répète le montant débité, n'est pas un
+     * article — aucun ticket ne vend deux fois ce qu'il vient de vendre.
+     *
+     * Ressembler à un récapitulatif ne suffit pas, sinon « pain 2,00 ; lait
+     * 1,50 ; thé 3,50 » perdrait son thé. Il faut aussi que l'écart au
+     * montant débité *y gagne* : c'est lui l'arbitre, il vient de la banque.
+     * Quand la lecture est incomplète — la somme reste sous le débit —
+     * écarter une ligne n'améliore rien, et tout est gardé.
+     */
+    private static func keeping(_ items: [Item], against total: Double) -> [Item] {
+        var kept: [Item] = []
+        var sum = 0.0
+        for item in items {
+            let repeats = abs(item.amount - sum) <= cent || abs(item.amount - total) <= cent
+            let closer = abs(sum - total) < abs(sum + item.amount - total)
+            if kept.count >= 2, repeats, closer { continue }
+            kept.append(item)
+            sum += item.amount
+        }
+        return kept
     }
 
     static func item(from rawLine: String) -> Item? {

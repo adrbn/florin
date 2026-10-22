@@ -331,7 +331,7 @@ struct ReceiptsSheet: View {
                 return (
                     ReceiptOCR.thumbnail(image),
                     lines.joined(separator: "\n"),
-                    ReceiptParser.items(from: lines)
+                    ReceiptParser.items(from: lines, total: tx.amount)
                 )
             }
             await MainActor.run {
