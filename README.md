@@ -68,6 +68,7 @@ Nothing to sign up for, anywhere. Want to look around first? The iPhone app has 
 | PSD2 bank sync through your own Enable Banking app | ✅ | ✅ | ✅ |
 | CSV / OFX import that reads real French, German and English exports | ✅ | ✅ | ✅ |
 | Manual entry and transfers between your own accounts | ✅ | ✅ | ✅ |
+| Photograph a receipt and keep what it says, line by line — read on the phone, never uploaded | ✅ | — | — |
 | Apple Pay payments listed as upcoming the moment you pay, then replaced by the bank's row | ✅ | — | — |
 | YNAB-style spreadsheet import | — | — | ✅ |
 | **Wealth** | | | |
