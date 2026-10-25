@@ -946,12 +946,17 @@ struct OverviewScreen: View {
         // d'entre elles suffisaient à chasser de l'écran ce qui venait
         // réellement de se passer. Elles vivent dans Activité, sous la
         // prévision, et n'ont rien à faire dans un résumé.
-        let upcoming = data.recent.filter { $0.isUpcoming && !$0.isInstalment }
+        let upcoming = data.recent.filter { $0.isToCome && !$0.isInstalment }
         // Waiting on the bank and waiting on you are two different queues, and
         // a row cannot be in both: an unsettled charge is not yours to file
         // yet. Split before either group is drawn.
-        let toReview = data.recent.filter { !$0.isUpcoming && $0.needsReview }
-        let settled = data.recent.filter { !$0.isUpcoming && !$0.needsReview }
+        //
+        // Les trois filtres se partagent les lignes sur le même critère : en
+        // changer un seul en faisait disparaître — une carte en attente datée
+        // d'aujourd'hui n'était plus une prévision et restait exclue des deux
+        // autres groupes.
+        let toReview = data.recent.filter { !$0.isToCome && $0.needsReview }
+        let settled = data.recent.filter { !$0.isToCome && !$0.needsReview }
 
         return section(data.t("v2.overview.recent", "Dernières opérations")) {
             VStack(spacing: 12) {

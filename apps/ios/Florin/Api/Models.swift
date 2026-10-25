@@ -356,6 +356,29 @@ struct Transaction: Decodable, Sendable, Identifiable {
     }
 
     /*
+     * En prévision — ce qui n'a pas encore eu lieu, et rien de plus.
+     *
+     * Une carte en attente datée d'aujourd'hui a bel et bien été dépensée :
+     * l'argent est parti, la banque n'a plus qu'à l'écrire. La ranger avec
+     * les prévisions la sortait du groupe de sa journée et donc de son
+     * total — le jour n'affichait que les achats déjà comptabilisés, les
+     * autres pliés au-dessus sous « en prévision », et la journée paraissait
+     * deux fois moins dépensière qu'elle ne l'était.
+     *
+     * Une prévision est donc une date à venir. Seule exception, l'annonce :
+     * la banque promet un virement pour le 28 et ne le passe qu'en fin de
+     * journée — la date est arrivée, le mouvement non, et le compter dans la
+     * journée affirmerait une somme que personne n'a reçue.
+     */
+    var isToCome: Bool { isToCome(among: OwnAccounts.shared.numbers()) }
+
+    func isToCome(among numbers: Set<String>) -> Bool {
+        if isAnnounced(among: numbers) { return true }
+        let calendar = Calendar(identifier: .gregorian)
+        return calendar.startOfDay(for: day) > calendar.startOfDay(for: Date())
+    }
+
+    /*
      * Four shapes, one date.
      *
      * The server sends ISO-8601; SQLite's own `datetime('now')` writes

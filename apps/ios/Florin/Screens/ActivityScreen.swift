@@ -1002,8 +1002,12 @@ struct TransactionList<Banner: View>: View {
     }
 
     /// Announced, not yet booked. Kept out of the queue and the day groups.
+    ///
+    /// Datée d'aujourd'hui, une carte en attente n'est pas une prévision :
+    /// elle appartient au groupe de sa journée, et à son total. Voir
+    /// `Transaction.isToCome`.
     private var upcoming: [Transaction] {
-        model.rows.filter { $0.isUpcoming && !$0.isInstalment }
+        model.rows.filter { $0.isToCome && !$0.isInstalment }
     }
 
     /*

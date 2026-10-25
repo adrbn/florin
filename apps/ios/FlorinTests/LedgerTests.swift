@@ -1608,6 +1608,33 @@ struct AnnouncedTests {
     func noAccounts() {
         #expect(!row("FR76 1234 5678 9012 3456 7890 123 DUPONT", on: today).isAnnounced(among: []))
     }
+
+    /*
+     * Ce qui reste à venir, et ce qui est déjà dépensé.
+     *
+     * Une carte en attente datée d'aujourd'hui était pliée sous « en
+     * prévision », donc hors du groupe de sa journée et hors de son total :
+     * la journée n'affichait que ses achats déjà comptabilisés. L'argent est
+     * parti, seule l'écriture manque.
+     */
+    @Test("a card still pending today has already been spent")
+    func pendingTodayIsSpent() {
+        let charge = row("ACHAT CB SUPERETTE EXEMPLE", on: today, pending: true)
+        #expect(charge.isUpcoming(among: mine))
+        #expect(!charge.isToCome(among: mine))
+    }
+
+    @Test("the same charge dated tomorrow is still to come")
+    func pendingTomorrowIsToCome() {
+        #expect(row("ACHAT CB SUPERETTE EXEMPLE", on: "2099-01-01", pending: true)
+            .isToCome(among: mine))
+    }
+
+    /// L'annonce garde son exception : la date est arrivée, le mouvement non.
+    @Test("an announcement stays to come on the day it is promised")
+    func announcedTodayIsToCome() {
+        #expect(row("FR76 1234 5678 9012 3456 7890 123 DUPONT", on: today).isToCome(among: mine))
+    }
 }
 
 // MARK: - Ce qu'une ligne dit sous son nom
