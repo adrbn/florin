@@ -48,9 +48,14 @@
 	</array>
 	<!-- The v2 layout is a portrait phone design; landscape would only stretch
 	     a 390px-wide composition across the screen. -->
+	<!-- Déverrouillé pour l'iPhone Duo : c'est `AppDelegate` qui tranche,
+	     écran par écran — un téléphone ordinaire reste droit, un écran large
+	     tourne avec l'appareil. Une liste réduite ici l'emporterait sur lui. -->
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>

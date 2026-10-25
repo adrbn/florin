@@ -8,8 +8,30 @@ import SwiftUI
 /// `/api/v2/overview` feed. The remaining tabs render the v2 web surface in
 /// chromeless mode (the server drops its own tab bar when it sees this app's
 /// user agent) and are being replaced by native screens one at a time.
+/*
+ * Droit dans la main, libre une fois ouvert.
+ *
+ * Un livre de comptes couché sur un téléphone ordinaire ne gagne rien : les
+ * écrans sont des colonnes de cartes, et la rotation ne ferait que les
+ * écraser. Un iPhone Duo ouvert, lui, est un grand écran — il tourne avec
+ * l'appareil comme n'importe quel grand écran, sinon l'app reste debout dans
+ * un cadre couché.
+ *
+ * La règle est ici et non dans l'Info.plist parce qu'elle dépend de l'écran
+ * du moment : la liste du plist vaut pour toute l'app, cette méthode est
+ * posée à chaque fenêtre.
+ */
+final class AppDelegate: NSObject, UIApplicationDelegate {
+    func application(
+        _: UIApplication, supportedInterfaceOrientationsFor window: UIWindow?
+    ) -> UIInterfaceOrientationMask {
+        window?.traitCollection.horizontalSizeClass == .regular ? .allButUpsideDown : .portrait
+    }
+}
+
 @main
 struct FlorinApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var server = ServerStore()
 
     init() {
@@ -62,6 +84,7 @@ struct FlorinApp: App {
                  * re-evaluate at all; the id is what discards the stale tree.
                  */
                 .id(chosenLocale)
+                .overlay { OrientationRefresher() }
         }
         .onChange(of: scenePhase) { _, phase in
             /*
@@ -88,6 +111,29 @@ struct FlorinApp: App {
                 AppLock.shared.willResignActive()
             }
         }
+    }
+}
+
+/*
+ * Replier le Duo doit reposer la question.
+ *
+ * UIKit garde les orientations qu'on lui a données la dernière fois : un
+ * Duo refermé alors qu'il était couché laisserait son petit écran en
+ * paysage, c'est-à-dire l'app en travers dans la main. Le changement de
+ * classe de taille est le moment exact où la réponse change.
+ */
+private struct OrientationRefresher: View {
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
+    var body: some View {
+        Color.clear
+            .allowsHitTesting(false)
+            .onChange(of: sizeClass) {
+                for case let scene as UIWindowScene in UIApplication.shared.connectedScenes {
+                    scene.keyWindow?.rootViewController?
+                        .setNeedsUpdateOfSupportedInterfaceOrientations()
+                }
+            }
     }
 }
 

@@ -242,6 +242,9 @@ struct FloatingTabBar: View {
         }
         .padding(5)
         .modifier(BarGlass())
+        // Un grand écran n'allonge pas la barre : six icônes réparties sur
+        // mille points ne forment plus un objet, juste des boutons lointains.
+        .frame(maxWidth: Florin.readableWidth)
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 14)
         // Clear of the home indicator. Flush to the safe area the bar's lower

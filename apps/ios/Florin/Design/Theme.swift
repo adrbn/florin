@@ -6,6 +6,14 @@ import SwiftUI
 /// they could cross to native without re-deriving anything. Keep the two in
 /// step: a drift here shows up as a phone that does not look like the browser.
 enum Florin {
+    /// La largeur au-delà de laquelle une colonne cesse de se lire.
+    ///
+    /// Un iPhone ordinaire est plus étroit que ça : la limite ne sert que sur
+    /// les écrans qui ne sont pas un téléphone — un iPhone Duo ouvert — où
+    /// une carte étirée sur toute la largeur éloigne son libellé de son
+    /// montant au point qu'il faut traverser l'écran pour les rapprocher.
+    static let readableWidth: CGFloat = 620
+
     // MARK: Surfaces
     static let bg = dynamic(light: 0xFBFBFD, dark: 0x0D0E12)
     static let surface = dynamic(light: 0xFFFFFF, dark: 0x1B1D23)

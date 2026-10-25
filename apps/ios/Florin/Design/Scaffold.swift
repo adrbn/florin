@@ -24,6 +24,18 @@ struct TabScaffold<Content: View>: View {
                 // Clears the floating bar plus its scrim, so the last row is
                 // never left half-legible behind glass.
                 .padding(.bottom, 116)
+                /*
+                 * Une colonne, même sur un grand écran.
+                 *
+                 * Ouvert, l'iPhone Duo fait près de mille points de large :
+                 * les cartes s'étireraient sur toute cette largeur, un
+                 * libellé à un bout et son montant à l'autre, et le regard
+                 * ferait le voyage à chaque ligne. La colonne garde donc sa
+                 * largeur de lecture et se centre ; sur un téléphone, où
+                 * l'écran est plus étroit que cette limite, rien ne change.
+                 */
+                .frame(maxWidth: Florin.readableWidth)
+                .frame(maxWidth: .infinity)
             }
             .scrollIndicators(.hidden)
             .modifier(SoftScrollEdge())
