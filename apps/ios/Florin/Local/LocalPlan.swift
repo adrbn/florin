@@ -64,7 +64,15 @@ enum LocalPlan {
             FROM transactions t
             JOIN categories c ON c.id = t.category_id
             JOIN category_groups g ON g.id = c.group_id
-            WHERE t.deleted_at IS NULL AND t.is_pending = 0
+            /*
+             * Comptabilisé ou simplement présenté : la somme est retenue dans
+             * les deux cas, et le total du mois la compte (voir
+             * `LocalQueries.sum`). Le filtre portait sur l'attente, si bien
+             * qu'une enveloppe affichait moins dépensé que le tableau de
+             * bord. `status` écarte ce qui reste une prévision — saisie à la
+             * main, ou devinée du Wallet.
+             */
+            WHERE t.deleted_at IS NULL AND t.status = 'cleared'
               AND substr(t.occurred_at, 1, 10) <= date('now')
               AND substr(t.occurred_at, 1, 7) = ?
               /*

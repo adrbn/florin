@@ -237,6 +237,8 @@ enum LocalQueries {
 
 
     /// Spending with reimbursements deducted, optionally cut at a day.
+    ///
+    /// Même règle que `sum` sur l'attente : une carte présentée est partie.
     static func netBurn(_ db: SQLiteDatabase, month: String, upto: String?) throws -> Double {
         let cut = upto.map { "AND substr(t.occurred_at, 1, 10) <= '\($0)'" } ?? ""
         let raw = try db.scalar(
@@ -246,7 +248,7 @@ enum LocalQueries {
             JOIN accounts a ON a.id = t.account_id
             LEFT JOIN categories c ON c.id = t.category_id
             LEFT JOIN category_groups g ON g.id = c.group_id
-            WHERE t.deleted_at IS NULL AND t.status = 'cleared' AND t.is_pending = 0
+            WHERE t.deleted_at IS NULL AND t.status = 'cleared'
               AND substr(t.occurred_at, 1, 10) <= date('now')
               AND substr(t.occurred_at, 1, 7) = ? \(cut)
               AND t.transfer_pair_id IS NULL AND a.is_archived = 0
@@ -1059,6 +1061,15 @@ enum LocalQueries {
      * `fixedOnly` keeps the net convention the server uses for it, since only
      * a categorised row can be marked fixed and refunds against a bill really
      * do reduce that bill.
+     *
+     * Une carte en attente compte. Le filtre « comptabilisé » la mettait
+     * dehors, et le mois paraissait moins dépensier qu'il ne l'était tant que
+     * la banque n'avait pas écrit la ligne — alors que la somme, elle, est
+     * déjà retenue sur le compte. C'est aussi ce que fait le calendrier
+     * depuis toujours (`LocalDay.spent`), et les deux écrans se
+     * contredisaient. `status = 'cleared'` reste : une prévision saisie à la
+     * main ou devinée du Wallet n'est pas une dépense, et la date du jour
+     * borne toujours ce qui est passé.
      */
     private static func sum(
         _ db: SQLiteDatabase,
@@ -1093,7 +1104,7 @@ enum LocalQueries {
             JOIN accounts a ON a.id = t.account_id
             LEFT JOIN categories c ON c.id = t.category_id
             LEFT JOIN category_groups g ON g.id = c.group_id
-            WHERE t.deleted_at IS NULL AND t.status = 'cleared' AND t.is_pending = 0
+            WHERE t.deleted_at IS NULL AND t.status = 'cleared'
               AND substr(t.occurred_at, 1, 10) <= date('now')
               AND substr(t.occurred_at, 1, 7) = ?
               AND t.transfer_pair_id IS NULL AND a.is_archived = 0 \(fixedClause)

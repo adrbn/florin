@@ -5639,3 +5639,73 @@ struct HoldingEditTests {
         )
     }
 }
+
+// MARK: - Ce que le mois a coûté
+
+/*
+ * Une carte en attente est de l'argent parti.
+ *
+ * Le total du mois écartait ce que la banque n'avait pas encore comptabilisé,
+ * si bien qu'un achat du jour manquait à « Dépensé » alors que la somme était
+ * déjà retenue sur le compte — et que le calendrier, lui, la comptait depuis
+ * toujours. Reste dehors ce qui n'est qu'une prévision : une ligne saisie à la
+ * main pour plus tard, ou devinée du Wallet, porte `status = 'scheduled'`.
+ */
+@Suite("What the month cost")
+struct MonthBurnTests {
+    private func ledger() throws -> (LocalStore, account: String, category: String) {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("florin-burn-\(UUID().uuidString).db")
+        let store = try LocalStore(url: url)
+        let account = UUID().uuidString
+        let group = UUID().uuidString
+        let category = UUID().uuidString
+        try store.database.exec("""
+        INSERT INTO accounts (id, name, kind, currency)
+          VALUES ('\(account)', 'CCP', 'checking', 'EUR');
+        INSERT INTO category_groups (id, name, kind)
+          VALUES ('\(group)', 'Vie courante', 'expense');
+        INSERT INTO categories (id, group_id, name) VALUES ('\(category)', '\(group)', 'Courses');
+        """)
+        return (store, account, category)
+    }
+
+    private func spend(
+        _ store: LocalStore, on account: String, category: String,
+        _ amount: Double, pending: Bool = false, status: String = "cleared"
+    ) throws {
+        try store.database.run(
+            """
+            INSERT INTO transactions
+                (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
+                 category_id, source, status, needs_review, is_pending)
+            VALUES (?, ?, ?, ?, 'EUR', 'SUPERETTE EXEMPLE', 'superette exemple',
+                    ?, 'enable_banking', ?, 0, ?)
+            """,
+            [
+                .text(UUID().uuidString), .text(account),
+                .text(LocalQueries.dayFormatter.string(from: Date())),
+                .real(amount), .text(category), .text(status),
+                .integer(pending ? 1 : 0),
+            ]
+        )
+    }
+
+    @Test("a charge the bank has not booked yet still counts in the month")
+    func pendingCounts() throws {
+        let (store, account, category) = try ledger()
+        try spend(store, on: account, category: category, -10)
+        try spend(store, on: account, category: category, -5, pending: true)
+        #expect(try LocalQueries.burn(store.database, monthsBack: 0) == 15)
+    }
+
+    /// Une prévision n'est pas une dépense : elle n'a pas eu lieu.
+    @Test("a row that is only forecast stays out")
+    func scheduledStaysOut() throws {
+        let (store, account, category) = try ledger()
+        try spend(store, on: account, category: category, -10)
+        try spend(store, on: account, category: category, -40,
+                  pending: true, status: "scheduled")
+        #expect(try LocalQueries.burn(store.database, monthsBack: 0) == 10)
+    }
+}
