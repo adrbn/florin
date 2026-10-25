@@ -607,12 +607,18 @@ enum LocalQueries {
      * waiting on an answer — and the queues come from `readWaiting`, which
      * this filter is the exact complement of. Between them the two cover the
      * ledger once and only once.
+     *
+     * « Passé » se lit sur la date, plus sur l'attente. Une carte présentée
+     * ce matin est une opération du jour : écartée d'ici, elle ne revenait
+     * que par `readWaiting`, c'est-à-dire après les douze autres — donc hors
+     * de l'écran, et absente du pli « en prévision » qui ne garde que les
+     * dates à venir. Elle avait disparu des deux côtés.
      */
     static func readSettled(_ db: SQLiteDatabase, limit: Int) throws -> [Transaction] {
         try readTransactions(
             db,
             where: """
-                t.is_pending = 0
+                t.status = 'cleared'
                 AND substr(t.occurred_at, 1, 10) <= date('now')
                 AND t.needs_review = 0
                 """,
@@ -636,7 +642,7 @@ enum LocalQueries {
         try readTransactions(
             db,
             where: """
-                t.is_pending = 1
+                t.status <> 'cleared'
                 OR substr(t.occurred_at, 1, 10) > date('now')
                 OR (t.needs_review = 1 AND substr(t.occurred_at, 1, 10) <= date('now'))
                 """,

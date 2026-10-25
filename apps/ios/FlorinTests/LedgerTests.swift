@@ -5709,3 +5709,60 @@ struct MonthBurnTests {
         #expect(try LocalQueries.burn(store.database, monthsBack: 0) == 10)
     }
 }
+
+/*
+ * Une carte présentée ce matin est une opération du jour.
+ *
+ * « Dernières opérations » la tenait pour une attente : elle sortait des
+ * douze dernières et revenait derrière elles, donc hors de l'écran, pendant
+ * que le pli « en prévision » ne garde que les dates à venir. Elle n'était
+ * plus nulle part.
+ */
+@Suite("Today's pending charges are recent operations")
+struct RecentPendingTests {
+    @Test("a charge pending today is among the latest operations")
+    func pendingTodayIsRecent() throws {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("florin-recent-\(UUID().uuidString).db")
+        let store = try LocalStore(url: url)
+        let account = UUID().uuidString
+        try store.database.exec("""
+        INSERT INTO accounts (id, name, kind, currency)
+          VALUES ('\(account)', 'CCP', 'checking', 'EUR');
+        """)
+        func add(_ payee: String, _ day: String, pending: Bool, status: String) throws {
+            try store.database.run(
+                """
+                INSERT INTO transactions
+                    (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
+                     source, status, needs_review, is_pending)
+                VALUES (?, ?, ?, -7, 'EUR', ?, ?, 'enable_banking', ?, 0, ?)
+                """,
+                [
+                    .text(UUID().uuidString), .text(account), .text(day),
+                    .text(payee), .text(payee.lowercased()), .text(status),
+                    .integer(pending ? 1 : 0),
+                ]
+            )
+        }
+        let today = LocalQueries.dayFormatter.string(from: Date())
+        let tomorrow = LocalQueries.dayFormatter.string(
+            from: Date().addingTimeInterval(86_400)
+        )
+        // Twelve settled rows before it: the list keeps only that many, and
+        // anything appended after them never reaches the screen.
+        for n in 1...12 {
+            try add("BOULANGERIE \(n)", "2026-01-\(String(format: "%02d", n))",
+                    pending: false, status: "cleared")
+        }
+        try add("SUPERETTE EXEMPLE", today, pending: true, status: "cleared")
+        try add("ABONNEMENT EXEMPLE", tomorrow, pending: true, status: "cleared")
+
+        let settled = try LocalQueries.readSettled(store.database, limit: 12)
+        #expect(settled.first?.payee == "SUPERETTE EXEMPLE")
+        // Demain reste une prévision, et personne ne la compte deux fois.
+        #expect(!settled.contains { $0.payee == "ABONNEMENT EXEMPLE" })
+        let waiting = try LocalQueries.readWaiting(store.database)
+        #expect(waiting.map(\.payee) == ["ABONNEMENT EXEMPLE"])
+    }
+}
