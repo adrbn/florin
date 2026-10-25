@@ -946,7 +946,10 @@ struct OverviewScreen: View {
         // d'entre elles suffisaient à chasser de l'écran ce qui venait
         // réellement de se passer. Elles vivent dans Activité, sous la
         // prévision, et n'ont rien à faire dans un résumé.
-        let upcoming = data.recent.filter { $0.isToCome && !$0.isInstalment }
+        // Le pli récapitule ce que la banque n'a pas écrit, y compris une
+        // carte présentée aujourd'hui — qui figure aussi, marquée, parmi les
+        // dernières opérations : c'est bien une dépense du jour.
+        let upcoming = data.recent.filter { $0.isUpcoming && !$0.isInstalment }
         // Waiting on the bank and waiting on you are two different queues, and
         // a row cannot be in both: an unsettled charge is not yours to file
         // yet. Split before either group is drawn.

@@ -1001,13 +1001,22 @@ struct TransactionList<Banner: View>: View {
         model.rows.filter { $0.needsReview && !$0.isUpcoming }
     }
 
-    /// Announced, not yet booked. Kept out of the queue and the day groups.
-    ///
-    /// Datée d'aujourd'hui, une carte en attente n'est pas une prévision :
-    /// elle appartient au groupe de sa journée, et à son total. Voir
-    /// `Transaction.isToCome`.
+    /*
+     * Tout ce que la banque n'a pas encore écrit, plié en une ligne.
+     *
+     * Le pli est un récapitulatif, pas un classement : il dit combien
+     * d'argent est engagé sans être comptabilisé. Une carte présentée
+     * aujourd'hui y figure donc *et* reste dans le groupe de sa journée,
+     * marquée « En attente », parce qu'elle a bien été dépensée aujourd'hui.
+     * Réservé aux seules dates à venir, le pli se vidait et disparaissait de
+     * l'écran dès que tout était daté du jour.
+     *
+     * Seules les lignes encore à venir sortent des groupes de journée — voir
+     * `days` : sinon le prélèvement de demain ouvrirait un « DEMAIN » en tête
+     * de liste, au-dessus de ce qui s'est réellement passé.
+     */
     private var upcoming: [Transaction] {
-        model.rows.filter { $0.isToCome && !$0.isInstalment }
+        model.rows.filter { $0.isUpcoming && !$0.isInstalment }
     }
 
     /*
@@ -1038,9 +1047,12 @@ struct TransactionList<Banner: View>: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         let pinned = Set(pending.map(\.id))
-        // Upcoming rows have their own group above; listing them again here
-        // would put tomorrow's direct debit twice on the same screen.
-        let announced = Set(upcoming.map(\.id)).union(instalments.map(\.id))
+        // Ce qui n'a pas encore eu lieu a son groupe au-dessus : laisser le
+        // prélèvement de demain ici ouvrirait un « DEMAIN » en tête de liste.
+        // Le reste du pli — les cartes présentées, datées d'aujourd'hui ou
+        // d'hier — appartient à sa journée et y est compté.
+        let announced = Set(upcoming.filter(\.isToCome).map(\.id))
+            .union(instalments.map(\.id))
         for tx in model.rows
         where !(pinned.contains(tx.id) && !model.filter.needsReview)
             && !announced.contains(tx.id) {
