@@ -3181,6 +3181,51 @@ struct WalletPaymentTests {
         #expect(try live(store, source: LocalWallet.source) == 1)
     }
 
+    /*
+     * Une tape que la banque n'a jamais réclamée ne reste pas en prévision.
+     *
+     * Ce qui décide n'est pas le temps écoulé — un grand livre laissé sans
+     * synchro n'a rien reçu non plus — mais le fait que la banque ait parlé
+     * APRÈS : une ligne postérieure prouve que le relevé a dépassé cette date
+     * sans porter celle qu'on attendait.
+     */
+    @Test("a payment the bank never claimed stops waiting once the statement has passed it")
+    func retiresWhatTheBankNeverClaimed() throws {
+        let (store, checking, _) = try ledger()
+        let old = Calendar(identifier: .gregorian).date(byAdding: .day, value: -20, to: Date())!
+        try LocalWallet.record(
+            store: store, amountText: "9,90", merchant: "Café", card: nil,
+            accountId: checking, on: old
+        )
+        // Rien derrière elle : le relevé n'a peut-être pas été lu. Elle reste.
+        #expect(try LocalWallet.expireUnclaimed(store: store) == 0)
+        #expect(try live(store, source: LocalWallet.source) == 1)
+
+        // La banque a écrit depuis, et d'un autre montant : la ligne attendue
+        // n'était pas dans le relevé.
+        let since = Calendar(identifier: .gregorian).date(byAdding: .day, value: -2, to: Date())!
+        _ = try bankRow(
+            store, checking, LocalQueries.dayFormatter.string(from: since), -42.00
+        )
+        #expect(try LocalWallet.expireUnclaimed(store: store) == 1)
+        #expect(try live(store, source: LocalWallet.source) == 0)
+    }
+
+    @Test("a payment of the last few days keeps waiting for its bank row")
+    func keepsARecentPayment() throws {
+        let (store, checking, _) = try ledger()
+        let yesterday = Calendar(identifier: .gregorian).date(byAdding: .day, value: -1, to: Date())!
+        try LocalWallet.record(
+            store: store, amountText: "9,90", merchant: "Café", card: nil,
+            accountId: checking, on: yesterday
+        )
+        _ = try bankRow(
+            store, checking, LocalQueries.dayFormatter.string(from: Date()), -42.00
+        )
+        #expect(try LocalWallet.expireUnclaimed(store: store) == 0)
+        #expect(try live(store, source: LocalWallet.source) == 1)
+    }
+
     @Test("another amount, another account or an earlier row does not settle it")
     func noFalseMatch() throws {
         let (store, checking, other) = try ledger()

@@ -524,7 +524,68 @@ enum LocalWallet {
             MerchantNames.shared.invalidate()
             Task { @MainActor in MerchantLogos.shared.invalidate() }
         }
+        try expireUnclaimed(store: store)
         return settled
+    }
+
+    /// Passé ce délai sans que la banque l'ait réclamée, une tape ne sera
+    /// jamais comptabilisée. Large devant le temps que met une banque à
+    /// écrire une ligne — un à trois jours, le week-end compris.
+    static let unclaimedGrace: Double = 7
+
+    /*
+     * Une tape que la banque n'a jamais réclamée.
+     *
+     * Une tape est une note provisoire : elle existe pour tenir la place
+     * d'une ligne de relevé en attendant qu'elle arrive. Quand elle n'arrive
+     * pas — l'automatisation a écrit deux fois, le paiement a été refusé, le
+     * commerçant n'a pas encaissé — la note restait « en prévision » pour
+     * toujours. Elle faussait le total du volet, et la seule issue était de
+     * la balayer à la main, un travail de ménage que l'app devrait faire
+     * elle-même.
+     *
+     * Le délai ne suffit pas à décider : un grand livre pas synchronisé
+     * depuis deux semaines n'a rien reçu non plus, et retirer alors toutes
+     * les tapes du mois serait une perte sèche. Ce qui décide, c'est que la
+     * banque ait parlé APRÈS : s'il existe sur ce compte une ligne postérieure
+     * à la tape plus le délai, alors le relevé a dépassé cette date et la
+     * ligne attendue n'y était pas.
+     *
+     * La suppression est douce, comme celle qu'écrit `settle` : la tape reste
+     * dans la base, et l'argent, lui, n'a jamais bougé.
+     */
+    @discardableResult
+    static func expireUnclaimed(store: LocalStore) throws -> Int {
+        let stale = try store.database.query(
+            """
+            SELECT t.id AS id FROM transactions t
+            WHERE t.source = ? AND t.deleted_at IS NULL
+              AND t.merge_suggested_tx_id IS NULL
+              AND julianday(substr(t.occurred_at, 1, 10)) <= julianday('now') - ?
+              AND EXISTS (
+                SELECT 1 FROM transactions b
+                WHERE b.account_id = t.account_id AND b.deleted_at IS NULL
+                  AND b.source <> ? AND b.status = 'cleared'
+                  AND julianday(substr(b.occurred_at, 1, 10))
+                      > julianday(substr(t.occurred_at, 1, 10)) + ?
+              )
+            """,
+            [.text(source), .real(unclaimedGrace), .text(source), .real(unclaimedGrace)]
+        )
+        guard !stale.isEmpty else { return 0 }
+        try store.database.transaction {
+            for id in stale.compactMap({ $0.string("id") }) {
+                try store.database.run(
+                    """
+                    UPDATE transactions
+                    SET deleted_at = datetime('now'), updated_at = datetime('now')
+                    WHERE id = ?
+                    """,
+                    [.text(id)]
+                )
+            }
+        }
+        return stale.count
     }
 
     /// Whether a bank label names the shop Wallet named: a word of four
