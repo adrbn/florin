@@ -49,6 +49,9 @@ enum LocalCategoriser {
         fileprivate let postings: [String: [Int]]
         /// The word-only fingerprint of a label → how its past was filed.
         fileprivate let signatures: [String: [String: Int]]
+        /// Le marchand d'un libellé, tel que l'app l'identifie partout
+        /// ailleurs → how its past was filed. See `merchant`.
+        fileprivate let merchants: [String: [String: Int]]
         /// An exact amount, in cents → how rows of that amount were filed.
         fileprivate let amounts: [Int: [String: Int]]
         /// category id → the kind of the group holding it ("expense", "income").
@@ -125,6 +128,7 @@ enum LocalCategoriser {
         )
 
         var entries: [Row] = []
+        var merchants: [String: [String: Int]] = [:]
         var frequency: [String: Int] = [:]
         var spread: [String: [String: Int]] = [:]
         var signatures: [String: [String: Int]] = [:]
@@ -135,6 +139,9 @@ enum LocalCategoriser {
             guard let payee = row.string("payee"),
                   let categoryId = row.string("category_id")
             else { continue }
+            // Avant le tri sur les mots : un libellé qui n'en a aucun nomme
+            // quand même un marchand — un numéro de compte en est un.
+            merchants[MerchantNames.key(payee), default: [:]][categoryId, default: 0] += 1
             let tokens = Self.tokens(of: payee)
             guard !tokens.isEmpty else { continue }
 
@@ -208,7 +215,8 @@ enum LocalCategoriser {
 
         return Memory(
             weights: weights, rows: entries, postings: postings,
-            signatures: signatures, amounts: amounts, kinds: kinds, beats: beats
+            signatures: signatures, merchants: merchants, amounts: amounts,
+            kinds: kinds, beats: beats
         )
     }
 
@@ -308,41 +316,36 @@ enum LocalCategoriser {
          * changes every time — the words are identical, so the past is a
          * direct answer and there is nothing to weigh.
          */
-        if let past = memory.signatures[signature(of: tokens)]?
-            .filter({ fits($0.key, amount, memory.kinds) }), !past.isEmpty {
-            let ranked = past.sorted { $0.value > $1.value }
-            let best = ranked[0]
-            let runnerUp = ranked.count > 1 ? ranked[1].value : 0
-            let share = Double(best.value) / Double(best.value + runnerUp)
+        let spelled = memory.signatures[signature(of: tokens)]
+            .flatMap { decide($0, amount, memory.kinds) }
+        if let spelled, spelled[0].confidence >= applyThreshold { return spelled }
 
-            /*
-             * Un exemple est une coïncidence, un exemple répété est une
-             * habitude — sauf quand l'exemple unique est le même libellé mot
-             * pour mot et qu'il n'a jamais été classé autrement. Ce n'est
-             * plus une ressemblance, c'est une décision déjà prise.
-             *
-             * La règle précédente laissait ce cas à 0,79 pour un seuil à
-             * 0,80, ce qui est la pire place possible : le moteur avait la
-             * réponse, l'écran affichait le nom et le logo du marchand, et
-             * la catégorie restait vide. Il fallait la ressaisir au deuxième
-             * passage, puis plus jamais.
-             *
-             * Mesuré en holdout sur un grand livre réel, cinq tirages
-             * identiques d'un dixième : 1 122 lignes classées à 86,4 % de
-             * justesse deviennent 1 246 à 85,8 %. Des 124 lignes gagnées,
-             * 100 portent la bonne catégorie. Sans la condition d'unanimité
-             * le marché est nettement moins bon — 145 gagnées pour 37
-             * fausses — parce qu'un libellé déjà classé de deux façons
-             * différentes une fois chacune est un tirage au sort, et le
-             * promouvoir revient à en appliquer le résultat.
-             */
-            let decided = best.value == 1 && runnerUp == 0
-            let confidence = min(
-                0.99,
-                (decided ? 0.73 : 0.62) + 0.1 * Double(min(best.value, 3)) + 0.07 * share
-            )
-            return runnersUp(ranked.map { ($0.key, Double($0.value)) }, confidence: confidence)
-        }
+        /*
+         * Le même marchand, là où la banque coupe son nom ailleurs.
+         *
+         * Apple Pay transmet « Panetteria Aurora Centrale », le relevé écrit
+         * « ACHAT CB PANETTERIA AURORA 04.05.26 … » : deux libellés, deux
+         * empreintes de mots, et la tape ne retrouvait aucune des centaines de
+         * lignes de la même boulangerie. Pire, le mot en trop la trahissait —
+         * « centrale », vu cinq fois chez un fleuriste, pèse plus lourd que
+         * « panetteria » vu trois cents fois chez le boulanger, et le chemin
+         * par les mots répondait « Cadeaux » à 0,38. La catégorie restait vide
+         * tous les jours, sur l'achat le plus régulier du grand livre.
+         *
+         * L'identité du marchand, elle, est déjà résolue ailleurs dans l'app :
+         * c'est `MerchantNames.sameMerchant`, la règle qui fait qu'un
+         * renommage atteint le libellé tronqué comme le libellé entier. La
+         * même règle sert ici, et seulement à l'unanimité — un marchand classé
+         * de deux façons ne tranche rien et laisse la main aux mots.
+         *
+         * Mesuré sur un grand livre réel, sur les 146 tapes qu'une ligne de
+         * banque a déjà reprises et dont elle donne donc la bonne catégorie :
+         * 85 classées dont 79 justes deviennent 106 dont 99. Sur le grand
+         * livre entier, cinq tirages d'un dixième, la précision ne bouge pas
+         * (88,2 % → 88,3 %).
+         */
+        if let named = merchant(memory, payee: payee, amount: amount) { return named }
+        if let spelled { return spelled }
 
         /*
          * Words this ledger has never seen say nothing about it.
@@ -418,6 +421,65 @@ enum LocalCategoriser {
         }
 
         return runnersUp(ranked.map { ($0.key, $0.value) }, confidence: confidence)
+    }
+
+    /*
+     * Un classement déjà fait, rendu en confiance.
+     *
+     * Partagé par les deux chemins d'identité — le libellé mot pour mot et le
+     * marchand — parce que la question y est la même : le passé a-t-il déjà
+     * tranché, et de combien.
+     *
+     * Un exemple est une coïncidence, un exemple répété est une habitude —
+     * sauf quand l'exemple unique est le même libellé mot pour mot et qu'il
+     * n'a jamais été classé autrement. Ce n'est plus une ressemblance, c'est
+     * une décision déjà prise.
+     *
+     * La règle précédente laissait ce cas à 0,79 pour un seuil à 0,80, ce qui
+     * est la pire place possible : le moteur avait la réponse, l'écran
+     * affichait le nom et le logo du marchand, et la catégorie restait vide.
+     * Il fallait la ressaisir au deuxième passage, puis plus jamais.
+     *
+     * Mesuré en holdout sur un grand livre réel, cinq tirages identiques d'un
+     * dixième : 1 122 lignes classées à 86,4 % de justesse deviennent 1 246 à
+     * 85,8 %. Des 124 lignes gagnées, 100 portent la bonne catégorie. Sans la
+     * condition d'unanimité le marché est nettement moins bon — 145 gagnées
+     * pour 37 fausses — parce qu'un libellé déjà classé de deux façons
+     * différentes une fois chacune est un tirage au sort, et le promouvoir
+     * revient à en appliquer le résultat.
+     */
+    private static func decide(
+        _ counts: [String: Int], _ amount: Double, _ kinds: [String: String]
+    ) -> [Suggestion]? {
+        let past = counts.filter { fits($0.key, amount, kinds) }
+        guard !past.isEmpty else { return nil }
+        let ranked = past.sorted { $0.value > $1.value }
+        let best = ranked[0]
+        let runnerUp = ranked.count > 1 ? ranked[1].value : 0
+        let share = Double(best.value) / Double(best.value + runnerUp)
+        let decided = best.value == 1 && runnerUp == 0
+        let confidence = min(
+            0.99,
+            (decided ? 0.73 : 0.62) + 0.1 * Double(min(best.value, 3)) + 0.07 * share
+        )
+        return runnersUp(ranked.map { ($0.key, Double($0.value)) }, confidence: confidence)
+    }
+
+    /// Ce que le passé a fait de ce marchand, où que la banque ait coupé son
+    /// nom — et seulement s'il n'en a jamais connu qu'une catégorie.
+    private static func merchant(
+        _ memory: Memory, payee: String, amount: Double
+    ) -> [Suggestion]? {
+        let key = MerchantNames.key(payee)
+        guard !key.isEmpty else { return nil }
+        var counts: [String: Int] = [:]
+        for (other, filed) in memory.merchants where MerchantNames.sameMerchant(key, other) {
+            for (categoryId, seen) in filed { counts[categoryId, default: 0] += seen }
+        }
+        guard let ranked = decide(counts, amount, memory.kinds), ranked.count == 1 else {
+            return nil
+        }
+        return ranked
     }
 
     /// Le classement, rendu en propositions : le premier porte la confiance

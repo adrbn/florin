@@ -1994,8 +1994,12 @@ struct CategoryHintTests {
         try row(store, account, "BOUTIQUE GIRASOLE", -22.00, category: gifts)
 
         let memory = try LocalCategoriser.remember(store: store)
+        // L'ordre des mots ne change rien au chemin par les mots, qui ne lit
+        // que des ensembles — mais « Panetteria Aurora » suivi d'autre chose
+        // serait le même marchand écrit plus long, et le chemin par l'identité
+        // trancherait avant d'en arriver là. Voir `prefixedLabelIsTheSameMerchant`.
         let hit = CategoryHint.suggest(
-            memory, payee: "Panetteria Aurora Girasole", amount: -3.80, accountId: account
+            memory, payee: "Panetteria Girasole Aurora", amount: -3.80, accountId: account
         )
         #expect(hit?.categoryId == food)
         #expect((hit?.confidence ?? 1) < LocalCategoriser.applyThreshold)
@@ -2066,6 +2070,53 @@ struct CategoryHintTests {
             memory, payee: "Le Comptoir - Via Roma", amount: -3.35, accountId: account
         )
         #expect(hit != nil)
+        #expect((hit?.confidence ?? 1) < LocalCategoriser.applyThreshold)
+    }
+
+    /*
+     * Le relevé coupe le nom du marchand, Apple Pay non — et c'est le même
+     * marchand. Le libellé entier n'a donc pas la même empreinte de mots que
+     * le libellé tronqué, et le mot en trop peut même désigner quelqu'un
+     * d'autre : la tape quotidienne d'une boulangerie se faisait répondre
+     * « Cadeaux », par un mot emprunté à un fleuriste, et restait sans
+     * catégorie chaque jour.
+     */
+    @Test("a longer label of a known merchant is that merchant")
+    func prefixedLabelIsTheSameMerchant() throws {
+        let (store, account, food, gifts) = try ledger()
+        for _ in 0..<3 {
+            try row(
+                store, account,
+                "ACHAT CB PANETTERIA AURORA 04.05.26 EUR 4,20 CARTE NO 123", -4.20,
+                category: food
+            )
+        }
+        try row(store, account, "ACHAT CB FIORERIA CENTRALE", -22.00, category: gifts)
+
+        let memory = try LocalCategoriser.remember(store: store)
+        let hit = LocalCategoriser.suggest(
+            memory, payee: "Panetteria Aurora Centrale", amount: -3.80, accountId: account
+        )
+        #expect(hit?.categoryId == food)
+        #expect((hit?.confidence ?? 0) >= LocalCategoriser.applyThreshold)
+    }
+
+    /// Mais un marchand que le passé classe de deux façons ne tranche rien :
+    /// l'identité ne sert qu'à l'unanimité, et la main revient aux mots.
+    @Test("a merchant filed two ways is left to the words")
+    func mixedMerchantIsNotFiled() throws {
+        let (store, account, food, gifts) = try ledger()
+        for _ in 0..<2 { try row(store, account, "PANETTERIA AURORA", -12.97, category: food) }
+        for _ in 0..<2 {
+            // La forme juridique est de la paperasse : les deux libellés
+            // portent donc la même clé de marchand, pour deux catégories.
+            try row(store, account, "PANETTERIA AURORA SARL CENTRO", -12.97, category: gifts)
+        }
+
+        let memory = try LocalCategoriser.remember(store: store)
+        let hit = LocalCategoriser.suggest(
+            memory, payee: "Panetteria Aurora Nuova", amount: -3.35, accountId: account
+        )
         #expect((hit?.confidence ?? 1) < LocalCategoriser.applyThreshold)
     }
 
