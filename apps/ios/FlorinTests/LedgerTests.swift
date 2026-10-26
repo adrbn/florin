@@ -589,6 +589,15 @@ struct LoanMirrorTests {
         #expect(filed == category)
         // Seven repayments, seven counterparts.
         #expect(mirrors(store, on: loan) == 7)
+        // Et aucune contrepartie rangée : le classeur ne touche pas aux
+        // comptes de prêt. Rangée, elle se faisait écrire la sienne.
+        #expect(try store.database.scalar(
+            """
+            SELECT count(*) FROM transactions
+            WHERE account_id = ? AND deleted_at IS NULL AND category_id IS NOT NULL
+            """,
+            [.text(loan)]
+        )?.int == 0)
     }
 
     @Test("an instalment is recognised by its amount, with no category at all")
@@ -918,6 +927,79 @@ struct LoanMirrorTests {
         #expect(mirrors(store, on: loan) == 2)
         #expect(try LocalLedger.dropDuplicateLoanMirrors(store: store) == 1)
         #expect(mirrors(store, on: loan) == 1)
+    }
+
+    /*
+     * La contrepartie que le classeur avait rangée.
+     *
+     * Elle est datée du 30, elle n'a pas de catégorie — par construction — et
+     * `backfill` ne cherche rien d'autre que ça. Rangée sous le prêt, elle
+     * repassait par `syncLoanMirror` comme une mensualité de plus et se
+     * voyait écrire sa propre contrepartie : une ligne « ↳ ↳ » de signe
+     * opposé sur le prêt, un remboursement qui n'a jamais eu lieu, compté
+     * dans la prévision du mois.
+     */
+    @Test("a counterpart filed under the loan gets no counterpart of its own")
+    func mirrorOfAMirrorIsRefused() throws {
+        let (store, ccp, loan, category) = try ledger()
+        let id = try payment(store, on: ccp)
+        try LocalLedger.patch(store: store, id: id, TxPatch(categoryId: .some(category)))
+        #expect(mirrors(store, on: loan) == 1)
+
+        let mirror = try #require(try store.database.scalar(
+            "SELECT id FROM transactions WHERE account_id = ? AND deleted_at IS NULL",
+            [.text(loan)]
+        )?.string)
+        try store.database.run(
+            "UPDATE transactions SET category_id = ? WHERE id = ?",
+            [.text(category), .text(mirror)]
+        )
+        try LocalLedger.syncLoanMirror(store, transactionId: mirror)
+        #expect(mirrors(store, on: loan) == 1)
+    }
+
+    /// Ce qui est déjà écrit se défait : la ligne doublement marquée s'en va,
+    /// et la catégorie posée sur une contrepartie se retire.
+    @Test("a counterpart's counterpart is taken back, and its filing undone")
+    func repairsTheMirrorOfAMirror() throws {
+        let (store, ccp, loan, category) = try ledger()
+        let id = try payment(store, on: ccp)
+        try LocalLedger.patch(store: store, id: id, TxPatch(categoryId: .some(category)))
+        let pair = try #require(try store.database.scalar(
+            "SELECT transfer_pair_id FROM transactions WHERE id = ?", [.text(id)]
+        )?.string)
+        try store.database.run(
+            """
+            UPDATE transactions SET category_id = ?
+            WHERE account_id = ? AND deleted_at IS NULL
+            """,
+            [.text(category), .text(loan)]
+        )
+        try store.database.run(
+            """
+            INSERT INTO transactions
+                (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
+                 category_id, source, status, needs_review, transfer_pair_id)
+            VALUES (?, ?, '2026-08-05', -165.13, 'EUR',
+                    '\u{21B3} \u{21B3} PRELEVEMENT CREDIT MAISON',
+                    'prelevement credit maison', ?, 'manual', 'cleared', 0, ?)
+            """,
+            [.text(UUID().uuidString), .text(loan), .text(category), .text(pair)]
+        )
+        #expect(mirrors(store, on: loan) == 2)
+
+        #expect(try LocalLedger.dropDuplicateLoanMirrors(store: store) == 1)
+        #expect(mirrors(store, on: loan) == 1)
+        // La contrepartie qui reste ne porte plus de catégorie : le budget
+        // somme les catégories sur tous les comptes, elle annulerait la
+        // dépense qu'elle reflète.
+        #expect(try store.database.scalar(
+            """
+            SELECT count(*) FROM transactions
+            WHERE account_id = ? AND deleted_at IS NULL AND category_id IS NOT NULL
+            """,
+            [.text(loan)]
+        )?.int == 0)
     }
 
     @Test("filing the same payment twice does not pay the loan twice")

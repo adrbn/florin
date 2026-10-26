@@ -522,6 +522,19 @@ enum LocalCategoriser {
             SELECT id, payee, amount, account_id, occurred_at
             FROM transactions
             WHERE category_id IS NULL AND deleted_at IS NULL
+              /*
+               * Jamais une ligne posée sur un prêt.
+               *
+               * Ce qui vit sur un compte de prêt, c'est la contrepartie d'une
+               * mensualité — et elle ne porte pas de catégorie par
+               * construction : le budget somme les catégories sur tous les
+               * comptes, donc une contrepartie rangée annulerait la dépense
+               * qu'elle reflète. Datée du 30 et sans catégorie, elle avait
+               * pourtant tout du travail à faire, et le classeur la rangeait
+               * sous le prêt — ce qui la rendait à `syncLoanMirror` comme une
+               * mensualité de plus, et écrivait un remboursement fantôme.
+               */
+              AND account_id NOT IN (SELECT id FROM accounts WHERE kind = 'loan')
               AND (needs_review = 1 OR is_pending = 1
                    OR substr(occurred_at, 1, 10) > date('now'))
             ORDER BY occurred_at DESC LIMIT 1000

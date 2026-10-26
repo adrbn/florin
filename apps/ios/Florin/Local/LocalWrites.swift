@@ -708,19 +708,54 @@ enum LocalLedger {
      * Ne part que ce qui porte la marque de la contrepartie et que plus aucun
      * prélèvement ne réclame. Un ajustement de solde posé sur le prêt, lui,
      * reste — il ne prétend pas être l'autre face de quoi que ce soit.
+     *
+     * Et la contrepartie d'une contrepartie, qui n'existe pas.
+     *
+     * Le classeur range ce qui n'est pas rangé, et une contrepartie datée du
+     * 30 avait tout du travail à faire : il l'a rangée sous le prêt, ce qui
+     * la rendait à `syncLoanMirror` comme une mensualité de plus. D'où une
+     * ligne « ↳ ↳ » du signe opposé sur le prêt — un remboursement qui n'a
+     * jamais eu lieu, compté dans la prévision du mois et dans l'enveloppe.
+     * Elle échappait au nettoyage, qui ne pèse que les contreparties
+     * positives. La cause est fermée des deux côtés ; ici on défait ce qui
+     * est écrit : la ligne doublement marquée s'en va, et la catégorie posée
+     * sur une contrepartie se retire — une contrepartie n'en porte pas, le
+     * budget somme les catégories sur tous les comptes et elle annulerait la
+     * dépense qu'elle reflète.
      */
     @discardableResult
     static func dropDuplicateLoanMirrors(store: LocalStore) throws -> Int {
+        let doubled = "\(Transfers.mirrorMark) \(Transfers.mirrorMark)%"
+        let reflected = try store.database.query(
+            """
+            SELECT t.id AS id, t.account_id AS account_id FROM transactions t
+            JOIN accounts a ON a.id = t.account_id AND a.kind = 'loan'
+            WHERE t.deleted_at IS NULL AND t.payee LIKE ?
+            """,
+            [.text(doubled)]
+        )
         let extra = try loanSides(store).unclaimed
             .filter { $0.payee.hasPrefix(Transfers.mirrorMark) }
             .map(\.id)
-        guard !extra.isEmpty else { return 0 }
+        guard !extra.isEmpty || !reflected.isEmpty else { return 0 }
         try store.database.transaction {
-            for id in extra {
+            for id in extra + reflected.compactMap({ $0.string("id") }) {
                 try store.database.run("DELETE FROM transactions WHERE id = ?", [.text(id)])
             }
+            try store.database.run(
+                """
+                UPDATE transactions SET category_id = NULL, updated_at = datetime('now')
+                WHERE deleted_at IS NULL AND category_id IS NOT NULL
+                  AND payee LIKE ?
+                  AND account_id IN (SELECT id FROM accounts WHERE kind = 'loan')
+                """,
+                [.text("\(Transfers.mirrorMark) %")]
+            )
+            for account in Set(reflected.compactMap { $0.string("account_id") }) {
+                try recomputeBalance(store, accountId: account)
+            }
         }
-        return extra.count
+        return extra.count + reflected.count
     }
 
     /*
@@ -748,14 +783,27 @@ enum LocalLedger {
         let row = try store.database.query(
             """
             SELECT t.amount, t.occurred_at, t.payee, t.transfer_pair_id,
-                   t.category_id, c.linked_loan_account_id AS loan_id
+                   t.category_id, a.kind AS kind,
+                   c.linked_loan_account_id AS loan_id
             FROM transactions t
+            JOIN accounts a ON a.id = t.account_id
             LEFT JOIN categories c ON c.id = t.category_id
             WHERE t.id = ?
             """,
             [.text(id)]
         ).first
         guard let row else { return }
+        /*
+         * Une contrepartie ne se reflète pas.
+         *
+         * `loanSides` écarte les comptes de prêt de ses prélèvements, cette
+         * fonction ne l'a jamais fait : donner une catégorie à une
+         * contrepartie — le classeur en est capable — suffisait à la lire
+         * comme une mensualité et à lui écrire la sienne, « ↳ ↳ », du signe
+         * opposé, sur le prêt. Le compte dit tout : ce qui est posé là est
+         * déjà l'autre face de quelque chose.
+         */
+        guard row.string("kind") != "loan" else { return }
         /*
          * A category, when there is one, is a decision. The amount is a guess.
          *
