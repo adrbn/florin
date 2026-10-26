@@ -43,6 +43,9 @@ struct TransactionDetailSheet: View {
     /// Le détail de la dépense, que seul le ticket connaît. Il était derrière
     /// un appui long sur la ligne — un geste que rien n'annonce.
     @State private var receipting = false
+    /// Un ticket est posé sur cette opération : l'icône le dit en vert,
+    /// autrement rien ne distingue « pas de ticket » de « pas regardé ».
+    @State private var hasReceipt = false
     /// Observed so the title changes the moment the merchant is renamed.
     @ObservedObject private var names = MerchantNames.shared
 
@@ -152,7 +155,7 @@ struct TransactionDetailSheet: View {
                         Button { receipting = true } label: {
                             Image(systemName: "doc.text.viewfinder")
                                 .font(.system(size: 15, weight: .semibold))
-                                .foregroundStyle(Florin.text2)
+                                .foregroundStyle(hasReceipt ? Florin.positive : Florin.text2)
                                 .frame(width: 32, height: 32)
                                 .contentShape(Rectangle())
                         }
@@ -237,7 +240,10 @@ struct TransactionDetailSheet: View {
             )
             // Lue à l'ouverture, pas à chaque redessin : elle relit le grand
             // livre, et le sélecteur se redessine à chaque lettre tapée.
-            .task { hints = CategoryHint.categories(for: tx, in: categories) }
+            .task {
+                hints = CategoryHint.categories(for: tx, in: categories)
+                countReceipts()
+            }
         }
         .sheet(isPresented: $filing) {
             ReviewCategorySheet(
@@ -283,7 +289,10 @@ struct TransactionDetailSheet: View {
             )
         }
         .sheet(isPresented: $receipting) {
-            ReceiptsSheet(tx: tx, locale: locale, currency: currency, t: t)
+            ReceiptsSheet(
+                tx: tx, locale: locale, currency: currency, t: t,
+                onChanged: countReceipts
+            )
         }
         .sheet(isPresented: $naming) {
             MerchantNameSheet(
@@ -410,6 +419,11 @@ struct TransactionDetailSheet: View {
         f.locale = Locale(identifier: locale)
         f.setLocalizedDateFormatFromTemplate("EEEEdMMMMy")
         return f.string(from: tx.day)
+    }
+
+    private func countReceipts() {
+        guard let store = LocalStore.shared else { return }
+        hasReceipt = ((try? LocalReceipts.count(store: store, transactionId: tx.id)) ?? 0) > 0
     }
 
     private func run(_ work: @escaping () async -> Void) {
