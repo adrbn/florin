@@ -188,6 +188,10 @@ struct TransactionDetailSheet: View {
          */
         .presentationDetents([.height(sheetHeight), .large])
         .presentationDragIndicator(.visible)
+        // Le ticket se compte à l'ouverture de la FICHE. Accroché au
+        // sélecteur de catégorie, il n'était lu que si on l'ouvrait — la
+        // pastille restait grise sur une opération qui en portait un.
+        .task { countReceipts() }
         /*
          * Le fond passe à la feuille, comme dans les six autres.
          *
@@ -240,10 +244,7 @@ struct TransactionDetailSheet: View {
             )
             // Lue à l'ouverture, pas à chaque redessin : elle relit le grand
             // livre, et le sélecteur se redessine à chaque lettre tapée.
-            .task {
-                hints = CategoryHint.categories(for: tx, in: categories)
-                countReceipts()
-            }
+            .task { hints = CategoryHint.categories(for: tx, in: categories) }
         }
         .sheet(isPresented: $filing) {
             ReviewCategorySheet(

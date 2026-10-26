@@ -640,6 +640,11 @@ extension LocalStore {
             }
             _ = try LocalWallet.settle(store: store)
 
+            let rehomed = try LocalWallet.rehomeReceipts(store: store)
+            if rehomed > 0 {
+                log.notice("moved \(rehomed, privacy: .public) receipts onto the bank's rows")
+            }
+
             let relabelled = try BankingSync.collapseRelabelledDuplicates(store: store)
             if relabelled > 0 {
                 log.notice("dropped \(relabelled, privacy: .public) relabelled duplicates")

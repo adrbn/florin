@@ -486,6 +486,19 @@ enum LocalWallet {
                     store, tap: row.string("payee") ?? "", bank: match.string("payee") ?? ""
                 )
                 /*
+                 * Et les tickets de caisse.
+                 *
+                 * Ils sont attachés à la ligne, par son identifiant. La tape
+                 * étant retirée, un ticket resté sur elle n'est plus affiché
+                 * nulle part : la photo est toujours en base, mais plus aucun
+                 * écran n'y mène. Photographier un ticket revenait donc à le
+                 * perdre le lendemain, quand la banque comptabilisait.
+                 */
+                try store.database.run(
+                    "UPDATE receipts SET transaction_id = ? WHERE transaction_id = ?",
+                    [.text(bankId), .text(id)]
+                )
+                /*
                  * L'échéancier passe sur la ligne de la banque.
                  *
                  * Comme la catégorie, et pour la même raison : c'est le même
@@ -634,6 +647,41 @@ enum LocalWallet {
             }
         }
         return rows.count
+    }
+
+    /*
+     * Les tickets restés sur une tape que la banque a remplacée.
+     *
+     * `settle` transportait la catégorie et l'échéancier, pas les tickets :
+     * ceux d'avant sont attachés à une ligne retirée, donc invisibles. La
+     * tape dit elle-même où elle est passée — `merge_suggested_tx_id` porte
+     * la ligne qui l'a remplacée — et il suffit de suivre ce lien.
+     *
+     * Rien n'est écrasé : le ticket change de ligne, il ne change pas de
+     * contenu, et une ligne de banque peut en porter plusieurs.
+     */
+    @discardableResult
+    static func rehomeReceipts(store: LocalStore) throws -> Int {
+        let strays = try store.database.query(
+            """
+            SELECT r.id AS id, t.merge_suggested_tx_id AS bank
+            FROM receipts r JOIN transactions t ON t.id = r.transaction_id
+            WHERE t.deleted_at IS NOT NULL AND t.merge_suggested_tx_id IS NOT NULL
+              AND EXISTS (SELECT 1 FROM transactions b
+                          WHERE b.id = t.merge_suggested_tx_id AND b.deleted_at IS NULL)
+            """
+        )
+        guard !strays.isEmpty else { return 0 }
+        try store.database.transaction {
+            for row in strays {
+                guard let id = row.string("id"), let bank = row.string("bank") else { continue }
+                try store.database.run(
+                    "UPDATE receipts SET transaction_id = ? WHERE id = ?",
+                    [.text(bank), .text(id)]
+                )
+            }
+        }
+        return strays.count
     }
 
     /// The label at the end of a reference-less bank key, if that is its shape.

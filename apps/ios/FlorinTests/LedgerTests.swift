@@ -3211,6 +3211,62 @@ struct WalletPaymentTests {
         #expect(try live(store, source: LocalWallet.source) == 0)
     }
 
+    /*
+     * Photographier un ticket ne doit pas revenir à le perdre.
+     *
+     * Un ticket est attaché à une ligne par son identifiant. La tape étant
+     * retirée le lendemain, un ticket resté sur elle n'est plus affiché
+     * nulle part — la photo est en base, aucun écran n'y mène.
+     */
+    @Test("the receipt follows the payment onto the bank's row")
+    func carriesTheReceipt() throws {
+        let (store, checking, _) = try ledger()
+        try LocalWallet.record(
+            store: store, amountText: "4,10", merchant: "Café", card: nil,
+            accountId: checking, on: day("2026-09-07")
+        )
+        let tap = try store.database.scalar(
+            "SELECT id FROM transactions WHERE source = ?", [.text(LocalWallet.source)]
+        )?.string ?? ""
+        try LocalReceipts.save(
+            store: store, transactionId: tap, image: nil, text: "",
+            items: [.init(label: "Café serré", amount: 4.10)]
+        )
+        let bank = try bankRow(store, checking, "2026-09-07", -4.10)
+
+        #expect(try LocalWallet.settle(store: store) == 1)
+        #expect(try LocalReceipts.count(store: store, transactionId: bank) == 1)
+    }
+
+    /// Et ceux d'avant, restés derrière, suivent le lien que la tape garde.
+    @Test("a receipt left behind by an earlier settlement finds its bank row")
+    func rehomesAnOrphanedReceipt() throws {
+        let (store, checking, _) = try ledger()
+        try LocalWallet.record(
+            store: store, amountText: "4,10", merchant: "Café", card: nil,
+            accountId: checking, on: day("2026-09-07")
+        )
+        let tap = try store.database.scalar(
+            "SELECT id FROM transactions WHERE source = ?", [.text(LocalWallet.source)]
+        )?.string ?? ""
+        let bank = try bankRow(store, checking, "2026-09-07", -4.10)
+        #expect(try LocalWallet.settle(store: store) == 1)
+
+        // L'état d'avant : le ticket est resté sur la tape retirée.
+        try store.database.run(
+            "UPDATE receipts SET transaction_id = ? WHERE transaction_id = ?",
+            [.text(tap), .text(bank)]
+        )
+        try LocalReceipts.save(
+            store: store, transactionId: tap, image: nil, text: "",
+            items: [.init(label: "Café serré", amount: 4.10)]
+        )
+        #expect(try LocalReceipts.count(store: store, transactionId: bank) == 0)
+
+        #expect(try LocalWallet.rehomeReceipts(store: store) == 1)
+        #expect(try LocalReceipts.count(store: store, transactionId: bank) == 1)
+    }
+
     @Test("a payment of the last few days keeps waiting for its bank row")
     func keepsARecentPayment() throws {
         let (store, checking, _) = try ledger()
