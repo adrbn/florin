@@ -55,6 +55,9 @@ struct SettingsScreen: View {
     @State private var confirmingDemoExit = false
     /// Read once: the demo can only end from here, and ending it closes this.
     @State private var demoActive = LocalDemo.isActive
+    /// La clé du service qui déchiffre les libellés de caisse. Vide = rien
+    /// ne sort du téléphone.
+    @State private var geminiKey = ""
     @AppStorage("florin.lastExport") private var lastExport = 0.0
     @State private var exported: URL?
     @State private var picking = false
@@ -74,6 +77,7 @@ struct SettingsScreen: View {
                         sourceSection
                         bankSection
                         walletSection
+                        receiptsSection
                         categoriesSection
                         importSection
                         notificationsSection
@@ -688,6 +692,55 @@ struct SettingsScreen: View {
      * les noms donnés sont gardés sur le téléphone et s'appliquent quelle que
      * soit la source — les catégories, elles, appartiennent au serveur.
      */
+    /*
+     * De quoi lire ce que la caisse a abrégé.
+     *
+     * Une caisse imprime sur vingt-quatre caractères : « AUR PROV VALP DOP »
+     * est un provolone, et aucune règle écrite d'avance ne le devinera. Lire
+     * le ticket — découper les lignes, en tirer les prix — se fait sur
+     * l'appareil et n'a besoin de personne ; comprendre les articles demande
+     * une connaissance du monde, donc un service. Il est donc facultatif, et
+     * tant que ce champ est vide le téléphone ne parle à personne.
+     *
+     * Ce qui sort, quand une clé est posée : les libellés et le nom du
+     * commerçant. Jamais la photo, jamais les montants, jamais le reste du
+     * grand livre. Et chaque réponse est gardée, donc un article ne se
+     * demande qu'une fois.
+     */
+    private var receiptsSection: some View {
+        SettingsGroup(
+            title: t("v2.settings.receipts", "Tickets de caisse"),
+            footer: t(
+                "v2.settings.receiptsHint",
+                "Facultatif. Avec une clé Gemini (gratuite sur aistudio.google.com), Florin traduit « AUR PROV VALP DOP » en « provolone Valpadana ». Seuls les libellés et le nom du commerçant sortent du téléphone — jamais la photo ni les montants. Sans clé, le ticket reste lu sur l'appareil, tel que la caisse l'a imprimé."
+            )
+        ) {
+            HStack(spacing: 11) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(Florin.accent)
+                    .frame(width: 20)
+                SecureField(
+                    t("v2.settings.geminiKey", "Clé d'API Gemini"), text: $geminiKey
+                )
+                .font(.system(size: 15.5))
+                .foregroundStyle(Florin.text)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+            }
+            .padding(.horizontal, Florin.gutter)
+            .padding(.vertical, 13)
+        }
+        .task {
+            guard let store = LocalStore.shared else { return }
+            geminiKey = ProductNames.apiKey(store: store) ?? ""
+        }
+        .onChange(of: geminiKey) { _, value in
+            guard let store = LocalStore.shared else { return }
+            try? ProductNames.setAPIKey(store: store, value)
+        }
+    }
+
     private var categoriesSection: some View {
         let local = sourceBinding.wrappedValue != .server
         return SettingsGroup(

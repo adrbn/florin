@@ -38,8 +38,16 @@ struct ReceiptsSheet: View {
     @State private var picked: [PhotosPickerItem] = []
     @State private var reading = false
     @State private var failure: String?
+    /// Ce qu'on a compris des libellés, relu une fois par chargement — la
+    /// vue se redessine souvent, la base pas.
+    @State private var meanings: [String: ProductNames.Reading] = [:]
+    @State private var explaining = false
 
     private var items: [LocalReceipts.Item] { receipts.flatMap(\.items) }
+    /// Les libellés qu'on ne sait pas encore lire.
+    private var puzzling: [String] {
+        items.map(\.label).filter { meanings[ProductNames.key($0)] == nil }
+    }
     private var remainder: Double {
         LocalReceipts.unexplained(total: tx.amount, items: items)
     }
@@ -60,6 +68,7 @@ struct ReceiptsSheet: View {
                             }
                             if abs(remainder) > 0.005 { unexplained }
                         }
+                        if !puzzling.isEmpty, !reading { understand }
                         if let failure {
                             Text(failure)
                                 .font(.system(size: 13))
@@ -178,7 +187,7 @@ struct ReceiptsSheet: View {
             } else {
                 ForEach(Array(receipt.items.enumerated()), id: \.element.id) { index, item in
                     if index > 0 { Hairline() }
-                    line(item.label, item.amount)
+                    itemLine(item)
                 }
                 Hairline()
                 HStack {
@@ -209,6 +218,57 @@ struct ReceiptsSheet: View {
             }
             .tint(Florin.negative)
         }
+    }
+
+    /*
+     * Ce que la caisse a voulu dire, quand on le sait.
+     *
+     * « AUR PROV VALP DOP » n'est pas un nom d'article, c'est ce qui tient en
+     * vingt-quatre caractères. Le nom clair prend la première ligne et le
+     * libellé imprimé reste dessous : c'est lui qui est sur le papier, et
+     * c'est contre lui qu'on vérifie une lecture douteuse.
+     */
+    private func itemLine(_ item: LocalReceipts.Item) -> some View {
+        let reading = meanings[ProductNames.key(item.label)]
+        return HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(reading?.name ?? item.label)
+                    .font(.system(size: 15))
+                    .foregroundStyle(Florin.text)
+                    .lineLimit(2)
+                if reading != nil {
+                    Text(item.label)
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Florin.text2)
+                        .lineLimit(1)
+                }
+            }
+            Spacer(minLength: 8)
+            AmountText(value: item.amount, locale: locale, currency: currency)
+        }
+        .padding(.horizontal, Florin.gutter)
+        .padding(.vertical, 11)
+    }
+
+    /// Déchiffrer les libellés qui résistent. Discret et facultatif : sans
+    /// clé d'API rien ne part, et le ticket reste lisible tel quel.
+    private var understand: some View {
+        Button {
+            Task { await explain() }
+        } label: {
+            Label(
+                explaining
+                    ? t("v2.receipts.understanding", "Lecture des articles…")
+                    : t("v2.receipts.understand", "Comprendre les articles"),
+                systemImage: "sparkles"
+            )
+            .font(.system(size: 14))
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+        }
+        .tint(Florin.text2)
+        .buttonStyle(PressScale())
+        .disabled(explaining || reading)
     }
 
     private func line(_ label: String, _ amount: Double?) -> some View {
@@ -305,6 +365,25 @@ struct ReceiptsSheet: View {
             else { return }
             photos[receipt.id] = image
         }
+        meanings = (try? ProductNames.known(
+            store: store, labels: receipts.flatMap(\.items).map(\.label)
+        )) ?? [:]
+    }
+
+    /// Demander ce qu'on n'a pas encore compris, et le garder.
+    private func explain() async {
+        guard let store = LocalStore.shared else { return }
+        explaining = true
+        failure = nil
+        do {
+            try await ProductNames.resolve(
+                store: store, labels: puzzling, merchant: PayeeText.clean(tx.payee)
+            )
+        } catch {
+            failure = error.localizedDescription
+        }
+        explaining = false
+        load()
     }
 
     private func url(_ path: String) -> URL {

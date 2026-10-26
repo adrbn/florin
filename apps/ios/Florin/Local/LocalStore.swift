@@ -211,6 +211,20 @@ final class LocalStore {
                 ON receipt_items (transaction_id);
             CREATE INDEX IF NOT EXISTS receipt_items_receipt
                 ON receipt_items (receipt_id);
+            /*
+             * Ce qu'une abréviation de caisse veut dire, une fois pour toutes.
+             *
+             * Demandé à un modèle (voir `ProductNames`), gardé ici : le même
+             * article ne se redemande jamais, et le panier habituel finit par
+             * se lire hors ligne.
+             */
+            CREATE TABLE IF NOT EXISTS product_names (
+                match_key TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                category TEXT,
+                source TEXT NOT NULL DEFAULT 'gemini',
+                created_at TEXT NOT NULL DEFAULT (datetime('now'))
+              );
             CREATE TABLE IF NOT EXISTS holding_purchases (
                 id TEXT PRIMARY KEY,
                 account_id TEXT NOT NULL,
