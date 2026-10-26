@@ -1397,12 +1397,13 @@ struct CorrectedBankRowTests {
         try correct(store, id, payee: "Chez Rosa", category: category)
 
         var adopted: Set<String> = []
+        var repeats: [String: Int] = [:]
         let written = try BankingSync.insert(
             booking(
                 reference: "TRX-90210", amount: -820, day: "2026-09-20",
                 label: "SARL LE COMPTOIR"
             ),
-            store: store, accountId: account, uid: "uid", adopted: &adopted
+            store: store, accountId: account, uid: "uid", adopted: &adopted, repeats: &repeats
         )
 
         #expect(!written)
@@ -1424,14 +1425,60 @@ struct CorrectedBankRowTests {
         )
 
         var adopted: Set<String> = []
+        var repeats: [String: Int] = [:]
         let written = try BankingSync.insert(
             booking(
                 reference: "TRX-77", amount: -12, day: "2026-09-20", label: "CHEZ ROSA"
             ),
-            store: store, accountId: account, uid: "uid", adopted: &adopted
+            store: store, accountId: account, uid: "uid", adopted: &adopted, repeats: &repeats
         )
 
         #expect(written)
+        #expect(live(store, on: account) == 2)
+    }
+
+    /*
+     * Deux fois le même café, le même jour.
+     *
+     * Sans identifiant stable, la clé est le contenu : même jour, même
+     * montant, même libellé. Deux achats réellement distincts la produisent à
+     * l'identique, et le second passait pour un doublon — l'argent sortait du
+     * compte sans entrer dans le grand livre.
+     */
+    @Test("two identical purchases on one day are two rows, and a replay adds none")
+    func keepsTheSecondOfTwoIdenticalPurchases() throws {
+        let (store, account, _) = try ledger()
+        // Une banque qui numérote par position : aucun identifiant utilisable.
+        func unnumbered() -> BankTransaction {
+            BankTransaction(
+                transactionId: nil, entryReference: "2026-09-20.3",
+                transactionAmount: BalancesResponse.Amount(amount: "1.8", currency: "EUR"),
+                creditDebitIndicator: "DBIT", bookingDate: "2026-09-20",
+                valueDate: nil, transactionDate: nil,
+                creditorName: "ACHAT CB CAFE DU COIN", debtorName: nil,
+                remittanceInformation: nil, status: "BOOK"
+            )
+        }
+
+        var adopted: Set<String> = []
+        var repeats: [String: Int] = [:]
+        for _ in 0..<2 {
+            _ = try BankingSync.insert(
+                unnumbered(), store: store, accountId: account, uid: "uid",
+                adopted: &adopted, repeats: &repeats
+            )
+        }
+        #expect(live(store, on: account) == 2)
+
+        // Le relevé est rendu entier à chaque synchro : rejoué, il n'ajoute rien.
+        var again: Set<String> = []
+        var againRepeats: [String: Int] = [:]
+        for _ in 0..<2 {
+            _ = try BankingSync.insert(
+                unnumbered(), store: store, accountId: account, uid: "uid",
+                adopted: &again, repeats: &againRepeats
+            )
+        }
         #expect(live(store, on: account) == 2)
     }
 
@@ -3045,13 +3092,79 @@ struct WalletPaymentTests {
         INSERT INTO categories (id, group_id, name) VALUES ('\(category)', '\(group)', 'Cafés');
         UPDATE transactions SET category_id = '\(category)' WHERE source = 'ios_shortcut';
         """)
-        let bank = try bankRow(store, checking, "2026-09-09", -4.10)
+        let bank = try bankRow(store, checking, "2026-09-08", -4.10)
 
         #expect(try LocalWallet.settle(store: store) == 1)
         #expect(try live(store, source: LocalWallet.source) == 0)
         #expect(try store.database.scalar(
             "SELECT category_id FROM transactions WHERE id = ?", [.text(bank)]
         )?.string == category)
+    }
+
+    /*
+     * Sans le nom pour corroborer, une semaine en avant est un pari.
+     *
+     * La banque date une ligne carte au jour de l'achat : sur le grand livre,
+     * les 275 lignes « ACHAT CB » portent toutes la date imprimée dans leur
+     * propre libellé. Un paiement d'aujourd'hui n'a donc rien à chercher six
+     * jours plus loin — et s'il le fait, il prend la ligne de quelqu'un
+     * d'autre, qui restera en prévision pour toujours.
+     *
+     * Un jour reste ouvert : une carte débitée par un intermédiaire (PayPal)
+     * se pose le lendemain, sous le nom de l'intermédiaire, donc sans nom pour
+     * corroborer.
+     */
+    @Test("without a name to corroborate, the bank's row is sought on the day, not the week")
+    func doesNotStealALaterRow() throws {
+        let (store, checking, _) = try ledger()
+        try LocalWallet.record(
+            store: store, amountText: "4,10", merchant: "Café", card: nil,
+            accountId: checking, on: day("2026-09-07")
+        )
+        // Six jours plus loin, le même montant, un libellé qui n'a rien à voir.
+        _ = try bankRow(store, checking, "2026-09-13", -4.10, label: "PREL DE UNE ASSURANCE")
+        #expect(try LocalWallet.settle(store: store) == 0)
+        #expect(try live(store, source: LocalWallet.source) == 1)
+
+        // Le même écart, mais le nom concorde : là, c'est bien sa ligne.
+        _ = try bankRow(store, checking, "2026-09-13", -4.10, label: "ACHAT CB CAFE DU COIN")
+        #expect(try LocalWallet.settle(store: store) == 1)
+    }
+
+    /*
+     * Le nom que vous avez donné, et sa vignette, survivent à l'appariement.
+     *
+     * La tape et la ligne de banque n'ont pas la même clé de commerçant
+     * (« lumio » contre « lumiofr ») : sans ce passage de relais, la ligne arrive
+     * sous le libellé brut de la banque et le renommage est à refaire.
+     */
+    @Test("the name and badge you gave the payment pass to the bank's row")
+    func carriesTheMerchantIdentity() throws {
+        let (store, checking, _) = try ledger()
+        try LocalWallet.record(
+            store: store, amountText: "12,00", merchant: "Lumio", card: nil,
+            accountId: checking, on: day("2026-09-07")
+        )
+        let tapKey = MerchantNames.key("Lumio")
+        try store.database.run(
+            "INSERT INTO payee_aliases (id, match_key, display_name) VALUES (?, ?, ?)",
+            [.text(UUID().uuidString), .text(tapKey), .text("Lumio")]
+        )
+        try store.database.run(
+            "INSERT INTO merchant_marks (match_key, domain) VALUES (?, ?)",
+            [.text(tapKey), .text("lumio.fr")]
+        )
+        _ = try bankRow(store, checking, "2026-09-07", -12.00, label: "ACHAT CB LUMIO.FR 07.09.26")
+
+        #expect(try LocalWallet.settle(store: store) == 1)
+        let bankKey = MerchantNames.key("ACHAT CB LUMIO.FR 07.09.26")
+        #expect(bankKey != tapKey)
+        #expect(try store.database.scalar(
+            "SELECT display_name FROM payee_aliases WHERE match_key = ?", [.text(bankKey)]
+        )?.string == "Lumio")
+        #expect(try store.database.scalar(
+            "SELECT domain FROM merchant_marks WHERE match_key = ?", [.text(bankKey)]
+        )?.string == "lumio.fr")
     }
 
     @Test("one bank row settles one payment, even across syncs")

@@ -370,6 +370,10 @@ enum BankingSync {
         /// Local rows already claimed in this run, so two bank rows cannot
         /// collapse onto one and quietly lose a transaction.
         var adopted: Set<String> = []
+        /// Combien de fois un même libellé, un même jour, un même montant a
+        /// déjà été vu dans ce relevé : c'est ce qui distingue deux achats
+        /// identiques quand la banque ne les numérote pas.
+        var repeats: [String: Int] = [:]
         var continuationKey: String?
 
         /*
@@ -397,10 +401,25 @@ enum BankingSync {
          * settled days is free because the external id makes it idempotent.
          * An account with nothing still gets everything.
          */
+        /*
+         * Ce que la banque a déjà donné — et rien d'autre.
+         *
+         * La question posée ici est « jusqu'où suis-je à jour côté banque »,
+         * et seule une ligne venue de la banque y répond. Un versement noté à
+         * la main, un abonnement prévu en janvier prochain : ces lignes-là
+         * sont plus récentes que tout et ne disent rien. En les comptant, la
+         * fenêtre partait d'un jour à venir, l'écart devenait négatif, et le
+         * plancher la refermait sur trois jours — définitivement. Un
+         * téléphone resté une semaine sans synchro perdait la semaine.
+         *
+         * Le plancher est un mois : relire un mois déjà écrit ne coûte rien
+         * puisque la clé le reconnaît, et c'est ce qui rattrape les trous.
+         */
         let existing = try store.database.scalar(
             """
             SELECT max(occurred_at) FROM transactions
             WHERE account_id = ? AND deleted_at IS NULL
+              AND source = 'enable_banking'
             """,
             [.text(accountId)]
         )?.string
@@ -409,7 +428,7 @@ enum BankingSync {
         if let existing, existing.count >= 10,
            let newest = LocalQueries.dayFormatter.date(from: String(existing.prefix(10))) {
             let days = calendar.dateComponents([.day], from: newest, to: Date()).day ?? 0
-            windows = [max(days + 3, 3)]
+            windows = [max(days + 3, 30)]
             log.notice("account already holds history to \(existing.prefix(10), privacy: .public)")
         }
         var from = ""
@@ -439,7 +458,7 @@ enum BankingSync {
             for transaction in page.transactions {
                 if try insert(
                     transaction, store: store, accountId: accountId,
-                    uid: uid, adopted: &adopted
+                    uid: uid, adopted: &adopted, repeats: &repeats
                 ) {
                     inserted += 1
                 } else {
@@ -472,10 +491,11 @@ enum BankingSync {
                 let waiting = try await EnableBanking.transactions(
                     config, uid: uid, from: from, to: to, status: "PDNG"
                 )
+                var waitingRepeats: [String: Int] = [:]
                 for transaction in waiting.transactions {
                     if try insert(
                         transaction, store: store, accountId: accountId,
-                        uid: uid, adopted: &adopted
+                        uid: uid, adopted: &adopted, repeats: &waitingRepeats
                     ) {
                         inserted += 1
                     } else {
@@ -497,7 +517,8 @@ enum BankingSync {
         store: LocalStore,
         accountId: String,
         uid: String,
-        adopted: inout Set<String>
+        adopted: inout Set<String>,
+        repeats: inout [String: Int]
     ) throws -> Bool {
         guard let day = transaction.date else { return false }
         /*
@@ -540,8 +561,29 @@ enum BankingSync {
             ?? transaction.entryReference.flatMap {
                 BankTransaction.isPositional($0) ? nil : $0
             }
-        let reference = stable
+        /*
+         * Deux fois le même café, le même jour : deux lignes, pas une.
+         *
+         * Faute d'identifiant stable, la clé est le contenu — le jour, le
+         * montant, le libellé. Deux achats réellement distincts mais
+         * identiques la produisent à l'identique, et le second était rejeté
+         * comme un doublon : l'argent sortait du compte sans jamais entrer
+         * dans le grand livre, et le paiement noté sur le téléphone restait
+         * en prévision pour toujours, à attendre une ligne jetée.
+         *
+         * Alors on compte. Le deuxième exemplaire d'un même contenu dans un
+         * même relevé prend un rang, le troisième un autre. Le premier garde
+         * sa clé nue, pour que tout ce qui est déjà écrit le reste. La
+         * banque rend le relevé entier à chaque fois, donc le rang retombe
+         * toujours au même endroit et une synchro rejouée n'ajoute rien.
+         */
+        var reference = stable
             ?? "\(date):\(transaction.signedAmount):\(transaction.counterparty)"
+        if stable == nil {
+            let rank = (repeats[reference] ?? 0) + 1
+            repeats[reference] = rank
+            if rank > 1 { reference += "#\(rank)" }
+        }
         let externalId = "\(uid):\(reference)"
 
         let already = try store.database.scalar(

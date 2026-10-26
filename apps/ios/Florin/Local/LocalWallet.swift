@@ -406,6 +406,24 @@ enum LocalWallet {
              * quatre. Ce qui reste sans partenaire est alors ce qui n'en a
              * réellement pas.
              */
+            /*
+             * Sans le nom pour corroborer, une semaine en avant est un pari.
+             *
+             * La banque date une ligne de carte au jour de l'achat — pas une
+             * exception sur tout le grand livre — donc la ligne d'une tape est
+             * à zéro jour, ou n'existe pas encore. Chercher jusqu'à sept jours
+             * plus loin sans que le nom soit d'accord, c'était prendre la
+             * ligne d'un achat qui n'avait pas encore été tapé : une tape d'un
+             * café prenait un prélèvement d'assurance du même montant six
+             * jours plus tard, et la tape du jour de ce prélèvement se
+             * retrouvait orpheline à vie. L'erreur ne se voyait pas — elle se
+             * voyait six jours plus loin, sur quelqu'un d'autre.
+             *
+             * Un jour reste, parce qu'une carte passée par un intermédiaire
+             * est débitée le lendemain sous le nom de l'intermédiaire, et que
+             * là le nom ne peut pas être d'accord. Au-delà, c'est au nom de
+             * parler.
+             */
             var pairs: [(tap: SQLiteRow, bank: SQLiteRow, drift: Double)] = []
             for row in pending {
                 guard let id = row.string("id"), !done.contains(id),
@@ -413,18 +431,19 @@ enum LocalWallet {
                       let amount = row.double("amount"), let day = row.string("day") else { continue }
                 let candidates = try store.database.query(
                     """
-                    SELECT id, category_id, normalized_payee,
+                    SELECT id, category_id, normalized_payee, payee,
                            abs(julianday(substr(occurred_at, 1, 10)) - julianday(?)) AS drift
                     FROM transactions
                     WHERE account_id = ? AND deleted_at IS NULL
                       AND source <> ? AND status = 'cleared'
                       AND abs(amount - ?) < 0.005
                       AND julianday(substr(occurred_at, 1, 10))
-                          BETWEEN julianday(?) - ? AND julianday(?) + 7
+                          BETWEEN julianday(?) - ? AND julianday(?) + ?
                     ORDER BY abs(julianday(substr(occurred_at, 1, 10)) - julianday(?))
                     """,
                     [.text(day), .text(account), .text(source), .real(amount), .text(day),
-                     .real(byName ? (amount > 0 ? 14 : 3) : 0), .text(day), .text(day)]
+                     .real(byName ? (amount > 0 ? 14 : 3) : 0), .text(day),
+                     .real(byName ? 7 : 1), .text(day)]
                 )
                 let tap = row.string("payee") ?? ""
                 for candidate in candidates
@@ -448,6 +467,24 @@ enum LocalWallet {
                         [.text(category), .text(bankId)]
                     )
                 }
+                /*
+                 * Le nom que vous avez donné passe aussi, et sa vignette.
+                 *
+                 * Une tape porte le nom du commerce ; la ligne de la banque
+                 * porte « ACHAT CB … 23.10.26 EUR », qui ne se replie pas sur
+                 * la même clé. Au moment où la banque comptabilise, le nom et
+                 * le site disparaissaient donc de l'écran et il fallait les
+                 * reposer à la main — sur une clé qui, elle non plus, ne
+                 * vaudra que pour ce commerçant-là. La catégorie et
+                 * l'échéancier passaient déjà : c'est le même achat, et son
+                 * identité en fait partie.
+                 *
+                 * `DO NOTHING` : ce qui a déjà été décidé sur la clé de la
+                 * banque est une décision, et ne se laisse pas écraser.
+                 */
+                try adoptIdentity(
+                    store, tap: row.string("payee") ?? "", bank: match.string("payee") ?? ""
+                )
                 /*
                  * L'échéancier passe sur la ligne de la banque.
                  *
@@ -479,6 +516,13 @@ enum LocalWallet {
                 )
                 settled += 1
             }
+        }
+        // Les noms et vignettes qu'on vient de faire passer : les tables sont
+        // lues une fois et gardées, et une comptabilisation arrive aussi en
+        // pleine session, après une synchro.
+        if settled > 0 {
+            MerchantNames.shared.invalidate()
+            Task { @MainActor in MerchantLogos.shared.invalidate() }
         }
         return settled
     }
@@ -543,6 +587,35 @@ enum LocalWallet {
 
     /// A bank row that already replaced an earlier payment is not free to
     /// replace another.
+    /// Le nom et la vignette d'une tape, posés sur la clé de la ligne que la
+    /// banque vient d'écrire. Voir l'appel, dans `settle`.
+    private static func adoptIdentity(_ store: LocalStore, tap: String, bank: String) throws {
+        let tapKey = MerchantNames.key(tap), bankKey = MerchantNames.key(bank)
+        guard !tapKey.isEmpty, !bankKey.isEmpty, tapKey != bankKey else { return }
+        // Le nom montré pour la tape : son renommage s'il en a un, sinon ce
+        // qui a été tapé — c'est déjà un nom, pas une ligne de relevé.
+        let shown = (try? store.database.scalar(
+            "SELECT display_name FROM payee_aliases WHERE match_key = ?", [.text(tapKey)]
+        )?.string) ?? nil
+        let display = shown ?? tap.trimmingCharacters(in: .whitespaces)
+        guard !display.isEmpty else { return }
+        try store.database.run(
+            """
+            INSERT INTO payee_aliases (id, match_key, display_name) VALUES (?, ?, ?)
+            ON CONFLICT(match_key) DO NOTHING
+            """,
+            [.text(UUID().uuidString), .text(bankKey), .text(display)]
+        )
+        try store.database.run(
+            """
+            INSERT INTO merchant_marks (match_key, domain, emoji, image)
+            SELECT ?, domain, emoji, image FROM merchant_marks WHERE match_key = ?
+            ON CONFLICT(match_key) DO NOTHING
+            """,
+            [.text(bankKey), .text(tapKey)]
+        )
+    }
+
     private static func isAlreadySettling(_ store: LocalStore, _ bankId: String) -> Bool {
         (try? store.database.scalar(
             "SELECT 1 FROM transactions WHERE source = ? AND merge_suggested_tx_id = ? LIMIT 1",
