@@ -186,6 +186,17 @@ enum LocalWallet {
         stamp.locale = Locale(identifier: "en_US_POSIX")
         stamp.timeZone = .current
         stamp.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        return alreadyRecorded(
+            store: store, amount: amount, payee: payee, at: stamp.string(from: moment)
+        )
+    }
+
+    /// La même question posée à une date déjà écrite — « 2026-10-19T10:00:00Z »
+    /// comme le grand livre la garde, seconde comprise.
+    static func alreadyRecorded(
+        store: LocalStore, amount: Double, payee: String, at occurred: String
+    ) -> Bool {
+        let moment = occurred.prefix(19).replacingOccurrences(of: "T", with: " ")
         let name = payee.trimmingCharacters(in: .whitespacesAndNewlines)
         return (try? store.database.scalar(
             """
@@ -198,7 +209,7 @@ enum LocalWallet {
             [
                 .text(source),
                 .text(LocalLedger.normalize(name.isEmpty ? "Apple Pay" : name)),
-                .real(amount), .text(stamp.string(from: moment)), .real(sameTapWindow),
+                .real(amount), .text(String(moment)), .real(sameTapWindow),
             ]
         )) != nil
     }
@@ -213,6 +224,22 @@ enum LocalWallet {
      * its place exactly as it would have for one recorded at the till.
      */
     static func recordUpcoming(store: LocalStore, _ tx: NewTransaction) throws {
+        /*
+         * Deux fois « Ajouter », une seule dépense.
+         *
+         * Le filet du même achat écrit deux fois était posé sur l'action et
+         * sur le fichier de l'automatisation, pas sur la feuille de saisie —
+         * qui écrit pourtant la même sorte de ligne. Deux envois à dix-sept
+         * secondes d'intervalle ont donc donné deux fois le même sandwich,
+         * dont un seul pouvait être repris par la ligne de la banque :
+         * l'autre est resté « en prévision » pour toujours.
+         *
+         * Une échéance n'est pas concernée : les mensualités d'un même achat
+         * sont à un mois l'une de l'autre, très loin de la fenêtre.
+         */
+        if alreadyRecorded(
+            store: store, amount: -tx.amount, payee: tx.payee, at: tx.occurredAt
+        ) { return }
         try insertUpcoming(
             store: store, accountId: tx.accountId, occurredAt: tx.occurredAt,
             amount: tx.amount, payee: tx.payee, memo: tx.memo,
@@ -362,13 +389,33 @@ enum LocalWallet {
         var done = Set<String>()
         var settled = 0
         for byName in [true, false] {
+            /*
+             * La paire la plus proche d'abord, pas le premier venu.
+             *
+             * Chaque tape prenait, dans sa fenêtre, la ligne libre la plus
+             * proche — en commençant par la plus ancienne des tapes. Un café
+             * quotidien au même prix décalait alors tout le monde d'un cran :
+             * la tape du 9 prenait la ligne du 13, celle du 13 la ligne du
+             * 14, et la tape du 14 ne trouvait plus rien. Le décalage ne se
+             * rattrape jamais, et l'orpheline reste « en prévision » à vie
+             * en doublant une dépense déjà comptabilisée.
+             *
+             * Les paires possibles sont donc toutes constituées d'abord, puis
+             * attribuées par écart croissant : la ligne du 13 revient à la
+             * tape du 13, qui est à zéro jour, et non à celle du 9, qui est à
+             * quatre. Ce qui reste sans partenaire est alors ce qui n'en a
+             * réellement pas.
+             */
+            var pairs: [(tap: SQLiteRow, bank: SQLiteRow, drift: Double)] = []
             for row in pending {
                 guard let id = row.string("id"), !done.contains(id),
                       let account = row.string("account_id"),
                       let amount = row.double("amount"), let day = row.string("day") else { continue }
                 let candidates = try store.database.query(
                     """
-                    SELECT id, category_id, normalized_payee FROM transactions
+                    SELECT id, category_id, normalized_payee,
+                           abs(julianday(substr(occurred_at, 1, 10)) - julianday(?)) AS drift
+                    FROM transactions
                     WHERE account_id = ? AND deleted_at IS NULL
                       AND source <> ? AND status = 'cleared'
                       AND abs(amount - ?) < 0.005
@@ -376,15 +423,22 @@ enum LocalWallet {
                           BETWEEN julianday(?) - ? AND julianday(?) + 7
                     ORDER BY abs(julianday(substr(occurred_at, 1, 10)) - julianday(?))
                     """,
-                    [.text(account), .text(source), .real(amount), .text(day),
+                    [.text(day), .text(account), .text(source), .real(amount), .text(day),
                      .real(byName ? (amount > 0 ? 14 : 3) : 0), .text(day), .text(day)]
                 )
                 let tap = row.string("payee") ?? ""
-                guard let match = candidates.first(where: {
-                    guard let candidate = $0.string("id") else { return false }
-                    return !claimed.contains(candidate) && !isAlreadySettling(store, candidate)
-                        && (!byName || namesAgree(tap, $0.string("normalized_payee") ?? ""))
-                }), let bankId = match.string("id") else { continue }
+                for candidate in candidates
+                where !byName || namesAgree(tap, candidate.string("normalized_payee") ?? "") {
+                    pairs.append((row, candidate, candidate.double("drift") ?? 99))
+                }
+            }
+            pairs.sort { $0.drift < $1.drift }
+
+            for pair in pairs {
+                let row = pair.tap, match = pair.bank
+                guard let id = row.string("id"), !done.contains(id),
+                      let bankId = match.string("id"), !claimed.contains(bankId),
+                      !isAlreadySettling(store, bankId) else { continue }
                 claimed.insert(bankId)
                 done.insert(id)
 

@@ -5766,3 +5766,97 @@ struct RecentPendingTests {
         #expect(waiting.map(\.payee) == ["ABONNEMENT EXEMPLE"])
     }
 }
+
+// MARK: - La tape et sa ligne de banque
+
+/*
+ * Un achat répété au même prix décalait tout le monde d'un cran.
+ *
+ * Chaque paiement noté d'avance prenait, dans sa fenêtre d'une semaine, la
+ * ligne libre la plus proche — en commençant par le plus ancien. Un café
+ * quotidien à prix fixe faisait donc prendre au paiement du 9 la ligne du 13,
+ * à celui du 13 la ligne du 14, et celui du 14 ne trouvait plus rien : il
+ * restait « en prévision » à vie en doublant une dépense déjà comptabilisée.
+ */
+@Suite("Taps and their bank lines")
+struct WalletSettleTests {
+    private func ledger() throws -> (LocalStore, account: String) {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("florin-settle-\(UUID().uuidString).db")
+        let store = try LocalStore(url: url)
+        let account = UUID().uuidString
+        try store.database.exec("""
+        INSERT INTO accounts (id, name, kind, currency)
+          VALUES ('\(account)', 'CCP', 'checking', 'EUR');
+        """)
+        return (store, account)
+    }
+
+    private func tap(_ store: LocalStore, _ account: String, _ day: String) throws {
+        try LocalWallet.recordUpcoming(store: store, NewTransaction(
+            accountId: account, amount: -3.70, payee: "Nonna",
+            occurredAt: "\(day)T10:00:00Z", memo: nil, categoryId: nil, upcoming: true
+        ))
+    }
+
+    /// Le libellé de la banque ne nomme pas la boutique : c'est la passe à
+    /// l'aveugle qui tranche, celle qui ne regarde que la date et le montant.
+    private func booked(_ store: LocalStore, _ account: String, _ day: String) throws {
+        try store.database.run(
+            """
+            INSERT INTO transactions
+                (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
+                 source, status, needs_review, is_pending)
+            VALUES (?, ?, ?, -3.70, 'EUR', ?, ?, 'enable_banking', 'cleared', 0, 0)
+            """,
+            [
+                .text(UUID().uuidString), .text(account), .text("\(day)T00:00:00Z"),
+                .text("ACHAT CB P.A.S. COMMERC \(day)"),
+                .text("achat cb p.a.s. commerc \(day)"),
+            ]
+        )
+    }
+
+    @Test("the line of a day goes to the payment of that day")
+    func closestPairFirst() throws {
+        let (store, account) = try ledger()
+        for day in ["2026-10-09", "2026-10-13", "2026-10-14"] {
+            try tap(store, account, day)
+        }
+        for day in ["2026-10-13", "2026-10-14"] { try booked(store, account, day) }
+
+        #expect(try LocalWallet.settle(store: store) == 2)
+        let left = try store.database.query(
+            """
+            SELECT substr(occurred_at, 1, 10) AS day FROM transactions
+            WHERE source = 'ios_shortcut' AND deleted_at IS NULL
+            """
+        ).compactMap { $0.string("day") }
+        // Celui du 9 n'a pas de ligne du 9 : c'est lui qui attend, pas celui
+        // du 14 dont la ligne était là, sous son nez.
+        #expect(left == ["2026-10-09"])
+
+        for day in ["2026-10-13", "2026-10-14"] {
+            let pairedWith = try store.database.scalar(
+                """
+                SELECT substr(b.occurred_at, 1, 10) FROM transactions t
+                JOIN transactions b ON b.id = t.merge_suggested_tx_id
+                WHERE t.source = 'ios_shortcut' AND substr(t.occurred_at, 1, 10) = ?
+                """,
+                [.text(day)]
+            )?.string
+            #expect(pairedWith == day)
+        }
+    }
+
+    /// Deux fois « Ajouter » sur la même feuille, une seule dépense.
+    @Test("the same payment entered twice is written once")
+    func noDoubleSubmit() throws {
+        let (store, account) = try ledger()
+        try tap(store, account, "2026-10-19")
+        try tap(store, account, "2026-10-19")
+        #expect(try store.database.scalar(
+            "SELECT count(*) FROM transactions WHERE deleted_at IS NULL"
+        )?.int == 1)
+    }
+}
