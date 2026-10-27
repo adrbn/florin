@@ -3236,6 +3236,11 @@ struct WalletPaymentTests {
 
         #expect(try LocalWallet.settle(store: store) == 1)
         #expect(try LocalReceipts.count(store: store, transactionId: bank) == 1)
+        // Avec son détail : un ticket sans ses lignes s'affiche vide.
+        #expect(
+            try LocalReceipts.receipts(store: store, transactionId: bank)
+                .first?.items.count == 1
+        )
     }
 
     /// Et ceux d'avant, restés derrière, suivent le lien que la tape garde.
@@ -3265,6 +3270,43 @@ struct WalletPaymentTests {
 
         #expect(try LocalWallet.rehomeReceipts(store: store) == 1)
         #expect(try LocalReceipts.count(store: store, transactionId: bank) == 1)
+        #expect(
+            try LocalReceipts.receipts(store: store, transactionId: bank)
+                .first?.items.count == 1
+        )
+    }
+
+    /// Un ticket déplacé par n'importe quel chemin emmène son détail.
+    @Test("receipt lines realign on whatever row their receipt now sits")
+    func realignsReceiptLines() throws {
+        let (store, checking, _) = try ledger()
+        try LocalWallet.record(
+            store: store, amountText: "4,10", merchant: "Café", card: nil,
+            accountId: checking, on: day("2026-09-07")
+        )
+        let tap = try store.database.scalar(
+            "SELECT id FROM transactions WHERE source = ?", [.text(LocalWallet.source)]
+        )?.string ?? ""
+        try LocalReceipts.save(
+            store: store, transactionId: tap, image: nil, text: "",
+            items: [.init(label: "Café serré", amount: 4.10)]
+        )
+        let bank = try bankRow(store, checking, "2026-09-07", -4.10)
+        // Le ticket seul est déplacé, comme le faisaient les anciennes versions.
+        try store.database.run(
+            "UPDATE receipts SET transaction_id = ? WHERE transaction_id = ?",
+            [.text(bank), .text(tap)]
+        )
+        #expect(
+            try LocalReceipts.receipts(store: store, transactionId: bank)
+                .first?.items.isEmpty == true
+        )
+
+        try LocalWallet.rehomeReceipts(store: store)
+        #expect(
+            try LocalReceipts.receipts(store: store, transactionId: bank)
+                .first?.items.count == 1
+        )
     }
 
     @Test("a payment of the last few days keeps waiting for its bank row")

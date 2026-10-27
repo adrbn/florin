@@ -498,6 +498,14 @@ enum LocalWallet {
                     "UPDATE receipts SET transaction_id = ? WHERE transaction_id = ?",
                     [.text(bankId), .text(id)]
                 )
+                // Et les lignes lues dessus : `receipt_items` garde sa propre
+                // copie de l'opération — c'est par elle que la recherche
+                // retrouve un article — et un ticket déplacé sans elles
+                // revenait vide, « aucun article lu sur cette photo ».
+                try store.database.run(
+                    "UPDATE receipt_items SET transaction_id = ? WHERE transaction_id = ?",
+                    [.text(bankId), .text(id)]
+                )
                 /*
                  * L'échéancier passe sur la ligne de la banque.
                  *
@@ -671,16 +679,35 @@ enum LocalWallet {
                           WHERE b.id = t.merge_suggested_tx_id AND b.deleted_at IS NULL)
             """
         )
-        guard !strays.isEmpty else { return 0 }
-        try store.database.transaction {
-            for row in strays {
-                guard let id = row.string("id"), let bank = row.string("bank") else { continue }
-                try store.database.run(
-                    "UPDATE receipts SET transaction_id = ? WHERE id = ?",
-                    [.text(bank), .text(id)]
-                )
+        if !strays.isEmpty {
+            try store.database.transaction {
+                for row in strays {
+                    guard let id = row.string("id"), let bank = row.string("bank") else { continue }
+                    try store.database.run(
+                        "UPDATE receipts SET transaction_id = ? WHERE id = ?",
+                        [.text(bank), .text(id)]
+                    )
+                }
             }
         }
+        /*
+         * Puis les lignes se recalent sur leur propre ticket.
+         *
+         * Un ticket déplacé laissait son détail sur l'ancienne ligne : la
+         * photo revenait, les articles restaient introuvables, et l'écran
+         * annonçait « aucun article lu sur cette photo » sur un ticket qui en
+         * portait cinq. La vérité est dans `receipts`, donc on la redescend —
+         * quel que soit le chemin qui a déplacé le ticket, et sans avoir à
+         * s'en souvenir à chaque fois.
+         */
+        try store.database.run(
+            """
+            UPDATE receipt_items SET transaction_id =
+                (SELECT r.transaction_id FROM receipts r WHERE r.id = receipt_id)
+            WHERE transaction_id <>
+                (SELECT r.transaction_id FROM receipts r WHERE r.id = receipt_id)
+            """
+        )
         return strays.count
     }
 
