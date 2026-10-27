@@ -112,25 +112,81 @@ enum LocalReceipts {
                     .text(text),
                 ]
             )
-            var stored: [Item] = []
-            for (index, item) in items.enumerated() {
-                let itemId = UUID().uuidString
-                try store.database.run(
-                    """
-                    INSERT INTO receipt_items
-                        (id, receipt_id, transaction_id, label, amount, line_no)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    """,
-                    [
-                        .text(itemId), .text(id), .text(transactionId),
-                        .text(item.label), .real(item.amount), .integer(Int64(index)),
-                    ]
-                )
-                stored.append(Item(id: itemId, label: item.label, amount: item.amount))
-            }
+            let stored = try insert(
+                store: store, receiptId: id, transactionId: transactionId, items: items
+            )
             return Receipt(id: id, imagePath: path, scannedAt: "", items: stored)
         }
         return saved
+    }
+
+    private static func insert(
+        store: LocalStore, receiptId: String, transactionId: String, items: [ReceiptParser.Item]
+    ) throws -> [Item] {
+        var stored: [Item] = []
+        for (index, item) in items.enumerated() {
+            let itemId = UUID().uuidString
+            try store.database.run(
+                """
+                INSERT INTO receipt_items
+                    (id, receipt_id, transaction_id, label, amount, line_no)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    .text(itemId), .text(receiptId), .text(transactionId),
+                    .text(item.label), .real(item.amount), .integer(Int64(index)),
+                ]
+            )
+            stored.append(Item(id: itemId, label: item.label, amount: item.amount))
+        }
+        return stored
+    }
+
+    /*
+     * Les tickets découpés par une version qui comptait leurs totaux.
+     *
+     * Le texte reconnu est gardé, et les articles n'en sont qu'une lecture —
+     * personne ne les corrige à la main. Une lecture peut donc se refaire, et
+     * seulement là où elle allait mal : une somme d'articles *supérieure* au
+     * débit ne s'explique que par une ligne comptée deux fois, puisque la
+     * banque, elle, ne se trompe pas. Une lecture incomplète — somme sous le
+     * débit — n'est pas touchée : elle n'a rien à gagner à être refaite.
+     *
+     * Et la nouvelle lecture ne remplace l'ancienne que si elle serre le
+     * débit de plus près, ce qui évite de refaire le même travail à chaque
+     * lancement quand le découpage n'a rien à offrir de mieux.
+     */
+    @discardableResult
+    static func reparse(store: LocalStore) throws -> Int {
+        let rows = try store.database.query(
+            """
+            SELECT r.id AS id, r.transaction_id AS tx, r.raw_text AS text, t.amount AS amount,
+                   (SELECT coalesce(sum(i.amount), 0) FROM receipt_items i
+                     WHERE i.receipt_id = r.id) AS total
+            FROM receipts r JOIN transactions t ON t.id = r.transaction_id
+            WHERE r.raw_text IS NOT NULL AND t.deleted_at IS NULL
+            """
+        )
+        var repaired = 0
+        for row in rows {
+            guard let id = row.string("id"), let tx = row.string("tx"),
+                  let text = row.string("text"), let amount = row.double("amount"),
+                  let was = row.double("total"), was > abs(amount) + 0.005
+            else { continue }
+            let items = ReceiptParser.items(
+                from: text.components(separatedBy: .newlines), total: amount
+            )
+            let now = items.reduce(0) { $0 + $1.amount }
+            guard abs(abs(amount) - now) < abs(abs(amount) - was) else { continue }
+            try store.database.transaction {
+                try store.database.run(
+                    "DELETE FROM receipt_items WHERE receipt_id = ?", [.text(id)]
+                )
+                _ = try insert(store: store, receiptId: id, transactionId: tx, items: items)
+            }
+            repaired += 1
+        }
+        return repaired
     }
 
     static func delete(store: LocalStore, receiptId: String) throws {

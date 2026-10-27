@@ -5468,6 +5468,41 @@ struct ReceiptTests {
     }
 
     /*
+     * Le ticket d'un seul article, où le total lui ressemble trait pour trait.
+     *
+     * Un menu suivi de « Totale EURO » au même prix : le mot du total n'est
+     * pas reconnu — la caisse a collé devant lui un reste de dessin que la
+     * reconnaissance lit comme des lettres — et le ticket annonçait le triple
+     * de son débit. La ligne de TVA, elle, porte deux nombres : son taux et
+     * la taxe, et c'est la taxe qui s'ajoutait.
+     */
+    @Test("un ticket d'un seul article ne compte pas son total deux fois")
+    func doesNotCountTheTotalOfASingleItemReceipt() {
+        let items = ReceiptParser.items(from: [
+            "Qta Prodotti IVA TOTALE",
+            "1 Menu Duo 10% 6.40",
+            "SIN Totale EURO 6.40",
+            "Pagamento Carta di Credito 6.40",
+            "Importo pagato 6.40",
+            "IVA% TOTALE IVA",
+            "INCL. IVA: 10.00% 6.40 0.58",
+        ], total: -6.40)
+        #expect(items == [.init(label: "1 Menu Duo", amount: 6.40)])
+    }
+
+    /// Et deux articles du même prix restent deux : les amputer éloigne la
+    /// somme du débit, et c'est le débit qui tranche.
+    @Test("deux articles de même prix ne se prennent pas pour un total")
+    func keepsTwinItems() {
+        #expect(ReceiptParser.items(from: [
+            "Espresso 1,20", "Espresso 1,20", "TOTALE 2,40",
+        ], total: -2.40) == [
+            .init(label: "Espresso", amount: 1.20),
+            .init(label: "Espresso", amount: 1.20),
+        ])
+    }
+
+    /*
      * Le ticket romain, tel que la caisse l'imprime vraiment.
      *
      * Deux pièges de plus sur la même photo. Le taux de TVA tombe parfois sur

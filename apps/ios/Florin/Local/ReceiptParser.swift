@@ -162,6 +162,13 @@ enum ReceiptParser {
      * montant débité *y gagne* : c'est lui l'arbitre, il vient de la banque.
      * Quand la lecture est incomplète — la somme reste sous le débit —
      * écarter une ligne n'améliore rien, et tout est gardé.
+     *
+     * Une seule ligne gardée suffit à juger la suivante. L'exiger à partir de
+     * deux laissait passer le total des tickets qui n'ont qu'un article : un
+     * menu à 4,95 suivi de son total à 4,95 se comptait deux fois, et le
+     * ticket annonçait 10,35 € pour un débit de 4,95. Deux articles de même
+     * prix, eux, ne craignent rien : leur somme s'éloigne du débit quand on
+     * les ampute, et c'est cet écart qui tranche.
      */
     private static func keeping(_ items: [Item], against total: Double) -> [Item] {
         var kept: [Item] = []
@@ -169,7 +176,7 @@ enum ReceiptParser {
         for item in items {
             let repeats = abs(item.amount - sum) <= cent || abs(item.amount - total) <= cent
             let closer = abs(sum - total) < abs(sum + item.amount - total)
-            if kept.count >= 2, repeats, closer { continue }
+            if !kept.isEmpty, repeats, closer { continue }
             kept.append(item)
             sum += item.amount
         }
@@ -291,6 +298,9 @@ enum ReceiptParser {
     private static let summaryHeads: [String] = [
         "TOTAL", "SOUS TOTAL", "SOUSTOTAL", "NET A PAYER", "A PAYER", "MONTANT",
         "DONT", "RENDU", "NB ARTICLES", "NOMBRE ARTICLES",
+        // « INCL. IVA: 10,00 % 4,95 0,45 » : la ligne de TVA porte deux
+        // nombres, et celui de queue — la taxe — s'ajoutait aux achats.
+        "INCL",
         "TOTALE", "SUBTOTALE", "PARZIALE", "T PARZIALE", "IMPORTO", "PAGAMENTO",
         "DI CUI", "HAI RISPARMIATO", "RESTO", "CONTANTI", "NON RISCOSSO",
         "SUBTOTAL", "SUB TOTAL", "AMOUNT", "BALANCE", "CHANGE", "YOU SAVED",

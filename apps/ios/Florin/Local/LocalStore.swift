@@ -645,6 +645,11 @@ extension LocalStore {
                 log.notice("moved \(rehomed, privacy: .public) receipts onto the bank's rows")
             }
 
+            let reread = try LocalReceipts.reparse(store: store)
+            if reread > 0 {
+                log.notice("re-read \(reread, privacy: .public) receipts that outran their debit")
+            }
+
             let relabelled = try BankingSync.collapseRelabelledDuplicates(store: store)
             if relabelled > 0 {
                 log.notice("dropped \(relabelled, privacy: .public) relabelled duplicates")
