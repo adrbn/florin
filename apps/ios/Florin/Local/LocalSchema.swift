@@ -247,5 +247,26 @@ enum LocalSchema {
               transaction_id TEXT
             );
         CREATE INDEX IF NOT EXISTS wallet_attempts_started_idx ON wallet_attempts(started_at);
+        /*
+         * Ce que chaque compte portait, le jour où on l'a regardé.
+         *
+         * La courbe du patrimoine ne connaissait qu'un solde, celui
+         * d'aujourd'hui, et reconstituait les jours d'avant en défaisant les
+         * opérations une à une. Ça suppose que le solde de la banque contient
+         * déjà tout ce qu'elle a livré — et une banque livre la ligne d'un
+         * virement avant de l'avoir créditée. Le jour du salaire, la courbe
+         * défaisait donc trois mille euros qui n'y étaient pas, et enfonçait
+         * tout le passé d'autant.
+         *
+         * Un solde mesuré ne se devine pas. `balance` est ce que le compte
+         * apporte au patrimoine — pour un prêt, sa dette en négatif — et la
+         * dernière lecture du jour remplace la précédente.
+         */
+        CREATE TABLE IF NOT EXISTS account_balances (
+              account_id TEXT NOT NULL,
+              day TEXT NOT NULL,
+              balance REAL NOT NULL,
+              PRIMARY KEY (account_id, day)
+            );
         """
 }

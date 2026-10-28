@@ -33,6 +33,9 @@ enum LocalQueries {
             .filter { $0.isIncludedInNetWorth && $0.isLoan }
             .reduce(0) { $0 + abs($1.debt ?? $1.total) }
 
+        // Mesuré avant d'être dessiné : la série se sert de ce relevé, et le
+        // jour en cours doit y être à sa valeur la plus fraîche.
+        try recordBalances(db, accounts: accounts)
         let series = try netWorthSeries(db, accounts: accounts)
         /*
          * A month ago by the calendar, not by counting backwards in the array.
@@ -697,6 +700,29 @@ enum LocalQueries {
 
     /// Net worth at the end of each of the last twelve months.
     ///
+    /*
+     * Le patrimoine du jour, écrit plutôt que redéduit demain.
+     *
+     * Une seule lecture par compte et par jour, la dernière effaçant la
+     * précédente : le solde d'un compte change plusieurs fois dans la journée
+     * et c'est le dernier état connu qui vaut. Un compte retiré du patrimoine
+     * n'est plus relevé, mais ce qu'il a pesé reste écrit — on ne réécrit pas
+     * le passé parce qu'on a changé d'avis sur le présent.
+     */
+    static func recordBalances(_ db: SQLiteDatabase, accounts: [Account]) throws {
+        let day = dayFormatter.string(from: Date())
+        for account in accounts where account.isIncludedInNetWorth {
+            let value = account.isLoan ? -abs(account.debt ?? account.total) : account.total
+            try db.run(
+                """
+                INSERT INTO account_balances (account_id, day, balance) VALUES (?, ?, ?)
+                ON CONFLICT(account_id, day) DO UPDATE SET balance = excluded.balance
+                """,
+                [.text(account.id), .text(day), .real(round2(value))]
+            )
+        }
+    }
+
     /// Walked backwards from today's balances rather than forwards from zero:
     /// the opening balance a manual user typed is the truth about now, and
     /// history is what the transactions since then say about how we got here.
@@ -767,20 +793,62 @@ enum LocalQueries {
         let floor = calendar.date(byAdding: .day, value: -730, to: now) ?? earliest
         let start = max(earliest, floor)
 
-        var points: [PatrimonyPoint] = []
-        var running = today
-        var cursor = calendar.startOfDay(for: now)
         let first = calendar.startOfDay(for: start)
 
-        while cursor >= first {
-            let label = dayFormatter.string(from: cursor)
-            points.append(PatrimonyPoint(date: label, balance: round2(running), projected: false))
+        /*
+         * Les jours qu'on a mesurés, et ceux qu'il faut encore déduire.
+         *
+         * Défaire les opérations une à une suppose que le solde de la banque
+         * contient déjà tout ce qu'elle a livré, et c'est faux le jour d'un
+         * virement : la ligne arrive avant l'argent. Là où un relevé existe,
+         * il remplace la déduction — il n'y a rien à supposer. Ailleurs, la
+         * déduction reste la seule chose dont on dispose, et elle part du
+         * relevé le plus ancien plutôt que d'aujourd'hui, pour qu'une erreur
+         * du jour ne se propage plus à toute l'histoire.
+         */
+        let measured = try db.query(
+            "SELECT day, sum(balance) AS total FROM account_balances GROUP BY day"
+        ).reduce(into: [String: Double]()) { out, row in
+            guard let day = row.string("day"), day >= dayFormatter.string(from: first),
+                  let total = row.double("total") else { return }
+            out[day] = total
+        }
+
+        let todayLabel = dayFormatter.string(from: now)
+        let anchorLabel = measured.keys.min() ?? todayLabel
+        let anchorValue = measured[anchorLabel] ?? today
+        let anchorDay = calendar.startOfDay(
+            for: dayFormatter.date(from: anchorLabel) ?? now
+        )
+
+        var earlier: [PatrimonyPoint] = []
+        var running = anchorValue
+        var cursor = anchorDay
+        while cursor > first {
             // Undo this day to reach the one before it.
-            running -= byDay[label] ?? 0
+            running -= byDay[dayFormatter.string(from: cursor)] ?? 0
             guard let previous = calendar.date(byAdding: .day, value: -1, to: cursor) else { break }
             cursor = previous
+            earlier.append(PatrimonyPoint(
+                date: dayFormatter.string(from: cursor), balance: round2(running), projected: false
+            ))
         }
-        return points.reversed()
+
+        var later = [PatrimonyPoint(
+            date: anchorLabel, balance: round2(anchorValue), projected: false
+        )]
+        running = anchorValue
+        cursor = anchorDay
+        let lastDay = calendar.startOfDay(for: now)
+        while let next = calendar.date(byAdding: .day, value: 1, to: cursor), next <= lastDay {
+            cursor = next
+            let label = dayFormatter.string(from: cursor)
+            running += byDay[label] ?? 0
+            if let known = measured[label] { running = known }
+            later.append(PatrimonyPoint(date: label, balance: round2(running), projected: false))
+        }
+
+        return earlier.reversed() + later
     }
 
     // MARK: - This month
