@@ -304,6 +304,10 @@ struct Transaction: Decodable, Sendable, Identifiable {
     /// Le genre du compte d'en face, qui dit de quel mouvement il s'agit.
     var transferCounterKind: String?
 
+    /// L'autre jambe, pour que la feuille du mouvement puisse agir sur les deux.
+    /// Supprimer la seule qu'on voit laisserait une moitié de virement derrière.
+    var transferCounterId: String?
+
     /// Une ligne qui raconte les deux bouts d'un même mouvement.
     var isPairedTransfer: Bool { transferCounterAccount != nil }
 
@@ -341,7 +345,8 @@ struct Transaction: Decodable, Sendable, Identifiable {
             instalmentPlanId: instalmentPlanId, accountKind: accountKind,
             transferPairId: transferPairId,
             transferCounterAccount: transferCounterAccount,
-            transferCounterKind: transferCounterKind
+            transferCounterKind: transferCounterKind,
+            transferCounterId: transferCounterId
         )
     }
 

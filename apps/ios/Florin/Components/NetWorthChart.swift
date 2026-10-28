@@ -22,16 +22,27 @@ struct NetWorthChart: View {
     /// La date sous le doigt, telle que Swift Charts la rapporte.
     @State private var touched: Date?
 
-    /// Ce qui s'est passé.
-    private var measured: [PatrimonyPoint] { points.filter { $0.projected != true } }
+    /// Ce qui s'est passé, relevé jour par jour.
+    private let measured: [PatrimonyPoint]
 
-    /// Ce qui est prévu — en reprenant au dernier point réel, sinon les deux
-    /// traits ne se touchent pas et la courbe a un trou au présent.
-    private var ahead: [PatrimonyPoint] {
-        let future = points.filter { $0.projected == true }
-        guard !future.isEmpty, let last = measured.last else { return [] }
-        return [last] + future
-    }
+    /*
+     * La tendance : une seule droite, deux points.
+     *
+     * Les dents de scie disent le mois vécu ; elles ne disent pas où ça va.
+     * La droite le dit, et c'est la même pente que la prévision — pas une
+     * régression indépendante qui ferait un coude au présent. Elle passe par
+     * le dernier solde relevé et se prolonge d'un an.
+     *
+     * Deux points suffisent à une droite. Les trois cent soixante-cinq points
+     * de la prévision restent dans `points` pour que le scrub ait une valeur à
+     * lire sous le doigt, mais les dessiner un par un faisait reconstruire
+     * autant de marques à chaque image.
+     */
+    private let trendPast: [PatrimonyPoint]
+    private let trendAhead: [PatrimonyPoint]
+
+    /// Quand la tendance est là, c'est elle qu'on lit : le relevé passe derrière.
+    private var hasTrend: Bool { !trendAhead.isEmpty }
 
     init(
         points: [PatrimonyPoint], height: CGFloat = 150,
@@ -43,7 +54,42 @@ struct NetWorthChart: View {
         _selection = selection
         self.animationKey = animationKey
         self.tint = tint
-        let values = points.map(\.balance)
+
+        let real = points.filter { $0.projected != true }
+        let future = points.filter { $0.projected == true }
+        measured = real
+
+        /*
+         * La pente se lit sur la prévision elle-même.
+         *
+         * Elle est déjà une droite — deux de ses points en donnent la pente
+         * exacte, sans que le graphique ait à savoir comment le grand livre
+         * l'a calculée. Le jour où la prévision cessera d'être droite, ces
+         * deux points en seront la corde, ce qui reste la bonne tendance.
+         */
+        if let anchor = real.last, let opening = real.first, let horizon = future.last,
+           future.count >= 2, real.count >= 2 {
+            let step = future[1].day.timeIntervalSince(future[0].day) / 86_400
+            let slope = step > 0 ? (future[1].balance - future[0].balance) / step : 0
+            let back = anchor.day.timeIntervalSince(opening.day) / 86_400
+            trendPast = [
+                PatrimonyPoint(
+                    date: opening.date, balance: anchor.balance - slope * back, projected: false
+                ),
+                PatrimonyPoint(date: anchor.date, balance: anchor.balance, projected: false),
+            ]
+            trendAhead = [
+                PatrimonyPoint(date: anchor.date, balance: anchor.balance, projected: false),
+                PatrimonyPoint(date: horizon.date, balance: horizon.balance, projected: true),
+            ]
+        } else {
+            trendPast = []
+            trendAhead = []
+        }
+
+        // La droite remontée en arrière peut descendre sous le plus bas relevé :
+        // les bornes la comptent, sinon elle sort du cadre par le bas.
+        let values = (points + trendPast + trendAhead).map(\.balance)
         let lo = values.min() ?? 0
         let hi = values.max() ?? 1
         // A dead-flat series must not collapse onto one row of pixels.
@@ -62,7 +108,7 @@ struct NetWorthChart: View {
                 )
                 .foregroundStyle(
                     .linearGradient(
-                        colors: [tint.opacity(0.22), tint.opacity(0)],
+                        colors: [tint.opacity(hasTrend ? 0.10 : 0.22), tint.opacity(0)],
                         startPoint: .top,
                         endPoint: .bottom
                     )
@@ -73,32 +119,53 @@ struct NetWorthChart: View {
                     y: .value("Solde", point.balance),
                     series: .value("Série", "réel")
                 )
-                .foregroundStyle(tint)
-                .lineStyle(StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round))
+                .foregroundStyle(tint.opacity(hasTrend ? 0.32 : 1))
+                .lineStyle(
+                    StrokeStyle(
+                        lineWidth: hasTrend ? 1 : 1.6, lineCap: .round, lineJoin: .round
+                    )
+                )
                 .interpolationMethod(.monotone)
             }
 
             /*
-             * La prévision est un autre trait, pas la suite du même.
+             * Trois traits, trois séries nommées.
              *
-             * Deux séries nommées plutôt qu'un seul `LineMark` dont le style
-             * changerait selon le point : Swift Charts dessine un trait par
-             * série, et un style posé point par point sur une série unique
-             * s'applique au trait entier — tout serait pointillé ou rien.
+             * Un seul `LineMark` dont le style changerait selon le point ne
+             * marche pas : Swift Charts dessine un trait par série, et un
+             * style posé point par point s'applique au trait entier — tout
+             * serait pointillé ou rien.
+             *
+             * Le passé de la tendance est plein, son avenir pointillé, et les
+             * deux partagent le point d'aujourd'hui pour qu'il n'y ait pas de
+             * trou au présent. `.linear` plutôt que `.monotone` : c'est une
+             * droite, et une interpolation lissée sur deux points lui donnerait
+             * une courbure qu'elle n'a pas.
              *
              * Pas d'aire sous les pointillés : le dégradé dit « voilà ce que
              * j'ai », et une moyenne mensuelle étalée sur un an n'a pas droit
              * au même aplomb que des soldes relevés.
              */
-            ForEach(ahead) { point in
+            ForEach(trendPast) { point in
+                LineMark(
+                    x: .value("Date", point.day),
+                    y: .value("Solde", point.balance),
+                    series: .value("Série", "tendance")
+                )
+                .foregroundStyle(tint)
+                .lineStyle(StrokeStyle(lineWidth: 1.8, lineCap: .round))
+                .interpolationMethod(.linear)
+            }
+
+            ForEach(trendAhead) { point in
                 LineMark(
                     x: .value("Date", point.day),
                     y: .value("Solde", point.balance),
                     series: .value("Série", "prévu")
                 )
-                .foregroundStyle(tint.opacity(0.5))
-                .lineStyle(StrokeStyle(lineWidth: 1.4, lineCap: .round, dash: [1.5, 4]))
-                .interpolationMethod(.monotone)
+                .foregroundStyle(tint.opacity(0.6))
+                .lineStyle(StrokeStyle(lineWidth: 1.6, lineCap: .round, dash: [2, 4.5]))
+                .interpolationMethod(.linear)
             }
         }
         .chartYScale(domain: bounds.min...bounds.max)

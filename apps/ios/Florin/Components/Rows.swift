@@ -161,6 +161,7 @@ enum TransferPairs {
             else { continue }
             kept.transferCounterAccount = to.accountName
             kept.transferCounterKind = to.accountKind
+            kept.transferCounterId = to.id
             out.append(kept)
         }
         return out

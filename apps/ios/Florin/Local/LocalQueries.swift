@@ -36,7 +36,7 @@ enum LocalQueries {
         // Mesuré avant d'être dessiné : la série se sert de ce relevé, et le
         // jour en cours doit y être à sa valeur la plus fraîche.
         try recordBalances(db, accounts: accounts)
-        let series = try netWorthSeries(db, accounts: accounts)
+        let curves = try netWorthSeries(db, accounts: accounts)
         /*
          * A month ago by the calendar, not by counting backwards in the array.
          *
@@ -75,9 +75,9 @@ enum LocalQueries {
                 netMonthAgo: monthAgo.map(round2)
             ),
             monthlyTrend: round2((gross - liability) - (monthAgo ?? (gross - liability))),
-            series: series,
-            grossSeries: nil,
-            netSeries: nil,
+            series: curves.net,
+            grossSeries: curves.gross,
+            netSeries: curves.net,
             leftToSpend: try leftToSpend(db),
             burnThisMonth: try burn(db, monthsBack: 0),
             burnAvg6: try burnAverage(db, months: 6),
@@ -729,10 +729,17 @@ enum LocalQueries {
     /// history is what the transactions since then say about how we got here.
     /// Summing transactions forwards would show a ledger that starts at nothing
     /// and climbs, which is not what happened.
+    /// Le patrimoine jour par jour — net et brut, chacun avec son année à venir.
+    ///
+    /// Deux séries, plus une seule. La dette est reconstruite à chaque date
+    /// passée, donc le trait net plonge plus bas quand il restait davantage à
+    /// rembourser, là où le trait brut — les actifs, qui n'ont jamais touché au
+    /// prêt — garde son propre chemin. Le bouton de l'en-tête basculait jusqu'ici
+    /// entre la même courbe et elle-même.
     static func netWorthSeries(
         _ db: SQLiteDatabase,
         accounts: [Account]
-    ) throws -> [PatrimonyPoint] {
+    ) throws -> (net: [PatrimonyPoint], gross: [PatrimonyPoint]) {
         let today = accounts
             .filter(\.isIncludedInNetWorth)
             .reduce(0) { $0 + ($1.isLoan ? -abs($1.debt ?? $1.total) : $1.total) }
@@ -780,13 +787,52 @@ enum LocalQueries {
             byDay[day] = row.double("total") ?? 0
         }
 
+        /*
+         * Ce que le prêt a rendu, jour par jour.
+         *
+         * La requête d'au-dessus écarte les comptes de prêt — il le faut, sinon
+         * chaque mensualité compterait deux fois dans les actifs. Mais la dette
+         * fond pour de vrai, et le patrimoine net le sait : sans cette seconde
+         * lecture, l'histoire portait une dette figée à sa valeur du jour et
+         * l'année à venir ignorait qu'elle allait continuer de fondre.
+         *
+         * Les montants sont positifs ici : sur un compte de prêt, un
+         * prélèvement de mensualité *réduit* le capital restant.
+         *
+         * Appariées seulement, comme les compte `readAccounts` : une ligne
+         * seule sur un compte de prêt est un frais ou un ajustement, pas une
+         * échéance, et le capital restant dû que l'app affiche ne la compte
+         * pas. Les deux lectures doivent parler du même tableau.
+         */
+        let loanMoves = try db.query(
+            """
+            SELECT substr(t.occurred_at, 1, 10) AS day, coalesce(sum(t.amount), 0) AS total
+            FROM transactions t
+            JOIN accounts a ON a.id = t.account_id
+            LEFT JOIN categories c ON c.id = t.category_id
+            LEFT JOIN category_groups g ON g.id = c.group_id
+            WHERE t.deleted_at IS NULL AND t.status = 'cleared'
+              AND a.is_archived = 0 AND a.is_included_in_net_worth = 1
+              AND a.kind = 'loan' AND t.transfer_pair_id IS NOT NULL
+              AND t.is_pending = 0
+              AND (g.kind IS NULL OR g.kind <> 'adjustment')
+            GROUP BY 1 ORDER BY 1
+            """
+        )
+        var loanByDay: [String: Double] = [:]
+        for row in loanMoves {
+            guard let day = row.string("day") else { continue }
+            loanByDay[day] = row.double("total") ?? 0
+        }
+
         let calendar = Calendar(identifier: .gregorian)
         let now = Date()
         guard let earliestText = moves.first?.string("day"),
               let earliest = dayFormatter.date(from: earliestText)
         else {
-            return [PatrimonyPoint(date: dayFormatter.string(from: now),
-                                   balance: round2(today), projected: false)]
+            let only = [PatrimonyPoint(date: dayFormatter.string(from: now),
+                                       balance: round2(today), projected: false)]
+            return (net: only, gross: only)
         }
 
         // Two years at most: beyond that the line is a wall of pixels and the
@@ -849,46 +895,182 @@ enum LocalQueries {
             later.append(PatrimonyPoint(date: label, balance: round2(running), projected: false))
         }
 
-        return earlier.reversed() + later + forecast(from: later.last, byDay: byDay, now: now,
-                                                     calendar: calendar)
+        let net = earlier.reversed() + later
+
+        /*
+         * La dette, remontée depuis celle d'aujourd'hui.
+         *
+         * Le capital restant est la seule valeur certaine, comme pour les
+         * soldes : on remonte en lui rajoutant ce que chaque jour a remboursé.
+         *
+         * Mais une mensualité n'efface pas tout son montant : les intérêts du
+         * mois en prennent leur part. Remonter par simple addition donnait donc
+         * une dette passée trop lourde, d'autant plus qu'on remontait loin, et
+         * le trait brut s'écartait du net d'autant. L'identité d'amortissement
+         * remonte
+         * d'un cran sans rien supposer : D(avant) × (1 + taux) − mensualité =
+         * D(après), donc D(avant) = (D(après) + mensualité) / (1 + taux).
+         */
+        let debtToday = accounts
+            .filter { $0.isIncludedInNetWorth && $0.isLoan }
+            .reduce(0) { $0 + abs($1.debt ?? $1.total) }
+        let monthlyRate = try loanMonthlyRate(db)
+        var debtByDay: [String: Double] = [:]
+        var debt = debtToday
+        /*
+         * On repart de la dernière échéance enregistrée, pas d'aujourd'hui.
+         *
+         * Le capital restant dû compte les échéances dont la contrepartie
+         * existe, quelle que soit leur date — et la banque livre la ligne
+         * avant d'être le jour. Partir d'aujourd'hui laissait donc une
+         * échéance jamais défaite, et toute l'histoire était basse d'elle,
+         * l'écart grossissant à chaque remontée. Les jours d'après aujourd'hui que
+         * cette boucle écrit ne sont dessinés nulle part ; ils ne servent qu'à
+         * ramener le compteur au bon endroit.
+         */
+        cursor = loanByDay.keys.max()
+            .flatMap { dayFormatter.date(from: $0) }
+            .map { max(calendar.startOfDay(for: $0), lastDay) } ?? lastDay
+        while cursor >= first {
+            let label = dayFormatter.string(from: cursor)
+            debtByDay[label] = debt
+            if let paid = loanByDay[label], paid != 0 {
+                debt = (debt + paid) / (1 + monthlyRate)
+            }
+            guard let previous = calendar.date(byAdding: .day, value: -1, to: cursor) else { break }
+            cursor = previous
+        }
+
+        let gross = net.map {
+            PatrimonyPoint(
+                date: $0.date,
+                balance: round2($0.balance + (debtByDay[$0.date] ?? debtToday)),
+                projected: false
+            )
+        }
+
+        let assets = monthlyAverage(of: byDay, now: now, calendar: calendar)
+        /*
+         * Ce qui fond de la dette compte dans le net, pas dans le brut.
+         *
+         * La prévision prenait sa pente sur `byDay`, qui écarte les comptes de
+         * prêt, et l'accrochait au patrimoine *net* : elle projetait la
+         * croissance des seuls actifs sur une grandeur qui contient aussi une
+         * dette en train de disparaître, et sous-estimait l'année de toute une
+         * mensualité par mois.
+         *
+         * Le tableau est déroulé mois par mois plutôt que figé sur la première
+         * échéance : la part de capital grandit à mesure que les intérêts
+         * diminuent, et un prêt qui se solde en cours d'année s'arrête de
+         * lui-même au zéro. C'est aussi ce qui remplace un plafond à la main —
+         * passé le dernier prélèvement, il n'y a plus rien à rendre.
+         */
+        let instalment = monthlyAverage(of: loanByDay, now: now, calendar: calendar)
+        var remaining = max(0, debtToday)
+        for _ in 1...12 {
+            remaining = max(0, remaining * (1 + monthlyRate) - instalment)
+        }
+        let repaid = (max(0, debtToday) - remaining) / 12
+
+        return (
+            net: net + projection(
+                from: net.last, monthly: assets + repaid, now: now, calendar: calendar
+            ),
+            gross: gross + projection(
+                from: gross.last, monthly: assets, now: now, calendar: calendar
+            )
+        )
     }
 
     /*
-     * L'année à venir, au rythme des douze derniers mois.
+     * Le taux mensuel des prêts, pondéré par le capital emprunté.
      *
-     * La marge est prise sur `byDay` — les mêmes mouvements que la courbe
-     * dessine — et non sur les groupes revenus/dépenses : une prévision qui
-     * prolonge une *autre* grandeur que celle tracée ferait un coude au
-     * présent, là où les deux traits se rejoignent.
+     * Résolu depuis capital, mensualité et durée, et non lu dans la colonne :
+     * une banque annonce un TAEG et amortit sur le taux débiteur, et les deux
+     * ne sont pas le même nombre — la colonne porte le premier. `solveAnnualRate`
+     * retrouve le second à quatre décimales, et c'est déjà la méthode de
+     * `LocalLoan` pour la dette du jour, qui tombe ainsi au centime du tableau
+     * d'amortissement de la banque, échéance après échéance.
      *
-     * Mois complets seulement : le mois en cours a ses dépenses passées et
-     * son salaire à venir, et le compter tirerait la moyenne vers le bas pour
-     * la seule raison qu'on est le 28.
-     *
-     * Étalée jour par jour, pas en marches mensuelles. La moyenne ne sait pas
-     * quel jour tombe le loyer ; dessiner un escalier donnerait à une moyenne
-     * la précision d'un calendrier qu'elle n'a pas.
+     * Avec un seul prêt, ce taux est le sien exactement ; avec plusieurs,
+     * celui du portefeuille — approché, mais du bon ordre. Les séparer
+     * demanderait une série de dette par compte, et aucune vue n'en montre une.
      */
-    private static func forecast(
-        from anchor: PatrimonyPoint?, byDay: [String: Double], now: Date, calendar: Calendar
-    ) -> [PatrimonyPoint] {
-        guard let anchor else { return [] }
+    private static func loanMonthlyRate(_ db: SQLiteDatabase) throws -> Double {
+        var weighted = 0.0
+        var borrowed = 0.0
+        for row in try db.query(
+            """
+            SELECT coalesce(loan_original_principal, 0) AS principal,
+                   coalesce(loan_interest_rate, 0) AS rate,
+                   coalesce(loan_term_months, 0) AS term,
+                   coalesce(loan_monthly_payment, 0) AS payment
+            FROM accounts
+            WHERE kind = 'loan' AND is_archived = 0 AND is_included_in_net_worth = 1
+            """
+        ) {
+            let principal = row.double("principal") ?? 0
+            guard principal > 0 else { continue }
+            let solved = LocalLoan.solveAnnualRate(
+                principal: principal,
+                monthlyPayment: row.double("payment") ?? 0,
+                termMonths: row.int("term") ?? 0
+            )
+            weighted += max(0, solved ?? (row.double("rate") ?? 0)) * principal
+            borrowed += principal
+        }
+        guard borrowed > 0 else { return 0 }
+        return weighted / borrowed / 12
+    }
 
-        var months: [Double] = []
-        for offset in 1...12 {
+    /*
+     * La marge d'un mois moyen, sur les douze mois complets qui précèdent.
+     *
+     * Mois complets seulement : le mois en cours a ses dépenses passées et son
+     * salaire à venir, et le compter tirerait la moyenne vers le bas pour la
+     * seule raison qu'on est le 28.
+     *
+     * Les mois creux comptent pour zéro, mais seulement à partir du premier qui
+     * porte un mouvement. Un mois d'avant l'historique diluerait la moyenne
+     * autant de fois qu'il manque de mois ; un mois vide *dans* l'historique est
+     * un vrai mois à zéro, et l'écarter fait l'erreur inverse. La mensualité de
+     * prêt le montre en clair : juin porte deux prélèvements parce que mai n'en
+     * a reçu aucun, et ne moyenner que les mois servis donnait cent quarante-huit
+     * euros par mois là où le prêt en rend cent trente-cinq quatre-vingt-onze.
+     */
+    private static func monthlyAverage(
+        of byDay: [String: Double], now: Date, calendar: Calendar
+    ) -> Double {
+        var totals: [Double] = []
+        var started = false
+        // Du plus ancien au plus récent, pour savoir où l'histoire commence.
+        for offset in (1...12).reversed() {
             guard let date = calendar.date(byAdding: .month, value: -offset, to: now)
             else { continue }
             let label = monthFormatter.string(from: date)
             let moved = byDay.filter { $0.key.hasPrefix(label) }
-            // Un mois sans aucun mouvement n'est pas un mois à zéro de marge :
-            // c'est un mois d'avant l'historique, et le compter diluerait la
-            // moyenne vers zéro autant de fois qu'il manque de mois.
-            guard !moved.isEmpty else { continue }
-            months.append(moved.values.reduce(0, +))
+            if moved.isEmpty, !started { continue }
+            started = true
+            totals.append(moved.values.reduce(0, +))
         }
-        guard !months.isEmpty else { return [] }
+        guard !totals.isEmpty else { return 0 }
+        return totals.reduce(0, +) / Double(totals.count)
+    }
 
-        let daily = (months.reduce(0, +) / Double(months.count)) / 30.44
+    /*
+     * L'année à venir, à ce rythme-là.
+     *
+     * Étalée jour par jour, pas en marches mensuelles : la moyenne ne sait pas
+     * quel jour tombe le loyer, et dessiner un escalier donnerait à une moyenne
+     * la précision d'un calendrier qu'elle n'a pas. Le trait qui en sort est
+     * donc une droite, et c'est honnête — une droite dit « voilà le rythme »
+     * sans prétendre connaître les secousses.
+     */
+    private static func projection(
+        from anchor: PatrimonyPoint?, monthly: Double, now: Date, calendar: Calendar
+    ) -> [PatrimonyPoint] {
+        guard let anchor, monthly != 0 else { return [] }
+        let daily = monthly / 30.44
         var value = anchor.balance
         var day = calendar.startOfDay(for: now)
         var points: [PatrimonyPoint] = []

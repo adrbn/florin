@@ -6345,7 +6345,7 @@ struct PatrimonyForecastTests {
         for offset in 1...3 { try credit(store, account, 120, on: tenth(monthsAgo: offset)) }
 
         let accounts = try LocalQueries.readAccounts(store.database)
-        let series = try LocalQueries.netWorthSeries(store.database, accounts: accounts)
+        let series = try LocalQueries.netWorthSeries(store.database, accounts: accounts).net
         let ahead = series.filter { $0.projected == true }
         let real = series.filter { $0.projected != true }
 
@@ -6366,7 +6366,7 @@ struct PatrimonyForecastTests {
         try credit(store, account, -600, on: tenth(monthsAgo: 0))
 
         let accounts = try LocalQueries.readAccounts(store.database)
-        let series = try LocalQueries.netWorthSeries(store.database, accounts: accounts)
+        let series = try LocalQueries.netWorthSeries(store.database, accounts: accounts).net
         let ahead = series.filter { $0.projected == true }
         let today = series.filter { $0.projected != true }.last?.balance ?? 0
 
@@ -6382,9 +6382,272 @@ struct PatrimonyForecastTests {
         try credit(store, account, 40, on: tenth(monthsAgo: 0))
 
         let accounts = try LocalQueries.readAccounts(store.database)
-        let series = try LocalQueries.netWorthSeries(store.database, accounts: accounts)
+        let series = try LocalQueries.netWorthSeries(store.database, accounts: accounts).net
         #expect(series.filter { $0.projected == true }.isEmpty,
                 "mieux vaut aucune prévision qu'une prévision tirée d'un mois à moitié vécu")
+    }
+
+    @Test("un mois creux dans l'histoire compte pour zéro")
+    func countsAHollowMonthAsZero() throws {
+        let (store, account) = try ledger()
+        // Rien au troisième mois : le prélèvement de ce mois-là est tombé un
+        // peu plus tard, ou pas du tout. C'est un vrai mois à zéro.
+        for offset in [1, 2, 4] { try credit(store, account, 100, on: tenth(monthsAgo: offset)) }
+
+        let accounts = try LocalQueries.readAccounts(store.database)
+        let series = try LocalQueries.netWorthSeries(store.database, accounts: accounts).net
+        let ahead = series.filter { $0.projected == true }
+        let today = series.filter { $0.projected != true }.last?.balance ?? 0
+
+        // Trois cents sur quatre mois, et non sur les trois mois servis : ne
+        // moyenner que les mois qui portent un mouvement donnait un rythme d'un
+        // quart trop rapide, et douze fois trop rapide sur une mensualité dont
+        // un seul mois manque.
+        #expect(abs((ahead.last?.balance ?? 0) - (today + 75 * 365 / 30.44)) < 1)
+    }
+
+    @Test("un mois d'avant l'histoire ne dilue pas la pente")
+    func ignoresMonthsBeforeTheLedgerBegins() throws {
+        let (store, account) = try ledger()
+        for offset in [1, 2] { try credit(store, account, 100, on: tenth(monthsAgo: offset)) }
+
+        let accounts = try LocalQueries.readAccounts(store.database)
+        let series = try LocalQueries.netWorthSeries(store.database, accounts: accounts).net
+        let ahead = series.filter { $0.projected == true }
+        let today = series.filter { $0.projected != true }.last?.balance ?? 0
+
+        // Cent, et non deux cents sur douze : les dix mois d'avant l'ouverture
+        // du compte ne sont pas dix mois sans marge.
+        #expect(abs((ahead.last?.balance ?? 0) - (today + 100 * 365 / 30.44)) < 1)
+    }
+}
+
+// MARK: - Le brut, le net, et la dette qui fond
+
+/*
+ * Deux courbes, deux pentes.
+ *
+ * Le bouton de l'en-tête bascule entre le patrimoine net et le brut, et les
+ * deux ne diffèrent que de la dette. Il reste donc deux choses à tenir :
+ *
+ *  - l'histoire, où la dette est reconstruite date par date — le brut ne doit
+ *    pas porter une dette figée à sa valeur du jour ;
+ *  - l'année à venir, où le capital remboursé fait monter le net et laisse le
+ *    brut où il est. C'est l'erreur que ce fichier garde : la prévision prenait
+ *    sa pente sur les seuls actifs et l'accrochait au net, donc elle oubliait
+ *    une mensualité par mois.
+ */
+@Suite("Le brut et le net")
+struct PatrimonyGrossSeriesTests {
+    private static let day: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
+
+    private func tenth(monthsAgo: Int) -> String {
+        let calendar = Calendar(identifier: .gregorian)
+        let date = calendar.date(byAdding: .month, value: -monthsAgo, to: Date()) ?? Date()
+        var parts = calendar.dateComponents([.year, .month], from: date)
+        parts.day = 10
+        return Self.day.string(from: calendar.date(from: parts) ?? date)
+    }
+
+    /// Un compte courant, et un prêt dont l'échéancier est connu — sans quoi la
+    /// dette se devine au lieu de se calculer.
+    private func ledger() throws -> (LocalStore, cash: String, loan: String) {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("florin-gross-\(UUID().uuidString).db")
+        let store = try LocalStore(url: url)
+        let cash = UUID().uuidString
+        let loan = UUID().uuidString
+        try store.database.run(
+            "INSERT INTO accounts (id, name, kind, currency) VALUES (?, 'CCP', 'checking', 'EUR')",
+            [.text(cash)]
+        )
+        try store.database.run(
+            """
+            INSERT INTO accounts
+                (id, name, kind, currency, loan_original_principal, loan_interest_rate,
+                 loan_term_months, loan_monthly_payment)
+            VALUES (?, 'Prêt vélo', 'loan', 'EUR', 4800, 0, 48, 100)
+            """,
+            [.text(loan)]
+        )
+        return (store, cash: cash, loan: loan)
+    }
+
+    /// `pair` apparie la ligne, ce qu'une mensualité est toujours : le grand
+    /// livre ne compte comme échéance qu'une ligne dont l'autre jambe existe,
+    /// et c'est ce compte qui donne le capital restant dû.
+    private func move(
+        _ store: LocalStore, _ account: String, _ amount: Double, on day: String,
+        pair: String? = nil
+    ) throws {
+        try store.database.run(
+            """
+            INSERT INTO transactions
+                (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
+                 source, status, needs_review, is_pending, transfer_pair_id)
+            VALUES (?, ?, ?, ?, 'EUR', 'Mouvement', 'mouvement', 'manual', 'cleared', 0, 0, ?)
+            """,
+            [
+                .text(UUID().uuidString), .text(account), .text(day), .real(amount),
+                pair.map { SQLiteValue.text($0) } ?? .null,
+            ]
+        )
+    }
+
+    /// Une mensualité : la jambe du prêt, appariée.
+    private func instalment(
+        _ store: LocalStore, _ loan: String, _ amount: Double, on day: String
+    ) throws {
+        try move(store, loan, amount, on: day, pair: UUID().uuidString)
+    }
+
+    @Test("le brut, c'est le net plus la dette du jour")
+    func grossCarriesTheDebtOfThatDay() throws {
+        let (store, cash, loan) = try ledger()
+        for offset in 1...6 {
+            try move(store, cash, 200, on: tenth(monthsAgo: offset))
+            try instalment(store, loan, 100, on: tenth(monthsAgo: offset))
+        }
+
+        let accounts = try LocalQueries.readAccounts(store.database)
+        let curves = try LocalQueries.netWorthSeries(store.database, accounts: accounts)
+        let net = curves.net.filter { $0.projected != true }
+        let gross = curves.gross.filter { $0.projected != true }
+        let debtToday = accounts
+            .filter(\.isLoan)
+            .reduce(0) { $0 + abs($1.debt ?? $1.total) }
+
+        #expect(net.count == gross.count, "une date, deux lectures")
+        #expect(debtToday > 0, "l'échéancier doit rendre une dette")
+        let gapToday = (gross.last?.balance ?? 0) - (net.last?.balance ?? 0)
+        #expect(abs(gapToday - debtToday) < 0.02, "aujourd'hui, l'écart est la dette")
+
+        /*
+         * Et plus tôt, l'écart est plus grand.
+         *
+         * C'est tout l'intérêt de la seconde courbe : une dette figée aurait
+         * donné deux traits parallèles, c'est-à-dire la même information deux
+         * fois. Six mensualités de cent séparent le début de la fin.
+         */
+        let gapThen = (gross.first?.balance ?? 0) - (net.first?.balance ?? 0)
+        #expect(gapThen > gapToday + 500, "la dette était plus lourde avant d'être remboursée")
+    }
+
+    @Test("le capital remboursé fait monter le net, pas le brut")
+    func onlyTheNetForecastGainsTheRepayments() throws {
+        let (store, cash, loan) = try ledger()
+        for offset in 1...12 {
+            try move(store, cash, 300, on: tenth(monthsAgo: offset))
+            try instalment(store, loan, 100, on: tenth(monthsAgo: offset))
+        }
+
+        let curves = try LocalQueries.netWorthSeries(
+            store.database, accounts: try LocalQueries.readAccounts(store.database)
+        )
+        func rise(_ points: [PatrimonyPoint]) -> Double {
+            let real = points.filter { $0.projected != true }
+            let ahead = points.filter { $0.projected == true }
+            return (ahead.last?.balance ?? 0) - (real.last?.balance ?? 0)
+        }
+
+        // Trois cents d'actifs par mois pour le brut ; quatre cents pour le
+        // net, parce que la dette fond de cent de plus chaque mois.
+        #expect(abs(rise(curves.gross) - 300 * 365 / 30.44) < 1)
+        #expect(abs(rise(curves.net) - 400 * 365 / 30.44) < 1)
+    }
+
+    @Test("un prêt presque soldé ne rend pas plus qu'il ne doit")
+    func capsTheRepaymentAtWhatIsStillOwed() throws {
+        let (store, cash, loan) = try ledger()
+        // Quarante-sept mensualités sur quarante-huit : il reste une centaine
+        // à rendre, pas douze.
+        for offset in 1...12 {
+            try move(store, cash, 300, on: tenth(monthsAgo: offset))
+            try instalment(store, loan, 100, on: tenth(monthsAgo: offset))
+        }
+        for extra in 13...47 { try instalment(store, loan, 100, on: tenth(monthsAgo: extra)) }
+
+        let accounts = try LocalQueries.readAccounts(store.database)
+        let curves = try LocalQueries.netWorthSeries(store.database, accounts: accounts)
+        let debtToday = accounts
+            .filter(\.isLoan)
+            .reduce(0) { $0 + abs($1.debt ?? $1.total) }
+        let real = curves.net.filter { $0.projected != true }
+        let ahead = curves.net.filter { $0.projected == true }
+        let rise = (ahead.last?.balance ?? 0) - (real.last?.balance ?? 0)
+
+        // L'année ne peut pas rendre plus que le capital restant. Sans le
+        // déroulé qui s'arrête au zéro, douze mensualités de cent auraient fait
+        // monter le net de mille deux cents là où le prêt n'en doit plus que
+        // cent — onze fois trop.
+        let fromAssets = 300 * 365 / 30.44
+        #expect(debtToday < 150, "l'échéancier doit être presque soldé")
+        #expect(rise - fromAssets <= debtToday + 0.5,
+                "le prêt soldé ne rembourse plus rien")
+        #expect(rise - fromAssets > debtToday - 5, "mais il rend bien ce qu'il doit encore")
+    }
+
+    /*
+     * Une mensualité n'efface pas son propre montant.
+     *
+     * Les intérêts du mois en prennent leur part, et c'est la seule part du
+     * virement qui ne devient pas du patrimoine. Compter l'échéance entière
+     * surestime l'année de douze fois cet écart.
+     *
+     * Le taux est aussi la chose à ne pas lire dans la colonne : une banque y
+     * écrit son TAEG et amortit sur le taux débiteur, qui est plus bas. Il se
+     * retrouve exactement depuis capital, mensualité et durée, et c'est ce que
+     * fait `LocalLoan.solveAnnualRate` — ici 4,73 % pour huit mille euros rendus
+     * en soixante fois cent cinquante.
+     */
+    @Test("les intérêts ne deviennent pas du patrimoine")
+    func theInterestShareIsNotWealth() throws {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("florin-interest-\(UUID().uuidString).db")
+        let store = try LocalStore(url: url)
+        let cash = UUID().uuidString
+        let loan = UUID().uuidString
+        try store.database.run(
+            "INSERT INTO accounts (id, name, kind, currency) VALUES (?, 'Courant', 'checking', 'EUR')",
+            [.text(cash)]
+        )
+        // Le taux écrit ici est le TAEG, volontairement faux pour l'amortissement :
+        // le calcul doit le redécouvrir et non le croire.
+        try store.database.run(
+            """
+            INSERT INTO accounts
+                (id, name, kind, currency, loan_original_principal, loan_interest_rate,
+                 loan_term_months, loan_monthly_payment)
+            VALUES (?, 'Prêt cuisine', 'loan', 'EUR', 8000, 0.052, 60, 150)
+            """,
+            [.text(loan)]
+        )
+        for offset in 1...12 {
+            try move(store, cash, 500, on: tenth(monthsAgo: offset))
+            try instalment(store, loan, 150, on: tenth(monthsAgo: offset))
+        }
+        // Les douze d'avant la fenêtre : elles comptent dans le capital déjà
+        // rendu, pas dans la moyenne des douze mois.
+        for offset in 13...24 { try instalment(store, loan, 150, on: tenth(monthsAgo: offset)) }
+
+        let curves = try LocalQueries.netWorthSeries(
+            store.database, accounts: try LocalQueries.readAccounts(store.database)
+        )
+        func rise(_ points: [PatrimonyPoint]) -> Double {
+            let real = points.filter { $0.projected != true }
+            let ahead = points.filter { $0.projected == true }
+            return (ahead.last?.balance ?? 0) - (real.last?.balance ?? 0)
+        }
+        let fromLoan = (rise(curves.net) - rise(curves.gross)) / (365 / 30.44)
+
+        #expect(fromLoan < 150, "la part d'intérêts n'enrichit personne")
+        #expect(abs(fromLoan - 133.04) < 1,
+                "cent trente-trois de capital par mois, pas les cent cinquante versés")
     }
 }
 

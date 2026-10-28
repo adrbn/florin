@@ -38,6 +38,13 @@ struct OverviewScreen: View {
     /// The row opened from the queue on this screen, rather than found again
     /// in Activité.
     @State private var detail: Transaction?
+    /// Le virement replié qu'on vient de toucher. La tuile dit « CCP → LIVRET A,
+    /// 240 € » ; ouvrir la feuille d'opération de la jambe qui sort répondait
+    /// « −240 € sur CCP », ce qui n'est pas ce qu'on avait touché.
+    @State private var movement: Transaction?
+    /// La jambe demandée depuis la feuille du mouvement, ouverte une fois
+    /// celle-ci refermée.
+    @State private var legAfterMovement: Transaction?
     /// Ids already offered this session, so the sheet asks once and the group
     /// below carries it from then on.
     @State private var asked: Set<String> = []
@@ -45,6 +52,18 @@ struct OverviewScreen: View {
     /// The served table once it exists, the bundled one before it does — the
     /// failed state renders with no feed behind it, by definition.
     private var t: Strings { model.overview?.t ?? .device }
+
+    /*
+     * Une tuile repliée est un mouvement, pas une opération.
+     *
+     * Le pli garde la jambe qui sort et lui confie le nom du compte d'arrivée ;
+     * c'est à ce nom qu'on reconnaît une tuile de virement, et c'est lui qui
+     * décide quelle feuille s'ouvre. Les lignes montrées seules — une liste
+     * filtrée par compte — n'en ont pas, et gardent leur feuille d'opération.
+     */
+    private func open(_ tx: Transaction) {
+        if tx.isPairedTransfer { movement = tx } else { detail = tx }
+    }
 
     enum Range: String, CaseIterable, Identifiable {
         case month, quarter, half, year, all, forecast
@@ -142,6 +161,26 @@ struct OverviewScreen: View {
             onRefunded: { await model.load(showSpinner: false) },
             isLocalLedger: model.base.scheme == "florin-local"
         )
+        .sheet(item: $movement, onDismiss: {
+            if let leg = legAfterMovement {
+                legAfterMovement = nil
+                detail = leg
+            }
+        }) { tx in
+            MovementSheet(
+                tx: tx,
+                locale: model.overview?.localeTag ?? "fr-FR",
+                currency: model.overview?.currency ?? "EUR",
+                t: t,
+                onOpenLeg: { legAfterMovement = tx },
+                onDeleteBoth: {
+                    await model.delete(tx.id)
+                    // Les deux, ou aucune : une seule laisse un demi-virement,
+                    // qui déséquilibre deux soldes au lieu d'un.
+                    if let other = tx.transferCounterId { await model.delete(other) }
+                }
+            )
+        }
         .sheet(item: $detail) { tx in
             TransactionDetailSheet(
                 tx: tx,
@@ -1000,7 +1039,7 @@ struct OverviewScreen: View {
                         // one line the sheet shows in place — and a payment
                         // recorded from Apple Pay is exactly the row someone
                         // taps here to check or delete.
-                        Button { detail = tx } label: {
+                        Button { open(tx) } label: {
                             TransactionRowView(
                                 hideUpcomingChip: true,
                                 tx: tx, locale: data.localeTag,
@@ -1070,7 +1109,7 @@ struct OverviewScreen: View {
                         ),
                         expanded: $reviewExpanded
                     ) { tx in
-                        Button { detail = tx } label: {
+                        Button { open(tx) } label: {
                             TransactionRowView(
                                 tx: tx, locale: data.localeTag,
                                 currency: data.currency, t: data.t
@@ -1089,7 +1128,7 @@ struct OverviewScreen: View {
                 RowGroup {
                     ForEach(Array(settled.prefix(6).enumerated()), id: \.element.id) { index, tx in
                         if index > 0 { Hairline() }
-                        Button { detail = tx } label: {
+                        Button { open(tx) } label: {
                             TransactionRowView(
                                 tx: tx, locale: data.localeTag,
                                 currency: data.currency, t: data.t

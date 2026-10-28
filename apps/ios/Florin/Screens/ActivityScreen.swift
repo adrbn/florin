@@ -114,6 +114,11 @@ struct TransactionList<Banner: View>: View {
     @StateObject private var model: ActivityModel
     @State private var draft = ""
     @State private var detail: Transaction?
+    /// Le virement replié qu'on vient de toucher — voir `open(_:)`.
+    @State private var movement: Transaction?
+    /// La jambe demandée depuis la feuille du mouvement, ouverte une fois
+    /// celle-ci refermée : deux feuilles ne se croisent pas dans la même image.
+    @State private var legAfterMovement: Transaction?
     /// What a long press on a row asked for; see `TransactionMenu`.
     @State private var menuRequest: TxActionRequest?
     @State private var filtering = false
@@ -367,6 +372,26 @@ struct TransactionList<Banner: View>: View {
                         text: t("v2.instalments.forgotten", "Échéancier supprimé"), kind: .success
                     )
                     Task { await model.reload() }
+                }
+            )
+        }
+        .sheet(item: $movement, onDismiss: {
+            if let leg = legAfterMovement {
+                legAfterMovement = nil
+                detail = leg
+            }
+        }) { tx in
+            MovementSheet(
+                tx: tx, locale: locale, currency: currency, t: t,
+                onOpenLeg: { legAfterMovement = tx },
+                onDeleteBoth: {
+                    await model.delete(tx.id, t: t)
+                    // Les deux, ou aucune : une seule laisse un demi-virement,
+                    // qui déséquilibre deux soldes au lieu d'un.
+                    if let other = tx.transferCounterId {
+                        await model.delete(other, t: t)
+                    }
+                    await onLedgerChanged()
                 }
             )
         }
@@ -924,12 +949,24 @@ struct TransactionList<Banner: View>: View {
         .padding(.vertical, 11)
     }
 
+    /*
+     * Une tuile repliée est un mouvement, pas une opération.
+     *
+     * Le pli garde la jambe qui sort et lui confie le nom du compte d'arrivée ;
+     * c'est à ce nom qu'on reconnaît une tuile de virement, et c'est lui qui
+     * décide quelle feuille s'ouvre. Les lignes montrées seules — une liste
+     * filtrée par compte — n'en ont pas, et gardent leur feuille d'opération.
+     */
+    private func open(_ tx: Transaction) {
+        if tx.isPairedTransfer { movement = tx } else { detail = tx }
+    }
+
     private func row(_ tx: Transaction, folded: Bool = false) -> some View {
         let picking = selection != nil && tx.needsReview
         let picked = selection?.contains(tx.id) == true
 
         return Button {
-            guard picking else { return detail = tx }
+            guard picking else { return open(tx) }
             UISelectionFeedbackGenerator().selectionChanged()
             if picked { selection?.remove(tx.id) } else { selection?.insert(tx.id) }
         } label: {
