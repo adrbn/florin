@@ -388,10 +388,25 @@ struct TransactionRowView: View {
 
     private var subtitle: String {
         if let destination = tx.transferCounterAccount {
-            let route = "\(tx.accountName) → \(destination)"
+            /*
+             * Une mensualité dit ce qu'elle coûte, pas où elle va.
+             *
+             * Le trajet « Compte → Prêt » redisait la flèche de la bulle
+             * et le nom du prélèvement juste au-dessus. La part perdue, elle,
+             * ne se devine pas : sur un prélèvement, une poignée d'euros s'en
+             * va et tout le reste change simplement de poche. C'est la seule
+             * moitié de la ligne qu'un lecteur ne peut pas reconstituer, et le
+             * trajet reste entier dans la feuille du mouvement.
+             */
+            let what = tx.repaymentInterest.map {
+                t(
+                    "v2.movement.interestShare", "{amount} d'intérêts",
+                    ["amount": Money.string($0, locale: locale, currency: currency)]
+                )
+            } ?? "\(tx.accountName) → \(destination)"
             return dateIsGiven
-                ? route
-                : RowText.join(route, DayLabel.string(tx.day, locale: locale, t: t))
+                ? what
+                : RowText.join(what, DayLabel.string(tx.day, locale: locale, t: t))
         }
         return RowText.subtitle(
             title: title,

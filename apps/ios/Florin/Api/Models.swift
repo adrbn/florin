@@ -308,6 +308,16 @@ struct Transaction: Decodable, Sendable, Identifiable {
     /// Supprimer la seule qu'on voit laisserait une moitié de virement derrière.
     var transferCounterId: String?
 
+    /*
+     * La part de la mensualité qui est vraiment perdue.
+     *
+     * Rembourser deux cents euros n'appauvrit pas de deux cents euros : le
+     * capital change de poche, seuls les intérêts s'en vont. Le tableau d'amortissement sait
+     * lesquels, échéance par échéance — ce chiffre les porte jusqu'à la ligne
+     * pour qu'elle n'ait pas à les redéduire.
+     */
+    var repaymentInterest: Double?
+
     /// Une ligne qui raconte les deux bouts d'un même mouvement.
     var isPairedTransfer: Bool { transferCounterAccount != nil }
 
@@ -346,7 +356,8 @@ struct Transaction: Decodable, Sendable, Identifiable {
             transferPairId: transferPairId,
             transferCounterAccount: transferCounterAccount,
             transferCounterKind: transferCounterKind,
-            transferCounterId: transferCounterId
+            transferCounterId: transferCounterId,
+            repaymentInterest: repaymentInterest
         )
     }
 

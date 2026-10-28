@@ -24,7 +24,9 @@ enum LocalQueries {
         // two end to end keep the order.
         let latest = try readSettled(db, limit: 12)
         let shown = Set(latest.map(\.id))
-        let recent = latest + (try readWaiting(db)).filter { !shown.contains($0.id) }
+        let recent = try withRepaymentSplit(
+            db, latest + (try readWaiting(db)).filter { !shown.contains($0.id) }
+        )
 
         let gross = accounts
             .filter { $0.isIncludedInNetWorth && !$0.isLoan }
@@ -1021,6 +1023,83 @@ enum LocalQueries {
         }
         guard borrowed > 0 else { return 0 }
         return weighted / borrowed / 12
+    }
+
+    /*
+     * Ce qu'une mensualité coûte vraiment, posé sur ses deux jambes.
+     *
+     * Le bandeau « en prévision » somme des montants, et une mensualité y
+     * pesait son prélèvement entier, comme une dépense. Elle n'en est pas une :
+     * le capital change de poche, seuls les intérêts s'en vont. Le total reste
+     * celui du cash — c'est lui qui dit si le compte passe à découvert — et la
+     * ligne porte désormais la part réellement perdue.
+     *
+     * L'échéance se lit à son rang dans l'historique du prêt, pas à sa date :
+     * le tableau d'amortissement ne se lit que dans l'ordre, et un mois sans
+     * prélèvement suivi d'un mois à deux ne décale rien si l'on compte les
+     * lignes. Le taux est résolu depuis le trio capital/mensualité/durée, parce
+     * que la colonne du compte porte le TAEG et que le tableau amortit sur le
+     * taux débiteur.
+     */
+    static func withRepaymentSplit(
+        _ db: SQLiteDatabase, _ txs: [Transaction]
+    ) throws -> [Transaction] {
+        let wanted = Set(txs.compactMap {
+            $0.isPairedRepayment || $0.isDebtRepayment ? $0.transferPairId : nil
+        })
+        guard !wanted.isEmpty else { return txs }
+
+        var schedules: [String: [LocalLoan.Row]] = [:]
+        var interest: [String: Double] = [:]
+        // ponytail: un sous-select par échéance, donc O(n²) sur les seules
+        // lignes de prêt — quelques dizaines. À passer en fonction de fenêtre
+        // si un prêt sur trente ans s'en plaint.
+        for row in try db.query(
+            """
+            SELECT t.transfer_pair_id AS pair, a.id AS acct,
+                   coalesce(a.loan_original_principal, 0) AS principal,
+                   coalesce(a.loan_interest_rate, 0) AS rate,
+                   coalesce(a.loan_term_months, 0) AS term,
+                   coalesce(a.loan_monthly_payment, 0) AS payment,
+                   (SELECT count(*) FROM transactions x
+                    WHERE x.account_id = t.account_id
+                      AND x.transfer_pair_id IS NOT NULL AND x.deleted_at IS NULL
+                      AND x.occurred_at <= t.occurred_at) AS rank
+            FROM transactions t JOIN accounts a ON a.id = t.account_id
+            WHERE a.kind = 'loan' AND t.transfer_pair_id IS NOT NULL
+              AND t.deleted_at IS NULL
+            """
+        ) {
+            guard let pair = row.string("pair"), wanted.contains(pair),
+                  let acct = row.string("acct"),
+                  let rank = row.int("rank"), rank > 0
+            else { continue }
+            let principal = row.double("principal") ?? 0
+            let payment = row.double("payment") ?? 0
+            let term = row.int("term") ?? 0
+            guard principal > 0, payment > 0 else { continue }
+            if schedules[acct] == nil {
+                let annual = LocalLoan.solveAnnualRate(
+                    principal: principal, monthlyPayment: payment, termMonths: term
+                ) ?? (row.double("rate") ?? 0)
+                schedules[acct] = LocalLoan.schedule(
+                    LocalLoan.Inputs(
+                        principal: principal, annualRate: annual,
+                        termMonths: term, monthlyPayment: payment
+                    ),
+                    finalMonth: term
+                )
+            }
+            guard let schedule = schedules[acct], rank <= schedule.count else { continue }
+            interest[pair] = schedule[rank - 1].interest
+        }
+
+        return txs.map { tx in
+            guard let pair = tx.transferPairId, let share = interest[pair] else { return tx }
+            var out = tx
+            out.repaymentInterest = share
+            return out
+        }
     }
 
     /*

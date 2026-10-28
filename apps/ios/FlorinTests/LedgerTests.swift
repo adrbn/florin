@@ -6764,3 +6764,165 @@ extension TransferPairCollapseTests {
         #expect(TransferPairs.collapsed(rows).first?.isPairedRepayment == false)
     }
 }
+
+/*
+ * Ce qu'une mensualité coûte, par opposition à ce qu'elle déplace.
+ *
+ * Le bandeau sommait des prélèvements entiers, et lisait donc un
+ * remboursement comme une dépense. Ces tests fixent l'autre moitié : chaque
+ * échéance porte la part d'intérêts de son rang dans l'échéancier, et un
+ * virement ordinaire n'en porte aucune.
+ */
+@Suite("La part d'intérêts d'une mensualité")
+struct RepaymentSplitTests {
+    private static let day: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
+
+    private func dayString(monthsAgo: Int) -> String {
+        let calendar = Calendar(identifier: .gregorian)
+        let date = calendar.date(byAdding: .month, value: -monthsAgo, to: Date()) ?? Date()
+        var parts = calendar.dateComponents([.year, .month], from: date)
+        parts.day = 5
+        return Self.day.string(from: calendar.date(from: parts) ?? date)
+    }
+
+    /// Un prêt inventé qui porte de vrais intérêts — à taux nul il n'y aurait
+    /// rien à partager, et le test passerait sans rien vérifier.
+    private func ledger() throws -> (LocalStore, cash: String, savings: String, loan: String) {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("florin-split-\(UUID().uuidString).db")
+        let store = try LocalStore(url: url)
+        let cash = UUID().uuidString
+        let savings = UUID().uuidString
+        let loan = UUID().uuidString
+        try store.database.run(
+            "INSERT INTO accounts (id, name, kind, currency) VALUES (?, 'CCP', 'checking', 'EUR')",
+            [.text(cash)]
+        )
+        try store.database.run(
+            "INSERT INTO accounts (id, name, kind, currency) VALUES (?, 'Épargne', 'savings', 'EUR')",
+            [.text(savings)]
+        )
+        try store.database.run(
+            """
+            INSERT INTO accounts
+                (id, name, kind, currency, loan_original_principal, loan_interest_rate,
+                 loan_term_months, loan_monthly_payment)
+            VALUES (?, 'Prêt inventé', 'loan', 'EUR', 6000, 0.12, 48, 150)
+            """,
+            [.text(loan)]
+        )
+        return (store, cash: cash, savings: savings, loan: loan)
+    }
+
+    private func move(
+        _ store: LocalStore, _ account: String, _ amount: Double, on day: String,
+        pair: String? = nil
+    ) throws {
+        try store.database.run(
+            """
+            INSERT INTO transactions
+                (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
+                 source, status, needs_review, is_pending, transfer_pair_id)
+            VALUES (?, ?, ?, ?, 'EUR', 'Mouvement', 'mouvement', 'manual', 'cleared', 0, 0, ?)
+            """,
+            [
+                .text(UUID().uuidString), .text(account), .text(day), .real(amount),
+                pair.map { SQLiteValue.text($0) } ?? .null,
+            ]
+        )
+    }
+
+    /// Les deux jambes d'une mensualité, appariées — c'est la contrepartie qui
+    /// fait exister l'échéance, donc son rang.
+    private func instalment(
+        _ store: LocalStore, _ cash: String, _ loan: String, on day: String
+    ) throws {
+        let pair = UUID().uuidString
+        try move(store, cash, -150, on: day, pair: pair)
+        try move(store, loan, 150, on: day, pair: pair)
+    }
+
+    private func split(_ store: LocalStore) throws -> [Transaction] {
+        try LocalQueries.withRepaymentSplit(
+            store.database, try LocalQueries.readSettled(store.database, limit: 50)
+        )
+    }
+
+    @Test("les intérêts et le capital font le prélèvement, pas plus")
+    func theTwoHalvesMakeTheInstalment() throws {
+        let (store, cash, _, loan) = try ledger()
+        try instalment(store, cash, loan, on: dayString(monthsAgo: 1))
+
+        let rows = try split(store)
+        let shares = rows.compactMap(\.repaymentInterest)
+        #expect(shares.count == 2)  // les deux jambes la portent
+        let interest = try #require(shares.first)
+        /*
+         * 46,21 € — la première échéance d'un prêt de 6 000 € rendu en
+         * quarante-huit fois cent cinquante, soit 9,24 % l'an.
+         *
+         * La colonne du compte annonce 12 % : c'est un TAEG, et un échéancier
+         * n'amortit pas dessus. Le taux est donc résolu depuis le trio
+         * capital / mensualité / durée, et ce chiffre le prouve — sur 12 % la
+         * première échéance porterait soixante euros.
+         */
+        #expect(abs(interest - 46.21) < 0.02)
+        #expect(150 - interest > interest)  // le capital pèse plus que les intérêts
+    }
+
+    @Test("la part d'intérêts décroît d'une échéance à la suivante")
+    func interestFallsAlongTheSchedule() throws {
+        let (store, cash, _, loan) = try ledger()
+        for monthsAgo in [3, 2, 1] {
+            try instalment(store, cash, loan, on: dayString(monthsAgo: monthsAgo))
+        }
+
+        let rows = try split(store)
+        // Une jambe par date suffit : les deux portent la même part.
+        let byDay = Dictionary(
+            rows.compactMap { tx in tx.repaymentInterest.map { (tx.date, $0) } },
+            uniquingKeysWith: { first, _ in first }
+        )
+        #expect(byDay.count == 3)
+        let ordered = byDay.sorted { $0.key < $1.key }.map(\.value)
+        #expect(ordered[0] > ordered[1])
+        #expect(ordered[1] > ordered[2])
+    }
+
+    @Test("un virement entre deux comptes ne rembourse rien")
+    func aPlainTransferCarriesNoInterest() throws {
+        let (store, cash, savings, loan) = try ledger()
+        let pair = UUID().uuidString
+        try move(store, cash, -80, on: dayString(monthsAgo: 1), pair: pair)
+        try move(store, savings, 80, on: dayString(monthsAgo: 1), pair: pair)
+        try instalment(store, cash, loan, on: dayString(monthsAgo: 1))
+
+        let rows = try split(store)
+        #expect(rows.filter { abs($0.amount) == 80 }.allSatisfy { $0.repaymentInterest == nil })
+        #expect(rows.compactMap(\.repaymentInterest).count == 2)
+    }
+
+    /*
+     * Un mois sans prélèvement suivi d'un mois à deux ne doit rien décaler.
+     *
+     * Le rang se compte en lignes, pas en mois écoulés : c'est ce qui fait
+     * qu'un rattrapage se lit comme deux échéances consécutives de
+     * l'échéancier, et non comme un trou qui les renumérote.
+     */
+    @Test("un rattrapage prend les deux échéances qui suivent")
+    func aCatchUpMonthTakesTwoRows() throws {
+        let (store, cash, _, loan) = try ledger()
+        try instalment(store, cash, loan, on: dayString(monthsAgo: 3))
+        try instalment(store, cash, loan, on: dayString(monthsAgo: 1))
+        try move(store, cash, -150, on: dayString(monthsAgo: 1), pair: "rattrapage")
+        try move(store, loan, 150, on: dayString(monthsAgo: 1), pair: "rattrapage")
+
+        let shares = Set(try split(store).compactMap(\.repaymentInterest))
+        #expect(shares.count == 3)  // trois échéances distinctes, aucun doublon
+    }
+}

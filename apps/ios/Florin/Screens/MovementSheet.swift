@@ -57,6 +57,7 @@ struct MovementSheet: View {
         var height: CGFloat = 8 + 48 + 12 + 18 + 24   // marge, montant, date
         height += 84 + 24                             // le trajet
         if tx.isPairedRepayment { height += 30 + 12 }  // la pastille du prêt
+        if tx.repaymentInterest != nil { height += 18 + 12 }  // intérêts / capital
         height += 2 * 50 + 10                         // les actions
         height += 20 + 16                             // marge basse et poignée
         return height
@@ -114,6 +115,34 @@ struct MovementSheet: View {
 
             if tx.isPairedRepayment {
                 Pill(text: t("v2.movement.repayment", "Remboursement de prêt"))
+            }
+
+            /*
+             * Rembourser n'appauvrit pas de ce qu'on rembourse.
+             *
+             * Seuls les intérêts s'en vont ; le capital passe du compte à la
+             * dette, qui baisse d'autant. La liste n'en montre que la part
+             * perdue, faute de place ; ici les deux moitiés tiennent, et leur
+             * somme est le montant écrit au-dessus.
+             */
+            if let share = tx.repaymentInterest {
+                Text(
+                    t(
+                        "v2.movement.split",
+                        "{interest} d'intérêts · {principal} de capital",
+                        [
+                            "interest": Money.string(
+                                share, locale: locale, currency: currency
+                            ),
+                            "principal": Money.string(
+                                abs(tx.amount) - share, locale: locale, currency: currency
+                            ),
+                        ]
+                    )
+                )
+                .font(.system(size: 13))
+                .foregroundStyle(Florin.text2)
+                .multilineTextAlignment(.center)
             }
         }
     }
