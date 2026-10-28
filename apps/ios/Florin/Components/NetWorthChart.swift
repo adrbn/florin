@@ -41,8 +41,21 @@ struct NetWorthChart: View {
     private let trendPast: [PatrimonyPoint]
     private let trendAhead: [PatrimonyPoint]
 
-    /// Quand la tendance est là, c'est elle qu'on lit : le relevé passe derrière.
-    private var hasTrend: Bool { !trendAhead.isEmpty }
+    /*
+     * Les deux séries existent toujours, même sans prévision à montrer.
+     *
+     * Une série qui apparaît est une série que Swift Charts n'a pas à
+     * interpoler : elle surgit d'un coup, posée par-dessus une courbe qui,
+     * elle, s'étire. Repliées sur le point d'aujourd'hui tant qu'il n'y a rien
+     * à prévoir, les deux droites *sortent* du dernier solde quand on demande
+     * la prévision — l'une vers la gauche, l'autre vers la droite — au lieu de
+     * se poser dessus.
+     *
+     * Repliées, leurs deux points sont confondus : un trait de longueur nulle.
+     * D'où le bout carré plus bas, qui n'en dessine rien ; un bout rond y
+     * laisserait un point sur la courbe en permanence.
+     */
+    private let hasTrend: Bool
 
     init(
         points: [PatrimonyPoint], height: CGFloat = 150,
@@ -67,22 +80,33 @@ struct NetWorthChart: View {
          * l'a calculée. Le jour où la prévision cessera d'être droite, ces
          * deux points en seront la corde, ce qui reste la bonne tendance.
          */
-        if let anchor = real.last, let opening = real.first, let horizon = future.last,
-           future.count >= 2, real.count >= 2 {
-            let step = future[1].day.timeIntervalSince(future[0].day) / 86_400
+        if let anchor = real.last, let opening = real.first, real.count >= 2 {
+            let horizon = future.count >= 2 ? future.last : nil
+            hasTrend = horizon != nil
+            let step = future.count >= 2
+                ? future[1].day.timeIntervalSince(future[0].day) / 86_400
+                : 0
             let slope = step > 0 ? (future[1].balance - future[0].balance) / step : 0
             let back = anchor.day.timeIntervalSince(opening.day) / 86_400
+            // Sans prévision, les deux bouts sont le point d'aujourd'hui : la
+            // droite est là, de longueur nulle, prête à s'ouvrir.
             trendPast = [
-                PatrimonyPoint(
-                    date: opening.date, balance: anchor.balance - slope * back, projected: false
-                ),
+                hasTrend
+                    ? PatrimonyPoint(
+                        date: opening.date, balance: anchor.balance - slope * back,
+                        projected: false
+                    )
+                    : anchor,
                 PatrimonyPoint(date: anchor.date, balance: anchor.balance, projected: false),
             ]
             trendAhead = [
                 PatrimonyPoint(date: anchor.date, balance: anchor.balance, projected: false),
-                PatrimonyPoint(date: horizon.date, balance: horizon.balance, projected: true),
+                horizon.map {
+                    PatrimonyPoint(date: $0.date, balance: $0.balance, projected: true)
+                } ?? anchor,
             ]
         } else {
+            hasTrend = false
             trendPast = []
             trendAhead = []
         }
@@ -146,25 +170,42 @@ struct NetWorthChart: View {
              * j'ai », et une moyenne mensuelle étalée sur un an n'a pas droit
              * au même aplomb que des soldes relevés.
              */
-            ForEach(trendPast) { point in
+            /*
+             * Indexées, pas datées.
+             *
+             * `PatrimonyPoint` s'identifie par sa date, et c'est justement la
+             * date de ces deux points qui bouge quand la droite s'ouvre : avec
+             * cette identité-là, Swift Charts voit disparaître deux marques et
+             * en apparaître deux autres, donc ne les interpole pas — la droite
+             * surgit au lieu de sortir de la courbe. Le rang, lui, ne bouge
+             * pas : c'est le même début et la même fin, ailleurs.
+             */
+            ForEach(Array(trendPast.enumerated()), id: \.offset) { _, point in
                 LineMark(
                     x: .value("Date", point.day),
                     y: .value("Solde", point.balance),
                     series: .value("Série", "tendance")
                 )
                 .foregroundStyle(tint)
-                .lineStyle(StrokeStyle(lineWidth: 1.8, lineCap: .round))
+                // Bout carré tant qu'elle est repliée : un trait de longueur
+                // nulle ne dessine alors rien, là où un bout rond poserait un
+                // point sur la courbe dans toutes les autres fenêtres.
+                .lineStyle(StrokeStyle(lineWidth: 1.8, lineCap: hasTrend ? .round : .butt))
                 .interpolationMethod(.linear)
             }
 
-            ForEach(trendAhead) { point in
+            ForEach(Array(trendAhead.enumerated()), id: \.offset) { _, point in
                 LineMark(
                     x: .value("Date", point.day),
                     y: .value("Solde", point.balance),
                     series: .value("Série", "prévu")
                 )
                 .foregroundStyle(tint.opacity(0.6))
-                .lineStyle(StrokeStyle(lineWidth: 1.6, lineCap: .round, dash: [2, 4.5]))
+                .lineStyle(
+                    StrokeStyle(
+                        lineWidth: 1.6, lineCap: hasTrend ? .round : .butt, dash: [2, 4.5]
+                    )
+                )
                 .interpolationMethod(.linear)
             }
         }

@@ -790,6 +790,59 @@ enum LocalQueries {
         }
 
         /*
+         * Une ligne livrée, un solde qui ne la connaît pas encore.
+         *
+         * La banque écrit un virement entrant avant de le comptabiliser, et
+         * elle le nomme alors d'après le compte d'arrivée : le libellé est le
+         * numéro de compte lui-même. Le solde qu'elle rapporte le même jour,
+         * lui, ne le contient pas.
+         *
+         * Défaire ce jour-là pour atteindre la veille retranchait donc une
+         * somme qui n'avait jamais été ajoutée : toute l'histoire d'avant
+         * descendait d'un salaire entier, et la courbe finissait sur une
+         * falaise verticale le matin de la paie. Le dernier point était juste ;
+         * c'est tout le reste qui était faux.
+         *
+         * ponytail: cinq jours de fenêtre, parce qu'un relevé se comptabilise
+         * en un ou deux. Au-delà, un libellé resté en numéro de compte est une
+         * vieille ligne que la banque a bel et bien comptée — en écarter une
+         * décalerait l'histoire dans l'autre sens. Le jour où un solde dira
+         * lui-même ce qu'il ignore, cette fenêtre n'aura plus lieu d'être.
+         */
+        let numbers = Set(
+            try db.query("SELECT iban FROM accounts WHERE iban IS NOT NULL AND iban != ''")
+                .compactMap { $0.string("iban") }
+                .map(OwnAccounts.squeeze)
+                .filter { $0.count >= 15 }
+        )
+        if !numbers.isEmpty {
+            for row in try db.query(
+                """
+                SELECT substr(t.occurred_at, 1, 10) AS day, t.amount AS amount,
+                       t.payee AS payee
+                FROM transactions t
+                JOIN accounts a ON a.id = t.account_id
+                LEFT JOIN categories c ON c.id = t.category_id
+                LEFT JOIN category_groups g ON g.id = c.group_id
+                WHERE t.deleted_at IS NULL AND t.status = 'cleared'
+                  AND t.transfer_pair_id IS NULL
+                  AND a.is_archived = 0 AND a.is_included_in_net_worth = 1
+                  AND a.kind <> 'loan'
+                  AND t.is_pending = 0
+                  AND substr(t.occurred_at, 1, 10) <= date('now')
+                  AND substr(t.occurred_at, 1, 10) >= date('now', '-5 days')
+                  AND (g.kind IS NULL OR g.kind <> 'adjustment')
+                  AND length(t.payee) >= 15
+                """
+            ) {
+                guard let day = row.string("day"), let payee = row.string("payee"),
+                      OwnAccounts.named(by: payee, among: numbers)
+                else { continue }
+                byDay[day] = (byDay[day] ?? 0) - (row.double("amount") ?? 0)
+            }
+        }
+
+        /*
          * Ce que le prêt a rendu, jour par jour.
          *
          * La requête d'au-dessus écarte les comptes de prêt — il le faut, sinon
@@ -969,10 +1022,12 @@ enum LocalQueries {
          */
         let instalment = monthlyAverage(of: loanByDay, now: now, calendar: calendar)
         var remaining = max(0, debtToday)
-        for _ in 1...12 {
+        // Moyenné sur les mois qu'on dessine, pas sur douze : la pente du
+        // trait doit être celle de la période qu'il couvre.
+        for _ in 1...forecastMonths {
             remaining = max(0, remaining * (1 + monthlyRate) - instalment)
         }
-        let repaid = (max(0, debtToday) - remaining) / 12
+        let repaid = (max(0, debtToday) - remaining) / Double(forecastMonths)
 
         return (
             net: net + projection(
@@ -1145,6 +1200,11 @@ enum LocalQueries {
      * donc une droite, et c'est honnête — une droite dit « voilà le rythme »
      * sans prétendre connaître les secousses.
      */
+    /// Six mois devant, autant que la fenêtre de gauche en montre derrière.
+    /// Une droite tirée sur un an disait surtout la confiance qu'on lui
+    /// accordait ; à six mois, les deux moitiés du graphique se répondent.
+    static let forecastMonths = 6
+
     private static func projection(
         from anchor: PatrimonyPoint?, monthly: Double, now: Date, calendar: Calendar
     ) -> [PatrimonyPoint] {
@@ -1153,7 +1213,7 @@ enum LocalQueries {
         var value = anchor.balance
         var day = calendar.startOfDay(for: now)
         var points: [PatrimonyPoint] = []
-        for _ in 1...365 {
+        for _ in 1...(forecastMonths * 61 / 2) {  // 30,5 jours par mois
             guard let next = calendar.date(byAdding: .day, value: 1, to: day) else { break }
             day = next
             value += daily

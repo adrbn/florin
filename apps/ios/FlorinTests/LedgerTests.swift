@@ -6926,3 +6926,112 @@ struct RepaymentSplitTests {
         #expect(shares.count == 3)  // trois échéances distinctes, aucun doublon
     }
 }
+
+/*
+ * Une ligne livrée que le solde ne connaît pas encore.
+ *
+ * La banque écrit un virement entrant avant de le comptabiliser, et le nomme
+ * alors d'après le compte d'arrivée — le libellé *est* le numéro de compte.
+ * Défaire ce jour-là pour atteindre la veille retranchait une somme jamais
+ * ajoutée, et toute l'histoire d'avant descendait d'un salaire entier.
+ */
+@Suite("Le salaire annoncé ne creuse plus le passé")
+struct AnnouncedNotBookedTests {
+    private static let iban = "FR7630001007941234567890185"
+
+    private static let day: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
+
+    private func dayString(daysAgo: Int) -> String {
+        let calendar = Calendar(identifier: .gregorian)
+        let date = calendar.date(byAdding: .day, value: -daysAgo, to: Date()) ?? Date()
+        return Self.day.string(from: calendar.startOfDay(for: date))
+    }
+
+    /// Un compte courant qui porte son IBAN, et un solde relevé aujourd'hui —
+    /// c'est ce relevé qui sert d'ancre à la remontée.
+    private func ledger(balance: Double) throws -> (LocalStore, String) {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("florin-announced-\(UUID().uuidString).db")
+        let store = try LocalStore(url: url)
+        let cash = UUID().uuidString
+        try store.database.run(
+            """
+            INSERT INTO accounts (id, name, kind, currency, current_balance, iban)
+            VALUES (?, 'CCP', 'checking', 'EUR', ?, ?)
+            """,
+            [.text(cash), .real(balance), .text(Self.iban)]
+        )
+        try store.database.run(
+            "INSERT INTO account_balances (account_id, day, balance) VALUES (?, ?, ?)",
+            [.text(cash), .text(dayString(daysAgo: 0)), .real(balance)]
+        )
+        return (store, cash)
+    }
+
+    private func move(
+        _ store: LocalStore, _ account: String, _ amount: Double, payee: String, on day: String
+    ) throws {
+        try store.database.run(
+            """
+            INSERT INTO transactions
+                (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
+                 source, status, needs_review, is_pending)
+            VALUES (?, ?, ?, ?, 'EUR', ?, 'x', 'manual', 'cleared', 0, 0)
+            """,
+            [
+                .text(UUID().uuidString), .text(account), .text(day), .real(amount),
+                .text(payee),
+            ]
+        )
+    }
+
+    private func series(_ store: LocalStore) throws -> [PatrimonyPoint] {
+        let accounts = try LocalQueries.readAccounts(store.database)
+        return try LocalQueries.netWorthSeries(store.database, accounts: accounts)
+            .net.filter { $0.projected != true }
+    }
+
+    @Test("le jour d'avant ne perd pas un salaire que la banque n'a pas compté")
+    func yesterdayKeepsItsLevel() throws {
+        let (store, cash) = try ledger(balance: 1_200)
+        try move(store, cash, -40, payee: "Boulangerie", on: dayString(daysAgo: 3))
+        // Livrée aujourd'hui, nommée d'après le compte d'arrivée : pas comptée.
+        try move(store, cash, 3_000, payee: "\(Self.iban) DUPONT", on: dayString(daysAgo: 0))
+
+        let points = try series(store)
+        let today = try #require(points.last)
+        let yesterday = try #require(points.dropLast().last)
+        #expect(abs(today.balance - 1_200) < 0.005)
+        // Sans le correctif : 1 200 − 3 000 = −1 800, et la falaise.
+        #expect(abs(yesterday.balance - 1_200) < 0.005)
+    }
+
+    @Test("une vieille ligne au même libellé reste défaite")
+    func anOldOneIsStillUndone() throws {
+        let (store, cash) = try ledger(balance: 1_200)
+        // Trente jours : la banque l'a comptée depuis longtemps, et le solde
+        // d'aujourd'hui la contient — la remontée doit la retrancher.
+        try move(store, cash, 3_000, payee: "\(Self.iban) DUPONT", on: dayString(daysAgo: 30))
+
+        let points = try series(store)
+        let onTheDay = try #require(points.first { $0.date == dayString(daysAgo: 30) })
+        let before = try #require(points.first { $0.date == dayString(daysAgo: 31) })
+        #expect(abs(onTheDay.balance - 1_200) < 0.005)
+        #expect(abs(before.balance - (1_200 - 3_000)) < 0.005)
+    }
+
+    @Test("un libellé qui n'est pas un numéro de compte ne change rien")
+    func aNormalPayeeIsUndoneAsBefore() throws {
+        let (store, cash) = try ledger(balance: 1_200)
+        try move(store, cash, 3_000, payee: "ACME PAIE OCTOBRE", on: dayString(daysAgo: 0))
+
+        let points = try series(store)
+        let yesterday = try #require(points.dropLast().last)
+        #expect(abs(yesterday.balance - (1_200 - 3_000)) < 0.005)
+    }
+}

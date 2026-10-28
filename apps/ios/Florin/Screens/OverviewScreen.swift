@@ -91,9 +91,11 @@ struct OverviewScreen: View {
             case .year: return 366
             case .all: return .infinity
             // Le passé qu'on garde à gauche quand la prévision occupe la
-            // droite : trois mois lus contre douze prévus, soit un cinquième
-            // de la largeur pour ce qui s'est réellement passé.
-            case .forecast: return 92
+            // droite : autant que ce qu'elle annonce, soit six mois de chaque
+            // côté du jour présent. Trois mois lus contre douze prévus ne
+            // laissaient qu'un cinquième de la largeur à ce qui s'est
+            // réellement passé, et la droite y semblait sortie de nulle part.
+            case .forecast: return 183
             }
         }
     }
@@ -123,6 +125,24 @@ struct OverviewScreen: View {
             // where the thumb is. Removing the bar hands ~56pt back to the
             // figure that matters.
             .toolbar(.hidden, for: .navigationBar)
+        }
+        /*
+         * Retaper l'onglet remet aussi la courbe à sa fenêtre d'accueil.
+         *
+         * Un retour à l'accueil qui laisse le graphique sur « Prév. » n'en est
+         * pas un : c'est l'écran le plus haut de l'app, et il ne racontait plus
+         * le passé mais une projection, choisie trois minutes plus tôt. La
+         * fenêtre d'un an est ce qu'on voit au lancement ; c'est donc elle que
+         * l'accueil rend.
+         *
+         * `homeTaps` ne monte qu'au second appui sur l'onglet déjà ouvert : un
+         * autre onglet retapé remettrait cette courbe-ci à sa valeur par
+         * défaut sans qu'on la regarde, ce qui ne se voit ni ne se perd.
+         */
+        .onChange(of: chrome.homeTaps) { _, _ in
+            scrubbed = nil
+            guard range != .year else { return }
+            withAnimation(.smooth(duration: 0.55)) { range = .year }
         }
         .fullScreenCover(isPresented: $connectingBank) {
             BankingSettings(onConnected: {
