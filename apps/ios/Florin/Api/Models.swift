@@ -291,6 +291,23 @@ struct Transaction: Decodable, Sendable, Identifiable {
      */
     var accountKind: String?
 
+    /// Le lien entre les deux jambes d'un virement, tel que le grand livre
+    /// l'écrit. `isTransfer` dit seulement qu'il y en a un ; celui-ci dit
+    /// lequel, ce qu'il faut pour retrouver l'autre bout dans une liste.
+    var transferPairId: String?
+
+    /// Le compte d'arrivée, posé sur la jambe qui sort quand les deux ont été
+    /// repliées en une seule ligne. Nil partout ailleurs — y compris sur une
+    /// jambe montrée seule, dont on ne connaît pas le trajet.
+    var transferCounterAccount: String?
+
+    /// Une ligne qui raconte les deux bouts d'un même mouvement.
+    var isPairedTransfer: Bool { transferCounterAccount != nil }
+
+    /// Ni rentrée ni dépense : le chiffre est un déplacement, et le signe
+    /// comme la couleur lui donneraient un sens qu'il n'a pas.
+    var isMovementOnly: Bool { isDebtRepayment || isPairedTransfer }
+
     /// Une mensualité vue depuis le prêt : elle fait baisser la dette, elle
     /// n'entre pas d'argent.
     var isDebtRepayment: Bool { accountKind == "loan" && amount > 0 }
@@ -308,7 +325,9 @@ struct Transaction: Decodable, Sendable, Identifiable {
             accountName: accountName, isTransfer: isTransfer,
             needsReview: false, isPending: isPending, isScheduled: isScheduled,
             accountId: accountId, categoryId: categoryId,
-            instalmentPlanId: instalmentPlanId, accountKind: accountKind
+            instalmentPlanId: instalmentPlanId, accountKind: accountKind,
+            transferPairId: transferPairId,
+            transferCounterAccount: transferCounterAccount
         )
     }
 

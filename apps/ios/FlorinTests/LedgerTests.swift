@@ -6387,3 +6387,87 @@ struct PatrimonyForecastTests {
                 "mieux vaut aucune prévision qu'une prévision tirée d'un mois à moitié vécu")
     }
 }
+
+// MARK: - Un mouvement, une ligne
+
+/*
+ * Ce qu'un virement replié doit garder, et ce qu'il n'a pas le droit
+ * d'inventer.
+ *
+ * Le grand livre garde ses deux jambes — c'est elles qui font bouger les deux
+ * soldes. L'affichage, lui, n'en montre qu'une, porteuse du trajet. Deux
+ * pièges : garder la mauvaise (celle qui arrive, qui dirait « CCP → CCP »),
+ * et replier une paire dont une seule jambe est là, ce qui ferait disparaître
+ * une opération d'une liste filtrée.
+ */
+@Suite("Le pli des virements")
+struct TransferPairCollapseTests {
+    private func leg(
+        _ id: String, _ amount: Double, account: String, pair: String?, payee: String = "Virement"
+    ) -> Transaction {
+        Transaction(
+            id: id, date: "2026-10-28", amount: amount, payee: payee, memo: nil,
+            categoryName: nil, categoryEmoji: nil, accountName: account,
+            isTransfer: pair != nil, needsReview: false, isPending: false, isScheduled: false,
+            transferPairId: pair
+        )
+    }
+
+    @Test("les deux jambes deviennent une ligne qui dit le trajet")
+    func foldsBothLegsIntoOne() throws {
+        let rows = [
+            leg("out", -8.50, account: "LIVRET A", pair: "p1"),
+            leg("in", 8.50, account: "CCP", pair: "p1"),
+        ]
+        let folded = TransferPairs.collapsed(rows)
+
+        #expect(folded.count == 1)
+        #expect(folded.first?.id == "out", "on garde la jambe qui sort")
+        #expect(folded.first?.accountName == "LIVRET A")
+        #expect(folded.first?.transferCounterAccount == "CCP")
+        #expect(folded.first?.isPairedTransfer == true)
+        // Le montant du grand livre n'est pas réécrit : seul son affichage
+        // perd son signe, et c'est la ligne qui s'en charge.
+        #expect(folded.first?.amount == -8.50)
+    }
+
+    @Test("une jambe seule reste une jambe seule")
+    func leavesAHalfPairAlone() throws {
+        let rows = [leg("out", -8.50, account: "LIVRET A", pair: "p1")]
+        let folded = TransferPairs.collapsed(rows)
+
+        #expect(folded.count == 1)
+        #expect(folded.first?.transferCounterAccount == nil,
+                "sans l'autre bout, il n'y a pas de trajet à annoncer")
+        #expect(folded.first?.isPairedTransfer == false)
+    }
+
+    @Test("le reste de la liste ne bouge pas, ni en nombre ni en ordre")
+    func keepsEverythingElseInPlace() throws {
+        let rows = [
+            leg("a", -6.80, account: "CCP", pair: nil, payee: "Boulangerie"),
+            leg("out", -8.50, account: "LIVRET A", pair: "p1"),
+            leg("in", 8.50, account: "CCP", pair: "p1"),
+            leg("b", -11.33, account: "CCP", pair: nil, payee: "Épicerie"),
+        ]
+        let folded = TransferPairs.collapsed(rows)
+
+        #expect(folded.map(\.id) == ["a", "out", "b"], "le pli se fait sur place")
+        #expect(folded.filter { $0.isPairedTransfer }.count == 1)
+    }
+
+    @Test("deux virements le même jour ne se mélangent pas")
+    func keepsTwoPairsApart() throws {
+        let rows = [
+            leg("out1", -8.50, account: "LIVRET A", pair: "p1"),
+            leg("out2", -40, account: "CCP", pair: "p2"),
+            leg("in1", 8.50, account: "CCP", pair: "p1"),
+            leg("in2", 40, account: "LEP", pair: "p2"),
+        ]
+        let folded = TransferPairs.collapsed(rows)
+
+        #expect(folded.map(\.id) == ["out1", "out2"])
+        #expect(folded.first?.transferCounterAccount == "CCP")
+        #expect(folded.last?.transferCounterAccount == "LEP")
+    }
+}

@@ -969,7 +969,11 @@ struct OverviewScreen: View {
         // Le pli récapitule ce que la banque n'a pas écrit, y compris une
         // carte présentée aujourd'hui — qui figure aussi, marquée, parmi les
         // dernières opérations : c'est bien une dépense du jour.
-        let upcoming = data.recent.filter { $0.isUpcoming && !$0.isInstalment }
+        // Les deux jambes d'un virement sont repliées avant d'être réparties :
+        // un pli après coup échouerait dès qu'une seule des deux est à
+        // vérifier, puisqu'elles se retrouveraient dans des groupes différents.
+        let shown = TransferPairs.collapsed(data.recent)
+        let upcoming = shown.filter { $0.isUpcoming && !$0.isInstalment }
         // Waiting on the bank and waiting on you are two different queues, and
         // a row cannot be in both: an unsettled charge is not yours to file
         // yet. Split before either group is drawn.
@@ -978,8 +982,8 @@ struct OverviewScreen: View {
         // changer un seul en faisait disparaître — une carte en attente datée
         // d'aujourd'hui n'était plus une prévision et restait exclue des deux
         // autres groupes.
-        let toReview = data.recent.filter { !$0.isToCome && $0.needsReview }
-        let settled = data.recent.filter { !$0.isToCome && !$0.needsReview }
+        let toReview = shown.filter { !$0.isToCome && $0.needsReview }
+        let settled = shown.filter { !$0.isToCome && !$0.needsReview }
 
         return section(data.t("v2.overview.recent", "Dernières opérations")) {
             VStack(spacing: 12) {

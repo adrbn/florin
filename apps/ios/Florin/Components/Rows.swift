@@ -111,9 +111,58 @@ enum RowText {
         return join(title == category ? "" : category, when)
     }
 
-    private static func join(_ first: String, _ second: String) -> String {
+    static func join(_ first: String, _ second: String) -> String {
         if first.isEmpty { return second }
         return second.isEmpty ? first : "\(first) · \(second)"
+    }
+}
+
+/*
+ * Deux lignes pour un seul mouvement.
+ *
+ * Un virement s'écrit en deux jambes liées — c'est ce qui fait bouger les
+ * deux soldes, et aucune requête n'a à apprendre quoi que ce soit pour rester
+ * juste. Mais l'une sous l'autre dans une liste, elles se lisent comme deux
+ * opérations, un départ puis une rentrée, alors qu'il ne s'est rien passé
+ * d'autre que de l'argent changeant de poche. Repliées, elles disent le
+ * trajet : « LIVRET A → CCP », une fois, pour un montant qui ne prétend
+ * être ni une dépense ni une recette.
+ *
+ * Seulement quand les deux sont là. Filtrée sur un compte, la liste n'en
+ * montre qu'une, et la replier inventerait un trajet dont on ne voit qu'un
+ * bout. On garde alors la jambe telle quelle.
+ *
+ * Rien ne change sous l'affichage : le grand livre garde ses deux lignes,
+ * ses deux identifiants et ses deux soldes.
+ */
+enum TransferPairs {
+    static func collapsed(_ rows: [Transaction]) -> [Transaction] {
+        var legs: [String: [Transaction]] = [:]
+        for row in rows {
+            guard let pair = row.transferPairId else { continue }
+            legs[pair, default: []].append(row)
+        }
+        let both = legs.filter { $0.value.count == 2 }
+        guard !both.isEmpty else { return rows }
+
+        var out: [Transaction] = []
+        out.reserveCapacity(rows.count)
+        for row in rows {
+            guard let pair = row.transferPairId, let pairLegs = both[pair] else {
+                out.append(row)
+                continue
+            }
+            // La jambe qui sort porte le compte de départ ; l'autre l'arrivée.
+            // On garde la première et on lui confie le nom de la seconde, à sa
+            // place dans la liste — l'ordre de la journée ne bouge pas.
+            guard var kept = pairLegs.min(by: { $0.amount < $1.amount }),
+                  let to = pairLegs.max(by: { $0.amount < $1.amount }),
+                  kept.id == row.id
+            else { continue }
+            kept.transferCounterAccount = to.accountName
+            out.append(kept)
+        }
+        return out
     }
 }
 
@@ -320,10 +369,28 @@ struct TransactionRowView: View {
      * trouver : la ligne porte alors sa catégorie, qui est la seule chose
      * qu'on sache d'elle. Un nom donné à la main passe avant, toujours.
      */
-    private var title: String { PayeeText.title(tx.payee, category: tx.categoryName) }
+    /*
+     * Une paire repliée n'a pas de marchand : elle en a deux comptes.
+     *
+     * Le libellé qu'une banque donne à un virement nomme le compte d'arrivée,
+     * donc son titulaire — « Transfer to CCP » au-dessus de « Virement ·
+     * LIVRET A », qui dit deux fois la moitié de la même chose. Le titre
+     * redevient ce que c'est, et le trajet passe dessous.
+     */
+    private var title: String {
+        tx.isPairedTransfer
+            ? t("v2.common.ownTransfer", "Virement")
+            : PayeeText.title(tx.payee, category: tx.categoryName)
+    }
 
     private var subtitle: String {
-        RowText.subtitle(
+        if let destination = tx.transferCounterAccount {
+            let route = "\(tx.accountName) → \(destination)"
+            return dateIsGiven
+                ? route
+                : RowText.join(route, DayLabel.string(tx.day, locale: locale, t: t))
+        }
+        return RowText.subtitle(
             title: title,
             category: tx.categoryName,
             account: tx.accountName,
@@ -369,12 +436,18 @@ struct TransactionRowView: View {
                  * quand la vérité est l'inverse. Sans signe et sans couleur, le
                  * chiffre redevient ce qu'il est — ce qui a été remboursé ce
                  * mois-là — et le restant dû, juste au-dessus, dit le reste.
+                 *
+                 * Un virement replié dit la même chose d'une autre façon :
+                 * les 8,50 € n'ont été ni gagnés ni dépensés, ils ont changé
+                 * de compte. En rouge avec un moins, la ligne se lirait comme
+                 * une sortie — alors que la flèche juste à côté dit où ils
+                 * sont allés.
                  */
                 AmountText(
-                    value: tx.isDebtRepayment ? abs(tx.amount) : tx.amount,
+                    value: tx.isMovementOnly ? abs(tx.amount) : tx.amount,
                     locale: locale, currency: currency,
-                    signed: !tx.isDebtRepayment,
-                    tone: tx.isDebtRepayment ? .neutral : .auto
+                    signed: !tx.isMovementOnly,
+                    tone: tx.isMovementOnly ? .neutral : .auto
                 )
                 /*
                  * Both states, when both are true.

@@ -691,7 +691,8 @@ enum LocalQueries {
                 accountId: row.string("account_id"),
                 categoryId: row.string("category_id"),
                 instalmentPlanId: row.string("instalment_plan_id"),
-                accountKind: row.string("account_kind")
+                accountKind: row.string("account_kind"),
+                transferPairId: row.string("transfer_pair_id")
             )
         }
     }

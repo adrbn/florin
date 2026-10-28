@@ -982,8 +982,13 @@ struct TransactionList<Banner: View>: View {
     private struct Day {
         let key: String
         let date: Date
+        /// Les virements déjà repliés : ce que la journée montre.
         let rows: [Transaction]
-        var total: Double { rows.reduce(0) { $0 + $1.amount } }
+        /// La somme d'avant le pli. Une paire pèse zéro — ses deux jambes
+        /// s'annulent — mais la ligne qu'on en garde porte encore son
+        /// montant, et la laisser compter ferait d'un aller-retour nul une
+        /// journée en négatif.
+        let total: Double
     }
 
     /// Grouped on the *local* day, not the ISO string's date part: a
@@ -1062,7 +1067,11 @@ struct TransactionList<Banner: View>: View {
         }
         return order.compactMap { key in
             guard let rows = buckets[key], let first = rows.first else { return nil }
-            return Day(key: key, date: first.day, rows: rows)
+            return Day(
+                key: key, date: first.day,
+                rows: TransferPairs.collapsed(rows),
+                total: rows.reduce(0) { $0 + $1.amount }
+            )
         }
     }
 }
