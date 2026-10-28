@@ -301,8 +301,21 @@ struct Transaction: Decodable, Sendable, Identifiable {
     /// jambe montrée seule, dont on ne connaît pas le trajet.
     var transferCounterAccount: String?
 
+    /// Le genre du compte d'en face, qui dit de quel mouvement il s'agit.
+    var transferCounterKind: String?
+
     /// Une ligne qui raconte les deux bouts d'un même mouvement.
     var isPairedTransfer: Bool { transferCounterAccount != nil }
+
+    /*
+     * Rembourser n'est pas déplacer.
+     *
+     * Les deux s'écrivent en paire et s'annulent, mais « Mensualité prêt
+     * étudiant » dit quelque chose que « Virement » ne dit pas : pourquoi
+     * l'argent part, et qu'il ne reviendra pas. Le trajet passe quand même
+     * dessous — c'est la part que le nom tait.
+     */
+    var isPairedRepayment: Bool { isPairedTransfer && transferCounterKind == "loan" }
 
     /// Ni rentrée ni dépense : le chiffre est un déplacement, et le signe
     /// comme la couleur lui donneraient un sens qu'il n'a pas.
@@ -327,7 +340,8 @@ struct Transaction: Decodable, Sendable, Identifiable {
             accountId: accountId, categoryId: categoryId,
             instalmentPlanId: instalmentPlanId, accountKind: accountKind,
             transferPairId: transferPairId,
-            transferCounterAccount: transferCounterAccount
+            transferCounterAccount: transferCounterAccount,
+            transferCounterKind: transferCounterKind
         )
     }
 

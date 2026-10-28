@@ -160,6 +160,7 @@ enum TransferPairs {
                   kept.id == row.id
             else { continue }
             kept.transferCounterAccount = to.accountName
+            kept.transferCounterKind = to.accountKind
             out.append(kept)
         }
         return out
@@ -375,10 +376,11 @@ struct TransactionRowView: View {
      * Le libellé qu'une banque donne à un virement nomme le compte d'arrivée,
      * donc son titulaire — « Transfer to CCP » au-dessus de « Virement ·
      * LIVRET A », qui dit deux fois la moitié de la même chose. Le titre
-     * redevient ce que c'est, et le trajet passe dessous.
+     * redevient ce que c'est, et le trajet passe dessous — sauf pour une
+     * mensualité de prêt, dont le nom dit ce que « Virement » tairait.
      */
     private var title: String {
-        tx.isPairedTransfer
+        tx.isPairedTransfer && !tx.isPairedRepayment
             ? t("v2.common.ownTransfer", "Virement")
             : PayeeText.title(tx.payee, category: tx.categoryName)
     }

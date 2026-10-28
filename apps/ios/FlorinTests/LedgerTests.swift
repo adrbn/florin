@@ -6403,13 +6403,14 @@ struct PatrimonyForecastTests {
 @Suite("Le pli des virements")
 struct TransferPairCollapseTests {
     private func leg(
-        _ id: String, _ amount: Double, account: String, pair: String?, payee: String = "Virement"
+        _ id: String, _ amount: Double, account: String, pair: String?,
+        payee: String = "Virement", kind: String = "checking"
     ) -> Transaction {
         Transaction(
             id: id, date: "2026-10-28", amount: amount, payee: payee, memo: nil,
             categoryName: nil, categoryEmoji: nil, accountName: account,
             isTransfer: pair != nil, needsReview: false, isPending: false, isScheduled: false,
-            transferPairId: pair
+            accountKind: kind, transferPairId: pair
         )
     }
 
@@ -6469,5 +6470,34 @@ struct TransferPairCollapseTests {
         #expect(folded.map(\.id) == ["out1", "out2"])
         #expect(folded.first?.transferCounterAccount == "CCP")
         #expect(folded.last?.transferCounterAccount == "LEP")
+    }
+}
+
+extension TransferPairCollapseTests {
+    @Test("une mensualité garde son nom et gagne son trajet")
+    func aRepaymentKeepsItsName() throws {
+        let rows = [
+            leg("out", -135.91, account: "Compte courant", pair: "p1",
+                payee: "Mensualité du prêt"),
+            leg("in", 135.91, account: "Prêt", pair: "p1",
+                payee: "Mensualité du prêt", kind: "loan"),
+        ]
+        let folded = TransferPairs.collapsed(rows)
+
+        #expect(folded.count == 1)
+        #expect(folded.first?.transferCounterAccount == "Prêt")
+        #expect(folded.first?.isPairedRepayment == true,
+                "le côté d'en face est une dette, pas un autre porte-monnaie")
+        // Rembourser n'est pas déplacer : la ligne doit pouvoir garder son nom.
+        #expect(folded.first?.payee == "Mensualité du prêt")
+    }
+
+    @Test("un virement ordinaire n'est pas pris pour un remboursement")
+    func aPlainTransferIsNotARepayment() throws {
+        let rows = [
+            leg("out", -8.50, account: "Livret", pair: "p1"),
+            leg("in", 8.50, account: "Compte courant", pair: "p1"),
+        ]
+        #expect(TransferPairs.collapsed(rows).first?.isPairedRepayment == false)
     }
 }
