@@ -809,6 +809,10 @@ enum LocalQueries {
          * décalerait l'histoire dans l'autre sens. Le jour où un solde dira
          * lui-même ce qu'il ignore, cette fenêtre n'aura plus lieu d'être.
          */
+        /// Ce que la banque a livré sans encore le porter au solde. Défalqué
+        /// de l'histoire au-dessus ; rendu plus bas au point d'accroche de la
+        /// prévision, qui part d'un solde amputé de cette somme.
+        var announced = 0.0
         let numbers = Set(
             try db.query("SELECT iban FROM accounts WHERE iban IS NOT NULL AND iban != ''")
                 .compactMap { $0.string("iban") }
@@ -838,7 +842,9 @@ enum LocalQueries {
                 guard let day = row.string("day"), let payee = row.string("payee"),
                       OwnAccounts.named(by: payee, among: numbers)
                 else { continue }
-                byDay[day] = (byDay[day] ?? 0) - (row.double("amount") ?? 0)
+                let amount = row.double("amount") ?? 0
+                byDay[day] = (byDay[day] ?? 0) - amount
+                announced += amount
             }
         }
 
@@ -1029,12 +1035,30 @@ enum LocalQueries {
         }
         let repaid = (max(0, debtToday) - remaining) / Double(forecastMonths)
 
+        /*
+         * La prévision part de l'argent déjà acquis, pas du solde affiché.
+         *
+         * Le matin de la paie, le dernier point relevé est juste et bas : la
+         * banque a écrit le virement sans le compter. Une droite accrochée là
+         * et remontée six mois en arrière atterrissait loin sous la courbe
+         * qu'elle prolongeait — tout le trait descendait d'un salaire entier,
+         * deux ou trois jours par mois, tous les mois.
+         *
+         * Ce sont les mêmes lignes qu'au-dessus : celles que la banque a
+         * livrées et pas encore portées au solde. Les compter ici n'invente
+         * rien et ne double rien — la pente, elle, ne regarde que des mois
+         * complets. L'écart entre le bout de la courbe et le départ du trait
+         * est alors exactement ce qui est en route, et il se referme tout seul
+         * quand la banque comptabilise.
+         */
         return (
             net: net + projection(
-                from: net.last, monthly: assets + repaid, now: now, calendar: calendar
+                from: net.last, monthly: assets + repaid, pending: announced,
+                now: now, calendar: calendar
             ),
             gross: gross + projection(
-                from: gross.last, monthly: assets, now: now, calendar: calendar
+                from: gross.last, monthly: assets, pending: announced,
+                now: now, calendar: calendar
             )
         )
     }
@@ -1158,11 +1182,17 @@ enum LocalQueries {
     }
 
     /*
-     * La marge d'un mois moyen, sur les douze mois complets qui précèdent.
+     * La marge d'un mois moyen, sur les mois complets que le trait couvre.
      *
      * Mois complets seulement : le mois en cours a ses dépenses passées et son
      * salaire à venir, et le compter tirerait la moyenne vers le bas pour la
      * seule raison qu'on est le 28.
+     *
+     * Autant de mois derrière que la prévision en montre devant, et pas douze :
+     * une pente moyennée sur un an prétendait décrire six mois qu'elle n'avait
+     * pas regardés. Qu'on ait économisé plus au premier semestre qu'au second
+     * suffit à ce que la droite parte au-dessus de la courbe qu'elle prolonge
+     * — et le graphique les montre côte à côte, donc l'écart se voit.
      *
      * Les mois creux comptent pour zéro, mais seulement à partir du premier qui
      * porte un mouvement. Un mois d'avant l'historique diluerait la moyenne
@@ -1178,7 +1208,7 @@ enum LocalQueries {
         var totals: [Double] = []
         var started = false
         // Du plus ancien au plus récent, pour savoir où l'histoire commence.
-        for offset in (1...12).reversed() {
+        for offset in (1...forecastMonths).reversed() {
             guard let date = calendar.date(byAdding: .month, value: -offset, to: now)
             else { continue }
             let label = monthFormatter.string(from: date)
@@ -1206,11 +1236,12 @@ enum LocalQueries {
     static let forecastMonths = 6
 
     private static func projection(
-        from anchor: PatrimonyPoint?, monthly: Double, now: Date, calendar: Calendar
+        from anchor: PatrimonyPoint?, monthly: Double, pending: Double,
+        now: Date, calendar: Calendar
     ) -> [PatrimonyPoint] {
         guard let anchor, monthly != 0 else { return [] }
         let daily = monthly / 30.44
-        var value = anchor.balance
+        var value = anchor.balance + pending
         var day = calendar.startOfDay(for: now)
         var points: [PatrimonyPoint] = []
         for _ in 1...(forecastMonths * 61 / 2) {  // 30,5 jours par mois

@@ -57,6 +57,16 @@ struct NetWorthChart: View {
      */
     private let hasTrend: Bool
 
+    /*
+     * Vert si ça monte, rouge si ça descend.
+     *
+     * La couleur du compte dit de quoi on parle ; celle du trait dit où ça va,
+     * et c'est la seule chose qu'on lui demande. Jamais pleine opacité : la
+     * droite passe au travers des dents de scie, et deux traits opaques qui se
+     * croisent se disputent le même pixel.
+     */
+    private let trendTint: Color
+
     init(
         points: [PatrimonyPoint], height: CGFloat = 150,
         selection: Binding<PatrimonyPoint?>, animationKey: String = "",
@@ -87,26 +97,38 @@ struct NetWorthChart: View {
                 ? future[1].day.timeIntervalSince(future[0].day) / 86_400
                 : 0
             let slope = step > 0 ? (future[1].balance - future[0].balance) / step : 0
-            let back = anchor.day.timeIntervalSince(opening.day) / 86_400
+            trendTint = slope < 0 ? Florin.negative : Florin.positive
+            /*
+             * La charnière est le premier point prévu, pas le dernier relevé.
+             *
+             * Le grand livre accroche sa prévision à l'argent déjà acquis, et
+             * le dernier solde relevé peut être plus bas que lui d'un virement
+             * que la banque n'a pas encore porté. Reprendre ce solde ici
+             * rabaissait tout le trait de cette somme — c'est-à-dire de ce que
+             * la prévision venait justement de rendre.
+             */
+            let joint = hasTrend ? (future.first ?? anchor) : anchor
+            let back = joint.day.timeIntervalSince(opening.day) / 86_400
             // Sans prévision, les deux bouts sont le point d'aujourd'hui : la
             // droite est là, de longueur nulle, prête à s'ouvrir.
             trendPast = [
                 hasTrend
                     ? PatrimonyPoint(
-                        date: opening.date, balance: anchor.balance - slope * back,
+                        date: opening.date, balance: joint.balance - slope * back,
                         projected: false
                     )
                     : anchor,
-                PatrimonyPoint(date: anchor.date, balance: anchor.balance, projected: false),
+                PatrimonyPoint(date: joint.date, balance: joint.balance, projected: false),
             ]
             trendAhead = [
-                PatrimonyPoint(date: anchor.date, balance: anchor.balance, projected: false),
+                PatrimonyPoint(date: joint.date, balance: joint.balance, projected: false),
                 horizon.map {
                     PatrimonyPoint(date: $0.date, balance: $0.balance, projected: true)
                 } ?? anchor,
             ]
         } else {
             hasTrend = false
+            trendTint = tint
             trendPast = []
             trendAhead = []
         }
@@ -186,7 +208,7 @@ struct NetWorthChart: View {
                     y: .value("Solde", point.balance),
                     series: .value("Série", "tendance")
                 )
-                .foregroundStyle(tint)
+                .foregroundStyle(trendTint.opacity(0.8))
                 // Bout carré tant qu'elle est repliée : un trait de longueur
                 // nulle ne dessine alors rien, là où un bout rond poserait un
                 // point sur la courbe dans toutes les autres fenêtres.
@@ -200,7 +222,7 @@ struct NetWorthChart: View {
                     y: .value("Solde", point.balance),
                     series: .value("Série", "prévu")
                 )
-                .foregroundStyle(tint.opacity(0.6))
+                .foregroundStyle(trendTint.opacity(0.55))
                 .lineStyle(
                     StrokeStyle(
                         lineWidth: 1.6, lineCap: hasTrend ? .round : .butt, dash: [2, 4.5]

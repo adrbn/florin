@@ -7034,4 +7034,42 @@ struct AnnouncedNotBookedTests {
         let yesterday = try #require(points.dropLast().last)
         #expect(abs(yesterday.balance - (1_200 - 3_000)) < 0.005)
     }
+
+    private func forecast(_ store: LocalStore) throws -> [PatrimonyPoint] {
+        let accounts = try LocalQueries.readAccounts(store.database)
+        return try LocalQueries.netWorthSeries(store.database, accounts: accounts)
+            .net.filter { $0.projected == true }
+    }
+
+    /// Un mois complet qui porte un mouvement, pour que la pente existe : sans
+    /// lui la moyenne est nulle et la prévision ne rend aucun point.
+    private func pastMonth(_ store: LocalStore, _ cash: String) throws {
+        try move(store, cash, -600, payee: "Loyer", on: dayString(daysAgo: 45))
+    }
+
+    @Test("la prévision part de l'argent acquis, pas du solde amputé")
+    func forecastStartsFromWhatIsOwed() throws {
+        let (store, cash) = try ledger(balance: 1_200)
+        try pastMonth(store, cash)
+        try move(store, cash, 3_000, payee: "\(Self.iban) DUPONT", on: dayString(daysAgo: 0))
+
+        let ahead = try forecast(store)
+        let first = try #require(ahead.first)
+        // Le solde relevé est 1 200 ; les 3 000 livrés comptent dans l'accroche.
+        // Sans le correctif le trait partait de 1 200 et plongeait de là.
+        #expect(first.balance > 4_000)
+    }
+
+    @Test("sans ligne annoncée la prévision part bien du dernier solde")
+    func forecastStartsFromTodayOtherwise() throws {
+        let (store, cash) = try ledger(balance: 1_200)
+        try pastMonth(store, cash)
+
+        let ahead = try forecast(store)
+        let first = try #require(ahead.first)
+        // La pente est négative : le premier point prévu est juste sous 1 200,
+        // et sûrement pas au-dessus de 1 200.
+        #expect(first.balance < 1_200)
+        #expect(first.balance > 1_100)
+    }
 }
