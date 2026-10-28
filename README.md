@@ -27,6 +27,7 @@
 <p align="center">
   <a href="#download">Download</a> ·
   <a href="#features">Features</a> ·
+  <a href="#the-five-screens">Screens</a> ·
   <a href="#get-started">Get started</a> ·
   <a href="#connect-a-bank">Connect a bank</a> ·
   <a href="#contributing">Contributing</a>
@@ -38,9 +39,9 @@
 
 - 🔒 **Your data never leaves your devices.** No Florin account, no Florin server, no analytics, no tracking SDK. Merchant logos on iPhone come straight from each merchant's own website, never from a logo service — and can be turned off.
 - 🏦 **Real bank sync, under your own credentials.** PSD2 access to 2 000+ European banks through [Enable Banking](https://enablebanking.com/) — your own free registration, not a shared key.
-- 🎯 **Figures that match the bank.** Loans follow a real amortisation schedule; savings rates count complete months only; when a number cannot be computed honestly, Florin says so instead of showing zero.
+- 🎯 **Figures that match the bank.** Loans follow a real amortisation schedule; savings rates count complete months only; the net worth curve is anchored on balances actually recorded, not on balances deduced backwards. When a number cannot be computed honestly, Florin says so instead of showing zero.
 - 🗂️ **A budgeting workflow, not a chart gallery.** A monthly plan in category groups and a review queue that learns from how you file your own history.
-- 📈 **Everything in one place.** Current accounts, savings, loans and a stock portfolio, in one net worth.
+- 📈 **Everything in one place.** Current accounts, savings, loans and a stock portfolio, in one net worth — and one dotted line for the year ahead.
 - 🧾 **Open source, AGPL-3.0.** Read it, run it, fork it.
 
 ## Download
@@ -55,35 +56,71 @@ Nothing to sign up for, anywhere. Want to look around first? The iPhone app has 
 
 ## Features
 
+### Budgeting
+
 |  | iPhone | Mac | Web |
 | --- | :---: | :---: | :---: |
-| **Budgeting** | | | |
 | What's left to spend this month, and the daily pace it allows | ✅ | ✅ | ✅ |
 | Month-end projection that narrows as the month fills | ✅ | ✅ | ✅ |
 | Monthly plan in category groups, carried over from last month | ✅ | ✅ | ✅ |
 | Review queue that learns from your own filing | ✅ | ✅ | ✅ |
-| Create, rename and remove categories | ✅ | ✅ | ✅ |
-| Rename a merchant once — the bank's label, shown your way | ✅ | — | — |
-| **Money in** | | | |
+| Suggested category offered wherever a row is filed, ranked by your own history | ✅ | — | — |
+| Create, rename and remove categories; a removal reassigns what it held | ✅ | ✅ | ✅ |
+| Recurring charges found on their own, with their cadence and yearly cost | ✅ | ✅ | ✅ |
+| Rename a merchant once — the bank's label, shown your way, everywhere | ✅ | — | — |
+| An instalment plan tracked to its last payment | ✅ | — | — |
+
+### Money in
+
+|  | iPhone | Mac | Web |
+| --- | :---: | :---: | :---: |
 | PSD2 bank sync through your own Enable Banking app | ✅ | ✅ | ✅ |
+| A sync log saying what each bank actually returned, account by account | ✅ | ✅ | ✅ |
 | CSV / OFX import that reads real French, German and English exports | ✅ | ✅ | ✅ |
-| Manual entry and transfers between your own accounts | ✅ | ✅ | ✅ |
+| Manual entry, and transfers between your own accounts | ✅ | ✅ | ✅ |
+| Pair two existing rows into a transfer after the fact | ✅ | — | — |
 | Photograph a receipt and keep what it says, line by line — read on the phone, never uploaded | ✅ | — | — |
+| Search your own receipts by article, not just by merchant | ✅ | — | — |
 | Apple Pay payments listed as upcoming the moment you pay, then replaced by the bank's row | ✅ | — | — |
+| A loan instalment filed in one tap, with its mirror row on the loan account | ✅ | — | — |
 | YNAB-style spreadsheet import | — | — | ✅ |
-| **Wealth** | | | |
+
+### Wealth
+
+|  | iPhone | Mac | Web |
+| --- | :---: | :---: | :---: |
 | Loans on a real amortisation schedule | ✅ | ✅ | ✅ |
 | Holdings with cost basis, gain, and opt-in live quotes | ✅ | ✅ | ✅ |
-| Net worth over time, allocation, rolling savings rate | ✅ | ✅ | ✅ |
-| Balance corrections booked as visible adjustments | ✅ | ✅ | ✅ |
-| **Living with it** | | | |
+| Net worth over time, scrubbable day by day | ✅ | ✅ | ✅ |
+| The year ahead in dotted line, at the pace of the complete months behind | ✅ | — | — |
+| Allocation ring and rolling savings rate over 3, 6 and 12 complete months | ✅ | ✅ | ✅ |
+| Balance corrections booked as visible adjustments, never as silent edits | ✅ | ✅ | ✅ |
+
+### Living with it
+
+|  | iPhone | Mac | Web |
+| --- | :---: | :---: | :---: |
 | Hide every amount in one gesture | ✅ | ✅ | ✅ |
-| Face ID / PIN lock | ✅ | ✅ | — |
+| Face ID lock / PIN lock | ✅ | ✅ | — |
 | Home-screen widget / menu-bar widget | ✅ | ✅ | — |
 | One morning summary; a payment banner only if you set up the Apple Pay automation | ✅ | — | — |
-| Languages | 8 | 3 | 3 |
+| A trash: a deleted row is recoverable, not gone | ✅ | — | — |
+| A demo with invented accounts, erased in one tap | ✅ | — | — |
+| Languages | 9 | 3 | 3 |
 
-iPhone: English, French, German, Dutch, Italian, Spanish, Portuguese, Catalan. Mac and web: English, French, Dutch.
+iPhone: English, French, German, Dutch, Italian, Spanish, Portuguese, Catalan, Turkish. Mac and web: English, French, Dutch.
+
+## The five screens
+
+The same five on every platform, plus Settings — on iPhone behind the avatar in the top-left, so the tab bar keeps all five.
+
+| Tab | What it answers |
+| --- | --- |
+| **Overview** | What am I worth, what is left this month, what happened today. The net worth curve sits at the top: tap the figure to swap net for gross, scrub it to read any day, and switch to **Prév.** to fold the past to three months and see the year ahead dotted. |
+| **Accounts** | What I own and what I owe, grouped by kind, with the allocation ring. Holdings, loans and their schedules open from here. |
+| **Plan** | The month in category groups: planned against spent, carried over from last month in one tap. |
+| **Activity** | Every row, searchable and filterable, with the review queue at the top. A row opens to its detail: category, merchant name, receipt, transfer pairing, instalment plan. |
+| **Analysis** | Spending per day over the month, movers against last month, recurring charges, savings rate. |
 
 ## Get started
 
@@ -103,6 +140,7 @@ Open the app and pick how to start: connect a bank, enter accounts by hand, impo
   cd apps/ios && xcodegen generate && open Florin.xcodeproj
   ```
   Pick your team in *Signing & Capabilities*. Deployment floor: iOS 17.4.
+- **Install your own builds over the air.** [`apps/ios/OTA.md`](apps/ios/OTA.md) sets up an `itms-services` manifest on a host of your own, so a build installs from any network without a cable. `scripts/install-device.sh` does the same over USB.
 
 </details>
 
@@ -162,6 +200,8 @@ Florin has no shared bank connection. You register your own **free** [Enable Ban
 | **Redirect URI** | shown in the app | `https://127.0.0.1:3847/api/banking/callback` | `https://<your-domain>/api/banking/callback` |
 | **3. App ID** | Paste it back in Settings | Paste it back in Settings | `ENABLE_BANKING_*` in `.env` |
 
+Pick **Production**, not Sandbox: an application is activated by linking real accounts, and the API returns only the accounts you linked. Some banks expose less than others — PayPal returns no accounts at all over PSD2 — which is why the sync log records what each one actually sent back.
+
 No bank? Manual entry and CSV/OFX import cover everything else.
 
 ## Configure
@@ -195,6 +235,10 @@ docker exec florin-db pg_dump -U florin -d florin --no-owner --no-privileges \
 
 # Web — import a YNAB-style spreadsheet (idempotent)
 cd apps/web && node --env-file=.env --import tsx scripts/import-legacy-xlsx.ts /path/to/finances.xlsx
+
+# Mirror one ledger onto the other (both directions, both truncate the target)
+python3 scripts/pg-to-sqlite-dump.py   # server → Mac
+python3 scripts/sqlite-to-pg-dump.py   # Mac → server
 ```
 
 A restored iPhone copy does not carry the bank connection: a PSD2 session restored onto another phone is a dead session, and the signing key is marked `ThisDeviceOnly`. Reconnect the bank on the new phone.
@@ -206,7 +250,12 @@ A restored iPhone copy does not carry the bank connection: a PSD2 session restor
 ```
 apps/
   ios/          SwiftUI app with its own SQLite ledger (XcodeGen)
+                Florin/Local/   the ledger: queries, writes, parsers, repairs
+                Florin/Screens/ five tabs, their sheets, Settings
+                scripts/        USB install, over-the-air publish
   desktop/      Electron + Next.js + SQLite, menu-bar widget
+                main/           Electron process: tray, IPC, scheduler, updater
+                tray-ui/        the menu-bar popup, raw DOM, no React
   web/          Next.js 15 + Postgres, Docker
   site/         Static pages and the Associated Domain file for bank redirects
 packages/
@@ -215,6 +264,8 @@ packages/
   db-sqlite/    SQLite schema and queries      ┘ change them together
 scripts/        Mirror one ledger onto another (SQLite ⇄ Postgres)
 ```
+
+Three ledgers, one shape: Postgres for the server, SQLite for the Mac, and a third SQLite schema written in Swift for the iPhone. A column added to one belongs in all three.
 
 ## Contributing
 
