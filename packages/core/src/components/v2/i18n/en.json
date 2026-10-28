@@ -441,6 +441,7 @@
   "v2.range.3m": "3M",
   "v2.range.6m": "6M",
   "v2.range.all": "All",
+  "v2.range.forecast": "Fcast",
   "v2.review.approve": "Checked",
   "v2.review.approveCount": "Approve {count}",
   "v2.review.approvedCount": "{count} transactions checked",

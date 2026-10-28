@@ -22,6 +22,17 @@ struct NetWorthChart: View {
     /// La date sous le doigt, telle que Swift Charts la rapporte.
     @State private var touched: Date?
 
+    /// Ce qui s'est passé.
+    private var measured: [PatrimonyPoint] { points.filter { $0.projected != true } }
+
+    /// Ce qui est prévu — en reprenant au dernier point réel, sinon les deux
+    /// traits ne se touchent pas et la courbe a un trou au présent.
+    private var ahead: [PatrimonyPoint] {
+        let future = points.filter { $0.projected == true }
+        guard !future.isEmpty, let last = measured.last else { return [] }
+        return [last] + future
+    }
+
     init(
         points: [PatrimonyPoint], height: CGFloat = 150,
         selection: Binding<PatrimonyPoint?>, animationKey: String = "",
@@ -43,7 +54,7 @@ struct NetWorthChart: View {
 
     var body: some View {
         Chart {
-            ForEach(points) { point in
+            ForEach(measured) { point in
                 AreaMark(
                     x: .value("Date", point.day),
                     yStart: .value("Base", bounds.min),
@@ -57,12 +68,38 @@ struct NetWorthChart: View {
                     )
                 )
 
-                LineMark(x: .value("Date", point.day), y: .value("Solde", point.balance))
-                    .foregroundStyle(tint)
-                    .lineStyle(StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round))
-                    .interpolationMethod(.monotone)
+                LineMark(
+                    x: .value("Date", point.day),
+                    y: .value("Solde", point.balance),
+                    series: .value("Série", "réel")
+                )
+                .foregroundStyle(tint)
+                .lineStyle(StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round))
+                .interpolationMethod(.monotone)
             }
 
+            /*
+             * La prévision est un autre trait, pas la suite du même.
+             *
+             * Deux séries nommées plutôt qu'un seul `LineMark` dont le style
+             * changerait selon le point : Swift Charts dessine un trait par
+             * série, et un style posé point par point sur une série unique
+             * s'applique au trait entier — tout serait pointillé ou rien.
+             *
+             * Pas d'aire sous les pointillés : le dégradé dit « voilà ce que
+             * j'ai », et une moyenne mensuelle étalée sur un an n'a pas droit
+             * au même aplomb que des soldes relevés.
+             */
+            ForEach(ahead) { point in
+                LineMark(
+                    x: .value("Date", point.day),
+                    y: .value("Solde", point.balance),
+                    series: .value("Série", "prévu")
+                )
+                .foregroundStyle(tint.opacity(0.5))
+                .lineStyle(StrokeStyle(lineWidth: 1.4, lineCap: .round, dash: [1.5, 4]))
+                .interpolationMethod(.monotone)
+            }
         }
         .chartYScale(domain: bounds.min...bounds.max)
         // The y-domain moves too: a shorter window is a much tighter range, so

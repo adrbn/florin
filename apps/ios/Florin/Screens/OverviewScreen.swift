@@ -47,7 +47,7 @@ struct OverviewScreen: View {
     private var t: Strings { model.overview?.t ?? .device }
 
     enum Range: String, CaseIterable, Identifiable {
-        case month, quarter, half, year, all
+        case month, quarter, half, year, all, forecast
         var id: String { rawValue }
 
         /// Served, like every other string — "1A" and "Tout" are French, and a
@@ -60,6 +60,7 @@ struct OverviewScreen: View {
             case .half: return ("v2.range.6m", "6M")
             case .year: return ("v2.range.1y", "1A")
             case .all: return ("v2.range.all", "Tout")
+            case .forecast: return ("v2.range.forecast", "Prév.")
             }
         }
 
@@ -70,6 +71,10 @@ struct OverviewScreen: View {
             case .half: return 183
             case .year: return 366
             case .all: return .infinity
+            // Le passé qu'on garde à gauche quand la prévision occupe la
+            // droite : trois mois lus contre douze prévus, soit un cinquième
+            // de la largeur pour ce qui s'est réellement passé.
+            case .forecast: return 92
             }
         }
     }
@@ -276,10 +281,25 @@ struct OverviewScreen: View {
     /// in which case both fall back to the single series they do send.
     private func curve(_ data: Overview) -> [PatrimonyPoint] {
         let full = showGross ? (data.grossSeries ?? data.series) : (data.netSeries ?? data.series)
-        guard range != .all, let last = full.last else { return full }
+        /*
+         * La prévision ne se glisse pas dans les autres fenêtres.
+         *
+         * La série porte l'année à venir après le jour présent, et le
+         * fenêtrage compte à rebours depuis son dernier point : sans ce tri,
+         * « 1M » aurait affiché le mois prochain, et « Tout » aurait toujours
+         * fini en pointillés. On ne la montre que lorsqu'elle est demandée.
+         */
+        let real = full.filter { $0.projected != true }
+        if range == .forecast {
+            let ahead = full.filter { $0.projected == true }
+            guard !ahead.isEmpty, let last = real.last else { return real }
+            let from = last.day.addingTimeInterval(-range.days * 86_400)
+            return real.filter { $0.day >= from } + ahead
+        }
+        guard range != .all, let last = real.last else { return real }
         let from = last.day.addingTimeInterval(-range.days * 86_400)
-        let slice = full.filter { $0.day >= from }
-        return slice.count >= 2 ? slice : Array(full.suffix(2))
+        let slice = real.filter { $0.day >= from }
+        return slice.count >= 2 ? slice : Array(real.suffix(2))
     }
 
     private func loaded(_ data: Overview) -> some View {

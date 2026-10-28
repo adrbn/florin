@@ -249,7 +249,14 @@ struct AccountsScreen: View {
             // the other half of the same question and looked oddly numeric
             // without it.
             NetWorthChart(
-                points: Array((showNet ? (data.netSeries ?? data.series) : (data.grossSeries ?? data.series)).suffix(200)),
+                // Le passé seulement : la série finit par une année de
+                // prévision, et `suffix(200)` sans ce tri n'aurait montré
+                // que des pointillés.
+                points: Array(
+                    (showNet ? (data.netSeries ?? data.series) : (data.grossSeries ?? data.series))
+                        .filter { $0.projected != true }
+                        .suffix(200)
+                ),
                 height: 96,
                 selection: .constant(nil),
                 animationKey: showNet ? "net" : "gross",

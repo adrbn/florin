@@ -848,7 +848,58 @@ enum LocalQueries {
             later.append(PatrimonyPoint(date: label, balance: round2(running), projected: false))
         }
 
-        return earlier.reversed() + later
+        return earlier.reversed() + later + forecast(from: later.last, byDay: byDay, now: now,
+                                                     calendar: calendar)
+    }
+
+    /*
+     * L'année à venir, au rythme des douze derniers mois.
+     *
+     * La marge est prise sur `byDay` — les mêmes mouvements que la courbe
+     * dessine — et non sur les groupes revenus/dépenses : une prévision qui
+     * prolonge une *autre* grandeur que celle tracée ferait un coude au
+     * présent, là où les deux traits se rejoignent.
+     *
+     * Mois complets seulement : le mois en cours a ses dépenses passées et
+     * son salaire à venir, et le compter tirerait la moyenne vers le bas pour
+     * la seule raison qu'on est le 28.
+     *
+     * Étalée jour par jour, pas en marches mensuelles. La moyenne ne sait pas
+     * quel jour tombe le loyer ; dessiner un escalier donnerait à une moyenne
+     * la précision d'un calendrier qu'elle n'a pas.
+     */
+    private static func forecast(
+        from anchor: PatrimonyPoint?, byDay: [String: Double], now: Date, calendar: Calendar
+    ) -> [PatrimonyPoint] {
+        guard let anchor else { return [] }
+
+        var months: [Double] = []
+        for offset in 1...12 {
+            guard let date = calendar.date(byAdding: .month, value: -offset, to: now)
+            else { continue }
+            let label = monthFormatter.string(from: date)
+            let moved = byDay.filter { $0.key.hasPrefix(label) }
+            // Un mois sans aucun mouvement n'est pas un mois à zéro de marge :
+            // c'est un mois d'avant l'historique, et le compter diluerait la
+            // moyenne vers zéro autant de fois qu'il manque de mois.
+            guard !moved.isEmpty else { continue }
+            months.append(moved.values.reduce(0, +))
+        }
+        guard !months.isEmpty else { return [] }
+
+        let daily = (months.reduce(0, +) / Double(months.count)) / 30.44
+        var value = anchor.balance
+        var day = calendar.startOfDay(for: now)
+        var points: [PatrimonyPoint] = []
+        for _ in 1...365 {
+            guard let next = calendar.date(byAdding: .day, value: 1, to: day) else { break }
+            day = next
+            value += daily
+            points.append(PatrimonyPoint(
+                date: dayFormatter.string(from: day), balance: round2(value), projected: true
+            ))
+        }
+        return points
     }
 
     // MARK: - This month

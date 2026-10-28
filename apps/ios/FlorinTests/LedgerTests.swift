@@ -6284,3 +6284,106 @@ struct WalletSettleTests {
         )?.int == 1)
     }
 }
+
+// MARK: - L'année à venir
+
+/*
+ * Ce que la prévision promet, et ce qu'elle ne promet pas.
+ *
+ * Elle prolonge la courbe au rythme des mois complets déjà vécus. Deux
+ * choses sont donc à tenir : le rythme — une moyenne, pas la somme — et le
+ * refus de compter le mois en cours, qui a ses dépenses et pas son salaire.
+ */
+@Suite("La prévision du patrimoine")
+struct PatrimonyForecastTests {
+    private func ledger() throws -> (LocalStore, account: String) {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("florin-forecast-\(UUID().uuidString).db")
+        let store = try LocalStore(url: url)
+        let account = UUID().uuidString
+        try store.database.run(
+            "INSERT INTO accounts (id, name, kind, currency) VALUES (?, 'CCP', 'checking', 'EUR')",
+            [.text(account)]
+        )
+        return (store, account: account)
+    }
+
+    private static let day: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
+
+    /// Le dix du mois situé `monthsAgo` mois en arrière — calculé, pas écrit,
+    /// pour qu'un test qui passe en octobre passe encore en janvier.
+    private func tenth(monthsAgo: Int) -> String {
+        let calendar = Calendar(identifier: .gregorian)
+        let date = calendar.date(byAdding: .month, value: -monthsAgo, to: Date()) ?? Date()
+        var parts = calendar.dateComponents([.year, .month], from: date)
+        parts.day = 10
+        return Self.day.string(from: calendar.date(from: parts) ?? date)
+    }
+
+    private func credit(_ store: LocalStore, _ account: String, _ amount: Double, on day: String)
+        throws
+    {
+        try store.database.run(
+            """
+            INSERT INTO transactions
+                (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
+                 source, status, needs_review, is_pending)
+            VALUES (?, ?, ?, ?, 'EUR', 'Virement', 'virement', 'manual', 'cleared', 0, 0)
+            """,
+            [.text(UUID().uuidString), .text(account), .text(day), .real(amount)]
+        )
+    }
+
+    @Test("un an de pointillés, à la pente des mois complets")
+    func projectsAYearAtTheAverageMargin() throws {
+        let (store, account) = try ledger()
+        for offset in 1...3 { try credit(store, account, 120, on: tenth(monthsAgo: offset)) }
+
+        let accounts = try LocalQueries.readAccounts(store.database)
+        let series = try LocalQueries.netWorthSeries(store.database, accounts: accounts)
+        let ahead = series.filter { $0.projected == true }
+        let real = series.filter { $0.projected != true }
+
+        #expect(ahead.count == 365, "un an, jour par jour")
+        let today = real.last?.balance ?? 0
+        // Une moyenne de 120 par mois, étalée : la pente, pas trois marches.
+        #expect(abs((ahead.last?.balance ?? 0) - (today + 120 * 365 / 30.44)) < 1)
+        #expect(abs(ahead[11].balance - (today + 120 / 30.44 * 12)) < 0.1,
+                "le douzième jour vaut douze pas, pas un saut de fin de mois")
+        #expect(real.allSatisfy { $0.projected != true }, "le passé reste du passé")
+    }
+
+    @Test("le mois en cours ne pèse pas sur la pente")
+    func ignoresTheMonthInProgress() throws {
+        let (store, account) = try ledger()
+        for offset in 1...2 { try credit(store, account, 90, on: tenth(monthsAgo: offset)) }
+        // Une grosse dépense ce mois-ci, dont le salaire n'est pas encore là.
+        try credit(store, account, -600, on: tenth(monthsAgo: 0))
+
+        let accounts = try LocalQueries.readAccounts(store.database)
+        let series = try LocalQueries.netWorthSeries(store.database, accounts: accounts)
+        let ahead = series.filter { $0.projected == true }
+        let today = series.filter { $0.projected != true }.last?.balance ?? 0
+
+        #expect(ahead.count == 365)
+        // 90 de moyenne, et non (90 + 90 - 600) / 3 = -140.
+        #expect(abs((ahead.last?.balance ?? 0) - (today + 90 * 365 / 30.44)) < 1,
+                "la pente reste montante malgré le trou du mois courant")
+    }
+
+    @Test("sans un seul mois complet, pas de pointillés")
+    func drawsNothingWithoutACompleteMonth() throws {
+        let (store, account) = try ledger()
+        try credit(store, account, 40, on: tenth(monthsAgo: 0))
+
+        let accounts = try LocalQueries.readAccounts(store.database)
+        let series = try LocalQueries.netWorthSeries(store.database, accounts: accounts)
+        #expect(series.filter { $0.projected == true }.isEmpty,
+                "mieux vaut aucune prévision qu'une prévision tirée d'un mois à moitié vécu")
+    }
+}

@@ -441,6 +441,7 @@
   "v2.range.3m": "3M",
   "v2.range.6m": "6M",
   "v2.range.all": "Alles",
+  "v2.range.forecast": "Prog.",
   "v2.review.approve": "Gecontroleerd",
   "v2.review.approveCount": "{count} goedkeuren",
   "v2.review.approvedCount": "{count} transacties gecontroleerd",
