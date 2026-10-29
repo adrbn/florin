@@ -60,11 +60,11 @@ struct LedgerUnavailable: View {
                     retrying = false
                 } label: {
                     HStack(spacing: 8) {
-                        if retrying { ProgressView().tint(.black) }
+                        if retrying { ProgressView().tint(Florin.onAccent) }
                         Text(Strings.device("v2.ledger.retry", "Réessayer"))
                             .font(.system(size: 17, weight: .semibold))
                     }
-                    .foregroundStyle(.black)
+                    .foregroundStyle(Florin.onAccent)
                     .frame(maxWidth: .infinity)
                     .frame(height: 54)
                     .background(Florin.accent, in: Capsule())

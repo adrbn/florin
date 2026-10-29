@@ -118,11 +118,11 @@ struct LoanSettingsSheet: View {
 
                 Button { save() } label: {
                     HStack(spacing: 8) {
-                        if saving { ProgressView().tint(.black) }
+                        if saving { ProgressView().tint(Florin.onAccent) }
                         Text(t("v2.common.save", "Enregistrer"))
                             .font(.system(size: 16, weight: .semibold))
                     }
-                    .foregroundStyle(.black)
+                    .foregroundStyle(Florin.onAccent)
                     .frame(maxWidth: .infinity)
                     .frame(height: 52)
                     .background(Florin.accent, in: Capsule())
@@ -136,7 +136,6 @@ struct LoanSettingsSheet: View {
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .presentationBackground(.clear)
-        .preferredColorScheme(.dark)
         .task { load() }
     }
 

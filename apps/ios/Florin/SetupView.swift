@@ -41,7 +41,7 @@ struct SetupView: View {
                             ? Strings.device("v2.setup.open", "Ouvrir Florin")
                             : Strings.device("v2.common.save", "Enregistrer"))
                             .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(.black)
+                            .foregroundStyle(Florin.onAccent)
                             .frame(maxWidth: .infinity)
                             .frame(height: 54)
                             .background(Florin.accent, in: Capsule())

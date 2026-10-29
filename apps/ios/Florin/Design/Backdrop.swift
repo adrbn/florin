@@ -14,6 +14,22 @@ import SwiftUI
 struct Backdrop: View {
     let tint: Color
     /*
+     * Le mode clair n'est pas le mode sombre avec les couleurs échangées.
+     *
+     * Ce fond a été réglé pour du noir : une teinte à soixante pour cent en
+     * haut, et deux foyers posés en `plusLighter` pour que le bas ne soit
+     * jamais d'une seule valeur. Sur un fond presque blanc, la teinte lave
+     * l'écran d'un violet qu'aucune maquette n'a demandé, et `plusLighter`
+     * sature vers le blanc pur — donc ne fait rien, sauf là où il déborde.
+     *
+     * En clair, le fond redevient ce qu'il doit être : blanc. Il reste une
+     * trace de teinte sur la première poignée de centimètres, juste de quoi
+     * dire dans quelle pièce on se trouve, puis plus rien. Les foyers
+     * disparaissent : leur raison d'être était d'empêcher un noir plat, et le
+     * blanc plat ne pose pas ce problème.
+     */
+    @Environment(\.colorScheme) private var scheme
+    /*
      * A sheet is shorter than a screen and reaches the bottom of the display.
      *
      * The tab gradient is tuned for a tall scroll: it dips to almost nothing
@@ -39,39 +55,54 @@ struct Backdrop: View {
              * behind the content. These stops do the same, with the mid-screen
              * band kept low enough that figures keep their contrast.
              */
-            LinearGradient(
-                stops: [
-                    .init(color: tint.opacity(0.62), location: 0.00),
-                    .init(color: tint.opacity(0.32), location: 0.14),
-                    .init(color: tint.opacity(0.15), location: 0.30),
-                    .init(color: tint.opacity(floor ? 0.16 : 0.06), location: 0.50),
-                    .init(color: tint.opacity(floor ? 0.18 : 0.05), location: 0.72),
-                    .init(color: tint.opacity(floor ? 0.22 : 0.13), location: 1.00),
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
+            if scheme == .light {
+                LinearGradient(
+                    stops: [
+                        .init(color: tint.opacity(0.10), location: 0.00),
+                        .init(color: tint.opacity(0.045), location: 0.18),
+                        .init(color: tint.opacity(0.015), location: 0.38),
+                        .init(color: .clear, location: 0.60),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            } else {
+                LinearGradient(
+                    stops: [
+                        .init(color: tint.opacity(0.62), location: 0.00),
+                        .init(color: tint.opacity(0.32), location: 0.14),
+                        .init(color: tint.opacity(0.15), location: 0.30),
+                        .init(color: tint.opacity(floor ? 0.16 : 0.06), location: 0.50),
+                        .init(color: tint.opacity(floor ? 0.18 : 0.05), location: 0.72),
+                        .init(color: tint.opacity(floor ? 0.22 : 0.13), location: 1.00),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
 
             // A soft hotspot behind the headline, so the number sits in light
-            // rather than on a flat band.
-            RadialGradient(
-                colors: [tint.opacity(0.30), .clear],
-                center: UnitPoint(x: 0.5, y: 0.10),
-                startRadius: 0,
-                endRadius: 420
-            )
-            .blendMode(.plusLighter)
+            // rather than on a flat band. Dark only: see the note on `scheme`.
+            if scheme != .light {
+                RadialGradient(
+                    colors: [tint.opacity(0.30), .clear],
+                    center: UnitPoint(x: 0.5, y: 0.10),
+                    startRadius: 0,
+                    endRadius: 420
+                )
+                .blendMode(.plusLighter)
 
-            // And a second, much wider one low and off-centre. Barely visible
-            // on its own; what it buys is that the lower half is never one flat
-            // value, which is the difference between "dark" and "unfinished".
-            RadialGradient(
-                colors: [tint.opacity(0.16), .clear],
-                center: UnitPoint(x: 0.14, y: 0.94),
-                startRadius: 0,
-                endRadius: 560
-            )
-            .blendMode(.plusLighter)
+                // And a second, much wider one low and off-centre. Barely visible
+                // on its own; what it buys is that the lower half is never one flat
+                // value, which is the difference between "dark" and "unfinished".
+                RadialGradient(
+                    colors: [tint.opacity(0.16), .clear],
+                    center: UnitPoint(x: 0.14, y: 0.94),
+                    startRadius: 0,
+                    endRadius: 560
+                )
+                .blendMode(.plusLighter)
+            }
         }
         .ignoresSafeArea()
     }

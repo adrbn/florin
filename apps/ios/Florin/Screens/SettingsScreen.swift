@@ -969,7 +969,7 @@ struct SettingsScreen: View {
 
                     Button(t("v2.common.save", "Enregistrer"), action: commitServer)
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(Florin.onAccent)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 13)
                         .background(Florin.accent, in: Capsule())

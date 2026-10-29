@@ -43,7 +43,7 @@ struct BankMappingSheet: View {
                         } label: {
                             Text(Strings.device("v2.common.continue", "Continuer"))
                                 .font(.system(size: 17, weight: .semibold))
-                                .foregroundStyle(.black)
+                                .foregroundStyle(Florin.onAccent)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 54)
                                 .background(Florin.accent, in: Capsule())

@@ -269,7 +269,7 @@ struct BankingSettings: View {
             } label: {
                 Text(Strings.device("v2.connect.chooseBank", "Choisir ma banque"))
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(Florin.onAccent)
                     .frame(maxWidth: .infinity)
                     .frame(height: 50)
                     .background(Florin.accent, in: Capsule())
@@ -324,7 +324,7 @@ struct BankingSettings: View {
                     if state == .done {
                         Image(systemName: "checkmark")
                             .font(.system(size: 11, weight: .bold))
-                            .foregroundStyle(.black)
+                            .foregroundStyle(Florin.onAccent)
                     } else {
                         Text("\(number)")
                             .font(.system(size: 12, weight: .bold))
@@ -365,7 +365,7 @@ struct BankingSettings: View {
         Button { makeKey() } label: {
             Text(Strings.device("v2.connect.createKey", "Créer la clé"))
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.black)
+                .foregroundStyle(Florin.onAccent)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 13)
                 .background(Florin.accent, in: Capsule())
@@ -488,7 +488,7 @@ struct BankingSettings: View {
         Link(destination: URL(string: "https://enablebanking.com/cp")!) {
             Label(Strings.device("v2.connect.openEnableBanking", "Ouvrir Enable Banking"), systemImage: "arrow.up.right.square")
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.black)
+                .foregroundStyle(Florin.onAccent)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
                 .background(Florin.accent, in: Capsule())

@@ -27,6 +27,17 @@ enum Florin {
 
     // MARK: Accent and semantics
     static let accent = dynamic(light: 0x4B4FD6, dark: 0x8C8CF7)
+    /*
+     * Ce qui s'écrit SUR l'accent, et qui n'est pas la même encre des deux
+     * côtés.
+     *
+     * L'accent est pâle en sombre et soutenu en clair — c'est voulu, il doit
+     * ressortir sur son fond. Mais un bouton rempli d'accent portait du noir
+     * en dur : lisible sur le lavande du mode sombre, illisible sur l'indigo
+     * du mode clair. Un jeton plutôt qu'un littéral, et les deux cas tombent
+     * juste.
+     */
+    static let onAccent = dynamic(light: 0xFFFFFF, dark: 0x101218)
     static let positive = dynamic(light: 0x1F8B5F, dark: 0x5FD9A0)
     static let negative = dynamic(light: 0xC4392F, dark: 0xF08072)
     /// Needs a decision — not an error. Red already means "money left", so a

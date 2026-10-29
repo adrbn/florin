@@ -331,7 +331,7 @@ struct WalletGuideSheet: View {
         HStack(alignment: .top, spacing: 12) {
             Text("\(number)")
                 .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(.black)
+                .foregroundStyle(Florin.onAccent)
                 .frame(width: 24, height: 24)
                 .background(Florin.accent, in: Circle())
             VStack(alignment: .leading, spacing: 8) {
@@ -408,7 +408,7 @@ struct WalletGuideSheet: View {
             } label: {
                 Label(t("v2.wallet.guide.openShortcuts", "Ouvrir Raccourcis"), systemImage: "arrow.up.forward.app")
                     .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(Florin.onAccent)
                     .frame(maxWidth: .infinity)
                     .frame(height: 54)
                     .background(Florin.accent, in: Capsule())

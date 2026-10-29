@@ -341,7 +341,7 @@ struct BuySheet: View {
         Button(action: save) {
             Text(t("v2.buy.save", "Enregistrer l'achat"))
                 .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(.black)
+                .foregroundStyle(Florin.onAccent)
                 .frame(maxWidth: .infinity)
                 .frame(height: 54)
                 .background(Florin.accent, in: Capsule())

@@ -111,7 +111,7 @@ struct AddAccountSheet: View {
                         Button(action: save) {
                             Text(Strings.device("v2.account.addAction", "Ajouter le compte"))
                                 .font(.system(size: 17, weight: .semibold))
-                                .foregroundStyle(.black)
+                                .foregroundStyle(Florin.onAccent)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 54)
                                 .background(Florin.accent, in: Capsule())

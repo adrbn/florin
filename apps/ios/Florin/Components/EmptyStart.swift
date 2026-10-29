@@ -110,17 +110,17 @@ struct EmptyStart: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(prominent ? .black : Florin.text)
+                        .foregroundStyle(prominent ? Florin.onAccent : Florin.text)
                     Text(detail)
                         .font(.system(size: 12.5))
-                        .foregroundStyle(prominent ? .black.opacity(0.7) : Florin.text2)
+                        .foregroundStyle(prominent ? Florin.onAccent.opacity(0.75) : Florin.text2)
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.right")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(prominent ? .black.opacity(0.5) : Florin.text3)
+                    .foregroundStyle(prominent ? Florin.onAccent.opacity(0.55) : Florin.text3)
             }
             .padding(16)
             .background {

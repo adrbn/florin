@@ -105,7 +105,7 @@ struct ImportSheet: View {
             Button { picking = true } label: {
                 Text(t("v2.import.choose", "Choisir un fichier"))
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(Florin.onAccent)
                     .frame(height: 50)
                     .padding(.horizontal, 26)
                     .background(Florin.accent, in: Capsule())
@@ -228,11 +228,11 @@ struct ImportSheet: View {
 
             Button { commit() } label: {
                 HStack(spacing: 8) {
-                    if working { ProgressView().tint(.black) }
+                    if working { ProgressView().tint(Florin.onAccent) }
                     Text(t("v2.import.commit", "Importer"))
                         .font(.system(size: 16, weight: .semibold))
                 }
-                .foregroundStyle(.black)
+                .foregroundStyle(Florin.onAccent)
                 .frame(maxWidth: .infinity)
                 .frame(height: 52)
                 .background(Florin.accent, in: Capsule())

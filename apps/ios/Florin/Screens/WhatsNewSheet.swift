@@ -127,7 +127,7 @@ struct WhatsNewSheet: View {
             Button { dismiss() } label: {
                 Text(t("v2.common.continue", "Continuer"))
                     .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(Florin.onAccent)
                     .frame(maxWidth: .infinity)
                     .frame(height: 52)
                     .background(Florin.accent, in: Capsule())

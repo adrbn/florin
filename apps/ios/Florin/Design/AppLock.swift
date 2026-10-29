@@ -120,7 +120,7 @@ struct LockScreen: View {
                         } ?? Strings.device("v2.lock.unlock", "Déverrouiller")
                     )
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(Florin.onAccent)
                     .frame(height: 50)
                     .padding(.horizontal, 28)
                     .background(Florin.accent, in: Capsule())

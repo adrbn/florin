@@ -726,7 +726,7 @@ struct OnboardingFlow: View {
             advance()
         } label: {
             HStack(spacing: 8) {
-                if saving { ProgressView().tint(.black) }
+                if saving { ProgressView().tint(Florin.onAccent) }
                 Text(
                     path == .importFile && step == lastStep
                         ? Strings.device("v2.onboard.importPick", "Choisir le relevé")
@@ -743,7 +743,7 @@ struct OnboardingFlow: View {
                 )
                     .font(.system(size: 17, weight: .semibold))
             }
-            .foregroundStyle(.black)
+            .foregroundStyle(Florin.onAccent)
             .frame(maxWidth: .infinity)
             .frame(height: 54)
             .background(Florin.accent, in: Capsule())

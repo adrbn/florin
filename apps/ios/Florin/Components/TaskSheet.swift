@@ -81,7 +81,7 @@ struct TaskSheet: View {
                     Button(action: onDone) {
                         Text(Strings.device("v2.common.done", "Terminé"))
                             .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(.black)
+                            .foregroundStyle(Florin.onAccent)
                             .frame(maxWidth: .infinity)
                             .frame(height: 54)
                             .background(Florin.accent, in: Capsule())

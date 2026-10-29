@@ -78,7 +78,6 @@ struct ReviewCategorySheet: View {
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .presentationBackground(.clear)
-        .preferredColorScheme(.dark)
     }
 
     private var header: some View {

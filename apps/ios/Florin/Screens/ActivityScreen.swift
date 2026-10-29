@@ -296,7 +296,7 @@ struct TransactionList<Banner: View>: View {
                             )
                             .font(.system(size: 17, weight: .semibold))
                         }
-                        .foregroundStyle(.black)
+                        .foregroundStyle(Florin.onAccent)
                         // Takes the rest of the row: it is the action, and a
                         // thumb reaching the bottom of the screen should not
                         // have to aim.
