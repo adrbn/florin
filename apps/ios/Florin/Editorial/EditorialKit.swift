@@ -739,40 +739,28 @@ extension View {
 
 
 /*
- * Le fondu des bords, doux — en haut comme en bas.
+ * Les bords, on les laisse tranquilles.
  *
- * iOS 26 pose un « effet de bord » sur les défilements. En `.hard` c'est un
- * aplat net : un bloc de la couleur du fond derrière lequel le contenu
- * disparaît d'un coup. En `.soft`, c'est un fondu progressif — exactement ce
- * qu'on veut ici, et ce qui donne, avec le décalage de `edEnter()`, la
- * sensation que les lignes sortent de la vue au lieu d'être coupées.
+ * C'est la build 515 qui a tranché, en la reposant sur le téléphone : ce
+ * qu'il faut aux deux bords est l'effet de bord d'iOS 26 TEL QUEL — celui
+ * que le SDK 27 allume tout seul — par-dessus `edEnter`, qui décale et
+ * éteint chaque élément selon sa place dans le défilement. Les deux
+ * ensemble font qu'une ligne s'en va au lieu d'être coupée, en haut comme
+ * en bas, jusqu'au bord de l'écran.
  *
- * Il a d'abord été posé seulement en haut, puis retiré tout court. Les deux
- * étaient des erreurs : il le faut aux deux bords, et doux.
- */
-/*
- * Rien au bord. Le mouvement suffit.
+ * Tout ce qui a été ajouté par-dessus était de trop, et la liste vaut d'être
+ * gardée : un matériau flouté, qui éclaircit ce qu'il couvre et vire au gris
+ * sur du noir ; un dégradé du fond, qui éteint un titre encore en plein
+ * milieu ; un masque sur tout le défilement, qui laisse un vide en haut dès
+ * que la zone sûre est comptée deux fois. Et l'erreur suivante a été de
+ * faire taire l'effet du système en même temps : il ne restait plus rien.
  *
- * Quatre voiles ont été essayés et les quatre étaient de trop : l'effet de
- * bord d'iOS 26, hérité du SDK 27, qui commence sous la zone sûre ; un
- * matériau flouté, qui éclaircit ce qu'il couvre ; un dégradé du fond, qui
- * éteint un titre encore en plein milieu ; un masque dégradé sur tout le
- * défilement, qui oblige à aller chercher le bord de l'écran et laisse un
- * vide en haut si on s'y prend mal.
- *
- * Ce qui fait partir un élément, c'est `edEnter` : il lit sa place dans le
- * défilement et le décale en le réduisant un peu. Il n'y a rien à ajouter
- * par-dessus — seulement à faire taire celui du système, qui dessinerait
- * son propre fondu ailleurs.
+ * Donc ce modificateur ne fait RIEN. Il reste parce qu'il est posé sur les
+ * cinq écrans éditoriaux et qu'il nomme la décision : ici, on ne touche pas
+ * aux bords.
  */
 struct EdPlainEdges: ViewModifier {
-    func body(content: Content) -> some View {
-        if #available(iOS 26.0, *) {
-            content.scrollEdgeEffectHidden(true, for: .all)
-        } else {
-            content
-        }
-    }
+    func body(content: Content) -> some View { content }
 }
 
 extension View {

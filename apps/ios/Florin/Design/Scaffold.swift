@@ -310,8 +310,14 @@ struct SoftScrollEdge: ViewModifier {
 
     func body(content: Content) -> some View {
         if FlorinPalette.selected == .editorial {
-            // Pas de voile ici non plus : c'est `edEnter` qui fait partir ce
-            // qui sort, et deux fondus ne valent jamais mieux qu'un.
+            /*
+             * Analyse prend les mêmes bords que les quatre autres écrans
+             * éditoriaux : l'effet d'iOS 26 tel qu'il arrive, et rien
+             * d'autre. `TopScrim` est un matériau — il éclaircit ce qu'il
+             * couvre, donc il vire au gris sur du noir — et il se superposait
+             * à celui du système, qui ne commence pas au même endroit. Voir
+             * `EdPlainEdges`.
+             */
             content.modifier(EdPlainEdges())
         } else {
             tracked(system(content))
