@@ -315,7 +315,15 @@ struct EditorialActivity: View {
      */
     private func hero(_ section: (day: Date, rows: [Transaction])) -> some View {
         EdHero(text: dayLabel(section.day))
-            .padding(.top, hasWaiting ? 0 : 10)
+            /*
+             * Le même écart qu'entre un total de journée et le jour suivant.
+             *
+             * Celui-là vaut 34 pt (voir `EdSection` plus bas), mais une ligne
+             * de 64 pt porte déjà une quinzaine de points de blanc au-dessus
+             * de ses majuscules contre huit pour une de 34 : on rend la
+             * différence, sinon le même nombre ne donne pas le même œil.
+             */
+            .padding(.top, hasWaiting ? 26 : 10)
     }
 
     private var hasWaiting: Bool { !upcoming.isEmpty || !schedules.isEmpty }

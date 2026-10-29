@@ -212,6 +212,16 @@ struct EdMonthEnd: View {
         let forecast = MonthForecast(lts)
         return VStack(alignment: .leading, spacing: 2) {
             EdSection(text: data.t("v2.overview.forecast", "Fin de mois"))
+            /*
+             * Le même écart sous ce titre que sous les autres.
+             *
+             * Une rangée alignée sur la première ligne de base porte la hauteur
+             * de son plus GRAND texte : le chiffre de 28 pt met seize points
+             * de blanc au-dessus de l'étiquette de 15, et le titre avait l'air
+             * de s'être décollé de sa section. « Ce mois-ci » et « Répartition »
+             * sont suivis d'une barre, qui n'a pas d'ascendante — d'où douze
+             * points d'écart entre deux sections censées battre la même mesure.
+             */
             VStack(spacing: 0) {
                 row(
                     data.t("v2.overview.forecastMargin", "Marge prévue"),
@@ -250,6 +260,9 @@ struct EdMonthEnd: View {
                     )
                 )
             }
+            // Les seize points que l'ascendante du chiffre ajoute au-dessus de
+            // la première étiquette, rendus au titre.
+            .padding(.top, -12)
             if data.incomeIsEstimated {
                 // Sinon la ligne réclame doucement un argent qui n'est pas
                 // arrivé : avant la paie, « le revenu du mois » est celui du

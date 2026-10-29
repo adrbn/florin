@@ -82,6 +82,17 @@ struct AddTransactionSheet: View {
     /// Le sélecteur de catégorie, ouvert en feuille.
     @State private var picking = false
     @State private var saving = false
+    /*
+     * Le dernier compte débité, retenu d'une saisie à l'autre.
+     *
+     * Le `kind` ne départage pas deux comptes courants, et l'ordre de la
+     * liste est celui de l'écran Comptes : les deux peuvent mettre un livret
+     * ou le second compte en tête. Ce qu'on veut est plus simple — le compte
+     * d'où l'argent sort d'habitude, c'est-à-dire celui d'où il est sorti la
+     * dernière fois.
+     */
+    @AppStorage("florin.lastAccountId") private var lastAccountId = ""
+
     @State private var errorMessage: String?
 
     init(
@@ -450,6 +461,7 @@ struct AddTransactionSheet: View {
                  */
                 accountId = presetAccountId
                     ?? usableAccounts.first { $0.name == editing?.accountName }?.id
+                    ?? usableAccounts.first { $0.id == lastAccountId }?.id
                     ?? usableAccounts.first { $0.kind == "checking" }?.id
                     ?? usableAccounts.first { $0.kind == "cash" }?.id
                     ?? usableAccounts.first?.id ?? ""
@@ -954,6 +966,7 @@ struct AddTransactionSheet: View {
     private func save() {
         guard isValid, !saving else { return }
         saving = true
+        if !isEditing, kind != .transfer { lastAccountId = accountId }
         errorMessage = nil
         let trimmedMemo = memo.trimmingCharacters(in: .whitespacesAndNewlines)
 

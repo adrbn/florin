@@ -89,12 +89,21 @@ enum Florin {
     /// Stable colour per label, matching the web `seriesVar` FNV-1a hash so a
     /// category is the same hue on both surfaces.
     static func seriesColor(for label: String) -> Color {
+        series[seriesIndex(for: label)]
+    }
+
+    /// Le rang que ce libellé tire dans `series`.
+    ///
+    /// Exposé à part parce qu'un appelant qui dessine PLUSIEURS libellés côte
+    /// à côte doit pouvoir écarter deux rangs identiques : huit teintes et six
+    /// comptes, c'est une collision plus d'une fois sur deux.
+    static func seriesIndex(for label: String) -> Int {
         var hash: UInt32 = 0x811c_9dc5
         for unit in label.utf16 {
             hash ^= UInt32(unit)
             hash = hash &* 0x0100_0193
         }
-        return series[Int(hash % UInt32(series.count))]
+        return Int(hash % UInt32(series.count))
     }
 
     /// Noir ou blanc, selon ce qui se lit sur cette teinte.

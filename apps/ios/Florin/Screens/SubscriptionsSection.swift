@@ -22,6 +22,8 @@ struct SubscriptionsSection: View {
     let t: Strings
 
     @State private var naming: NamedMerchant?
+    /// Pour que les lignes mises de côté portent le nom qu'on leur a donné.
+    @ObservedObject private var names = MerchantNames.shared
 
     /*
      * Un loyer se prélève tous les mois, ce n'est pas un abonnement.
@@ -35,8 +37,31 @@ struct SubscriptionsSection: View {
      */
     @AppStorage("subs.excludedCategories") private var excludedRaw = ""
 
+    /*
+     * Et une ligne à la fois, parce qu'une catégorie est trop grosse.
+     *
+     * Le loyer est seul dans « Logement » et la case suffisait. Une plateforme
+     * de paiement, non : le même « Logement » peut porter l'assurance et le
+     * loyer, et une autre série peut tomber dans « Abonnements » sans en être
+     * un. Donc chaque ligne se décompte elle-même, par sa clé de série — la
+     * même que celle qui porte son nom et son logo, donc stable quand le
+     * libellé de la banque change de référence.
+     */
+    @AppStorage("subs.excludedSeries") private var excludedSeriesRaw = ""
+
     private var excluded: Set<String> {
         Set(excludedRaw.split(separator: "\n").map(String.init))
+    }
+
+    private var excludedSeries: Set<String> {
+        Set(excludedSeriesRaw.split(separator: "\n").map(String.init))
+    }
+
+    private func toggleSeries(_ key: String) {
+        UISelectionFeedbackGenerator().selectionChanged()
+        var next = excludedSeries
+        if next.contains(key) { next.remove(key) } else { next.insert(key) }
+        excludedSeriesRaw = next.sorted().joined(separator: "\n")
     }
 
     private func toggle(_ category: String) {
@@ -67,9 +92,37 @@ struct SubscriptionsSection: View {
         var id: String { key }
     }
 
+    /*
+     * La même addition pour le héros de l'écran.
+     *
+     * Le chiffre du haut lisait `data.subscriptions` en entier : décompter le
+     * loyer vidait la ligne de la liste et laissait les 11 000 € de l'année
+     * intacts juste au-dessus. Les deux passent par ici.
+     */
+    static func counted(
+        _ subs: [SubscriptionMatch], categories: String, series: String, uncategorized: String
+    ) -> [SubscriptionMatch] {
+        let noCategory = Set(categories.split(separator: "\n").map(String.init))
+        let noSeries = Set(series.split(separator: "\n").map(String.init))
+        return subs
+            .filter { !noCategory.contains($0.categoryName ?? uncategorized) }
+            .filter { !noSeries.contains(MerchantNames.seriesKey($0.payee, amount: $0.amount)) }
+    }
+
     private var sorted: [SubscriptionMatch] {
+        Self.counted(
+            subscriptions, categories: excludedRaw, series: excludedSeriesRaw,
+            uncategorized: t("v2.plan.uncategorized", "Sans catégorie")
+        )
+        .sorted { $0.annualCost > $1.annualCost }
+    }
+
+    /// Les lignes mises de côté une par une, pour qu'on puisse les reprendre :
+    /// une exclusion qu'on ne voit plus est une exclusion qu'on ne peut pas
+    /// défaire.
+    private var setAside: [SubscriptionMatch] {
         subscriptions
-            .filter { !excluded.contains($0.categoryName ?? t("v2.plan.uncategorized", "Sans catégorie")) }
+            .filter { excludedSeries.contains(MerchantNames.seriesKey($0.payee, amount: $0.amount)) }
             .sorted { $0.annualCost > $1.annualCost }
     }
 
@@ -107,7 +160,9 @@ struct SubscriptionsSection: View {
                         SubscriptionRow(
                             sub: sub, locale: locale, currency: currency, t: t,
                             cadence: cadence(sub), when: when(sub),
-                            open: { naming = merchant(sub) }
+                            open: { naming = merchant(sub) },
+                            drop: { toggleSeries(merchant(sub).key) },
+                            dropLabel: t("v2.analysis.subsDrop", "Pas un abonnement")
                         )
                     }
                 }
@@ -167,7 +222,9 @@ struct SubscriptionsSection: View {
                     EdSubscriptionRow(
                         sub: sub, locale: locale, currency: currency, t: t,
                         cadence: cadence(sub), when: when(sub),
-                        open: { naming = merchant(sub) }
+                        open: { naming = merchant(sub) },
+                        drop: { toggleSeries(merchant(sub).key) },
+                        dropLabel: t("v2.analysis.subsDrop", "Pas un abonnement")
                     )
                 }
             }
@@ -193,8 +250,23 @@ struct SubscriptionsSection: View {
                     .buttonStyle(.edPress)
                 }
             }
-            Text(t("v2.analysis.subsRenameHint",
-                   "Touchez un abonnement pour lui donner son nom et son logo."))
+            if !setAside.isEmpty {
+                EdFlow {
+                    ForEach(setAside, id: \.id) { sub in
+                        Button { toggleSeries(merchant(sub).key) } label: {
+                            EdPill(
+                                text: names.name(forKey: merchant(sub).key)
+                                    ?? PayeeText.merchant(sub.payee),
+                                tone: Florin.text3
+                            )
+                            .contentShape(Capsule())
+                        }
+                        .buttonStyle(.edPress)
+                    }
+                }
+            }
+            Text(t("v2.analysis.subsDropHint",
+                   "Appui long sur une ligne pour ne plus la compter. Touchez-la pour lui donner son nom et son logo."))
                 .font(.system(size: 12))
                 .foregroundStyle(Florin.text3)
         }
@@ -297,6 +369,8 @@ private struct SubscriptionRow: View {
     let cadence: String
     let when: String
     let open: () -> Void
+    let drop: () -> Void
+    let dropLabel: String
 
     @ObservedObject private var names = MerchantNames.shared
     @ObservedObject private var logos = MerchantLogos.shared
@@ -345,6 +419,9 @@ private struct SubscriptionRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            Button(dropLabel, systemImage: "xmark.circle") { drop() }
+        }
     }
 }
 
@@ -365,6 +442,8 @@ private struct EdSubscriptionRow: View {
     let cadence: String
     let when: String
     let open: () -> Void
+    let drop: () -> Void
+    let dropLabel: String
 
     @ObservedObject private var names = MerchantNames.shared
     @ObservedObject private var logos = MerchantLogos.shared
@@ -411,5 +490,9 @@ private struct EdSubscriptionRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.edPress)
+        // Un appui long, parce que la liste répond déjà au tap et au balayage.
+        .contextMenu {
+            Button(dropLabel, systemImage: "xmark.circle") { drop() }
+        }
     }
 }

@@ -130,6 +130,22 @@ struct EdHero: View {
         }
         .foregroundStyle(Florin.text)
         .fixedSize(horizontal: false, vertical: true)
+        /*
+         * Le cadre prend la colonne, et c'est ÇA qui arrête le rognage.
+         *
+         * Une pile alignée à gauche se taille sur son plus large enfant : ici
+         * la largeur que le texte ANNONCE. Or l'encre déborde un peu de cette
+         * largeur — la queue du « y » de « Today » passe sous l'avance du
+         * glyphe — et `edEnter()` pose par-dessus un calque de composition,
+         * qui borne au cadre ce qui en déborde. D'où la coupure verticale
+         * nette au ras de la dernière lettre.
+         *
+         * Ni `tracking`, ni `kerning`, ni une marge n'y pouvaient rien : une
+         * marge `trailing` retire autant de place proposée au texte qu'elle en
+         * ajoute au cadre. Le cadre prend donc toute la largeur disponible, où
+         * le débord a largement de quoi se poser.
+         */
+        .frame(maxWidth: .infinity, alignment: .leading)
         .edEnter()
         .accessibilityElement(children: .combine)
     }
@@ -200,6 +216,10 @@ struct EdSection: View {
                     .font(.system(size: 18))
                     .monospacedDigit()
                     .foregroundStyle(Florin.text2)
+            } else {
+                // Voir `EdHero` : sans montant à droite, la rangée se taillait
+                // sur l'encre du titre et `edEnter()` rognait ce qui dépasse.
+                Spacer(minLength: 0)
             }
         }
         .edEnter()
@@ -424,16 +444,19 @@ struct EdTabBar: View {
 /// gouttière par un débord de 10 pt — la cible reste pleine, le pictogramme
 /// tombe sur la marge.
 struct EdHeader<Leading: View, Trailing: View>: View {
+    /// `.top` quand la gauche tient sur plusieurs lignes : les boutons restent
+    /// sur la première, et la rangée grandit sous eux.
+    var alignment: VerticalAlignment = .center
     @ViewBuilder var leading: Leading
     @ViewBuilder var trailing: Trailing
 
     var body: some View {
-        HStack {
+        HStack(alignment: alignment) {
             leading
             Spacer(minLength: 0)
             trailing
         }
-        .frame(height: 44)
+        .frame(minHeight: 44)
         .padding(.horizontal, -10)
         .edEnter()
     }
@@ -785,6 +808,36 @@ let edTabOrder: [TabRoute] = [.overview, .accounts, .plan, .activity, .analysis]
 final class EdGesture: ObservableObject {
     static let shared = EdGesture()
     @Published var scrubbing = false
+}
+
+extension View {
+    /*
+     * Ce balayage horizontal appartient à CE défilement, pas à l'onglet.
+     *
+     * Une rangée de pastilles qui défile de côté vit à l'intérieur d'un écran
+     * où le balayage horizontal veut dire « onglet suivant ». Les deux gestes
+     * partaient donc ensemble : on faisait glisser les sous-onglets et on
+     * changeait d'onglet par-dessus — ou, là où il n'y a pas d'onglet suivant,
+     * on sortait de l'écran pour rien.
+     *
+     * `edSwipe` renonce déjà quand un doigt est en train de suivre quelque
+     * chose (`scrubbing`, posé par la courbe du patrimoine). On pose le même
+     * drapeau, et on le lève un peu après la fin du geste : `onEnded` des deux
+     * reconnaisseurs tombe dans un ordre qui n'est pas garanti.
+     */
+    func edHoldsSwipe() -> some View {
+        simultaneousGesture(
+            DragGesture(minimumDistance: 6)
+                .onChanged { _ in
+                    if !EdGesture.shared.scrubbing { EdGesture.shared.scrubbing = true }
+                }
+                .onEnded { _ in
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                        EdGesture.shared.scrubbing = false
+                    }
+                }
+        )
+    }
 }
 
 /// L'ancre du haut d'un écran éditorial. `EdRewind` y revient.

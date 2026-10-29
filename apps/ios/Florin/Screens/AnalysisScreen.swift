@@ -32,6 +32,17 @@ struct AnalysisScreen: View {
      * It survives a tab switch and a refresh, and it is gone with the app.
      */
     @State private var hidden: Set<String> = []
+    /*
+     * Ce que le lecteur ne compte pas comme abonnement.
+     *
+     * Les deux magasins appartiennent à `SubscriptionsSection` ; ils sont
+     * relus ici pour que le chiffre du héros bouge en même temps que la liste
+     * quand une case ou une ligne change — sinon le titre annonce une année
+     * que plus aucune ligne en dessous ne justifie.
+     */
+    @AppStorage("subs.excludedCategories") private var subsExcludedCategories = ""
+    @AppStorage("subs.excludedSeries") private var subsExcludedSeries = ""
+
     @State private var filtering = false
     /// The square under the finger, while it is being scrubbed.
     @State private var scrub: Int?
@@ -164,6 +175,9 @@ struct AnalysisScreen: View {
                 .padding(.vertical, 4)
             }
             .scrollIndicators(.hidden)
+            // Faire glisser les sous-onglets ne doit pas faire glisser
+            // l'écran : voir `edHoldsSwipe`.
+            .edHoldsSwipe()
             .edEnter()
         } else {
             ChipBar(options: chips, selection: tabBinding)
@@ -254,7 +268,12 @@ struct AnalysisScreen: View {
                         : ""
                 )
             case .subs:
-                let annual = data?.subscriptions.reduce(0) { $0 + $1.annualCost } ?? 0
+                let counted = SubscriptionsSection.counted(
+                    data?.subscriptions ?? [],
+                    categories: subsExcludedCategories, series: subsExcludedSeries,
+                    uncategorized: t("v2.plan.uncategorized", "Sans catégorie")
+                )
+                let annual = counted.reduce(0) { $0 + $1.annualCost }
                 return (
                     t("v2.analysis.subsAnnual", "Abonnements par an"), annual,
                     Money.string(annual / 12, locale: locale, currency: currency, decimals: false)
@@ -1196,8 +1215,11 @@ struct AnalysisScreen: View {
 
                 // Ce que la grille ne compte pas pour toi : les cases vides.
                 if quiet > 0 {
-                    Text(t("v2.analysis.quietDays", "{count} jours sans dépense",
-                           ["count": quiet]))
+                    Text(quiet == 1
+                        ? t("v2.analysis.quietDay", "{count} jour sans dépense",
+                            ["count": quiet])
+                        : t("v2.analysis.quietDays", "{count} jours sans dépense",
+                            ["count": quiet]))
                         .font(.system(size: 12.5))
                         .foregroundStyle(Florin.text2)
                         .padding(.horizontal, Florin.gutter)
@@ -1315,7 +1337,7 @@ struct AnalysisScreen: View {
     @ViewBuilder
     private func monthPages(_ byDay: [String: Double], months: [String], cuts: [Double]) -> some View {
         let width = gridWidth > 0 ? gridWidth : Self.estimatedGridWidth()
-        let side = Self.cellSide(width)
+        let side = Self.cellSide(width) / cellAspect
         let height = side * CGFloat(Self.gridRows) + Self.cellGap * CGFloat(Self.gridRows - 1)
         if editorial {
             let month = shownMonth(months)
@@ -1369,7 +1391,7 @@ struct AnalysisScreen: View {
                             // The days of the month before and the month after,
                             // which belong to their own grids.
                             Color.clear
-                                .aspectRatio(1, contentMode: .fit)
+                                .aspectRatio(cellAspect, contentMode: .fit)
                                 .frame(maxWidth: .infinity)
                         }
                     }
@@ -1528,6 +1550,17 @@ struct AnalysisScreen: View {
     private static let gridRows = 6
     private static let cellGap: CGFloat = 6
 
+    /*
+     * Une case carrée, sauf en éditorial.
+     *
+     * Six rangées de cases carrées font près de trois cents points : avec le
+     * héros, les pastilles, l'en-tête du mois et la légende, la ligne qui
+     * compte les jours sans dépense tombait sous la capsule. Un jour n'a
+     * aucune raison d'être carré — c'est une case, pas une photo — et aplatir
+     * d'un quart rend soixante points sans toucher à la lisibilité du numéro.
+     */
+    private var cellAspect: CGFloat { editorial ? 1.3 : 1 }
+
     private static func cellSide(_ width: CGFloat) -> CGFloat {
         max(0, (width - cellGap * 6) / 7)
     }
@@ -1661,7 +1694,7 @@ struct AnalysisScreen: View {
         let ring = reading ? Florin.text : (isToday ? Florin.text.opacity(0.55) : .clear)
         return RoundedRectangle(cornerRadius: 8, style: .continuous)
             .fill(fill)
-            .aspectRatio(1, contentMode: .fit)
+            .aspectRatio(cellAspect, contentMode: .fit)
             .frame(maxWidth: .infinity)
             .overlay(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)

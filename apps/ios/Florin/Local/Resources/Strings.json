@@ -912,7 +912,10 @@
     "v2.analysis.subsEmptyShort": "The same payee, the same amount, at least three times.",
     "v2.add.pickCategory": "Choose",
     "v2.settings.sourceDevice": "On this device",
-    "v2.settings.sourceServer": "Server"
+    "v2.settings.sourceServer": "Server",
+    "v2.analysis.quietDay": "{count} day without spending",
+    "v2.analysis.subsDrop": "Not a subscription",
+    "v2.analysis.subsDropHint": "Press and hold a line to stop counting it. Tap it to give it a name and a logo."
   },
   "fr": {
     "v2.a11y.back": "Retour",
@@ -1827,7 +1830,10 @@
     "v2.analysis.subsEmptyShort": "Un même bénéficiaire, au même montant, au moins trois fois.",
     "v2.add.pickCategory": "Choisir",
     "v2.settings.sourceDevice": "Sur l'appareil",
-    "v2.settings.sourceServer": "Serveur"
+    "v2.settings.sourceServer": "Serveur",
+    "v2.analysis.quietDay": "{count} jour sans dépense",
+    "v2.analysis.subsDrop": "Pas un abonnement",
+    "v2.analysis.subsDropHint": "Appui long sur une ligne pour ne plus la compter. Touchez-la pour lui donner son nom et son logo."
   },
   "nl": {
     "v2.a11y.back": "Terug",
@@ -2742,7 +2748,10 @@
     "v2.analysis.subsEmptyShort": "Dezelfde begunstigde, hetzelfde bedrag, minstens drie keer.",
     "v2.add.pickCategory": "Kiezen",
     "v2.settings.sourceDevice": "Op dit toestel",
-    "v2.settings.sourceServer": "Server"
+    "v2.settings.sourceServer": "Server",
+    "v2.analysis.quietDay": "{count} dag zonder uitgaven",
+    "v2.analysis.subsDrop": "Geen abonnement",
+    "v2.analysis.subsDropHint": "Houd een regel ingedrukt om die niet meer mee te tellen. Tik erop voor een naam en logo."
   },
   "it": {
     "v2.a11y.back": "Indietro",
@@ -3657,7 +3666,10 @@
     "v2.analysis.subsEmptyShort": "Lo stesso beneficiario, lo stesso importo, almeno tre volte.",
     "v2.add.pickCategory": "Scegli",
     "v2.settings.sourceDevice": "Su questo dispositivo",
-    "v2.settings.sourceServer": "Server"
+    "v2.settings.sourceServer": "Server",
+    "v2.analysis.quietDay": "{count} giorno senza spese",
+    "v2.analysis.subsDrop": "Non è un abbonamento",
+    "v2.analysis.subsDropHint": "Tieni premuta una riga per non contarla più. Toccala per darle nome e logo."
   },
   "es": {
     "v2.a11y.back": "Atrás",
@@ -4572,7 +4584,10 @@
     "v2.analysis.subsEmptyShort": "El mismo beneficiario, el mismo importe, al menos tres veces.",
     "v2.add.pickCategory": "Elegir",
     "v2.settings.sourceDevice": "En este dispositivo",
-    "v2.settings.sourceServer": "Servidor"
+    "v2.settings.sourceServer": "Servidor",
+    "v2.analysis.quietDay": "{count} día sin gastos",
+    "v2.analysis.subsDrop": "No es una suscripción",
+    "v2.analysis.subsDropHint": "Mantén pulsada una línea para dejar de contarla. Tócala para darle nombre y logo."
   },
   "ca": {
     "v2.a11y.back": "Enrere",
@@ -5487,7 +5502,10 @@
     "v2.analysis.subsEmptyShort": "El mateix beneficiari, el mateix import, almenys tres vegades.",
     "v2.add.pickCategory": "Tria",
     "v2.settings.sourceDevice": "En aquest dispositiu",
-    "v2.settings.sourceServer": "Servidor"
+    "v2.settings.sourceServer": "Servidor",
+    "v2.analysis.quietDay": "{count} dia sense despeses",
+    "v2.analysis.subsDrop": "No és una subscripció",
+    "v2.analysis.subsDropHint": "Mantén premuda una línia per deixar de comptar-la. Toca-la per donar-li nom i logo."
   },
   "de": {
     "v2.a11y.back": "Zurück",
@@ -6402,7 +6420,10 @@
     "v2.analysis.subsEmptyShort": "Derselbe Empfänger, derselbe Betrag, mindestens dreimal.",
     "v2.add.pickCategory": "Wählen",
     "v2.settings.sourceDevice": "Auf diesem Gerät",
-    "v2.settings.sourceServer": "Server"
+    "v2.settings.sourceServer": "Server",
+    "v2.analysis.quietDay": "{count} Tag ohne Ausgaben",
+    "v2.analysis.subsDrop": "Kein Abo",
+    "v2.analysis.subsDropHint": "Eine Zeile lange drücken, um sie nicht mehr zu zählen. Antippen für Name und Logo."
   },
   "pt": {
     "v2.a11y.back": "Voltar",
@@ -7317,7 +7338,10 @@
     "v2.analysis.subsEmptyShort": "O mesmo beneficiário, o mesmo valor, pelo menos três vezes.",
     "v2.add.pickCategory": "Escolher",
     "v2.settings.sourceDevice": "Neste dispositivo",
-    "v2.settings.sourceServer": "Servidor"
+    "v2.settings.sourceServer": "Servidor",
+    "v2.analysis.quietDay": "{count} dia sem despesas",
+    "v2.analysis.subsDrop": "Não é uma subscrição",
+    "v2.analysis.subsDropHint": "Toque longo numa linha para deixar de a contar. Toque para lhe dar nome e logótipo."
   },
   "tr": {
     "v2.a11y.back": "Geri",
@@ -8232,6 +8256,9 @@
     "v2.analysis.subsEmptyShort": "Aynı alıcı, aynı tutar, en az üç kez.",
     "v2.add.pickCategory": "Seç",
     "v2.settings.sourceDevice": "Bu cihazda",
-    "v2.settings.sourceServer": "Sunucu"
+    "v2.settings.sourceServer": "Sunucu",
+    "v2.analysis.quietDay": "{count} gün harcamasız",
+    "v2.analysis.subsDrop": "Abonelik değil",
+    "v2.analysis.subsDropHint": "Bir satırı saymayı bırakmak için basılı tutun. Ad ve logo vermek için dokunun."
   }
 }

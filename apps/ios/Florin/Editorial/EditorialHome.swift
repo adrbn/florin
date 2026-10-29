@@ -56,6 +56,9 @@ struct EditorialHome: View {
     /// Le compte qu'on ouvre. Une carte mène à SON relevé — elle ouvrait
     /// l'onglet Comptes, c'est-à-dire la liste de tous.
     @State private var drill: ActivityRoute?
+    /// Ce que le premier écran a déjà rendu de sa marge du bas. Voir
+    /// `EdFirstScreenTop`.
+    @State private var lift: CGFloat = 0
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage(Greeting.key) private var firstName = ""
 
@@ -128,25 +131,38 @@ struct EditorialHome: View {
                         .frame(maxHeight: .infinity)
                     }
                     /*
-                     * Le premier écran s'arrête au bord HAUT de la capsule.
+                     * L'écart se referme en descendant, et s'arrête à l'écart
+                     * du dessous.
                      *
-                     * Il faisait toute la fenêtre et rendait ses 104 pt du bas
-                     * en marge intérieure, pour que la dernière carte ne passe
-                     * pas sous la capsule. Mais une marge est du vide : dès
-                     * qu'on descendait, elle devenait un trou entre la dernière
-                     * carte et les quatre gestes. On a essayé de la refermer au
-                     * fil du défilement — `containerRelativeFrame` FIXE la
-                     * hauteur, donc rogner la marge rendait juste sa place à la
-                     * pile, et le trou restait.
+                     * Au repos il vaut `breathe` : la capsule flotte devant, et
+                     * les quatre gestes doivent rester CACHÉS derrière elle —
+                     * sinon on voit dépasser le haut de quatre tuiles qui ne
+                     * font pas partie du premier écran. Dès qu'on descend, la
+                     * capsule n'est plus devant eux et ces points deviennent un
+                     * trou : ils se rendent au fil du doigt.
                      *
-                     * Le bloc fait donc la fenêtre MOINS la capsule, et pas de
-                     * marge du tout : la pile garde exactement la place qu'elle
-                     * avait, la dernière carte ne passe sous rien, et la rangée
-                     * des gestes commence là où la capsule finit. Il n'y a plus
-                     * de vide entre les deux, donc plus rien à refermer.
+                     * Mais pas jusqu'à zéro. Les gestes ont 44 pt sous eux
+                     * avant « Ce mois-ci » ; ils en gardent donc 44 au-dessus,
+                     * et la rangée se pose au milieu de son blanc au lieu
+                     * d'être collée à la dernière carte.
+                     *
+                     * Les deux mesures vont ensemble : le cadre perd `lift`
+                     * (c'est lui qui fait remonter la suite — un
+                     * `containerRelativeFrame` FIXE la hauteur, rogner la seule
+                     * marge ne rendrait la place qu'à la pile) et la marge perd
+                     * `lift` aussi, pour que la pile garde sa hauteur.
                      */
+                    .padding(.bottom, Self.breathe - lift)
+                    .background(
+                        GeometryReader { g in
+                            Color.clear.preference(
+                                key: EdFirstScreenTop.self,
+                                value: -g.frame(in: .named(Self.space)).minY
+                            )
+                        }
+                    )
                     .containerRelativeFrame(.vertical, alignment: .top) { height, _ in
-                        height - Self.breathe
+                        height - lift
                     }
 
                     // MARK: Ce qui se lit en descendant
@@ -187,6 +203,13 @@ struct EditorialHome: View {
                     .frame(maxWidth: .infinity)
                     .padding(.top, 120)
             }
+        }
+        .coordinateSpace(name: Self.space)
+        // Par pas de douze points : de quoi suivre le doigt sans refaire la
+        // page à chaque image.
+        .onPreferenceChange(EdFirstScreenTop.self) { y in
+            let next = min(Self.maxLift, max(0, (y / 12).rounded() * 12))
+            if next != lift { lift = next }
         }
         .edRewind(.overview, chrome: chrome)
         .scrollIndicators(.hidden)
@@ -257,13 +280,18 @@ struct EditorialHome: View {
      * est ce qui dit qu'un bloc de texte est aligné à gauche.
      */
     private var header: some View {
-        EdHeader {
+        EdHeader(alignment: .top) {
+            // Deux lignes plutôt qu'une réduite : « Bonsoir » tient à côté des
+            // boutons, le prénom passe dessous. Réduit pour tenir sur une
+            // seule, le salut devenait illisible et le prénom s'effaçait en
+            // trois points — c'est le prénom qu'on lit, pas la formule.
             Text(Greeting.line(t, name: firstName))
-                .font(.system(size: 26, weight: .medium))
-                .kerning(Ed.tracking(26, 0.04))
+                .font(.system(size: 30, weight: .medium))
+                .kerning(Ed.tracking(30, 0.04))
                 .foregroundStyle(Florin.text)
-                .lineLimit(1)
-                .minimumScaleFactor(0.62)
+                .lineLimit(2)
+                .minimumScaleFactor(0.8)
+                .fixedSize(horizontal: false, vertical: true)
                 .padding(.leading, 10)
                 .padding(.trailing, 8)
         } trailing: {
@@ -553,9 +581,15 @@ struct EditorialHome: View {
      * écran qui ne défile pas : quatre cartes est ce qui reste, pas un choix
      * de goût. Les autres sont à un appui, sur la ligne qui suit la pile.
      */
-    /// Le bord haut de la capsule flottante : elle est à 28 pt du bas sur
-    /// 60 pt de haut. Le premier écran s'arrête là.
-    private static let breathe: CGFloat = 88
+    /// Ce que le premier écran laisse sous la pile : la capsule flotte à
+    /// 28 pt du bas sur 60 pt de haut, et les quatre gestes restent cachés
+    /// derrière elle tant qu'on n'a pas descendu.
+    private static let breathe: CGFloat = 104
+    /// Jusqu'où cet écart se referme : `breathe` moins les 44 pt que les
+    /// quatre gestes gardent sous eux, pour qu'il y en ait autant des deux
+    /// côtés une fois la page descendue.
+    private static let maxLift: CGFloat = breathe - 44
+    private static let space = "edHome"
     private static let step: CGFloat = 44
     /// Le pas serré. En dessous, le nom et le montant n'ont plus de ligne
     /// lisible où tenir — c'est un plancher, pas une préférence.
@@ -569,15 +603,15 @@ struct EditorialHome: View {
     /*
      * Ce qu'il faut à la carte menée, compté ligne par ligne.
      *
-     * C'était 108, et le visage en demande 141 : 28 de marges, 30 de bandeau,
-     * 14 d'interligne, puis 31 de montant, 3 de barre, 15 de légende et leurs
-     * deux écarts de 10. Une carte à qui l'on donne trente points de moins que
-     * ce qu'elle dessine ne rogne pas une ligne proprement — elle écrase les
-     * écarts et pose le montant sur sa barre. Le plancher dit maintenant la
-     * vérité, et c'est la place AU-DESSUS qui a été rendue pour qu'il tienne :
-     * le salut est passé dans le bandeau, la ligne « Comptes » respire moins.
+     * C'était 108, et le visage en demande davantage : la bande du haut
+     * (44 pt sur la carte menée), puis 31 de montant, 3 de barre, 15 de
+     * légende, leurs deux écarts de 10 et 14 de marge basse. Une carte à qui
+     * l'on donne trente points de moins que ce qu'elle dessine ne rogne pas
+     * une ligne proprement — elle écrase les écarts et pose le montant sur sa
+     * barre. Le plancher dit maintenant la vérité, et c'est la place AU-DESSUS
+     * qui a été rendue pour qu'il tienne.
      */
-    private static let minCard: CGFloat = 142
+    private static let minCard: CGFloat = 128
 
     /*
      * Combien de cartes tiennent, et pas une de plus.
@@ -599,6 +633,46 @@ struct EditorialHome: View {
         return Array(all.prefix(count))
     }
 
+    /*
+     * Une couleur par compte, et jamais deux fois la même.
+     *
+     * `seriesColor` hache l'identifiant sur huit teintes : à six comptes, deux
+     * tombent sur la même plus d'une fois sur deux — PEA et LEP étaient tous
+     * les deux jaunes, l'un sur l'autre, et la pile n'avait plus que cinq
+     * cartes à l'œil. Le hachage reste le premier choix, parce que c'est lui
+     * qui rend la couleur stable et la même que sur le web ; un compte qui
+     * trouve sa place prise passe au rang suivant.
+     *
+     * Décidée sur l'ordre de la BASE, pas sur l'ordre affiché : mettre une
+     * carte en avant réordonne la pile, et une couleur qui suivrait cet ordre
+     * changerait à chaque appui.
+     */
+    private func palette(_ all: [Account]) -> [String: Color] {
+        let count = Florin.series.count
+        var taken = Set<Int>()
+        var out: [String: Color] = [:]
+        for account in all {
+            var rank = Florin.seriesIndex(for: account.id)
+            var tries = 0
+            while taken.contains(rank), tries < count {
+                rank = (rank + 1) % count
+                tries += 1
+            }
+            taken.insert(rank)
+            out[account.id] = Florin.series[rank]
+        }
+        return out
+    }
+
+    /// Sous dix euros, les centimes font la phrase : 1,50 € arrondi à 2 € se
+    /// lit comme un tiers de plus qu'il n'y a, et la part en pourcentage suit.
+    private func cardMoney(_ value: Double, _ data: Overview) -> String {
+        Money.string(
+            value, locale: data.localeTag, currency: data.currency,
+            decimals: abs(value) < 10
+        )
+    }
+
     @ViewBuilder
     private func stack(_ data: Overview, room: CGSize) -> some View {
         /*
@@ -611,7 +685,9 @@ struct EditorialHome: View {
          * sont des décalages et l'identité des cartes ne change pas : le
          * ressort fait glisser chacune jusqu'au sien, personne ne clignote.
          */
-        let shown = promoted(fitting(cards(data), room: room))
+        let all = cards(data)
+        let tints = palette(all)
+        let shown = promoted(fitting(all, room: room))
         let plan = layout(count: shown.count, room: room)
         let height = plan.height
         let step = plan.step
@@ -623,7 +699,8 @@ struct EditorialHome: View {
                 ForEach(Array(shown.enumerated()), id: \.element.id) { index, account in
                     card(
                         account, data,
-                        rank: index, lead: index == shown.count - 1,
+                        tint: tints[account.id] ?? Florin.seriesColor(for: account.id),
+                        lead: index == shown.count - 1,
                         height: height, band: step
                     )
                     .offset(y: CGFloat(index) * step)
@@ -689,7 +766,7 @@ struct EditorialHome: View {
     @ViewBuilder
     private func card(
         _ account: Account, _ data: Overview,
-        rank: Int, lead: Bool, height: CGFloat, band: CGFloat
+        tint: Color, lead: Bool, height: CGFloat, band: CGFloat
     ) -> some View {
         /*
          * Deux appuis, et aucun geste tenu.
@@ -700,7 +777,7 @@ struct EditorialHome: View {
          * balayage d'onglet. Le balayage de la vue redevient donc ce qu'il
          * est partout ailleurs.
          */
-        face(account, data, rank: rank, lead: lead, open: lead, band: band)
+        face(account, data, tint: tint, lead: lead, open: lead, band: band)
             .frame(height: height)
             .clipShape(RoundedRectangle(cornerRadius: Ed.smallCard, style: .continuous))
             .contentShape(RoundedRectangle(cornerRadius: Ed.smallCard, style: .continuous))
@@ -733,26 +810,24 @@ struct EditorialHome: View {
      */
     private func face(
         _ account: Account, _ data: Overview,
-        rank: Int, lead: Bool, open: Bool, band: CGFloat
+        tint: Color, lead: Bool, open: Bool, band: CGFloat
     ) -> some View {
-        /*
-         * Une couleur par compte, et elle ne bouge pas.
-         *
-         * Elle venait du rang : la carte de devant était l'accent, les
-         * autres alternaient. Donc elle changeait dès qu'on réordonnait la
-         * pile — la couleur disait la place, pas le compte, et un compte
-         * n'était jamais reconnaissable deux fois de suite.
-         *
-         * `seriesColor` hache l'identifiant : tiré au sort une fois pour
-         * toutes, stable tant que le compte existe, et le même ici que
-         * partout ailleurs où ce compte est tracé.
-         */
-        let tint = Florin.seriesColor(for: account.id)
         let ink: Color = Florin.readable(on: tint)
         let total = max(abs(data.netWorth.gross), 1)
         let share = Int((abs(account.displayValue) / total * 100).rounded())
 
-        return VStack(alignment: .leading, spacing: 14) {
+        return VStack(alignment: .leading, spacing: 0) {
+            /*
+             * Le nom et le montant au MILIEU de la bande visible.
+             *
+             * D'une carte repliée on ne voit qu'une tranche : du haut de la
+             * carte jusqu'au haut de la suivante, soit `band`. La rangée se
+             * posait sous une marge de 14 pt et se centrait sur ce qui restait
+             * — donc sept points trop bas, sur chacune des cartes sauf la
+             * dernière. Elle prend maintenant la bande entière et se centre
+             * dedans, ce qui est la même chose que de dire : au milieu de ce
+             * qu'on voit.
+             */
             HStack(alignment: .firstTextBaseline) {
                 Text(account.name)
                     .font(.system(size: 15))
@@ -762,15 +837,12 @@ struct EditorialHome: View {
                 // dessous : l'écrire deux fois sur la même carte ne dit rien
                 // de plus et pousse le nom contre le bord.
                 if !open {
-                    PrivateText(Money.string(
-                        account.displayValue, locale: data.localeTag,
-                        currency: data.currency, decimals: false
-                    ))
+                    PrivateText(cardMoney(account.displayValue, data))
                     .font(.system(size: 15, weight: .semibold))
                     .monospacedDigit()
                 }
             }
-            .frame(height: max(18, band - 14), alignment: .center)
+            .frame(height: band, alignment: .center)
 
             VStack(alignment: .leading, spacing: 10) {
                 Spacer(minLength: 0)
@@ -785,10 +857,7 @@ struct EditorialHome: View {
                  * il laissait entre lui et elle un trou qui grandissait avec
                  * la carte.
                  */
-                PrivateText(Money.string(
-                    account.displayValue, locale: data.localeTag,
-                    currency: data.currency, decimals: false
-                ))
+                PrivateText(cardMoney(account.displayValue, data))
                 .font(.system(size: 26, weight: .medium))
                 .monospacedDigit()
                 EdShare(share: share, ink: ink)
@@ -811,7 +880,7 @@ struct EditorialHome: View {
         }
         .foregroundStyle(ink)
         .padding(.horizontal, 18)
-        .padding(.vertical, 14)
+        .padding(.bottom, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: Ed.smallCard, style: .continuous)
@@ -865,3 +934,10 @@ private struct EdShare: View {
     }
 }
 
+/// De combien le premier écran est sorti par le haut.
+private struct EdFirstScreenTop: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
