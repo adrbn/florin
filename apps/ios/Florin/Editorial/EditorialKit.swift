@@ -421,13 +421,19 @@ extension View {
     }
 }
 
-/// Ce qu'on touche répond. Un pour cent suffit : plus, et l'écran a l'air
-/// mou ; rien, et on doute d'avoir appuyé.
+/*
+ * Ce qu'on touche répond — par la taille, jamais par l'opacité.
+ *
+ * L'opacité marchait tant que rien ne se chevauchait. Dans la pile de cartes
+ * de l'accueil, appuyer sur une carte la rendait translucide et laissait voir
+ * celle de dessous au travers : un bouton pressé doit s'enfoncer, pas
+ * s'effacer. Deux pour cent de retrait disent la même chose sans trahir ce
+ * qu'il y a derrière.
+ */
 struct EdPress: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.99 : 1)
-            .opacity(configuration.isPressed ? 0.82 : 1)
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
             .animation(EdMotion.spring, value: configuration.isPressed)
     }
 }
@@ -565,9 +571,13 @@ extension View {
         _ order: [Value], selection: Binding<Value>, enabled: Bool = true
     ) -> some View {
         simultaneousGesture(
-            DragGesture(minimumDistance: 24)
+            // Quarante points, pas vingt-quatre : en dessous, un défilement
+            // vertical un peu oblique rentrait dans la fourchette et l'écran
+            // partait de côté à la fin du geste.
+            DragGesture(minimumDistance: 40)
                 .onEnded { move in
-                    guard enabled else { return }
+                    // Le doigt qui suit la courbe ne demande pas de page.
+                    guard enabled, !EdGesture.shared.scrubbing else { return }
                     let dx = move.translation.width
                     let dy = move.translation.height
                     guard abs(dx) > 60, abs(dx) > abs(dy) * 2,
@@ -586,3 +596,17 @@ extension View {
 /// soient d'accord sur « le suivant » — une seule liste, pas deux à tenir
 /// synchronisées.
 let edTabOrder: [TabRoute] = [.overview, .plan, .activity]
+
+/*
+ * Le doigt est pris ailleurs.
+ *
+ * Pendant qu'on suit la courbe, le geste est horizontal par nature : le swipe
+ * d'onglet le lisait comme une demande de changer de page et l'écran partait
+ * sous le doigt à la fin du relevé. Un seul drapeau, posé par le graphique et
+ * lu par le swipe — c'est la seule chose que ces deux-là ont à se dire.
+ */
+@MainActor
+final class EdGesture: ObservableObject {
+    static let shared = EdGesture()
+    @Published var scrubbing = false
+}

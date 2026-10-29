@@ -75,6 +75,24 @@ enum AccountsLogic {
         return account.total
     }
 
+    /*
+     * L'ordre des comptes, tel que la main l'a posé.
+     *
+     * `display_order` existait déjà et toutes les requêtes trient dessus — il
+     * ne manquait que quelqu'un pour l'écrire. Les rangs sont réécrits en bloc
+     * plutôt que permutés deux à deux : une base où deux comptes portent le
+     * même rang se range ensuite par nom, c'est-à-dire pas du tout.
+     */
+    static func reorder(_ accounts: [Account]) {
+        guard let store = LocalStore.shared else { return }
+        for (rank, account) in accounts.enumerated() {
+            try? store.database.run(
+                "UPDATE accounts SET display_order = ? WHERE id = ?",
+                [.integer(Int64(rank)), .text(account.id)]
+            )
+        }
+    }
+
     static func commitEdit(_ account: Account, name: String, icon: String, balance: Double?) {
         guard let store = LocalStore.shared, !name.isEmpty else { return }
         try? store.database.run(

@@ -8,15 +8,13 @@ import SwiftUI
  * sa pastille, sa courbe, et la pile de comptes où la carte du dessous est
  * celle qu'on regarde.
  *
- * Cet écran ne défile pas.
+ * La page défile, et c'est un retour en arrière assumé.
  *
- * C'est une contrainte, pas un oubli : un accueil est une réponse d'un coup
- * d'œil, et ce qui passe sous le pli n'est pas une réponse. La courbe ajoutée
- * sous le chiffre a fait passer les cartes sous la barre d'onglets — la
- * réponse n'est pas d'autoriser le défilement mais de faire tenir la page. Un
- * `ViewThatFits` essaie trois, puis deux, puis une carte : c'est le système qui
- * mesure, pas une addition de constantes qui serait fausse sur un autre
- * téléphone, à une autre taille de texte.
+ * Elle avait été figée pour qu'un accueil tienne d'un coup d'œil, et ce que
+ * ça coûtait s'est vu tout de suite : trois comptes sur six, le reste réduit
+ * à « +3 autres », et aucun tirer-pour-rafraîchir puisque rien ne défilait.
+ * Le haut — salut, chiffre, courbe — tient toujours au-dessus du pli ; les
+ * comptes continuent dessous, tous, et c'est le défilement qui les porte.
  *
  * Rien ici ne lit la base : tout vient du modèle que l'ancien écran lit déjà.
  */
@@ -31,26 +29,49 @@ struct EditorialHome: View {
     /// Le point sous le doigt sur la courbe. Tant qu'il y en a un, le chiffre
     /// du haut dit ce jour-là plutôt qu'aujourd'hui.
     @State private var scrubbed: PatrimonyPoint?
+    /// La ligne sous le chiffre répond à deux questions ; celle-ci dit
+    /// laquelle — même bascule que sur Obsidienne.
+    @State private var showSaving = false
+    /// L'ordre posé à la main, le temps que la base se relise.
+    @State private var order: [String] = []
+    @State private var dragging: String?
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage(Greeting.key) private var firstName = ""
 
     private var t: Strings { model.overview?.t ?? .empty }
+    private var local: Bool { model.base.scheme == "florin-local" }
 
     var body: some View {
-        Group {
+        ScrollView {
             if let data = model.overview {
-                ViewThatFits(in: .vertical) {
-                    page(data, cards: 3)
-                    page(data, cards: 2)
-                    page(data, cards: 1)
+                VStack(alignment: .leading, spacing: 0) {
+                    header
+                    EdHero(text: Greeting.line(t, name: firstName), oneLine: true)
+                        .padding(.top, 14)
+                    netWorth(data)
+                    curve(data)
+                    accountsHeading(data)
+                    stack(data)
                 }
+                .padding(.horizontal, Ed.gutter)
+                // La capsule flotte à 28 pt du bas sur 60 pt de haut : le
+                // contenu s'arrête au-dessus, sans quoi la dernière carte
+                // passe dessous.
+                .padding(.bottom, 104)
             } else {
                 ProgressView()
                     .controlSize(.large)
                     .tint(Florin.text3)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 120)
             }
         }
+        .scrollIndicators(.hidden)
+        // Le contenu tient parfois tout entier dans l'écran, et un `ScrollView`
+        // qui ne rebondit pas n'offre pas de tirer-pour-rafraîchir : sans ça le
+        // geste n'existe que les jours où l'on a beaucoup de comptes.
+        .scrollBounceBehavior(.always, axes: .vertical)
+        .refreshable { await model.load(showSpinner: false) }
         .background(Florin.bg)
         /*
          * C'est l'écran qui demande les chiffres, pas le modèle qui s'éveille.
@@ -71,29 +92,10 @@ struct EditorialHome: View {
         }
     }
 
-    /// La page entière avec un nombre de cartes donné — `ViewThatFits` garde
-    /// la première version qui tient.
-    private func page(_ data: Overview, cards count: Int) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            header
-            EdHero(text: Greeting.line(t, name: firstName), oneLine: true)
-                .padding(.top, 14)
-            netWorth(data)
-            curve(data)
-            Spacer(minLength: 12)
-            accountsHeading(data)
-            stack(data, count: count)
-        }
-        .padding(.horizontal, Ed.gutter)
-        .padding(.top, 10)
-        // La capsule flotte à 28 pt du bas sur 60 pt de haut : le contenu
-        // s'arrête au-dessus, sans quoi la dernière carte passe dessous.
-        .padding(.bottom, 104)
-        .frame(maxHeight: .infinity, alignment: .top)
-    }
-
     // MARK: Le bandeau
 
+    /// Posé un peu plus bas que la barre d'état : collé en haut, le trait du
+    /// menu se lisait comme une partie de l'encoche.
     private var header: some View {
         EdHeader {
             EdIconButton(
@@ -112,6 +114,7 @@ struct EditorialHome: View {
             .disabled(model.syncing || !(model.overview?.bankSyncConfigured ?? false))
             .padding(.trailing, -10)
         }
+        .padding(.top, 18)
     }
 
     // MARK: Le patrimoine
@@ -141,22 +144,116 @@ struct EditorialHome: View {
                     text: Money.string(
                         live, locale: data.localeTag, currency: data.currency
                     ),
-                    value: live
+                    // Pas de chiffres qui roulent sous le doigt : la date
+                    // change soixante fois par seconde et l'animation,
+                    // relancée à chaque fois, ne finit jamais — c'est elle
+                    // qu'on voit tourner au lieu du montant.
+                    value: scrubbed == nil ? live : nil
                 )
-                Text(
-                    Money.string(
-                        data.monthlyTrend, locale: data.localeTag, currency: data.currency,
-                        signed: true
-                    ) + " · " + t("v2.analysis.days30", "30 jours")
-                )
-                .font(.system(size: 15))
-                .foregroundStyle(Florin.text2)
+                delta(data)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
         }
         .buttonStyle(.edPress)
         .padding(.top, 22)
+    }
+
+    /*
+     * La ligne sous le chiffre — la même logique qu'Obsidienne, pas une autre.
+     *
+     * Elle disait « +358,82 € · 30 jours », ce qui n'était ni la mesure de
+     * l'autre écran ni une fenêtre que quoi que ce soit calcule : trente
+     * jours glissants n'existent nulle part dans le grand livre. Les trois
+     * cas sont donc repris tels quels :
+     *
+     *   — en brut, les dettes, puisque c'est ce que le brut cache ;
+     *   — sinon, ce qu'on garde ce mois-ci contre le même jour du mois
+     *     dernier, si le registre sait le dire, et un appui bascule ;
+     *   — sinon la variation du dernier mois COMPLET, nommé, parce qu'une
+     *     légende qui tait le mois invite à le lire comme celui-ci.
+     *
+     * Sous le doigt, c'est l'écart depuis le premier point de la fenêtre et le
+     * jour touché qui s'écrit.
+     */
+    @ViewBuilder
+    private func delta(_ data: Overview) -> some View {
+        let points = series(data)
+        let first = points.first?.balance ?? data.netWorth.net
+        let move = scrubbed.map { $0.balance - first }
+            ?? (data.netWorth.net - (data.netWorth.netMonthAgo ?? data.netWorth.net))
+        let kept = data.leftToSpend.savedThisMonthToDate
+
+        HStack(spacing: 6) {
+            if !showNet, scrubbed == nil {
+                Text(t("v2.overview.debt", "Dettes") + " " + Money.string(
+                    data.netWorth.liability, locale: data.localeTag,
+                    currency: data.currency, decimals: false
+                ))
+                .foregroundStyle(Florin.text2)
+                .hiddenWhenPrivate()
+            } else if !data.recent.isEmpty, showSaving, scrubbed == nil, let kept {
+                arrow(kept >= 0)
+                Text(Money.string(
+                    abs(kept), locale: data.localeTag, currency: data.currency,
+                    decimals: abs(kept) < 1000
+                ))
+                .monospacedDigit()
+                .foregroundStyle(kept >= 0 ? Florin.positive : Florin.negative)
+                .hiddenWhenPrivate()
+                Text(data.leftToSpend.savedPrevMonthToDate.map {
+                    t("v2.overview.keptVsLastMonth", "vs {prev} ({date})", [
+                        "prev": Money.string(
+                            $0, locale: data.localeTag,
+                            currency: data.currency, decimals: false
+                        ),
+                        "date": sameDayLastMonth(data),
+                    ])
+                } ?? t("v2.overview.keptThisMonth", "ce mois-ci"))
+                .foregroundStyle(Florin.text2)
+            } else if !data.recent.isEmpty {
+                arrow(move >= 0)
+                Text(Money.string(
+                    abs(move), locale: data.localeTag, currency: data.currency,
+                    decimals: abs(move) < 1000
+                ))
+                .monospacedDigit()
+                .foregroundStyle(move >= 0 ? Florin.positive : Florin.negative)
+                .hiddenWhenPrivate()
+                Text(scrubbed.map { dayLabel($0.day, data) }
+                    ?? t("v2.overview.inMonth", "en {month}", [
+                        "month": MonthLabel.short(
+                            LocalQueries.lastCompleteMonth(), locale: data.localeTag
+                        ),
+                    ]))
+                    .foregroundStyle(Florin.text2)
+            }
+        }
+        .font(.system(size: 15))
+        .frame(height: 20)
+        // La bascule a sa propre cible, à l'intérieur de celle du chiffre :
+        // deux questions, deux appuis, sans que le grand nombre perde le sien.
+        .contentShape(Rectangle())
+        .onTapGesture {
+            guard scrubbed == nil, showNet, kept != nil else { return }
+            UISelectionFeedbackGenerator().selectionChanged()
+            withAnimation(EdMotion.spring) { showSaving.toggle() }
+        }
+    }
+
+    private func arrow(_ up: Bool) -> some View {
+        Image(systemName: up ? "arrowtriangle.up.fill" : "arrowtriangle.down.fill")
+            .font(.system(size: 9))
+            .foregroundStyle(up ? Florin.positive : Florin.negative)
+    }
+
+    private func sameDayLastMonth(_ data: Overview) -> String {
+        let calendar = Calendar(identifier: .gregorian)
+        let date = calendar.date(byAdding: .month, value: -1, to: Date()) ?? Date()
+        let f = DateFormatter()
+        f.locale = Locale(identifier: data.localeTag)
+        f.setLocalizedDateFormatFromTemplate("d MMM")
+        return f.string(from: date)
     }
 
     private func dayLabel(_ day: Date, _ data: Overview) -> String {
@@ -170,16 +267,20 @@ struct EditorialHome: View {
      * La courbe, sous le chiffre, et on peut la toucher.
      *
      * Le scrub passe par `chartXSelection` et démarre sur un appui maintenu —
-     * voir `NetWorthChart` : un simple balayage reste donc au swipe d'onglet.
+     * voir `NetWorthChart` : un simple balayage reste donc au défilement.
      * Les pointillés de prévision sont écartés : c'est l'accueil, pas l'analyse.
      */
-    @ViewBuilder
-    private func curve(_ data: Overview) -> some View {
-        let points = Array(
+    private func series(_ data: Overview) -> [PatrimonyPoint] {
+        Array(
             (showNet ? (data.netSeries ?? data.series) : (data.grossSeries ?? data.series))
                 .filter { $0.projected != true }
                 .suffix(200)
         )
+    }
+
+    @ViewBuilder
+    private func curve(_ data: Overview) -> some View {
+        let points = series(data)
         if points.count > 2 {
             NetWorthChart(
                 points: points,
@@ -189,20 +290,23 @@ struct EditorialHome: View {
                 tint: Florin.text
             )
             .padding(.top, 16)
+            .padding(.bottom, 10)
         }
     }
 
     // MARK: Les comptes
 
-    /// Ce que la pile montre : les comptes vivants, le plus gros en dernier —
-    /// c'est la carte du dessous qui s'ouvre, donc celle qu'on voit en entier.
-    private func cards(_ data: Overview, count: Int) -> [Account] {
-        Array(
-            data.accounts
-                .filter { !$0.isArchived && $0.isIncludedInNetWorth }
-                .sorted { $0.displayValue < $1.displayValue }
-                .suffix(count)
-        )
+    /// Tous les comptes vivants, dans l'ordre posé à la main.
+    ///
+    /// `display_order` est ce que la base trie déjà ; l'ordre local ne sert
+    /// qu'entre le lâcher de la carte et la relecture qui suit.
+    private func cards(_ data: Overview) -> [Account] {
+        let live = data.accounts.filter { !$0.isArchived && $0.isIncludedInNetWorth }
+        guard !order.isEmpty else { return live }
+        let byId = Dictionary(uniqueKeysWithValues: live.map { ($0.id, $0) })
+        let placed = order.compactMap { byId[$0] }
+        // Un compte apparu depuis le glissement reste visible, à la fin.
+        return placed + live.filter { !order.contains($0.id) }
     }
 
     /*
@@ -235,44 +339,70 @@ struct EditorialHome: View {
             }
             .buttonStyle(.edPress)
         }
+        .padding(.top, 16)
         .padding(.bottom, 12)
     }
 
     /*
-     * La pile.
+     * La pile, entière.
      *
-     * Chaque carte remonte de 18 pt sur la précédente : on voit la tranche des
-     * comptes du dessus et la carte du dessous en entier. Le `zIndex` compte à
-     * rebours parce qu'en SwiftUI la dernière vue d'un `VStack` est déjà au
-     * sommet — sans ça le chevauchement se ferait dans le mauvais sens et la
-     * carte ouverte passerait sous celles qu'elle doit couvrir.
+     * Chaque carte remonte de 12 pt sur la précédente : assez pour qu'on voie
+     * une pile, assez peu pour qu'aucune carte ne soit amputée de sa ligne.
+     * Le `zIndex` compte à l'endroit — la carte tenue passe au-dessus de
+     * toutes les autres, sinon on la voit glisser SOUS la pile qu'elle
+     * traverse.
      *
-     * La pile ne montre jamais tous les comptes : elle en montre autant que la
-     * page en tient, et la carte ouverte dit combien restent derrière. Les voir
-     * tous est le travail de l'écran Comptes, où l'on arrive en touchant
-     * n'importe laquelle.
+     * Tenue une seconde, une carte se détache et suit le doigt ; l'ordre
+     * s'écrit dans `display_order` au lâcher, donc il tient d'un lancement à
+     * l'autre et vaut aussi pour l'écran Comptes.
      */
     @ViewBuilder
-    private func stack(_ data: Overview, count: Int) -> some View {
-        let shown = cards(data, count: count)
-        let hidden = data.accounts.filter { !$0.isArchived && $0.isIncludedInNetWorth }.count
-            - shown.count
+    private func stack(_ data: Overview) -> some View {
+        let shown = cards(data)
         if !shown.isEmpty {
-            VStack(spacing: -18) {
+            VStack(spacing: -12) {
                 ForEach(Array(shown.enumerated()), id: \.element.id) { index, account in
-                    let last = index == shown.count - 1
-                    Button(action: onOpenAccounts) {
-                        if last {
-                            expanded(account, data, more: hidden)
-                        } else {
-                            folded(account, data, rank: index)
-                        }
-                    }
-                    .buttonStyle(.edPress)
-                    .zIndex(Double(index))
+                    card(account, data, rank: index, last: index == shown.count - 1)
+                        .zIndex(dragging == account.id ? 1000 : Double(index))
                 }
             }
+            .animation(EdMotion.spring, value: shown.map(\.id))
         }
+    }
+
+    @ViewBuilder
+    private func card(
+        _ account: Account, _ data: Overview, rank: Int, last: Bool
+    ) -> some View {
+        let held = dragging == account.id
+        Button(action: onOpenAccounts) {
+            if last {
+                expanded(account, data)
+            } else {
+                folded(account, data, rank: rank)
+            }
+        }
+        .buttonStyle(.edPress)
+        .scaleEffect(held ? 1.04 : 1)
+        .shadow(color: .black.opacity(held ? 0.22 : 0), radius: held ? 18 : 0, y: held ? 8 : 0)
+        .animation(EdMotion.spring, value: held)
+        .modifier(
+            EdReorder(
+                enabled: local,
+                id: account.id,
+                dragging: $dragging,
+                order: Binding(
+                    get: { cards(data).map(\.id) },
+                    set: { next in
+                        order = next
+                        let byId = Dictionary(
+                            uniqueKeysWithValues: data.accounts.map { ($0.id, $0) }
+                        )
+                        AccountsLogic.reorder(next.compactMap { byId[$0] })
+                    }
+                )
+            )
+        )
     }
 
     /// Une carte repliée : le nom et le solde, le reste sous la suivante.
@@ -291,35 +421,26 @@ struct EditorialHome: View {
             ))
             .font(.system(size: 15, weight: .semibold))
             .monospacedDigit()
+            .hiddenWhenPrivate()
         }
         .foregroundStyle(inverse ? Florin.bg : Florin.text)
         .padding(.horizontal, 18)
-        .padding(.top, 15)
-        .frame(maxWidth: .infinity, minHeight: 70, alignment: .top)
+        .padding(.top, 14)
+        .padding(.bottom, 26)
+        .frame(maxWidth: .infinity, alignment: .top)
         .background(
-            UnevenRoundedRectangle(
-                topLeadingRadius: Ed.smallCard, bottomLeadingRadius: 0,
-                bottomTrailingRadius: 0, topTrailingRadius: Ed.smallCard,
-                style: .continuous
-            )
-            .fill(inverse ? Florin.text : Florin.surface)
+            RoundedRectangle(cornerRadius: Ed.smallCard, style: .continuous)
+                .fill(inverse ? Florin.text : Florin.surface)
         )
         .overlay(
-            UnevenRoundedRectangle(
-                topLeadingRadius: Ed.smallCard, bottomLeadingRadius: 0,
-                bottomTrailingRadius: 0, topTrailingRadius: Ed.smallCard,
-                style: .continuous
-            )
-            .strokeBorder(Florin.text.opacity(inverse ? 0 : 0.10), lineWidth: 1)
+            RoundedRectangle(cornerRadius: Ed.smallCard, style: .continuous)
+                .strokeBorder(Florin.text.opacity(inverse ? 0 : 0.10), lineWidth: 1)
         )
     }
 
-    /// La carte du bas, ouverte : c'est elle qui porte les liquidités, l'heure
-    /// de la dernière synchronisation, et le nombre de comptes qu'on ne voit
-    /// pas — sans quoi une pile de trois sur huit comptes ment par omission.
-    private func expanded(
-        _ account: Account, _ data: Overview, more: Int
-    ) -> some View {
+    /// La carte du bas, ouverte : c'est elle qui porte les liquidités et
+    /// l'heure de la dernière synchronisation.
+    private func expanded(_ account: Account, _ data: Overview) -> some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack {
                 Text(account.name)
@@ -332,6 +453,7 @@ struct EditorialHome: View {
                 ))
                 .font(.system(size: 15, weight: .semibold))
                 .monospacedDigit()
+                .hiddenWhenPrivate()
             }
             HStack(alignment: .bottom) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -344,18 +466,12 @@ struct EditorialHome: View {
                     ))
                     .font(.system(size: 20, weight: .medium))
                     .monospacedDigit()
+                    .hiddenWhenPrivate()
                 }
                 Spacer(minLength: 8)
-                VStack(alignment: .trailing, spacing: 2) {
-                    if more > 0 {
-                        Text(t("v2.overview.moreAccounts", "+{count} autres",
-                               ["count": more]))
-                            .font(.system(size: 12, weight: .medium))
-                    }
-                    Text(syncLine(data))
-                        .font(.system(size: 12))
-                        .opacity(0.85)
-                }
+                Text(syncLine(data))
+                    .font(.system(size: 12))
+                    .opacity(0.85)
             }
         }
         .foregroundStyle(Florin.onAccent)
@@ -375,5 +491,73 @@ struct EditorialHome: View {
         relative.locale = Locale(identifier: data.localeTag)
         relative.unitsStyle = .short
         return relative.localizedString(for: synced, relativeTo: Date())
+    }
+}
+
+/*
+ * Tenir une carte, la déplacer, la lâcher ailleurs.
+ *
+ * Pas `List` et son `onMove` : cette pile se chevauche, et une liste refait
+ * des lignes séparées. Pas `draggable`/`dropDestination` non plus — ils
+ * passent par le presse-papiers du système et montrent un aperçu gris qui
+ * n'est pas la carte.
+ *
+ * Un appui maintenu d'une demi-seconde PUIS un glissement : la séquence est
+ * ce qui permet au défilement de garder tous les balayages ordinaires. La
+ * place visée se déduit de la distance parcourue divisée par la hauteur d'un
+ * cran — on ne mesure pas les autres cartes, on sait de combien elles sont
+ * décalées.
+ */
+private struct EdReorder: ViewModifier {
+    let enabled: Bool
+    let id: String
+    @Binding var dragging: String?
+    @Binding var order: [String]
+
+    /// Le pas de la pile : la hauteur d'une carte repliée moins son
+    /// chevauchement. Changer l'un sans l'autre fait sauter d'un cran de trop.
+    private let step: CGFloat = 64
+
+    @State private var shift: CGSize = .zero
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content
+                .offset(shift)
+                .gesture(
+                    LongPressGesture(minimumDuration: 0.45)
+                        .sequenced(before: DragGesture(coordinateSpace: .local))
+                        .onChanged { value in
+                            guard case let .second(true, drag?) = value else {
+                                if dragging != id { haptic() }
+                                dragging = id
+                                return
+                            }
+                            shift = CGSize(width: 0, height: drag.translation.height)
+                        }
+                        .onEnded { _ in
+                            move(by: Int((shift.height / step).rounded()))
+                            shift = .zero
+                            dragging = nil
+                        }
+                )
+        } else {
+            content
+        }
+    }
+
+    private func haptic() {
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+    }
+
+    private func move(by steps: Int) {
+        guard steps != 0, let from = order.firstIndex(of: id) else { return }
+        let to = min(max(from + steps, 0), order.count - 1)
+        guard to != from else { return }
+        var next = order
+        next.remove(at: from)
+        next.insert(id, at: to)
+        UISelectionFeedbackGenerator().selectionChanged()
+        order = next
     }
 }

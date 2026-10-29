@@ -19,6 +19,8 @@ struct EditorialAccounts: View {
 
     @State private var drill: ActivityRoute?
     @State private var showNet = true
+    /// Le point sous le doigt sur la courbe — même geste que sur l'accueil.
+    @State private var scrubbed: PatrimonyPoint?
     @State private var addingAccount = false
     @State private var renaming: Account?
     @State private var deleting: Account?
@@ -130,20 +132,24 @@ struct EditorialAccounts: View {
     /// roule de l'un à l'autre plutôt que de se remplacer.
     private func figure(_ data: Overview) -> some View {
         Button {
+            guard scrubbed == nil else { return }
             UISelectionFeedbackGenerator().selectionChanged()
             withAnimation(EdMotion.spring) { showNet.toggle() }
         } label: {
             VStack(alignment: .leading, spacing: 8) {
-                EdPill(text: showNet
-                    ? t("v2.overview.netWorth", "Patrimoine")
-                    : t("v2.overview.gross", "Brut"))
+                EdPill(text: scrubbed.map { dayLabel($0.day, data) }
+                    ?? (showNet
+                        ? t("v2.overview.netWorth", "Patrimoine")
+                        : t("v2.overview.gross", "Brut")))
                 EdAmount(
                     text: Money.string(
-                        showNet ? data.netWorth.net : data.netWorth.gross,
-                        locale: data.localeTag, currency: data.currency
+                        live(data), locale: data.localeTag, currency: data.currency
                     ),
                     size: 48,
-                    value: showNet ? data.netWorth.net : data.netWorth.gross
+                    // Rien ne roule sous le doigt : la valeur change à chaque
+                    // image et l'animation, relancée sans cesse, ne finirait
+                    // jamais.
+                    value: scrubbed == nil ? live(data) : nil
                 )
                 Text(showNet
                     ? t("v2.accounts.count", "{count} comptes",
@@ -173,12 +179,22 @@ struct EditorialAccounts: View {
                     .suffix(200)
             ),
             height: 108,
-            selection: .constant(nil),
+            selection: $scrubbed,
             animationKey: showNet ? "net" : "gross",
             tint: Florin.text
         )
         .padding(.top, 18)
-        .allowsHitTesting(false)
+    }
+
+    private func live(_ data: Overview) -> Double {
+        scrubbed?.balance ?? (showNet ? data.netWorth.net : data.netWorth.gross)
+    }
+
+    private func dayLabel(_ day: Date, _ data: Overview) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: data.localeTag)
+        f.setLocalizedDateFormatFromTemplate("d MMM y")
+        return f.string(from: day)
     }
 
     // MARK: La répartition
@@ -250,7 +266,8 @@ struct EditorialAccounts: View {
 
     private func groups(_ data: Overview) -> some View {
         let scale = AccountsLogic.assetTotal(data)
-        return ForEach(AccountsLogic.buckets(data, t: t), id: \.title) { group in
+        let buckets = AccountsLogic.buckets(data, t: t)
+        return ForEach(Array(buckets.enumerated()), id: \.element.title) { rank, group in
             VStack(alignment: .leading, spacing: 10) {
                 EdSection(
                     text: group.title,
@@ -262,7 +279,7 @@ struct EditorialAccounts: View {
                 VStack(spacing: 0) {
                     ForEach(Array(group.accounts.enumerated()), id: \.element.id) { index, account in
                         if index > 0 { EdRule() }
-                        row(account, data, scale: scale)
+                        row(account, data, scale: scale, ink: ink(rank))
                     }
                 }
             }
@@ -271,7 +288,9 @@ struct EditorialAccounts: View {
         }
     }
 
-    private func row(_ account: Account, _ data: Overview, scale: Double) -> some View {
+    private func row(
+        _ account: Account, _ data: Overview, scale: Double, ink: Color
+    ) -> some View {
         Button {
             drill = ActivityRoute(accountId: account.id, title: account.name)
         } label: {
@@ -288,7 +307,11 @@ struct EditorialAccounts: View {
                     ))
                     .font(.system(size: 17, weight: .medium))
                     .monospacedDigit()
-                    .foregroundStyle(account.isLoan ? Florin.text2 : Florin.text)
+                    // Un solde négatif est rouge, ici comme partout : le
+                    // signe le dit, la couleur le dit avant lui.
+                    .foregroundStyle(
+                        account.displayValue < 0 ? Florin.negative : Florin.text
+                    )
                     .hiddenWhenPrivate()
                 }
                 // La part de ce compte dans le plus gros avoir — la même
@@ -298,7 +321,10 @@ struct EditorialAccounts: View {
                     ZStack(alignment: .leading) {
                         Capsule().fill(Florin.text.opacity(0.10))
                         Capsule()
-                            .fill(account.isLoan ? Florin.negative : Florin.text)
+                            // La barre porte l'encre de son groupe : c'est la
+                            // même que la part correspondante de la
+                            // répartition, donc on relie les deux d'un regard.
+                            .fill(account.displayValue < 0 ? Florin.negative : ink)
                             .frame(
                                 width: max(
                                     2,

@@ -99,6 +99,9 @@ enum FlorinPalette: String, CaseIterable, Identifiable {
         return resolved
     }
 
+    /// Jette la palette gardée : la prochaine lecture la recalcule.
+    static func forget() { cached = nil }
+
     /// Applique et retient le choix, des deux côtés de la cloison.
     static func use(_ choice: FlorinPalette) {
         cached = choice.palette
@@ -109,6 +112,66 @@ enum FlorinPalette: String, CaseIterable, Identifiable {
     /// Le thème choisi, par son nom — pour le réglage qui le coche.
     static var selected: FlorinPalette {
         FlorinPalette(rawValue: UserDefaults.standard.string(forKey: key) ?? "") ?? .obsidian
+    }
+}
+
+/*
+ * L'accent d'Éditorial, au choix.
+ *
+ * Six encres, pas une roue chromatique : chacune doit porter du blanc à
+ * 4,5:1 en clair comme en sombre, et une couleur quelconque tirée d'un
+ * sélecteur ne le garantit pas. Les noms sont ceux de la matière, pas ceux
+ * d'une teinte — on choisit un ton, pas un hexadécimal.
+ */
+enum EdAccent: String, CaseIterable, Identifiable {
+    case terracotta
+    case encre
+    case foret
+    case prune
+    case ocre
+    case ardoise
+
+    var id: String { rawValue }
+
+    var name: String {
+        switch self {
+        case .terracotta: return "Terracotta"
+        case .encre: return "Encre"
+        case .foret: return "Forêt"
+        case .prune: return "Prune"
+        case .ocre: return "Ocre"
+        case .ardoise: return "Ardoise"
+        }
+    }
+
+    var tone: Tone {
+        switch self {
+        case .terracotta: return Tone(light: 0xD9481F, dark: 0xC93D17)
+        case .encre: return Tone(light: 0x2F4DBF, dark: 0x2A44AD)
+        case .foret: return Tone(light: 0x1C6B4A, dark: 0x185C3F)
+        case .prune: return Tone(light: 0x8C2F6B, dark: 0x7A295D)
+        case .ocre: return Tone(light: 0xA4740C, dark: 0x8F640A)
+        case .ardoise: return Tone(light: 0x3F4C5A, dark: 0x36424E)
+        }
+    }
+
+    static let key = "florin.editorialAccent"
+
+    /// Le bidon partagé d'abord : la vignette n'a pas accès aux préférences
+    /// de l'app, et un widget qui garde l'orange pendant que l'écran est vert
+    /// trahit l'écran qu'il résume.
+    static var selected: EdAccent {
+        let stored = UserDefaults(suiteName: FlorinPalette.suite)?.string(forKey: key)
+            ?? UserDefaults.standard.string(forKey: key)
+        return EdAccent(rawValue: stored ?? "") ?? .terracotta
+    }
+
+    /// Retient le choix et jette la palette gardée, sans quoi l'écran
+    /// continue de peindre l'ancien accent jusqu'au prochain lancement.
+    static func use(_ choice: EdAccent) {
+        UserDefaults.standard.set(choice.rawValue, forKey: key)
+        UserDefaults(suiteName: FlorinPalette.suite)?.set(choice.rawValue, forKey: key)
+        FlorinPalette.forget()
     }
 }
 
@@ -262,7 +325,25 @@ extension Palette {
      * vert ce qui va bien rend l'orange moins audible — et le signe devant le
      * montant dit déjà le sens.
      */
-    static let editorial = Palette(
+    /*
+     * L'accent est un choix, pas une constante.
+     *
+     * L'orange de la maquette reste le défaut ; c'est le seul endroit coloré
+     * d'un écran par ailleurs noir et blanc, donc c'est le seul qu'on ait
+     * envie de choisir. Il repeint du même coup l'alerte et le négatif, qui
+     * sont la même encre dans ce thème — un accent orange avec un négatif
+     * rouge tiré d'ailleurs ferait deux rouges voisins sans raison.
+     */
+    static var editorial: Palette {
+        var base = editorialBase
+        let ink = EdAccent.selected.tone
+        base.accent = ink
+        base.negative = ink
+        base.warn = ink
+        return base
+    }
+
+    private static let editorialBase = Palette(
         bg: Tone(light: 0xFFFFFF, dark: 0x000000),
         surface: Tone(light: 0xF2F2F4, dark: 0x1C1C1E),
         surface2: Tone(light: 0xEFEFF1, dark: 0x2C2C2E),
@@ -276,18 +357,28 @@ extension Palette {
         text3: Tone(light: 0x8A8A8F, dark: 0x76767C),
         accent: Tone(light: 0xD9481F, dark: 0xC93D17),
         onAccent: Tone(light: 0xFFFFFF, dark: 0xFFFFFF),
-        positive: Tone(light: 0x0A0A0A, dark: 0xF5F5F7),
-        negative: Tone(light: 0xD9481F, dark: 0xFF7A52),
-        warn: Tone(light: 0xD9481F, dark: 0xFF7A52),
+        /*
+         * Un gain est vert, une perte est rouge — y compris ici.
+         *
+         * La maquette ne voulait aucune couleur hors alerte, et tout un écran
+         * de comptes en est ressorti en nuances de gris : des barres de
+         * répartition qu'on ne distingue plus l'une de l'autre, et des
+         * montants dont il fallait relire le signe. Le sens d'un chiffre
+         * d'argent se lit à sa couleur avant de se lire à son signe ; c'est
+         * la seule chose que ce thème rendait plus difficile qu'avant.
+         */
+        positive: Tone(light: 0x1F8B5F, dark: 0x5FD9A0),
+        negative: Tone(light: 0xC4392F, dark: 0xF08072),
+        warn: Tone(light: 0xB4690E, dark: 0xF0B357),
         series: [
-            Tone(light: 0x0A0A0A, dark: 0xF5F5F7),
-            Tone(light: 0x3A3A3E, dark: 0xD2D2D7),
-            Tone(light: 0x5C5C61, dark: 0xA1A1A6),
-            Tone(light: 0x76767C, dark: 0x8A8A8F),
-            Tone(light: 0x8A8A8F, dark: 0x76767C),
-            Tone(light: 0xA1A1A6, dark: 0x5C5C61),
-            Tone(light: 0xC7C7CC, dark: 0x48484A),
-            Tone(light: 0xDEDEE2, dark: 0x343438),
+            Tone(light: 0x1F6FB2, dark: 0x6FB8EE),
+            Tone(light: 0x1F8B5F, dark: 0x5FD9A0),
+            Tone(light: 0xB25C1E, dark: 0xEFA26A),
+            Tone(light: 0x7B45B8, dark: 0xBB92EF),
+            Tone(light: 0x148A93, dark: 0x5CCBD3),
+            Tone(light: 0xA33C86, dark: 0xEC85C9),
+            Tone(light: 0x9A6A18, dark: 0xE0B45C),
+            Tone(light: 0x4E6B8F, dark: 0x97AECC),
         ],
         grounds: Array(repeating: Tone(light: 0x0A0A0A, dark: 0xF5F5F7), count: 7),
         // Ni dégradé ni voile teinté : la maquette n'en a aucun.

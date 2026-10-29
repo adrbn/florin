@@ -156,6 +156,9 @@ struct RootView: View {
      * évite d'avoir à faire observer la palette par cent vues.
      */
     @AppStorage(FlorinPalette.key) private var paletteRaw = FlorinPalette.obsidian.rawValue
+    /// Lu ici pour la même raison que la palette : c'est ce qui fait
+    /// reconstruire l'arbre quand l'accent change.
+    @AppStorage(EdAccent.key) private var accentRaw = EdAccent.terracotta.rawValue
     @State private var showingSetup = false
     @State private var splashing = true
     @State private var wantsServerForm = false
@@ -261,12 +264,16 @@ struct RootView: View {
                     )
                 }
             }
-            .id("\(onboarded)-\(paletteRaw)")
+            .id("\(onboarded)-\(paletteRaw)-\(accentRaw)")
             .onChange(of: sourceRaw) { _, _ in switchedSource = true }
             .onChange(of: paletteRaw) { _, chosen in
                 // Le réglage écrit déjà la palette ; ceci rattrape le cas où
                 // elle a changé ailleurs (une restauration, un autre écran).
                 FlorinPalette.use(FlorinPalette(rawValue: chosen) ?? .obsidian)
+                WidgetCenter.shared.reloadAllTimelines()
+            }
+            .onChange(of: accentRaw) { _, chosen in
+                EdAccent.use(EdAccent(rawValue: chosen) ?? .terracotta)
                 WidgetCenter.shared.reloadAllTimelines()
             }
 

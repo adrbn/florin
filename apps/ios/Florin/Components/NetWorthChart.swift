@@ -269,6 +269,8 @@ struct NetWorthChart: View {
          */
         .chartXSelection(value: $touched)
         .onChange(of: touched) { _, date in
+            // Le swipe d'onglet doit lâcher le doigt tant qu'il suit la courbe.
+            EdGesture.shared.scrubbing = date != nil
             guard let date else { selection = nil; return }
             // Snap to the nearest sample, not the one to the left — the dot
             // should sit under the finger.

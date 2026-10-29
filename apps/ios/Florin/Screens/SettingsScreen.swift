@@ -31,6 +31,7 @@ struct SettingsScreen: View {
 
     @AppStorage("florin.appearance") private var appearanceRaw = Appearance.dark.rawValue
     @AppStorage(FlorinPalette.key) private var paletteRaw = FlorinPalette.obsidian.rawValue
+    @AppStorage(EdAccent.key) private var accentRaw = EdAccent.terracotta.rawValue
     @State private var editingServer = false
     @State private var draftServer = ""
     @State private var draftToken = ""
@@ -538,9 +539,55 @@ struct SettingsScreen: View {
                 }
             }
             .padding(.leading, 33)
+
+            /*
+             * L'accent, et seulement là où il se voit.
+             *
+             * Les quatre autres thèmes posent de la couleur partout : un
+             * réglage d'accent y changerait une teinte parmi dix. Éditorial
+             * n'en a qu'une, sur le héros et l'alerte — c'est le seul où
+             * choisir veut dire quelque chose, donc le seul qui le propose.
+             */
+            if paletteRaw == FlorinPalette.editorial.rawValue {
+                Text(t("v2.settings.accent", "Couleur d'accent"))
+                    .font(.system(size: 13))
+                    .foregroundStyle(Florin.text2)
+                    .padding(.leading, 33)
+                    .padding(.top, 4)
+                HStack(spacing: 10) {
+                    ForEach(EdAccent.allCases) { choice in
+                        accentSwatch(choice)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(.leading, 33)
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 13)
+    }
+
+    private func accentSwatch(_ choice: EdAccent) -> some View {
+        let chosen = choice.rawValue == accentRaw
+        return Button {
+            guard !chosen else { return }
+            UISelectionFeedbackGenerator().selectionChanged()
+            EdAccent.use(choice)
+            accentRaw = choice.rawValue
+        } label: {
+            Circle()
+                .fill(choice.tone.color)
+                .frame(width: 30, height: 30)
+                .overlay(
+                    Circle().strokeBorder(
+                        chosen ? Florin.text : Florin.text.opacity(0.14),
+                        lineWidth: chosen ? 2 : 1
+                    )
+                    .padding(-3)
+                )
+                .accessibilityLabel(Text(choice.name))
+        }
+        .buttonStyle(.plain)
     }
 
     private func themeSwatch(_ choice: FlorinPalette) -> some View {
