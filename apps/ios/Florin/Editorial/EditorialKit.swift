@@ -458,8 +458,11 @@ extension View {
     func edEnter() -> some View {
         scrollTransition(axis: .vertical) { view, phase in
             view
-                .opacity(phase.isIdentity ? 1 : 0)
+                // Plus d'opacité ici : elle vaut pour la vue entière, donc
+                // une carte à moitié sortie s'éteignait d'un bloc. Le fondu
+                // est au pixel, dans le masque de `EdPlainEdges`.
                 .offset(y: phase.isIdentity ? 0 : 12)
+                .scaleEffect(phase.isIdentity ? 1 : 0.97, anchor: .center)
         }
     }
 }
@@ -751,23 +754,84 @@ extension View {
  * étaient des erreurs : il le faut aux deux bords, et doux.
  */
 /*
- * Rien par-dessus le bord. Ce sont les éléments qui s'en vont.
+ * Le bord est un masque, pas un voile.
  *
- * Trois voiles ont été essayés au haut de l'écran, et les trois étaient de
- * trop : l'effet de bord d'iOS 26, hérité du SDK 27, qui commence sous la
- * zone sûre — d'où un bloc opaque à mi-hauteur ; un matériau flouté, qui
- * *éclaircit* ce qu'il couvre et virait au gris sur le noir pur ; un
- * dégradé du fond de la page, qui éteint un titre encore en plein milieu
- * de l'écran.
+ * Quatre tentatives, et les trois premières se trompaient de niveau.
  *
- * Le fondu de cette direction n'a jamais été un voile. C'est `edEnter` :
- * chaque élément lit sa propre position dans le défilement et s'efface en
- * montant de douze points. Rien n'est posé par-dessus, donc le fondu
- * commence exactement au bord — là où l'élément sort, pas là où un
- * rectangle a été dessiné. Il ne reste qu'à faire taire celui du système.
+ * Un voile posé par-dessus — l'effet d'iOS 26, un matériau flouté, un
+ * dégradé du fond — dessine un rectangle à un endroit fixe : il éteint ce
+ * qui passe dessous même quand c'est encore en plein milieu de l'écran, et
+ * il ne commence pas au bord parce que le système l'insère sous la zone
+ * sûre.
+ *
+ * `edEnter` se trompait d'échelle : il donne une opacité à une VUE, donc
+ * une carte à moitié sortie s'éteint tout entière d'un coup — un gros bloc
+ * gris, coupé net par le bord. C'est le mouvement qu'il doit porter, pas la
+ * disparition.
+ *
+ * Le fondu se fait donc au pixel : le défilement entier est masqué par un
+ * dégradé vertical, transparent aux deux bords et opaque au milieu. Un
+ * élément qui monte s'efface progressivement, ligne par ligne, et disparaît
+ * exactement là où l'écran s'arrête — il n'y a plus de bord à couper, c'est
+ * le masque qui est le bord.
+ *
+ * En haut, de quoi couvrir l'heure. En bas, de quoi que rien ne vienne
+ * buter sous la capsule.
  */
 struct EdPlainEdges: ViewModifier {
+    /// Combien de points s'effacent à chaque bord. Un écran qui ne défile
+    /// pas — l'accueil tient tout entier dans la fenêtre — n'a rien à faire
+    /// sortir, et un fondu y mangerait le bas de la pile pour rien.
+    var top: CGFloat = 72
+    var bottom: CGFloat = 150
+
+    /// L'heure et l'indicateur, mesurés plutôt que supposés.
+    private static var inset: (top: CGFloat, bottom: CGFloat) {
+        let safe = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first?.windows.first(where: { $0.isKeyWindow })?.safeAreaInsets
+        return (safe?.top ?? 59, safe?.bottom ?? 34)
+    }
+
     func body(content: Content) -> some View {
+        /*
+         * Le défilement va jusqu'au verre, pas jusqu'à la zone sûre.
+         *
+         * Sans cela sa fenêtre s'arrête sous l'heure : le masque fond bien,
+         * mais quelques dizaines de points plus bas, et la bande au-dessus
+         * reste du fond nu — le « bloc blanc ». On lui rend donc les deux
+         * bords de l'écran, et on remet la place de l'heure et de
+         * l'indicateur comme encart de CONTENU : au repos rien n'est caché,
+         * et ce qui monte passe sous l'heure en s'effaçant.
+         */
+        hidingSystem(content)
+            .safeAreaPadding(.top, top > 0 ? Self.inset.top : 0)
+            .safeAreaPadding(.bottom, bottom > 0 ? Self.inset.bottom : 0)
+            .ignoresSafeArea(
+                .container,
+                edges: top > 0 && bottom > 0 ? .vertical : []
+            )
+            .mask {
+                GeometryReader { box in
+                    let height = max(box.size.height, 1)
+                    LinearGradient(
+                        stops: [
+                            .init(color: .black.opacity(top > 0 ? 0 : 1), location: 0),
+                            .init(color: .black, location: min(0.3, top / height)),
+                            .init(color: .black, location: 1 - min(0.4, bottom / height)),
+                            .init(color: .black.opacity(bottom > 0 ? 0 : 1), location: 1),
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                }
+                .ignoresSafeArea()
+            }
+    }
+
+    /// Celui du système ferait un second fondu, ailleurs.
+    @ViewBuilder
+    private func hidingSystem(_ content: Content) -> some View {
         if #available(iOS 26.0, *) {
             content.scrollEdgeEffectHidden(true, for: .all)
         } else {
@@ -777,7 +841,9 @@ struct EdPlainEdges: ViewModifier {
 }
 
 extension View {
-    func edPlainEdges() -> some View { modifier(EdPlainEdges()) }
+    func edPlainEdges(top: CGFloat = 72, bottom: CGFloat = 150) -> some View {
+        modifier(EdPlainEdges(top: top, bottom: bottom))
+    }
 }
 
 /*

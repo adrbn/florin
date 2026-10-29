@@ -155,7 +155,7 @@ struct EditorialHome: View {
          */
         .overlay(alignment: .topLeading) { stackLayer }
         .scrollIndicators(.hidden)
-        .edPlainEdges()
+        .edPlainEdges(top: 0, bottom: 0)
         // Le contenu tient parfois tout entier dans l'écran, et un `ScrollView`
         // qui ne rebondit pas n'offre pas de tirer-pour-rafraîchir : sans ça le
         // geste n'existe que les jours où l'on a beaucoup de comptes.
@@ -481,7 +481,10 @@ struct EditorialHome: View {
      * de goût. Les autres sont à un appui, sur la ligne qui suit la pile.
      */
     private static let step: CGFloat = 44
-    private static let shownAtMost = 5
+    /// Le pas serré. En dessous, le nom et le montant n'ont plus de ligne
+    /// lisible où tenir — c'est un plancher, pas une préférence.
+    private static let tightStep: CGFloat = 30
+    private static let shownAtMost = 8
     /// Ce qu'il faut à la carte menée pour écrire son nom, son montant, sa
     /// part et l'heure de la synchro. En dessous, autant ne pas la déplier.
     private static let minCard: CGFloat = 108
@@ -499,8 +502,9 @@ struct EditorialHome: View {
      * il n'est pas montré — et la pastille du titre y mène.
      */
     private func fitting(_ all: [Account], room: CGSize) -> [Account] {
-        guard room.height > 0 else { return Array(all.prefix(Self.shownAtMost)) }
-        let slices = Int(((room.height - Self.minCard) / Self.step).rounded(.down))
+        guard room.height > 0 else { return Array(all.prefix(3)) }
+        // Au pas serré, parce que c'est jusque-là que la pile sait se tasser.
+        let slices = Int(((room.height - Self.minCard) / Self.tightStep).rounded(.down))
         let count = max(1, min(Self.shownAtMost, slices + 1))
         return Array(all.prefix(count))
     }
@@ -527,7 +531,9 @@ struct EditorialHome: View {
          * ressort fait glisser chacune jusqu'au sien, personne ne clignote.
          */
         let shown = promoted(fitting(cards(data), room: room))
-        let height = cardHeight(room: room, stacked: shown.count)
+        let plan = layout(count: shown.count, room: room)
+        let height = plan.height
+        let step = plan.step
         if !shown.isEmpty {
             // La carte menée est la dernière : posée le plus bas, donc tout en
             // haut de l'ordre d'empilement. L'ordre du `ZStack` le dit déjà,
@@ -537,9 +543,9 @@ struct EditorialHome: View {
                     card(
                         account, data,
                         rank: index, lead: index == shown.count - 1,
-                        height: height
+                        height: height, band: step
                     )
-                    .offset(y: CGFloat(index) * Self.step)
+                    .offset(y: CGFloat(index) * step)
                     /*
                      * Celle qu'on met en avant passe devant.
                      *
@@ -553,7 +559,7 @@ struct EditorialHome: View {
                 }
             }
             .frame(
-                height: height + CGFloat(shown.count - 1) * Self.step,
+                height: height + CGFloat(shown.count - 1) * step,
                 alignment: .top
             )
             .animation(EdMotion.spring, value: shown.map(\.id))
@@ -572,18 +578,36 @@ struct EditorialHome: View {
         return next
     }
 
-    /// Au format d'une carte bancaire quand la place le permet, et sinon
-    /// exactement ce qui reste. `fitting` a déjà garanti que ce reste tient.
-    private func cardHeight(room: CGSize, stacked: Int) -> CGFloat {
+    /*
+     * La hauteur d'une carte et l'écart entre deux, décidés ensemble.
+     *
+     * La place totale est donnée : c'est celle que trois cartes occupent au
+     * pas de repos, et elle ne bouge pas quand on en ajoute. Ce sont les
+     * cartes qui se resserrent, jusqu'au pas plancher, et seulement ensuite
+     * la carte de devant qui rapetisse.
+     *
+     * Dans cet ordre, parce que resserrer ne coûte que du vide : le bandeau
+     * d'une carte repliée reste lisible tant qu'il a ses trente points,
+     * alors que rogner la carte de devant lui prend son chiffre.
+     */
+    private func layout(count: Int, room: CGSize) -> (height: CGFloat, step: CGFloat) {
         let ideal = (room.width > 0 ? room.width : 361) / 1.6
-        guard room.height > 0 else { return ideal }
-        return max(Self.minCard, min(ideal, room.height - CGFloat(stacked - 1) * Self.step))
+        guard room.height > 0 else { return (ideal, Self.step) }
+        guard count > 1 else {
+            return (max(Self.minCard, min(ideal, room.height)), Self.step)
+        }
+        let gaps = CGFloat(count - 1)
+        // Au repos d'abord : si tout tient à 44 pt, rien ne change.
+        let roomy = min(ideal, room.height - gaps * Self.step)
+        if roomy >= Self.minCard { return (roomy, Self.step) }
+        let height = max(Self.minCard, min(ideal, room.height - gaps * Self.tightStep))
+        return (height, max(Self.tightStep, (room.height - height) / gaps))
     }
 
     @ViewBuilder
     private func card(
         _ account: Account, _ data: Overview,
-        rank: Int, lead: Bool, height: CGFloat
+        rank: Int, lead: Bool, height: CGFloat, band: CGFloat
     ) -> some View {
         /*
          * Deux appuis, et aucun geste tenu.
@@ -594,7 +618,7 @@ struct EditorialHome: View {
          * balayage d'onglet. Le balayage de la vue redevient donc ce qu'il
          * est partout ailleurs.
          */
-        face(account, data, rank: rank, lead: lead, open: lead)
+        face(account, data, rank: rank, lead: lead, open: lead, band: band)
             .frame(height: height)
             .clipShape(RoundedRectangle(cornerRadius: Ed.smallCard, style: .continuous))
             .contentShape(RoundedRectangle(cornerRadius: Ed.smallCard, style: .continuous))
@@ -626,11 +650,23 @@ struct EditorialHome: View {
      * menée, ou sur celle qu'on soulève.
      */
     private func face(
-        _ account: Account, _ data: Overview, rank: Int, lead: Bool, open: Bool
+        _ account: Account, _ data: Overview,
+        rank: Int, lead: Bool, open: Bool, band: CGFloat
     ) -> some View {
-        // Blanc, puis inverse : deux cartes voisines ne se confondent jamais.
-        let inverse = !lead && rank % 2 == 1
-        let ink: Color = lead ? Florin.onAccent : (inverse ? Florin.bg : Florin.text)
+        /*
+         * Une couleur par compte, et elle ne bouge pas.
+         *
+         * Elle venait du rang : la carte de devant était l'accent, les
+         * autres alternaient. Donc elle changeait dès qu'on réordonnait la
+         * pile — la couleur disait la place, pas le compte, et un compte
+         * n'était jamais reconnaissable deux fois de suite.
+         *
+         * `seriesColor` hache l'identifiant : tiré au sort une fois pour
+         * toutes, stable tant que le compte existe, et le même ici que
+         * partout ailleurs où ce compte est tracé.
+         */
+        let tint = Florin.seriesColor(for: account.id)
+        let ink: Color = Florin.readable(on: tint)
         let total = max(abs(data.netWorth.gross), 1)
         let share = Int((abs(account.displayValue) / total * 100).rounded())
 
@@ -648,7 +684,7 @@ struct EditorialHome: View {
                 .monospacedDigit()
                 .hiddenWhenPrivate()
             }
-            .frame(height: Self.step - 18, alignment: .center)
+            .frame(height: max(14, band - 18), alignment: .center)
 
             VStack(alignment: .leading, spacing: 10) {
                 if lead {
@@ -685,12 +721,12 @@ struct EditorialHome: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: Ed.smallCard, style: .continuous)
-                .fill(lead ? Florin.accent : (inverse ? Florin.text : Florin.surface))
+                .fill(tint)
         )
         .overlay(
             RoundedRectangle(cornerRadius: Ed.smallCard, style: .continuous)
                 .strokeBorder(
-                    Florin.text.opacity(lead || inverse ? 0 : 0.10), lineWidth: 1
+                    ink.opacity(0.14), lineWidth: 1
                 )
         )
         .shadow(color: .black.opacity(open && !lead ? 0.18 : 0), radius: 18, y: 10)

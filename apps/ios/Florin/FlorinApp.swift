@@ -661,9 +661,12 @@ struct MainTabs: View {
 
             // Content dissolves into the bottom of the screen rather than
             // running on under the bar and out through the home indicator.
-            BottomScrim()
-                .opacity(chrome.sheetOpen ? 0 : 1)
-                .animation(.easeOut(duration: 0.2), value: chrome.sheetOpen)
+            // En éditorial le masque de `EdPlainEdges` efface déjà le bas.
+            if !editorial {
+                BottomScrim()
+                    .opacity(chrome.sheetOpen ? 0 : 1)
+                    .animation(.easeOut(duration: 0.2), value: chrome.sheetOpen)
+            }
 
             if editorial {
                 // Pas de voile sous la capsule : la direction éditoriale

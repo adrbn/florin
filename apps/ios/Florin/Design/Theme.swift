@@ -97,6 +97,25 @@ enum Florin {
         return series[Int(hash % UInt32(series.count))]
     }
 
+    /// Noir ou blanc, selon ce qui se lit sur cette teinte.
+    ///
+    /// Les teintes de `series` vont du jaune clair au bleu sombre : une encre
+    /// fixe en perd la moitié. La luminance relative est résolue dans
+    /// l'apparence où la couleur est dessinée, parce qu'une teinte dynamique
+    /// n'a pas la même clarté en clair et en sombre.
+    static func readable(on background: Color) -> Color {
+        Color(UIColor { traits in
+            var (red, green, blue, alpha): (CGFloat, CGFloat, CGFloat, CGFloat) = (0, 0, 0, 0)
+            UIColor(background).resolvedColor(with: traits)
+                .getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+            func linear(_ channel: CGFloat) -> CGFloat {
+                channel <= 0.03928 ? channel / 12.92 : pow((channel + 0.055) / 1.055, 2.4)
+            }
+            let luminance = 0.2126 * linear(red) + 0.7152 * linear(green) + 0.0722 * linear(blue)
+            return luminance > 0.42 ? UIColor(white: 0.04, alpha: 1) : .white
+        })
+    }
+
     /*
      * Two colours mixed, each resolved for the appearance it is drawn in.
      *

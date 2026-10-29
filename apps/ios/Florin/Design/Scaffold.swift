@@ -290,8 +290,16 @@ struct SoftScrollEdge: ViewModifier {
     @State private var scrolled: CGFloat = 0
 
     func body(content: Content) -> some View {
-        tracked(system(content))
-            .overlay(alignment: .top) { TopScrim(scrolled: scrolled) }
+        if FlorinPalette.selected == .editorial {
+            // Un voile flouté est exactement ce que cette direction n'a pas,
+            // et il éteint un bloc entier à un endroit fixe. Le même masque
+            // dégradé que les écrans éditoriaux, pour que le bord se lise
+            // pareil d'un onglet à l'autre.
+            content.modifier(EdPlainEdges())
+        } else {
+            tracked(system(content))
+                .overlay(alignment: .top) { TopScrim(scrolled: scrolled) }
+        }
     }
 
     /*
