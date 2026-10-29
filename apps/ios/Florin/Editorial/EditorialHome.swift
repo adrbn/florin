@@ -74,7 +74,7 @@ struct EditorialHome: View {
                 .navigationDestination(item: $drill) { target in
                     AccountDetailScreen(model: model, route: target)
                         .toolbar(.hidden, for: .navigationBar)
-                        .edSwipeBack()
+                        .edSwipeBack { drill = nil }
                 }
         }
     }
@@ -516,7 +516,17 @@ struct EditorialHome: View {
 
     @ViewBuilder
     private func stack(_ data: Overview, room: CGSize) -> some View {
-        let shown = fitting(cards(data), room: room)
+        /*
+         * La carte qu'on choisit vient au premier plan — à la place.
+         *
+         * Passer simplement devant ne voulait rien dire : elle recouvrait
+         * ses voisines sans que la pile en tienne compte, et on ne savait
+         * plus où elle était. Elle prend donc le créneau du bas, celui de la
+         * carte ouverte, et les autres se resserrent derrière. Les créneaux
+         * sont des décalages et l'identité des cartes ne change pas : le
+         * ressort fait glisser chacune jusqu'au sien, personne ne clignote.
+         */
+        let shown = promoted(fitting(cards(data), room: room))
         let height = cardHeight(room: room, stacked: shown.count)
         if !shown.isEmpty {
             // La carte menée est la dernière : posée le plus bas, donc tout en
@@ -539,7 +549,7 @@ struct EditorialHome: View {
                      * elle se lit en entier — et redescend dès qu'on en
                      * touche une autre.
                      */
-                    .zIndex(raised == account.id ? 1000 : Double(index))
+                    .zIndex(Double(index))
                 }
             }
             .frame(
@@ -547,10 +557,19 @@ struct EditorialHome: View {
                 alignment: .top
             )
             .animation(EdMotion.spring, value: shown.map(\.id))
-            // Toucher à côté de la pile repose la carte levée.
-            .contentShape(Rectangle())
-            .onTapGesture { raised = nil }
         }
+    }
+
+    /// La carte choisie en dernier, c'est-à-dire devant.
+    ///
+    /// Le bas de la pile est le premier plan : c'est le créneau de la carte
+    /// ouverte, la seule qui montre autre chose qu'un bandeau.
+    private func promoted(_ shown: [Account]) -> [Account] {
+        guard let raised, let from = shown.firstIndex(where: { $0.id == raised })
+        else { return shown }
+        var next = shown
+        next.append(next.remove(at: from))
+        return next
     }
 
     /// Au format d'une carte bancaire quand la place le permet, et sinon
@@ -575,27 +594,28 @@ struct EditorialHome: View {
          * balayage d'onglet. Le balayage de la vue redevient donc ce qu'il
          * est partout ailleurs.
          */
-        let up = raised == account.id
-        face(account, data, rank: rank, lead: lead, open: up || lead)
+        face(account, data, rank: rank, lead: lead, open: lead)
             .frame(height: height)
             .clipShape(RoundedRectangle(cornerRadius: Ed.smallCard, style: .continuous))
             .contentShape(RoundedRectangle(cornerRadius: Ed.smallCard, style: .continuous))
             .onTapGesture {
-                guard up || lead else {
-                    raised = account.id
+                // Devant, on ouvre. Derrière, on vient devant.
+                guard lead else {
                     UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                    withAnimation(EdMotion.spring) { raised = account.id }
                     return
                 }
                 UISelectionFeedbackGenerator().selectionChanged()
                 drill = ActivityRoute(accountId: account.id, title: account.name)
             }
-            .offset(y: up ? -10 : 0)
-            .scaleEffect(up ? 1.02 : 1)
+            // Celle qui vient d'arriver devant porte une ombre le temps du
+            // trajet : c'est ce qui dit qu'elle passe par-dessus les autres
+            // plutôt que de se glisser entre elles.
             .shadow(
-                color: .black.opacity(up ? 0.3 : 0),
-                radius: up ? 16 : 0, y: up ? 8 : 0
+                color: .black.opacity(lead && raised == account.id ? 0.32 : 0),
+                radius: lead && raised == account.id ? 20 : 0,
+                y: lead && raised == account.id ? 12 : 0
             )
-            .animation(EdMotion.spring, value: up)
     }
 
     /*

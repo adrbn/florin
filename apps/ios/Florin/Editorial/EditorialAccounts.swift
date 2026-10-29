@@ -59,7 +59,7 @@ struct EditorialAccounts: View {
                 .navigationDestination(item: $drill) { target in
                     AccountDetailScreen(model: model, route: target)
                         .toolbar(.hidden, for: .navigationBar)
-                        .edSwipeBack()
+                        .edSwipeBack { drill = nil }
                 }
         }
     }
@@ -68,6 +68,7 @@ struct EditorialAccounts: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 header
+                .edEnter()
                 .id(edTopAnchor)
                 if let data = model.overview {
                     figure(data).edEnter()

@@ -100,6 +100,7 @@ struct EditorialActivity: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 header
+                .edEnter()
                 .id(edTopAnchor)
                 if searching { searchField }
                 EdPill(

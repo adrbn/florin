@@ -65,6 +65,7 @@ struct EditorialPlan: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 header
+                .edEnter()
                 .id(edTopAnchor)
                 if let plan = model.plan {
                     EdPill(text: "\(t("v2.plan.title", "Plan")) · \(plan.year)")

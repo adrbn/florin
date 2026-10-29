@@ -750,16 +750,29 @@ extension View {
  * Il a d'abord été posé seulement en haut, puis retiré tout court. Les deux
  * étaient des erreurs : il le faut aux deux bords, et doux.
  */
-/// Le même bord haut que partout ailleurs.
-///
-/// Éditorial avait l'effet du système, les écrans classiques avaient le
-/// nôtre : deux fondus différents selon l'onglet, et celui du système ne
-/// commence pas au bord de l'écran mais sous la zone sûre. Un seul fondu,
-/// le nôtre, qui part du bord. Le bas est déjà tenu par `BottomScrim`,
-/// posé une fois pour toute l'app.
+/*
+ * Rien par-dessus le bord. Ce sont les éléments qui s'en vont.
+ *
+ * Trois voiles ont été essayés au haut de l'écran, et les trois étaient de
+ * trop : l'effet de bord d'iOS 26, hérité du SDK 27, qui commence sous la
+ * zone sûre — d'où un bloc opaque à mi-hauteur ; un matériau flouté, qui
+ * *éclaircit* ce qu'il couvre et virait au gris sur le noir pur ; un
+ * dégradé du fond de la page, qui éteint un titre encore en plein milieu
+ * de l'écran.
+ *
+ * Le fondu de cette direction n'a jamais été un voile. C'est `edEnter` :
+ * chaque élément lit sa propre position dans le défilement et s'efface en
+ * montant de douze points. Rien n'est posé par-dessus, donc le fondu
+ * commence exactement au bord — là où l'élément sort, pas là où un
+ * rectangle a été dessiné. Il ne reste qu'à faire taire celui du système.
+ */
 struct EdPlainEdges: ViewModifier {
     func body(content: Content) -> some View {
-        content.modifier(SoftScrollEdge())
+        if #available(iOS 26.0, *) {
+            content.scrollEdgeEffectHidden(true, for: .all)
+        } else {
+            content
+        }
     }
 }
 
@@ -822,7 +835,27 @@ private struct EdSwipeBack: UIViewRepresentable {
 
 extension View {
     /// Le chevron est dessiné à la main, le geste doit l'être aussi.
-    func edSwipeBack() -> some View {
+    ///
+    /// Deux gestes, pas un. Celui d'UIKit, rendu ci-dessus, part du bord
+    /// gauche et suit le doigt — c'est le retour qu'on connaît. Mais dans
+    /// cette app le balayage horizontal veut dire « onglet suivant »
+    /// n'importe où sur l'écran, et tant qu'un relevé est posé par-dessus,
+    /// l'onglet ne bouge pas : le balayage tombait dans le vide. Il dépile
+    /// maintenant, dans un sens comme dans l'autre.
+    ///
+    /// Le seuil est double — soixante-dix points, et deux fois plus
+    /// horizontal que vertical — pour qu'un défilement un peu de travers ne
+    /// referme pas l'écran qu'on est en train de lire.
+    func edSwipeBack(_ pop: @escaping () -> Void) -> some View {
         background(EdSwipeBack().frame(width: 0, height: 0))
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 30, coordinateSpace: .global)
+                    .onEnded { value in
+                        let side = abs(value.translation.width)
+                        guard side > 70, side > abs(value.translation.height) * 2
+                        else { return }
+                        pop()
+                    }
+            )
     }
 }
