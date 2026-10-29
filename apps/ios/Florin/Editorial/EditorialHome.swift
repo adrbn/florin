@@ -344,30 +344,70 @@ struct EditorialHome: View {
     }
 
     /*
-     * La pile, entière.
+     * La pile, dans un tiroir.
      *
-     * Chaque carte remonte de 12 pt sur la précédente : assez pour qu'on voie
-     * une pile, assez peu pour qu'aucune carte ne soit amputée de sa ligne.
-     * Le `zIndex` compte à l'endroit — la carte tenue passe au-dessus de
-     * toutes les autres, sinon on la voit glisser SOUS la pile qu'elle
-     * traverse.
+     * Toutes les cartes à plat, c'était six boîtes trapues empilées sur une
+     * page qui n'en tient pas six — la dernière passait sous la barre et le
+     * chevauchement, étalé, ne ressemblait plus à une pile mais à une liste
+     * mal cadrée.
      *
-     * Tenue une seconde, une carte se détache et suit le doigt ; l'ordre
-     * s'écrit dans `display_order` au lâcher, donc il tient d'un lancement à
-     * l'autre et vaut aussi pour l'écran Comptes.
+     * Le tiroir rend la forme d'origine : des cartes qui se recouvrent, dont
+     * on ne voit que la tranche, et celle du bas ouverte. Ce qui ne tient pas
+     * dans sa hauteur n'est pas supprimé, il défile — le tiroir s'ouvre sur
+     * le bas, donc la carte ouverte est là d'emblée et les autres remontent
+     * en se fondant dans le haut.
+     *
+     * Le `zIndex` compte à l'endroit, sauf la carte tenue qui passe au-dessus
+     * de toutes : sinon on la voit glisser SOUS la pile qu'elle traverse.
      */
     @ViewBuilder
     private func stack(_ data: Overview) -> some View {
         let shown = cards(data)
         if !shown.isEmpty {
-            VStack(spacing: -12) {
-                ForEach(Array(shown.enumerated()), id: \.element.id) { index, account in
-                    card(account, data, rank: index, last: index == shown.count - 1)
-                        .zIndex(dragging == account.id ? 1000 : Double(index))
+            ScrollView {
+                VStack(spacing: -Self.overlap) {
+                    ForEach(Array(shown.enumerated()), id: \.element.id) { index, account in
+                        card(account, data, rank: index, last: index == shown.count - 1)
+                            .zIndex(dragging == account.id ? 1000 : Double(index))
+                    }
                 }
+                .animation(EdMotion.spring, value: shown.map(\.id))
             }
-            .animation(EdMotion.spring, value: shown.map(\.id))
+            .scrollIndicators(.hidden)
+            .scrollDisabled(dragging != nil)
+            // Ouvert sur le bas : la carte dépliée est ce qu'on vient voir.
+            .defaultScrollAnchor(.bottom)
+            .frame(height: drawerHeight(shown.count))
+            /*
+             * Un fondu, pas une coupe.
+             *
+             * Le haut du tiroir tranche au milieu d'une carte — un bord net y
+             * ressemble à un défaut d'affichage. Le dégradé dit « ça continue
+             * au-dessus », ce qui est précisément l'information.
+             */
+            .mask(
+                LinearGradient(
+                    stops: [
+                        .init(color: .clear, location: 0),
+                        .init(color: .black, location: 0.16),
+                        .init(color: .black, location: 1),
+                    ],
+                    startPoint: .top, endPoint: .bottom
+                )
+            )
         }
+    }
+
+    /// Le chevauchement, et le pas du glissement : les deux sont le même
+    /// nombre, et les séparer fait sauter la carte d'un cran de trop.
+    private static let overlap: CGFloat = 18
+    private static let foldedHeight: CGFloat = 70
+
+    /// Trois cartes au plus dans le tiroir — au-delà, la page a mieux à faire
+    /// de sa hauteur, et le reste est à un doigt de défilement.
+    private func drawerHeight(_ count: Int) -> CGFloat {
+        let folds = CGFloat(min(count, 3) - 1)
+        return folds * (Self.foldedHeight - Self.overlap) + 126
     }
 
     @ViewBuilder
@@ -383,13 +423,13 @@ struct EditorialHome: View {
             }
         }
         .buttonStyle(.edPress)
-        .scaleEffect(held ? 1.04 : 1)
-        .shadow(color: .black.opacity(held ? 0.22 : 0), radius: held ? 18 : 0, y: held ? 8 : 0)
+        .scaleEffect(held ? 1.03 : 1)
         .animation(EdMotion.spring, value: held)
         .modifier(
             EdReorder(
                 enabled: local,
                 id: account.id,
+                step: Self.foldedHeight - Self.overlap,
                 dragging: $dragging,
                 order: Binding(
                     get: { cards(data).map(\.id) },
@@ -407,8 +447,8 @@ struct EditorialHome: View {
 
     /// Une carte repliée : le nom et le solde, le reste sous la suivante.
     private func folded(_ account: Account, _ data: Overview, rank: Int) -> some View {
-        // Blanc, puis inverse, puis gris : la maquette fait tourner trois
-        // remplissages pour que deux cartes voisines ne se confondent jamais.
+        // Blanc, puis inverse : la maquette fait alterner les remplissages
+        // pour que deux cartes voisines ne se confondent jamais.
         let inverse = rank % 2 == 1
         return HStack {
             Text(account.name)
@@ -425,16 +465,23 @@ struct EditorialHome: View {
         }
         .foregroundStyle(inverse ? Florin.bg : Florin.text)
         .padding(.horizontal, 18)
-        .padding(.top, 14)
-        .padding(.bottom, 26)
-        .frame(maxWidth: .infinity, alignment: .top)
+        .padding(.top, 15)
+        .frame(maxWidth: .infinity, minHeight: Self.foldedHeight, alignment: .top)
         .background(
-            RoundedRectangle(cornerRadius: Ed.smallCard, style: .continuous)
-                .fill(inverse ? Florin.text : Florin.surface)
+            UnevenRoundedRectangle(
+                topLeadingRadius: Ed.smallCard, bottomLeadingRadius: 0,
+                bottomTrailingRadius: 0, topTrailingRadius: Ed.smallCard,
+                style: .continuous
+            )
+            .fill(inverse ? Florin.text : Florin.surface)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: Ed.smallCard, style: .continuous)
-                .strokeBorder(Florin.text.opacity(inverse ? 0 : 0.10), lineWidth: 1)
+            UnevenRoundedRectangle(
+                topLeadingRadius: Ed.smallCard, bottomLeadingRadius: 0,
+                bottomTrailingRadius: 0, topTrailingRadius: Ed.smallCard,
+                style: .continuous
+            )
+            .strokeBorder(Florin.text.opacity(inverse ? 0 : 0.10), lineWidth: 1)
         )
     }
 
@@ -490,7 +537,16 @@ struct EditorialHome: View {
         let relative = RelativeDateTimeFormatter()
         relative.locale = Locale(identifier: data.localeTag)
         relative.unitsStyle = .short
-        return relative.localizedString(for: synced, relativeTo: Date())
+        /*
+         * Jamais « dans 0 s ».
+         *
+         * L'horodatage vient du serveur ; à la seconde où la synchro finit il
+         * peut tomber une fraction DANS L'AVENIR, et le formateur, lui, dit
+         * alors « dans 0 s ». On le recule d'une minute : le pire affichage
+         * devient « il y a 1 min », qui est vrai à la minute près.
+         */
+        let moment = min(synced, Date().addingTimeInterval(-60))
+        return relative.localizedString(for: moment, relativeTo: Date())
     }
 }
 
@@ -511,12 +567,11 @@ struct EditorialHome: View {
 private struct EdReorder: ViewModifier {
     let enabled: Bool
     let id: String
+    /// Le pas de la pile : la hauteur d'une carte repliée moins son
+    /// chevauchement. Il vient de l'appelant, qui pose les deux.
+    let step: CGFloat
     @Binding var dragging: String?
     @Binding var order: [String]
-
-    /// Le pas de la pile : la hauteur d'une carte repliée moins son
-    /// chevauchement. Changer l'un sans l'autre fait sauter d'un cran de trop.
-    private let step: CGFloat = 64
 
     @State private var shift: CGSize = .zero
 
