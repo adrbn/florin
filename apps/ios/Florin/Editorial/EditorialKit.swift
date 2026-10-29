@@ -251,6 +251,9 @@ private func edSymbol(_ tab: TabRoute) -> String {
     case .accounts: return "rectangle.stack"
     case .plan: return "clock"
     case .activity: return "list.bullet"
+    // Sans ce cas, Analyse tombait sur le `default` et portait la maison de
+    // l'accueil : deux onglets, la même icône.
+    case .analysis: return "chart.xyaxis.line"
     default: return "house"
     }
 }
@@ -701,4 +704,34 @@ extension View {
     func edRewind(_ tab: TabRoute, chrome: ChromeState) -> some View {
         modifier(EdRewind(tab: tab, chrome: chrome))
     }
+}
+
+
+/*
+ * Le fondu des bords, doux — en haut comme en bas.
+ *
+ * iOS 26 pose un « effet de bord » sur les défilements. En `.hard` c'est un
+ * aplat net : un bloc de la couleur du fond derrière lequel le contenu
+ * disparaît d'un coup. En `.soft`, c'est un fondu progressif — exactement ce
+ * qu'on veut ici, et ce qui donne, avec le décalage de `edEnter()`, la
+ * sensation que les lignes sortent de la vue au lieu d'être coupées.
+ *
+ * Il a d'abord été posé seulement en haut, puis retiré tout court. Les deux
+ * étaient des erreurs : il le faut aux deux bords, et doux.
+ */
+/// Le même bord haut que partout ailleurs.
+///
+/// Éditorial avait l'effet du système, les écrans classiques avaient le
+/// nôtre : deux fondus différents selon l'onglet, et celui du système ne
+/// commence pas au bord de l'écran mais sous la zone sûre. Un seul fondu,
+/// le nôtre, qui part du bord. Le bas est déjà tenu par `BottomScrim`,
+/// posé une fois pour toute l'app.
+struct EdPlainEdges: ViewModifier {
+    func body(content: Content) -> some View {
+        content.modifier(SoftScrollEdge())
+    }
+}
+
+extension View {
+    func edPlainEdges() -> some View { modifier(EdPlainEdges()) }
 }

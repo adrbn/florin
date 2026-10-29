@@ -108,10 +108,13 @@ struct EditorialActivity: View {
                 )
                 .padding(.top, 18)
 
-                waiting
+                waiting.edEnter()
 
                 if let first = days.first {
-                    hero(first)
+                    // Le haut de la liste sort de la vue comme le reste : il
+                    // n'avait pas le décalage, donc il se coupait net là où
+                    // les lignes se fondent.
+                    hero(first).edEnter()
                 }
 
                 ForEach(Array(days.enumerated()), id: \.element.day) { index, section in
@@ -132,6 +135,7 @@ struct EditorialActivity: View {
         }
         .edRewind(.activity, chrome: chrome)
         .scrollIndicators(.hidden)
+        .edPlainEdges()
         .background(Florin.bg)
         .refreshable { await model.reload() }
         .task {

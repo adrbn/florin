@@ -294,10 +294,22 @@ struct SoftScrollEdge: ViewModifier {
             .overlay(alignment: .top) { TopScrim(scrolled: scrolled) }
     }
 
+    /*
+     * L'effet d'iOS 26 est coupé, pas repris.
+     *
+     * Compilée avec le SDK 27, l'app héritait de l'effet de bord du système
+     * en plus du nôtre : deux fondus l'un sur l'autre, et pas au même
+     * endroit. Le nôtre part du bord haut de l'écran ; celui du système
+     * commence SOUS la zone sûre — d'où le flou du haut suivi d'un bloc
+     * blanc une soixantaine de points plus bas.
+     *
+     * Un seul des deux peut commencer au bord. C'est le nôtre : `TopScrim`
+     * déborde dans la zone sûre, le système ne le fait pas.
+     */
     private func system(_ content: Content) -> some View {
         Group {
             if #available(iOS 26.0, *) {
-                content.scrollEdgeEffectStyle(.soft, for: .top)
+                content.scrollEdgeEffectHidden(true, for: .all)
             } else {
                 content
             }

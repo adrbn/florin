@@ -2,6 +2,14 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- 120 Hz, pas 60.
+
+	     Sans cette clé, iOS plafonne l'app à 60 images par seconde sur un
+	     écran ProMotion : les animations sautent une image sur deux et un
+	     balayage d'onglet traîne. Elle ne fait qu'autoriser le système à
+	     monter plus haut quand il le juge utile ; il redescend tout seul. -->
+	<key>CADisableMinimumFrameDuration</key>
+	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>fr</string>
 	<key>CFBundleDisplayName</key>

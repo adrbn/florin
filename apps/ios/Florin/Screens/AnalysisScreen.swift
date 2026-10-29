@@ -1441,32 +1441,50 @@ struct RankBar: View {
     let locale: String
     let currency: String
 
+    /*
+     * Éditorial lit la même ligne autrement.
+     *
+     * Même rangée, mêmes chiffres — mais la hiérarchie vient de la taille et
+     * de la graisse, pas d'un émoji et d'une couleur par catégorie. Douze
+     * teintes empilées ne disent rien : aucune ne veut dire quelque chose,
+     * et le regard les prend pour un classement. La barre reste, dans
+     * l'encre de la page : c'est la longueur qui porte l'information.
+     */
+    private var editorial: Bool { FlorinPalette.selected == .editorial }
+
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: editorial ? 9 : 6) {
             HStack(spacing: 8) {
-                if let emoji, !emoji.isEmpty { Text(emoji).font(.system(size: 13)) }
+                if !editorial, let emoji, !emoji.isEmpty {
+                    Text(emoji).font(.system(size: 13))
+                }
                 Text(label)
-                    .font(.system(size: 13.5))
+                    .font(.system(size: editorial ? 17 : 13.5, weight: editorial ? .semibold : .regular))
                     .foregroundStyle(Florin.text)
                     .lineLimit(1)
                 Spacer(minLength: 8)
                 if share > 0 {
                     Text("\(Int((share * 100).rounded()))%")
-                        .font(.system(size: 11))
+                        .font(.system(size: editorial ? 14 : 11))
                         .monospacedDigit()
                         .foregroundStyle(Florin.text3)
                 }
-                AmountText(value: value, locale: locale, currency: currency, decimals: false, size: 13)
-                    .frame(minWidth: 62, alignment: .trailing)
+                AmountText(
+                    value: value, locale: locale, currency: currency,
+                    decimals: false, size: editorial ? 17 : 13
+                )
+                .frame(minWidth: editorial ? 74 : 62, alignment: .trailing)
             }
             GeometryReader { geo in
                 let width = peak > 0 ? max(3, geo.size.width * value / peak) : 3
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Florin.text.opacity(0.06))
-                    Capsule().fill(Florin.seriesColor(for: label)).frame(width: width)
+                    Capsule().fill(Florin.text.opacity(editorial ? 0.10 : 0.06))
+                    Capsule()
+                        .fill(editorial ? Florin.text : Florin.seriesColor(for: label))
+                        .frame(width: width)
                 }
             }
-            .frame(height: 6)
+            .frame(height: editorial ? 3 : 6)
         }
     }
 }

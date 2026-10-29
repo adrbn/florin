@@ -111,6 +111,7 @@ struct EditorialPlan: View {
         }
         .edRewind(.plan, chrome: chrome)
         .scrollIndicators(.hidden)
+        .edPlainEdges()
         .background(Florin.bg)
         .refreshable { await model.load() }
         .task { if model.plan == nil { await model.load() } }

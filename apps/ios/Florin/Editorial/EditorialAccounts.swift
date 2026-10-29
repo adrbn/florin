@@ -80,6 +80,7 @@ struct EditorialAccounts: View {
         }
         .edRewind(.accounts, chrome: chrome)
         .scrollIndicators(.hidden)
+        .edPlainEdges()
         .background(Florin.bg)
         .refreshable { await model.load() }
         .task { await model.onForeground() }

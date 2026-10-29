@@ -75,7 +75,18 @@ struct TransactionDetailSheet: View {
         height += 22                                   // entre le résumé et les actions
         height += CGFloat(actionCount) * 50 + CGFloat(actionCount - 1) * 10
         height += 20 + 16                              // marge basse et poignée
-        return min(height, 720)
+        /*
+         * Éditorial écrit plus grand, donc plus haut.
+         *
+         * Cette addition a été réglée sur la typographie d'Obsidienne. Le
+         * même contenu en éditorial — montant plus gros, actions plus hautes
+         * — dépasse d'une soixantaine de points, et la dernière action, la
+         * rouge, se faisait couper par le bas de la feuille.
+         */
+        if FlorinPalette.selected == .editorial {
+            height += 30 + CGFloat(actionCount) * 9
+        }
+        return min(height, 760)
     }
 
     /// Compte, catégorie, « à vérifier », « virement » — la rangée passe à deux

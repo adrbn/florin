@@ -545,7 +545,27 @@ struct MainTabs: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            TabView(selection: $selection) {
+            /*
+             * Un balayage dépile avant de changer d'onglet.
+             *
+             * Deux fausses pistes avant celle-ci. `scrollDisabled` ne touche
+             * pas le balayage d'un `TabView` en style page. Et lui retirer le
+             * style quand un relevé s'ouvre marchait — mais changer un
+             * `tabViewStyle` à chaud reconstruit le `TabView` entier, donc
+             * les cinq pages : c'était l'à-coup qu'on sentait au balayage.
+             *
+             * Le style ne bouge plus. C'est la sélection qui refuse de
+             * changer tant qu'un relevé est posé par-dessus : le balayage
+             * part, ne trouve pas d'onglet où aller, et rend la main au
+             * retour arrière de la pile.
+             */
+            TabView(selection: Binding(
+                get: { selection },
+                set: { next in
+                    guard !chrome.detailOpen else { return }
+                    selection = next
+                }
+            )) {
                 Group {
                     if editorial {
                         EditorialHome(
@@ -638,24 +658,30 @@ struct MainTabs: View {
              * `tabViewStyle` ne se change pas à chaud.
              */
             .modifier(EdPaging(enabled: editorial))
-            // Un balayage dépile avant de changer d'onglet : voir
-            // `ChromeState.detailOpen`.
-            .scrollDisabled(chrome.detailOpen)
 
             // Content dissolves into the bottom of the screen rather than
             // running on under the bar and out through the home indicator.
-            if !editorial {
-                BottomScrim()
-                    .opacity(chrome.sheetOpen ? 0 : 1)
-                    .animation(.easeOut(duration: 0.2), value: chrome.sheetOpen)
-            }
+            BottomScrim()
+                .opacity(chrome.sheetOpen ? 0 : 1)
+                .animation(.easeOut(duration: 0.2), value: chrome.sheetOpen)
 
             if editorial {
                 // Pas de voile sous la capsule : la direction éditoriale
                 // n'admet aucun dégradé, et le contenu se réserve lui-même
                 // les 120 pt du bas.
+                /*
+                 * Les arrondis de la capsule suivent ceux de l'écran.
+                 *
+                 * Six items de 46 font une capsule de 292 points de large,
+                 * donc une cinquantaine de marge de chaque côté ; elle était
+                 * à 62 du bas (34 de zone sûre plus 28). Les deux écarts
+                 * n'étaient pas les mêmes, et un coin de 30 de rayon posé
+                 * dans un coin d'écran de 55 ne peut les épouser que si
+                 * l'écart est égal sur les deux axes. Seize points au lieu de
+                 * vingt-huit mettent le bas à cinquante, comme les côtés.
+                 */
                 EdTabBar(selection: $selection, t: t, onAdd: { adding = true })
-                    .padding(.bottom, 28)
+                    .padding(.bottom, 16)
                     .opacity(chrome.sheetOpen ? 0 : 1)
                     .animation(.easeOut(duration: 0.2), value: chrome.sheetOpen)
             } else {
