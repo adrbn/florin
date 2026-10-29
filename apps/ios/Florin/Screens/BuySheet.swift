@@ -22,6 +22,9 @@ struct BuySheet: View {
     /// nil until loaded; "" means a new line, whose name is typed below.
     @State private var holdingId: String?
     @State private var newLabel = ""
+    /// Le symbole de cotation choisi pour une ligne qu'on ouvre.
+    @State private var newSymbol = ""
+    @State private var picking = false
     @State private var quantityText = ""
     @State private var priceText = ""
     @State private var totalText = ""
@@ -151,6 +154,68 @@ struct BuySheet: View {
                     .padding(.vertical, 13)
                     .padding(.horizontal, 16)
                     .florinGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                quote
+            }
+        }
+    }
+
+    /*
+     * Le symbole, demandé au moment où la ligne naît.
+     *
+     * `LocalHoldings.record` insérait la ligne sans `quote_symbol`, donc
+     * `LocalPricing` ne la voyait pas, donc son cours ne bougeait plus jamais :
+     * elle gardait le prix de son premier achat avec l'aplomb d'un chiffre à
+     * jour. La feuille de modification savait déjà associer un titre — mais
+     * c'est ici que la ligne se crée, et personne ne retourne la modifier pour
+     * réparer un défaut qui ne se voit pas.
+     *
+     * Facultatif : un titre que le fournisseur ne cote pas s'enregistre quand
+     * même, à la main, et la ligne le dit plutôt que de le laisser croire.
+     */
+    private var quote: some View {
+        Button { picking = true } label: {
+            HStack(spacing: 10) {
+                Image(systemName: newSymbol.isEmpty ? "magnifyingglass" : "chart.line.uptrend.xyaxis")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(newSymbol.isEmpty ? Florin.text3 : Florin.accent)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(newSymbol.isEmpty ? t("v2.asset.search", "Chercher un titre") : newSymbol)
+                        .font(.system(
+                            size: 15, weight: .medium,
+                            design: newSymbol.isEmpty ? .default : .monospaced
+                        ))
+                        .foregroundStyle(Florin.text)
+                    Text(
+                        newSymbol.isEmpty
+                            ? t("v2.holding.noQuoteHint", "Le cours ne se mettra pas à jour")
+                            : t("v2.holding.quoteHint", "Cours suivi automatiquement")
+                    )
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(Florin.text3)
+                }
+                Spacer(minLength: 6)
+                Text(
+                    newSymbol.isEmpty
+                        ? t("v2.asset.link", "Associer")
+                        : t("v2.common.edit", "Modifier")
+                )
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Florin.accent)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(Florin.surface2, in: RoundedRectangle(cornerRadius: 12))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .sheet(isPresented: $picking) {
+            AssetSearchSheet(t: t) { match in
+                newSymbol = match.symbol
+                // Le nom du fournisseur est plus complet que « CW8 » tapé à la
+                // main, mais un libellé déjà saisi est un choix, pas un manque.
+                if newLabel.trimmingCharacters(in: .whitespaces).isEmpty {
+                    newLabel = match.name
+                }
             }
         }
     }
@@ -370,7 +435,8 @@ struct BuySheet: View {
                     label: label,
                     quantity: quantity,
                     unitPrice: price,
-                    total: total
+                    total: total,
+                    symbol: holdingId == nil ? newSymbol : nil
                 )
             )
             Task { await onSaved(); dismiss() }

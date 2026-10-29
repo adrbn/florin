@@ -529,7 +529,7 @@ struct SettingsScreen: View {
                     .foregroundStyle(Florin.text)
                 Spacer(minLength: 0)
             }
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 ForEach(FlorinPalette.allCases) { choice in
                     themeSwatch(choice)
                 }

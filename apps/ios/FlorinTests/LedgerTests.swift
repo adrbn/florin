@@ -5902,6 +5902,50 @@ struct HoldingUndoTests {
             "plus de titres, plus de valeur de marché"
         )
     }
+
+    /*
+     * Une ligne ouverte sans symbole ne se recote jamais.
+     *
+     * `LocalPricing` ne va chercher que les lignes dont `quote_symbol` est
+     * rempli. L'insertion n'écrivait pas la colonne : une ligne créée depuis la
+     * feuille d'achat gardait le prix de son premier achat indéfiniment, et
+     * rien à l'écran ne le disait.
+     */
+    @Test("le symbole choisi à l'achat ouvre une ligne qui se recote")
+    func buyingCarriesTheQuoteSymbol() throws {
+        let (store, account) = try broker()
+        try LocalHoldings.record(
+            store: store, accountId: account,
+            purchase: .init(
+                holdingId: nil, label: "Tracker Monde", quantity: 10,
+                unitPrice: 20, total: 200, symbol: "ZZZ.PA"
+            )
+        )
+        #expect(
+            try store.database.scalar(
+                "SELECT quote_symbol FROM holdings WHERE account_id = ?", [.text(account)]
+            )?.string == "ZZZ.PA"
+        )
+
+        // Et sans symbole la colonne reste vide plutôt que de porter une chaîne
+        // que le fournisseur irait interroger pour rien.
+        try LocalHoldings.record(
+            store: store, accountId: account,
+            purchase: .init(
+                holdingId: nil, label: "Titre non coté", quantity: 1,
+                unitPrice: 10, total: 10, symbol: ""
+            )
+        )
+        #expect(
+            try store.database.scalar(
+                """
+                SELECT count(*) FROM holdings
+                WHERE account_id = ? AND quote_symbol IS NULL
+                """,
+                [.text(account)]
+            )?.double == 1
+        )
+    }
 }
 
 /*
@@ -7117,11 +7161,13 @@ struct PaletteTests {
         }
     }
 
-    @Test("Papier éteint le fond coloré")
-    func paperHasNoColouredGround() {
+    @Test("les thèmes plats éteignent le fond coloré")
+    func flatThemesHaveNoColouredGround() {
         // Un voile violet très pâle reste un voile violet : le minimal se
         // joue sur zéro, pas sur « presque rien ».
         #expect(Palette.papier.ground == 0)
+        // Éditorial non plus : sa maquette ne porte ni dégradé ni voile.
+        #expect(Palette.editorial.ground == 0)
     }
 
     @Test("le thème choisi est celui qu'on relit")

@@ -54,6 +54,7 @@ enum FlorinPalette: String, CaseIterable, Identifiable {
     case papier
     case sepia
     case ardoise
+    case editorial
 
     var id: String { rawValue }
 
@@ -64,6 +65,7 @@ enum FlorinPalette: String, CaseIterable, Identifiable {
         case .papier: return "Papier"
         case .sepia: return "Sépia"
         case .ardoise: return "Ardoise"
+        case .editorial: return "Éditorial"
         }
     }
 
@@ -73,6 +75,7 @@ enum FlorinPalette: String, CaseIterable, Identifiable {
         case .papier: return .papier
         case .sepia: return .sepia
         case .ardoise: return .ardoise
+        case .editorial: return .editorial
         }
     }
 
@@ -245,6 +248,50 @@ extension Palette {
             Tone(0x2A6B8A), Tone(0x177A6B), Tone(0x2E4652), Tone(0x15605A),
         ],
         ground: 0.85
+    )
+
+    /*
+     * Éditorial : une page de magazine, pas un tableau de bord.
+     *
+     * Blanc pur ou noir pur, et une seule couleur — un orange — réservée à ce
+     * qui alerte. Tout le reste est gris : la hiérarchie vient de la taille du
+     * texte, pas d'une pastille colorée de plus.
+     *
+     * Conséquence assumée : un gain n'est pas vert, il est de l'encre
+     * ordinaire. Dans un thème où la couleur ne sert qu'à alerter, peindre en
+     * vert ce qui va bien rend l'orange moins audible — et le signe devant le
+     * montant dit déjà le sens.
+     */
+    static let editorial = Palette(
+        bg: Tone(light: 0xFFFFFF, dark: 0x000000),
+        surface: Tone(light: 0xF2F2F4, dark: 0x1C1C1E),
+        surface2: Tone(light: 0xEFEFF1, dark: 0x2C2C2E),
+        // Le filet de la maquette (0xEFEFF1) se pose sur du blanc ; ici la même
+        // encre sert aussi à séparer sur une carte grise, où elle disparaîtrait.
+        surface3: Tone(light: 0xE4E4E7, dark: 0x1F1F22),
+        text: Tone(light: 0x0A0A0A, dark: 0xF5F5F7),
+        text2: Tone(light: 0x5C5C61, dark: 0xA1A1A6),
+        // Le gris des bordures de pastille (0xC7C7CC / 0x48484A) est une encre
+        // de trait : lu comme du texte il tombe sous le contraste minimal.
+        text3: Tone(light: 0x8A8A8F, dark: 0x76767C),
+        accent: Tone(light: 0xD9481F, dark: 0xC93D17),
+        onAccent: Tone(light: 0xFFFFFF, dark: 0xFFFFFF),
+        positive: Tone(light: 0x0A0A0A, dark: 0xF5F5F7),
+        negative: Tone(light: 0xD9481F, dark: 0xFF7A52),
+        warn: Tone(light: 0xD9481F, dark: 0xFF7A52),
+        series: [
+            Tone(light: 0x0A0A0A, dark: 0xF5F5F7),
+            Tone(light: 0x3A3A3E, dark: 0xD2D2D7),
+            Tone(light: 0x5C5C61, dark: 0xA1A1A6),
+            Tone(light: 0x76767C, dark: 0x8A8A8F),
+            Tone(light: 0x8A8A8F, dark: 0x76767C),
+            Tone(light: 0xA1A1A6, dark: 0x5C5C61),
+            Tone(light: 0xC7C7CC, dark: 0x48484A),
+            Tone(light: 0xDEDEE2, dark: 0x343438),
+        ],
+        grounds: Array(repeating: Tone(light: 0x0A0A0A, dark: 0xF5F5F7), count: 7),
+        // Ni dégradé ni voile teinté : la maquette n'en a aucun.
+        ground: 0.0
     )
 }
 

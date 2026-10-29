@@ -156,6 +156,11 @@ enum LocalHoldings {
         /// `quantity × unitPrice` because the two differ by cents: a broker
         /// rounds the price it displays and charges the price it got.
         let total: Double
+        /// Le symbole de cotation, quand la ligne vient d'être ouverte et
+        /// qu'on a su dire lequel. Sans lui, `LocalPricing` ne verra jamais la
+        /// ligne : elle gardera le prix de son premier achat indéfiniment, avec
+        /// l'aplomb d'un chiffre à jour.
+        var symbol: String?
     }
 
     /*
@@ -211,12 +216,14 @@ enum LocalHoldings {
                 try store.database.run(
                     """
                     INSERT INTO holdings
-                        (id, account_id, label, quantity, cost_basis, currency,
-                         last_price, last_price_at)
-                    VALUES (?, ?, ?, ?, ?, 'EUR', ?, datetime('now'))
+                        (id, account_id, label, quote_symbol, quantity,
+                         cost_basis, currency, last_price, last_price_at)
+                    VALUES (?, ?, ?, ?, ?, ?, 'EUR', ?, datetime('now'))
                     """,
                     [
                         .text(lineId), .text(accountId), .text(purchase.label),
+                        (purchase.symbol?.isEmpty == false)
+                            ? .text(purchase.symbol!) : .null,
                         .real(purchase.quantity), .real(purchase.total),
                         .real(purchase.unitPrice),
                     ]
