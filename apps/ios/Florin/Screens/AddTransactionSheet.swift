@@ -335,13 +335,22 @@ struct AddTransactionSheet: View {
         }
         .padding(.horizontal, Ed.gutter)
         .padding(.trailing, -10)
-        .padding(.top, 12)
-        .padding(.bottom, 8)
+        .padding(.top, 8)
+        .padding(.bottom, 6)
     }
 
-    /// Les trois sens en pastilles, celle qui est choisie pleine. Aucune
-    /// couleur par sens : le signe devant le montant le dit déjà, et trois
-    /// teintes dans un écran qui n'en tient qu'une le déferaient.
+    /*
+     * Les trois sens, dans la pastille de tout le reste de l'app.
+     *
+     * Ils étaient étirés : `maxWidth: .infinity` sur 40 pt de haut, donc trois
+     * capsules de cent treize points pour un mot de quatorze — l'essentiel de
+     * chacune était du vide, et la rangée pesait plus lourd que le montant
+     * qu'elle sert à signer. Une pastille se taille sur son mot ; c'est déjà ce
+     * que font les onglets de l'Analyse, et c'est le même `EdPill`.
+     *
+     * Aucune couleur par sens : le signe devant le montant le dit déjà, et
+     * trois teintes dans un écran qui n'en tient qu'une le déferaient.
+     */
     private var edDirection: some View {
         HStack(spacing: 8) {
             edKindPill(t("v2.add.expense", "Dépense"), .expense)
@@ -349,11 +358,9 @@ struct AddTransactionSheet: View {
             if !isEditing, usableAccounts.count > 1 {
                 edKindPill(t("v2.add.transfer", "Virement"), .transfer)
             }
+            Spacer(minLength: 0)
         }
         .padding(.horizontal, Ed.gutter)
-        // Le bandeau au-dessus laisse déjà 8 pt : 22 de plus faisaient 30 pt
-        // de blanc avant la première chose à décider.
-        .padding(.top, 4)
     }
 
     private func edKindPill(_ label: String, _ target: Kind) -> some View {
@@ -361,17 +368,10 @@ struct AddTransactionSheet: View {
             UISelectionFeedbackGenerator().selectionChanged()
             withAnimation(EdMotion.spring) { kind = target }
         } label: {
-            Text(label)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(kind == target ? Florin.bg : Florin.text)
-                .frame(maxWidth: .infinity)
-                .frame(height: 40)
-                .background(Capsule().fill(kind == target ? Florin.text : .clear))
-                .overlay(Capsule().strokeBorder(
-                    kind == target ? .clear : Florin.text.opacity(0.28), lineWidth: 1
-                ))
+            EdPill(text: label, filled: kind == target, large: true)
+                .contentShape(Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.edPress)
     }
 
     /// Le montant à 80 points : c'est le sujet de la feuille, il s'écrit à la
@@ -386,7 +386,7 @@ struct AddTransactionSheet: View {
                 .focused($amountFocused)
                 .font(.system(size: figureSize, weight: .medium))
                 .monospacedDigit()
-                .tracking(Ed.tracking(figureSize, 0.045))
+                .kerning(Ed.tracking(figureSize, 0.045))
                 .foregroundStyle(Florin.text)
                 .fixedSize()
             Text(Money.currencySymbol(locale: localeTag, currency: currency))

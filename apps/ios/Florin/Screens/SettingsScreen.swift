@@ -83,6 +83,8 @@ struct SettingsScreen: View {
     @AppStorage("florin.dataSource") private var sourceRaw = ""
 
     private var editorial: Bool { FlorinPalette.selected == .editorial }
+    /// De combien le titre a été tiré vers le bas. Voir `edRoot`.
+    @State private var pull: CGFloat = 0
 
     /*
      * Treize blocs à la file, ou six portes.
@@ -115,6 +117,15 @@ struct SettingsScreen: View {
             }
             .navigationTitle(t("v2.settings.title", "Réglages"))
             .navigationBarTitleDisplayMode(.inline)
+            /*
+             * En éditorial, la racine n'a pas de barre.
+             *
+             * `edRoot` écrit « Réglages » en très grand : la barre répétait le
+             * mot en 17 pt — et pire, elle portait la marque « Florin », qui
+             * n'est pas le titre de cette page. Les pages poussées gardent la
+             * leur, pour le chevron de retour.
+             */
+            .toolbar(editorial ? .hidden : .visible, for: .navigationBar)
             .sheet(isPresented: $showingBanking) { BankingSettings() }
             .sheet(isPresented: $showingCategories) { CategoriesScreen(t: t) }
             .sheet(isPresented: $showingMerchants) { MerchantsScreen(t: t) }
@@ -256,7 +267,9 @@ struct SettingsScreen: View {
                 ))
             }
             .toolbar {
-                ToolbarItem(placement: .principal) { Wordmark(size: 17) }
+                if !editorial {
+                    ToolbarItem(placement: .principal) { Wordmark(size: 17) }
+                }
                 if let onClose {
                     ToolbarItem(placement: .cancellationAction) {
                         Button(t("v2.common.close", "Fermer"), action: onClose)
@@ -311,9 +324,40 @@ struct SettingsScreen: View {
     private var edRoot: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                EdHero(text: t("v2.settings.title", "Réglages"))
-                    .padding(.top, 6)
-                    .padding(.bottom, 18)
+                HStack(alignment: .center, spacing: 8) {
+                    EdHero(text: t("v2.settings.title", "Réglages"), size: 44)
+                    Spacer(minLength: 8)
+                    if let onClose {
+                        EdIconButton(
+                            symbol: "xmark", label: t("v2.common.close", "Fermer"),
+                            action: onClose
+                        )
+                        .padding(.trailing, -10)
+                    }
+                }
+                .padding(.top, 10)
+                .padding(.bottom, 14)
+                /*
+                 * On tire le TITRE vers le bas pour fermer.
+                 *
+                 * L'écran est posé en plein écran, pas en feuille : il prend
+                 * toute la fenêtre, et perd du même coup le glissement qu'une
+                 * feuille offre gratuitement. Le geste est rendu ici plutôt
+                 * que sur la page entière, parce que sur la page il
+                 * disputerait le toucher au défilement — le titre, lui, ne
+                 * défile rien.
+                 */
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture()
+                        .onChanged { move in pull = max(0, move.translation.height) }
+                        .onEnded { move in
+                            let far = move.translation.height > 110
+                                || move.predictedEndTranslation.height > 240
+                            withAnimation(EdMotion.spring) { pull = 0 }
+                            if far { onClose?() }
+                        }
+                )
 
                 edDoor(.data, "tray.full", t("v2.settings.data", "Données"), dataState)
                 EdRule()
@@ -336,6 +380,7 @@ struct SettingsScreen: View {
             .padding(.horizontal, Ed.gutter)
             .padding(.bottom, 60)
         }
+        .offset(y: pull)
         .scrollIndicators(.hidden)
         .scrollDismissesKeyboard(.interactively)
     }
@@ -372,7 +417,17 @@ struct SettingsScreen: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Florin.text3)
             }
-            .padding(.vertical, 15)
+            /*
+             * La même hauteur pour les six, qu'elles aient un état ou non.
+             *
+             * La ligne se taillait sur son contenu : deux lignes de texte pour
+             * « Données » ou « Banque », une seule pour « Catégories » et pour
+             * « Discrétion » quand rien n'est masqué — dix-huit points de
+             * moins, visibles immédiatement dans une colonne de six filets
+             * censés battre la mesure. La hauteur est celle de la ligne la
+             * plus haute, et c'est le texte qui se centre dedans.
+             */
+            .frame(height: 68)
             .contentShape(Rectangle())
         }
         .buttonStyle(.edPress)

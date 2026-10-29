@@ -120,7 +120,7 @@ struct EditorialActivity: View {
                 // La pastille « Activité · 3 223 opérations » occupait une
                 // ligne pour dire le nom de l'onglet qu'on vient d'ouvrir et
                 // un nombre dont on ne fait rien.
-                waiting.edEnter().padding(.top, 4)
+                waiting.edEnter()
 
                 if let first = days.first {
                     // Le haut de la liste sort de la vue comme le reste : il
@@ -315,7 +315,7 @@ struct EditorialActivity: View {
      */
     private func hero(_ section: (day: Date, rows: [Transaction])) -> some View {
         EdHero(text: dayLabel(section.day))
-            .padding(.top, hasWaiting ? 4 : 14)
+            .padding(.top, hasWaiting ? 0 : 10)
     }
 
     private var hasWaiting: Bool { !upcoming.isEmpty || !schedules.isEmpty }
@@ -418,7 +418,17 @@ struct EditorialActivity: View {
                     }
                 }
             }
-            .padding(.top, 22)
+            /*
+             * Le même écart des deux côtés des deux volets.
+             *
+             * Il y avait 26 pt avant eux (4 au point d'appel, 22 ici) et 4
+             * après : la rangée des volets était collée au jour qui la suit et
+             * décollée du bandeau qui la précède. Les deux font maintenant 14,
+             * et c'est le héros qui rend les siens — voir `hero`, dont la
+             * ligne de 64 pt porte déjà une quinzaine de points de blanc
+             * au-dessus de ses majuscules.
+             */
+            .padding(.top, 14)
         }
     }
 

@@ -315,20 +315,22 @@ struct RootView: View {
          * closed the screen where that switch is made. Every time.
          */
         /*
-         * Une feuille, pour qu'on puisse la refermer d'un geste.
+         * Tout l'écran, et le geste quand même.
          *
-         * `fullScreenCover` ne se balaie pas : la seule sortie était la croix
-         * en haut à gauche, à l'autre bout du pouce. Une feuille au grand
-         * détenteur occupe le même écran à un liseré près, se referme d'un
-         * balayage vers le bas comme toutes les autres feuilles de l'app, et
-         * garde ce que `fullScreenCover` était venu chercher ici : elle est
-         * présentée AU-DESSUS de `MainTabs`, donc changer la source des
-         * données ne la referme pas.
+         * En feuille, le grand cran laisse voir la page du dessous en haut :
+         * les réglages sont une page, pas une carte posée sur une autre. En
+         * `fullScreenCover`, l'écran est entier mais le balayage vers le bas
+         * s'en va avec la feuille — et la seule sortie redevient une croix.
+         * Donc les deux : le plein écran ici, et le geste rendu à la main sur
+         * le titre de la page (voir `SettingsScreen.edRoot`).
+         *
+         * Posée ici, et pas dans `MainTabs` : c'est `MainTabs` qu'on
+         * reconstruit quand la source des données change, et cet écran est
+         * justement celui où on en change.
          */
-        .sheet(isPresented: $showingSettings) {
+        .fullScreenCover(isPresented: $showingSettings) {
             SettingsScreen(base: currentBase, onClose: { showingSettings = false })
                 .environmentObject(server)
-                .presentationDragIndicator(.visible)
         }
         /*
          * Full screen, not a sheet.
@@ -599,7 +601,6 @@ struct MainTabs: View {
                     if editorial {
                         EditorialAccounts(
                             model: model,
-                            onBack: { route(to: .overview, path: TabRoute.overview.rootPath) },
                             onOpenSettings: openSettings,
                             chrome: chrome
                         )

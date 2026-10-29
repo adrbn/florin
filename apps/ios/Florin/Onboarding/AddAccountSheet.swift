@@ -174,7 +174,7 @@ struct AddAccountSheet: View {
                     t("v2.onboard.accountPlaceholder", "Compte courant"), text: $name
                 )
                 .font(.system(size: 28, weight: .medium))
-                .tracking(Ed.tracking(28, 0.03))
+                .kerning(Ed.tracking(28, 0.03))
                 .foregroundStyle(Florin.text)
                 .focused($focus, equals: .name)
                 .submitLabel(.next)
@@ -300,7 +300,7 @@ struct AddAccountSheet: View {
             TextField("0", text: $balanceText)
                 .font(.system(size: balanceText.count > 6 ? 56 : 80, weight: .medium))
                 .monospacedDigit()
-                .tracking(Ed.tracking(80, 0.045))
+                .kerning(Ed.tracking(80, 0.045))
                 .foregroundStyle(Florin.text)
                 .keyboardType(.numbersAndPunctuation)
                 .focused($focus, equals: .balance)

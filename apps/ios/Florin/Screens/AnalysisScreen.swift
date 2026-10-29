@@ -64,33 +64,16 @@ struct AnalysisScreen: View {
         TabScaffold(tint: TabRoute.analysis.tint, refresh: { await model.load() }) {
             if editorial {
                 /*
-                 * Le même en-tête que les quatre écrans réécrits.
+                 * Pas de bandeau : les deux gestes sont SUR la première ligne.
                  *
-                 * `TopBar` centre un titre de 17 pt entre deux ronds : c'est
-                 * la grammaire d'Obsidienne. Ici le titre de l'écran est la
-                 * pastille au-dessus du chiffre, et l'en-tête ne porte que
-                 * les deux gestes.
+                 * Un `EdHeader` dont la gauche est vide réserve quand même ses
+                 * 44 pt, plus sa marge du haut, plus l'interligne de 30 pt du
+                 * `TabScaffold` : une centaine de points de rien avant le
+                 * premier mot de l'écran. Les deux boutons sont donc posés à
+                 * droite de la pastille du héros, qui remonte à leur hauteur —
+                 * voir `hero`.
                  */
-                EdHeader {
-                    EmptyView()
-                } trailing: {
-                    HStack(spacing: 0) {
-                        EdIconButton(
-                            symbol: "arrow.left.arrow.right",
-                            label: t("v2.nav.activity", "Activité")
-                        ) {
-                            route(.activity, TabRoute.activity.rootPath)
-                        }
-                        EdIconButton(
-                            symbol: Ed.settingsSymbol,
-                            label: t("v2.settings.title", "Réglages"),
-                            action: onOpenSettings
-                        )
-                    }
-                    .padding(.trailing, -10)
-                }
-                .padding(.top, 18)
-                .padding(.horizontal, Ed.gutter)
+                EmptyView()
             } else {
                 TopBar(
                     onProfile: onOpenSettings,
@@ -292,7 +275,26 @@ struct AnalysisScreen: View {
              */
             return AnyView(
                 VStack(alignment: .leading, spacing: 8) {
-                    EdPill(text: caption)
+                    // La pastille et les deux gestes partagent une rangée de
+                    // 44 pt : la hauteur d'une cible tactile, et rien de plus.
+                    // Elle grandit si la pastille doit se replier.
+                    HStack(alignment: .center, spacing: 8) {
+                        EdPill(text: caption)
+                        Spacer(minLength: 8)
+                        EdIconButton(
+                            symbol: "arrow.left.arrow.right",
+                            label: t("v2.nav.activity", "Activité")
+                        ) {
+                            route(.activity, TabRoute.activity.rootPath)
+                        }
+                        EdIconButton(
+                            symbol: Ed.settingsSymbol,
+                            label: t("v2.settings.title", "Réglages"),
+                            action: onOpenSettings
+                        )
+                    }
+                    .frame(minHeight: 44)
+                    .padding(.trailing, -10)
                     EdAmount(
                         text: Money.string(
                             value, locale: locale, currency: currency, decimals: false

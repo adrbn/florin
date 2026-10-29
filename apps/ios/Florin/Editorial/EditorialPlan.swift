@@ -87,8 +87,8 @@ struct EditorialPlan: View {
                                 }
                             }
                         }
-                    emptyOffer(plan).edEnter()
                     readyToAssign(plan).edEnter()
+                    emptyOffer(plan).edEnter()
                     }
                     .contentShape(Rectangle())
                     .modifier(EdMonthSwipe { model.step($0) })
@@ -228,7 +228,12 @@ struct EditorialPlan: View {
      *
      * Le menu tenu existe aussi, mais une action qu'on fait une fois par mois
      * ne s'apprend pas par un appui long : la première fois, elle doit être à
-     * l'écran, juste sous le mois qui n'a rien.
+     * l'écran.
+     *
+     * SOUS le cadre « À répartir », pas au-dessus. Au-dessus, elle n'existait
+     * que les mois vides et poussait le cadre de quarante points vers le bas :
+     * en balayant d'octobre à novembre, le cadre sautait de place au lieu de
+     * garder la sienne pendant que son contenu change.
      */
     @ViewBuilder
     private func emptyOffer(_ plan: MonthPlan) -> some View {

@@ -14,7 +14,6 @@ import SwiftUI
  */
 struct EditorialAccounts: View {
     @ObservedObject var model: OverviewModel
-    let onBack: () -> Void
     let onOpenSettings: () -> Void
     @ObservedObject var chrome: ChromeState
 
@@ -67,10 +66,8 @@ struct EditorialAccounts: View {
     private var page: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                header
-                .edEnter()
-                .id(edTopAnchor)
                 if let data = model.overview {
+                    figureHead(data).edEnter().id(edTopAnchor)
                     figure(data).edEnter()
                     curve(data).edEnter()
                     allocation(data).edEnter()
@@ -130,36 +127,40 @@ struct EditorialAccounts: View {
         }
     }
 
-    // MARK: Le bandeau
+    // MARK: Les gestes du haut
 
-    private var header: some View {
-        EdHeader {
-            EdIconButton(
-                symbol: "chevron.left", label: t("v2.common.back", "Retour"), action: onBack
-            )
-        } trailing: {
-            HStack(spacing: 2) {
-                if local {
-                    EdIconButton(
-                        symbol: "plus", label: t("v2.accounts.add", "Ajouter un compte")
-                    ) { addingAccount = true }
-                }
+    /*
+     * Les trois gestes, et aucun retour.
+     *
+     * Ils vivaient dans un `EdHeader` dont la gauche portait un chevron de
+     * retour : Comptes est un ONGLET, il n'y a rien derrière lui d'où
+     * revenir. La gauche étant vide, la rangée ne faisait plus que réserver
+     * ses 44 pt au-dessus du premier mot de la page. Les trois boutons sont
+     * donc posés à droite de l'étiquette du chiffre, qui remonte à leur
+     * hauteur.
+     */
+    private var actions: some View {
+        HStack(spacing: 2) {
+            if local {
                 EdIconButton(
-                    symbol: "arrow.trianglehead.2.clockwise",
-                    label: t("v2.common.refresh", "Actualiser"),
-                    spinning: model.syncing
-                ) {
-                    Task { await model.sync(confirmCurrent: false) }
-                }
-                .disabled(model.syncing || !(model.overview?.bankSyncConfigured ?? false))
-                EdIconButton(
-                    symbol: Ed.settingsSymbol,
-                    label: t("v2.settings.title", "Réglages"),
-                    action: onOpenSettings
-                )
+                    symbol: "plus", label: t("v2.accounts.add", "Ajouter un compte")
+                ) { addingAccount = true }
             }
-            .padding(.trailing, -10)
+            EdIconButton(
+                symbol: "arrow.trianglehead.2.clockwise",
+                label: t("v2.common.refresh", "Actualiser"),
+                spinning: model.syncing
+            ) {
+                Task { await model.sync(confirmCurrent: false) }
+            }
+            .disabled(model.syncing || !(model.overview?.bankSyncConfigured ?? false))
+            EdIconButton(
+                symbol: Ed.settingsSymbol,
+                label: t("v2.settings.title", "Réglages"),
+                action: onOpenSettings
+            )
         }
+        .padding(.trailing, -10)
     }
 
     // MARK: Le chiffre
@@ -173,10 +174,6 @@ struct EditorialAccounts: View {
             withAnimation(EdMotion.spring) { showNet.toggle() }
         } label: {
             VStack(alignment: .leading, spacing: 8) {
-                EdPill(text: scrubbed.map { dayLabel($0.day, data) }
-                    ?? (showNet
-                        ? t("v2.overview.netWorth", "Patrimoine")
-                        : t("v2.overview.gross", "Brut")))
                 EdAmount(
                     text: Money.string(
                         live(data), locale: data.localeTag, currency: data.currency
@@ -201,7 +198,27 @@ struct EditorialAccounts: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.edPress)
-        .padding(.top, 24)
+    }
+
+    /// L'étiquette et les trois gestes partagent une rangée de 44 pt : la
+    /// hauteur d'une cible tactile, et rien de plus.
+    private func figureHead(_ data: Overview) -> some View {
+        HStack(alignment: .center, spacing: 8) {
+            Button {
+                guard scrubbed == nil else { return }
+                UISelectionFeedbackGenerator().selectionChanged()
+                withAnimation(EdMotion.spring) { showNet.toggle() }
+            } label: {
+                EdPill(text: scrubbed.map { dayLabel($0.day, data) }
+                    ?? (showNet
+                        ? t("v2.overview.netWorth", "Patrimoine")
+                        : t("v2.overview.gross", "Brut")))
+            }
+            .buttonStyle(.edPress)
+            Spacer(minLength: 8)
+            actions
+        }
+        .frame(minHeight: 44)
     }
 
     /// La courbe, au trait et sans sol — voir `NetWorthChart`, qui laisse

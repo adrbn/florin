@@ -56,9 +56,6 @@ struct EditorialHome: View {
     /// Le compte qu'on ouvre. Une carte mène à SON relevé — elle ouvrait
     /// l'onglet Comptes, c'est-à-dire la liste de tous.
     @State private var drill: ActivityRoute?
-    /// Ce que le premier écran a déjà rendu de sa marge du bas. Voir
-    /// `EdFirstScreenTop`.
-    @State private var lift: CGFloat = 0
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage(Greeting.key) private var firstName = ""
 
@@ -102,11 +99,8 @@ struct EditorialHome: View {
                         header
                         .id(edTopAnchor)
                         // Chaque bloc du premier écran sort de la vue pour son
-                        // propre compte : le titre, le chiffre, la courbe et la
-                        // ligne des comptes ne partent pas d'un seul tenant.
-                        EdHero(text: Greeting.line(t, name: firstName), oneLine: true)
-                            .padding(.top, 14)
-                            .edEnter()
+                        // propre compte : le chiffre, la courbe et la ligne des
+                        // comptes ne partent pas d'un seul tenant.
                         netWorth(data).edEnter()
                         curve(data).edEnter()
                         accountsHeading(data).edEnter()
@@ -134,41 +128,25 @@ struct EditorialHome: View {
                         .frame(maxHeight: .infinity)
                     }
                     /*
-                     * La capsule flotte à 28 pt du bas sur 60 pt de haut : le
-                     * premier écran s'arrête au-dessus, sans quoi la dernière
-                     * carte passe dessous.
+                     * Le premier écran s'arrête au bord HAUT de la capsule.
                      *
-                     * Mais cette marge n'a de raison d'être qu'EN HAUT. Dès
-                     * qu'on descend, la capsule n'est plus devant la pile :
-                     * les 104 pt deviennent un trou entre la dernière carte et
-                     * les quatre gestes. Ils se referment donc au fur et à
-                     * mesure du défilement, et sont rendus en entier dès qu'on
-                     * est revenu en haut.
-                     */
-                    .padding(.bottom, Self.breathe - lift)
-                    .background(
-                        GeometryReader { g in
-                            Color.clear.preference(
-                                key: EdFirstScreenTop.self,
-                                value: -g.frame(in: .named(Self.space)).minY
-                            )
-                        }
-                    )
-                    /*
-                     * La fenêtre, moins ce qu'on a déjà rendu.
+                     * Il faisait toute la fenêtre et rendait ses 104 pt du bas
+                     * en marge intérieure, pour que la dernière carte ne passe
+                     * pas sous la capsule. Mais une marge est du vide : dès
+                     * qu'on descendait, elle devenait un trou entre la dernière
+                     * carte et les quatre gestes. On a essayé de la refermer au
+                     * fil du défilement — `containerRelativeFrame` FIXE la
+                     * hauteur, donc rogner la marge rendait juste sa place à la
+                     * pile, et le trou restait.
                      *
-                     * `containerRelativeFrame(.vertical)` FIXE la hauteur :
-                     * rogner la marge intérieure ne refermait donc rien, elle
-                     * rendait juste sa place à la pile, qui s'étirait d'autant.
-                     * Le bloc lui-même doit raccourcir, sinon ce qui le suit
-                     * ne remonte pas.
-                     *
-                     * Les deux ensemble tiennent la pile à hauteur constante :
-                     * le cadre perd `lift`, la marge perd `lift`, la pile
-                     * garde `fenêtre − 104`.
+                     * Le bloc fait donc la fenêtre MOINS la capsule, et pas de
+                     * marge du tout : la pile garde exactement la place qu'elle
+                     * avait, la dernière carte ne passe sous rien, et la rangée
+                     * des gestes commence là où la capsule finit. Il n'y a plus
+                     * de vide entre les deux, donc plus rien à refermer.
                      */
                     .containerRelativeFrame(.vertical, alignment: .top) { height, _ in
-                        height - lift
+                        height - Self.breathe
                     }
 
                     // MARK: Ce qui se lit en descendant
@@ -209,13 +187,6 @@ struct EditorialHome: View {
                     .frame(maxWidth: .infinity)
                     .padding(.top, 120)
             }
-        }
-        .coordinateSpace(name: Self.space)
-        // Par pas de douze points : de quoi suivre le doigt sans refaire la
-        // page à chaque image.
-        .onPreferenceChange(EdFirstScreenTop.self) { y in
-            let next = min(Self.breathe, max(0, (y / 12).rounded() * 12))
-            if next != lift { lift = next }
         }
         .edRewind(.overview, chrome: chrome)
         .scrollIndicators(.hidden)
@@ -273,11 +244,28 @@ struct EditorialHome: View {
 
     // MARK: Le bandeau
 
-    /// Posé un peu plus bas que la barre d'état : collé en haut, le trait du
-    /// menu se lisait comme une partie de l'encoche.
+    /*
+     * Le salut EST le bandeau.
+     *
+     * Il était en dessous, en très grand, et le bandeau au-dessus de lui ne
+     * portait que deux boutons : une rangée de 44 pt dont la gauche était
+     * vide, pour cent points de haut avant le premier mot de la page. Le
+     * salut vient donc à la hauteur des deux gestes, au corps qui tient sur
+     * leur ligne — ce sont eux qui sont fixés, c'est lui qui se range.
+     *
+     * Et il s'arrête avant eux : la rangée lui laisse le vide à DROITE, qui
+     * est ce qui dit qu'un bloc de texte est aligné à gauche.
+     */
     private var header: some View {
         EdHeader {
-            EmptyView()
+            Text(Greeting.line(t, name: firstName))
+                .font(.system(size: 26, weight: .medium))
+                .kerning(Ed.tracking(26, 0.04))
+                .foregroundStyle(Florin.text)
+                .lineLimit(1)
+                .minimumScaleFactor(0.62)
+                .padding(.leading, 10)
+                .padding(.trailing, 8)
         } trailing: {
             HStack(spacing: 0) {
                 EdIconButton(
@@ -543,8 +531,8 @@ struct EditorialHome: View {
             }
             .buttonStyle(.edPress)
         }
-        .padding(.top, 16)
-        .padding(.bottom, 12)
+        .padding(.top, 10)
+        .padding(.bottom, 10)
     }
 
     /*
@@ -565,10 +553,9 @@ struct EditorialHome: View {
      * écran qui ne défile pas : quatre cartes est ce qui reste, pas un choix
      * de goût. Les autres sont à un appui, sur la ligne qui suit la pile.
      */
-    /// Ce que le premier écran laisse sous la pile pour que la capsule ne
-    /// recouvre rien.
-    private static let breathe: CGFloat = 104
-    private static let space = "edHome"
+    /// Le bord haut de la capsule flottante : elle est à 28 pt du bas sur
+    /// 60 pt de haut. Le premier écran s'arrête là.
+    private static let breathe: CGFloat = 88
     private static let step: CGFloat = 44
     /// Le pas serré. En dessous, le nom et le montant n'ont plus de ligne
     /// lisible où tenir — c'est un plancher, pas une préférence.
@@ -579,9 +566,18 @@ struct EditorialHome: View {
     /// de plus.
     private static let tightStep: CGFloat = 34
     private static let shownAtMost = 8
-    /// Ce qu'il faut à la carte menée pour écrire son nom, son montant, sa
-    /// part et l'heure de la synchro. En dessous, autant ne pas la déplier.
-    private static let minCard: CGFloat = 108
+    /*
+     * Ce qu'il faut à la carte menée, compté ligne par ligne.
+     *
+     * C'était 108, et le visage en demande 141 : 28 de marges, 30 de bandeau,
+     * 14 d'interligne, puis 31 de montant, 3 de barre, 15 de légende et leurs
+     * deux écarts de 10. Une carte à qui l'on donne trente points de moins que
+     * ce qu'elle dessine ne rogne pas une ligne proprement — elle écrase les
+     * écarts et pose le montant sur sa barre. Le plancher dit maintenant la
+     * vérité, et c'est la place AU-DESSUS qui a été rendue pour qu'il tienne :
+     * le salut est passé dans le bandeau, la ligne « Comptes » respire moins.
+     */
+    private static let minCard: CGFloat = 142
 
     /*
      * Combien de cartes tiennent, et pas une de plus.
@@ -869,10 +865,3 @@ private struct EdShare: View {
     }
 }
 
-/// De combien le premier écran est sorti par le haut.
-private struct EdFirstScreenTop: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
-    }
-}

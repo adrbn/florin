@@ -110,18 +110,20 @@ struct EdHero: View {
             ForEach(Array(text.split(separator: "\n").enumerated()), id: \.offset) { _, line in
                 Text(String(line))
                     .font(.system(size: size, weight: .medium))
-                    .tracking(Ed.tracking(size, 0.05))
                     /*
-                     * Le resserrement rognait la dernière lettre.
+                     * `kerning`, et surtout pas `tracking`.
                      *
-                     * `tracking` est NÉGATIF ici — c'est le propre du titre
-                     * éditorial — et il est retiré après CHAQUE caractère, le
-                     * dernier compris. La largeur annoncée perd donc un cran
-                     * que l'encre du dernier glyphe occupe encore : le « e »
-                     * de « June » et le « y » de « Today » passaient sous le
-                     * bord. On rend ce cran, et rien d'autre.
+                     * Les deux resserrent, mais `tracking` ajoute aussi son
+                     * cran APRÈS le dernier caractère — négatif, il le retire.
+                     * La largeur annoncée perdait donc un cran que l'encre du
+                     * dernier glyphe occupait encore, et le « y » de « Today »
+                     * passait sous le bord. `kerning` n'agit qu'ENTRE deux
+                     * caractères : la largeur reste juste, et il n'y a plus de
+                     * marge à rendre pour compenser — une marge qui, posée en
+                     * `trailing`, rognait de toute façon la place proposée au
+                     * texte au lieu de la lui rendre.
                      */
-                    .padding(.trailing, -Ed.tracking(size, 0.05))
+                    .kerning(Ed.tracking(size, 0.05))
                     .lineLimit(oneLine ? 1 : nil)
                     .minimumScaleFactor(oneLine ? 0.46 : 1)
             }
@@ -147,7 +149,7 @@ struct EdAmount: View {
         PrivateText(text)
             .font(.system(size: size, weight: .medium))
             .monospacedDigit()
-            .tracking(Ed.tracking(size, 0.045))
+            .kerning(Ed.tracking(size, 0.045))
             .foregroundStyle(tone)
             .lineLimit(1)
             .minimumScaleFactor(0.6)
@@ -188,9 +190,9 @@ struct EdSection: View {
         HStack(alignment: .lastTextBaseline) {
             Text(text)
                 .font(.system(size: 34, weight: .medium))
-                .tracking(Ed.tracking(34, 0.045))
-                // Voir `EdHero` : le cran retiré au dernier caractère.
-                .padding(.trailing, -Ed.tracking(34, 0.045))
+                // Voir `EdHero` : `kerning` ne resserre qu'entre deux
+                // caractères, donc la largeur annoncée reste juste.
+                .kerning(Ed.tracking(34, 0.045))
                 .foregroundStyle(Florin.text)
             if let trailing {
                 Spacer(minLength: 8)
