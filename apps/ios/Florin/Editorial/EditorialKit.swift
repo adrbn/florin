@@ -288,7 +288,7 @@ struct EdTabBar: View {
         }
         .padding(.horizontal, 8)
         .frame(height: 60)
-        .background(Capsule().fill(Florin.text))
+        .modifier(EdBarGlass())
     }
 
     /*
@@ -336,6 +336,31 @@ struct EdTabBar: View {
         .buttonStyle(.plain)
         .accessibilityLabel(Text(label))
         .accessibilityAddTraits(active ? [.isSelected] : [])
+    }
+}
+
+/*
+ * La capsule, en verre — même encre, autre matière.
+ *
+ * C'était un aplat : `Capsule().fill(Florin.text)`. Il a le bon rendu et
+ * aucune réaction ; un aplat ne se tient pas sous le doigt. Le verre teinté
+ * de la même encre garde le rendu et ajoute ce qu'on lui demande, le
+ * `.interactive()` : la capsule se déforme sous l'appui et suit le doigt
+ * qu'on y traîne, avec le ressort et le retour haptique du système.
+ *
+ * `FloatingTabBar` évite `.interactive()` pour une raison qui ne vaut pas
+ * ici : là-bas le verre avale le toucher avant le `UISegmentedControl` posé
+ * derrière. Ici il n'y a que des boutons SwiftUI, qui restent devant.
+ *
+ * Sous iOS 26, l'aplat d'origine — il n'y a pas de verre à imiter.
+ */
+private struct EdBarGlass: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.glassEffect(.regular.tint(Florin.text).interactive(), in: .capsule)
+        } else {
+            content.background(Capsule().fill(Florin.text))
+        }
     }
 }
 

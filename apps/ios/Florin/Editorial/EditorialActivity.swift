@@ -33,6 +33,11 @@ struct EditorialActivity: View {
     @State private var menuRequest: TxActionRequest?
     @State private var draft = ""
     @FocusState private var searchFocused: Bool
+    /// Les têtes de marchands. `Bubble` sait déjà se tenir en Éditorial —
+    /// un cercle au filet, pas d'emoji, mais le logo gardé : il dit
+    /// *lequel* avant d'être lu. L'observation sert au rafraîchissement,
+    /// une icône arrivant longtemps après la ligne.
+    @ObservedObject private var logos = MerchantLogos.shared
 
     init(
         overview: OverviewModel,
@@ -432,6 +437,18 @@ struct EditorialActivity: View {
 
     private func row(_ tx: Transaction) -> some View {
         HStack(spacing: 12) {
+            // Un virement entre ses propres comptes n'a pas de marchand : le
+            // « marchand », là, c'est soi.
+            let face = tx.isTransfer ? nil : logos.face(for: tx.payee)
+            Bubble(
+                label: tx.categoryName ?? tx.payee,
+                emoji: face?.emoji ?? tx.categoryEmoji,
+                systemImage: tx.isDebtRepayment
+                    ? "arrow.down.right"
+                    : (tx.isTransfer ? "arrow.left.arrow.right" : nil),
+                size: 38,
+                logo: face?.logo
+            )
             VStack(alignment: .leading, spacing: 2) {
                 Text(title(tx))
                     .font(.system(size: 17, weight: .medium))

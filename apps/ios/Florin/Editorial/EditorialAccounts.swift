@@ -29,7 +29,27 @@ struct EditorialAccounts: View {
     private var t: Strings { model.overview?.t ?? .device }
     private var local: Bool { model.base.scheme == "florin-local" }
 
+    /*
+     * La barre d'onglets ne quitte pas l'écran.
+     *
+     * Le détail d'un compte s'ouvrait en `fullScreenCover`, c'est-à-dire
+     * par-dessus tout — capsule comprise, puisqu'elle est posée sur le
+     * `TabView` et non dedans. Une pile de navigation pousse le détail *dans*
+     * l'onglet : la capsule reste au-dessus, et le `dismiss()` du bandeau,
+     * qui fermait la couverture, dépile maintenant.
+     */
     var body: some View {
+        NavigationStack {
+            page
+                .toolbar(.hidden, for: .navigationBar)
+                .navigationDestination(item: $drill) { target in
+                    AccountDetailScreen(model: model, route: target)
+                        .toolbar(.hidden, for: .navigationBar)
+                }
+        }
+    }
+
+    private var page: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 header
@@ -56,9 +76,6 @@ struct EditorialAccounts: View {
         .task { await model.onForeground() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await model.onForeground() } }
-        }
-        .fullScreenCover(item: $drill) { target in
-            AccountDetailScreen(model: model, route: target)
         }
         .sheet(isPresented: $addingAccount) {
             AddAccountSheet(t: t, onSaved: { Task { await model.load(showSpinner: false) } })

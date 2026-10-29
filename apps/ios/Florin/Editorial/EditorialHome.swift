@@ -94,6 +94,18 @@ struct EditorialHome: View {
         // geste n'existe que les jours où l'on a beaucoup de comptes.
         .scrollBounceBehavior(.always, axes: .vertical)
         /*
+         * Pendant qu'on déplace une carte, la page ne bouge plus.
+         *
+         * Le rebond vertical reste armé — c'est lui qui porte le tirer-pour-
+         * synchroniser — donc l'appui long aboutissait, puis le moindre
+         * mouvement nourrissait les deux gestes à la fois : la carte montait
+         * et la page élastiquait sous elle. Couper le défilement à l'instant
+         * où l'appui aboutit arrive avant que le doigt n'ait bougé, donc
+         * avant que le geste de défilement n'ait commencé ; il est annulé, et
+         * seule la carte suit le doigt.
+         */
+        .scrollDisabled(dragging != nil)
+        /*
          * Tirer demande à la banque, et le chiffre tourne en attendant.
          *
          * Ici on relisait la base locale : rien ne changeait, rien ne
@@ -354,7 +366,13 @@ struct EditorialHome: View {
     private func accountsHeading(_ data: Overview) -> some View {
         let live = data.accounts.filter { !$0.isArchived }.count
         return HStack(alignment: .center, spacing: 8) {
-            EdPill(text: t("v2.nav.accounts", "Comptes") + " · \(live)")
+            // La pastille mène à la liste entière. Elle portait déjà le
+            // compte ; une ligne « +2 autres » sous la pile disait la même
+            // chose pour quarante-quatre points de hauteur, pris à la pile.
+            Button(action: onOpenAccounts) {
+                EdPill(text: t("v2.nav.accounts", "Comptes") + " · \(live) ›")
+            }
+            .buttonStyle(.edPress)
             Spacer(minLength: 8)
             Button { addingAccount = true } label: {
                 HStack(spacing: 6) {
@@ -398,48 +416,61 @@ struct EditorialHome: View {
      */
     private static let step: CGFloat = 44
     private static let shownAtMost = 4
+    /// Ce qu'il faut à la carte menée pour écrire son nom, son montant, sa
+    /// part et l'heure de la synchro. En dessous, autant ne pas la déplier.
+    private static let minCard: CGFloat = 130
+
+    /*
+     * Combien de cartes tiennent, et pas une de plus.
+     *
+     * C'était une constante — quatre — et un plancher de hauteur. Les deux
+     * ensemble font une somme qui peut dépasser la place : quatre tranches de
+     * 44 plus 150 de carte menée font 282, quand la courbe n'en laisse que
+     * 213. Le plancher gagnait, et la dernière carte passait sous la capsule.
+     *
+     * Le nombre se déduit maintenant de la place : la menée à son minimum,
+     * les autres à une tranche chacune. Ce qui ne tient pas n'est pas rogné,
+     * il n'est pas montré — et la pastille du titre y mène.
+     */
+    private func fitting(_ all: [Account], room: CGSize) -> [Account] {
+        guard room.height > 0 else { return Array(all.prefix(Self.shownAtMost)) }
+        let slices = Int(((room.height - Self.minCard) / Self.step).rounded(.down))
+        let count = max(1, min(Self.shownAtMost, slices + 1))
+        return Array(all.prefix(count))
+    }
 
     @ViewBuilder
     private func stack(_ data: Overview, room: CGSize) -> some View {
-        let all = cards(data)
-        let shown = Array(all.prefix(Self.shownAtMost))
-        let rest = all.count - shown.count
-        let height = cardHeight(room: room, stacked: shown.count, rest: rest > 0)
+        let shown = fitting(cards(data), room: room)
+        let height = cardHeight(room: room, stacked: shown.count)
         if !shown.isEmpty {
-            VStack(alignment: .leading, spacing: 0) {
-                // La carte menée est la dernière : posée le plus bas, donc
-                // tout en haut de l'ordre d'empilement. L'ordre du `ZStack` le
-                // dit déjà, sauf pour celle qu'on tient, qui passe devant.
-                ZStack(alignment: .top) {
-                    ForEach(Array(shown.enumerated()), id: \.element.id) { index, account in
-                        card(
-                            account, data,
-                            rank: index, lead: index == shown.count - 1, height: height
-                        )
-                        .offset(y: CGFloat(index) * Self.step)
-                        .zIndex(dragging == account.id ? 1000 : Double(index))
-                    }
+            // La carte menée est la dernière : posée le plus bas, donc tout en
+            // haut de l'ordre d'empilement. L'ordre du `ZStack` le dit déjà,
+            // sauf pour celle qu'on tient, qui passe devant.
+            ZStack(alignment: .top) {
+                ForEach(Array(shown.enumerated()), id: \.element.id) { index, account in
+                    card(
+                        account, data,
+                        rank: index, lead: index == shown.count - 1, height: height
+                    )
+                    .offset(y: CGFloat(index) * Self.step)
+                    .zIndex(dragging == account.id ? 1000 : Double(index))
                 }
-                .frame(
-                    height: height + CGFloat(shown.count - 1) * Self.step,
-                    alignment: .top
-                )
-                .animation(EdMotion.spring, value: shown.map(\.id))
-
-                if rest > 0 { more(rest) }
             }
+            .frame(
+                height: height + CGFloat(shown.count - 1) * Self.step,
+                alignment: .top
+            )
+            .animation(EdMotion.spring, value: shown.map(\.id))
         }
     }
 
     /// Au format d'une carte bancaire quand la place le permet, et sinon
-    /// exactement ce qui reste. Jamais moins que ce qu'il faut pour écrire un
-    /// nom et un montant : sous ce plancher, mieux vaut que la page déborde
-    /// d'un cheveu qu'une carte illisible.
-    private func cardHeight(room: CGSize, stacked: Int, rest: Bool) -> CGFloat {
+    /// exactement ce qui reste. `fitting` a déjà garanti que ce reste tient.
+    private func cardHeight(room: CGSize, stacked: Int) -> CGFloat {
         let ideal = (room.width > 0 ? room.width : 361) / 1.6
         guard room.height > 0 else { return ideal }
-        let slices = CGFloat(stacked - 1) * Self.step + (rest ? 44 : 0)
-        return max(150, min(ideal, room.height - slices))
+        return max(Self.minCard, min(ideal, room.height - CGFloat(stacked - 1) * Self.step))
     }
 
     @ViewBuilder
@@ -564,25 +595,6 @@ struct EditorialHome: View {
                 )
         )
         .shadow(color: .black.opacity(open && !lead ? 0.18 : 0), radius: 18, y: 10)
-    }
-
-    /// Ce que la pile ne montre pas. La hauteur du doigt, pas celle du texte.
-    private func more(_ count: Int) -> some View {
-        Button(action: onOpenAccounts) {
-            HStack(spacing: 6) {
-                Text(t("v2.overview.moreAccounts", "+{count} autres", [
-                    "count": "\(count)",
-                ]))
-                Image(systemName: "arrow.right")
-                    .font(.system(size: 10, weight: .semibold))
-            }
-            .font(.system(size: 13))
-            .foregroundStyle(Florin.text2)
-            .frame(height: 44)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.edPress)
     }
 
     private func syncLine(_ data: Overview) -> String {
