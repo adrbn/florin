@@ -410,6 +410,19 @@ struct MainTabs: View {
     @State private var adding = false
 
     /*
+     * Le thème choisit aussi la mise en page.
+     *
+     * « Éditorial » n'est pas qu'une palette : c'est une autre grammaire
+     * d'écran — titres de 64 pt, filets au lieu de cartes, capsule flottante.
+     * La lier au thème évite un second réglage à expliquer, et surtout ne
+     * supprime rien : les quatre autres thèmes gardent l'app telle quelle.
+     *
+     * Rien à observer ici : `RootView` reconstruit tout l'arbre sur
+     * changement de palette (voir son `.id`), donc la bascule est déjà vue.
+     */
+    private var editorial: Bool { FlorinPalette.selected == .editorial }
+
+    /*
      * Which tab to land on, so a source switch does not throw you out.
      *
      * Changing between the server and the device replaces this whole view —
@@ -509,11 +522,21 @@ struct MainTabs: View {
     var body: some View {
         ZStack(alignment: .bottom) {
             TabView(selection: $selection) {
-                OverviewScreen(
-                    model: model, chrome: chrome, route: route, onSearch: focusSearch
-                )
-                    .hideSystemTabBar()
-                    .tag(TabRoute.overview)
+                Group {
+                    if editorial {
+                        EditorialHome(
+                            model: model,
+                            onOpenSettings: openSettings,
+                            onOpenAccounts: { route(to: .accounts, path: TabRoute.accounts.rootPath) }
+                        )
+                    } else {
+                        OverviewScreen(
+                            model: model, chrome: chrome, route: route, onSearch: focusSearch
+                        )
+                    }
+                }
+                .hideSystemTabBar()
+                .tag(TabRoute.overview)
 
                 AccountsScreen(
                     model: model, route: route, onOpenSettings: openSettings,
@@ -556,19 +579,31 @@ struct MainTabs: View {
 
             // Content dissolves into the bottom of the screen rather than
             // running on under the bar and out through the home indicator.
-            BottomScrim()
-                .opacity(chrome.sheetOpen ? 0 : 1)
-                .animation(.easeOut(duration: 0.2), value: chrome.sheetOpen)
+            if !editorial {
+                BottomScrim()
+                    .opacity(chrome.sheetOpen ? 0 : 1)
+                    .animation(.easeOut(duration: 0.2), value: chrome.sheetOpen)
+            }
 
-            FloatingTabBar(
-                selection: $selection,
-                chrome: chrome,
-                title: { tab in
-                    let (key, fallback) = tab.titleKey
-                    return t(key, fallback)
-                },
-                reviewCount: model.overview?.reviewCount ?? 0
-            )
+            if editorial {
+                // Pas de voile sous la capsule : la direction éditoriale
+                // n'admet aucun dégradé, et le contenu se réserve lui-même
+                // les 120 pt du bas.
+                EdTabBar(selection: $selection, t: t, onAdd: { adding = true })
+                    .padding(.bottom, 28)
+                    .opacity(chrome.sheetOpen ? 0 : 1)
+                    .animation(.easeOut(duration: 0.2), value: chrome.sheetOpen)
+            } else {
+                FloatingTabBar(
+                    selection: $selection,
+                    chrome: chrome,
+                    title: { tab in
+                        let (key, fallback) = tab.titleKey
+                        return t(key, fallback)
+                    },
+                    reviewCount: model.overview?.reviewCount ?? 0
+                )
+            }
         }
         .onChange(of: selection) { _, _ in chrome.reset() }
         /*
@@ -580,6 +615,28 @@ struct MainTabs: View {
          * ce qui est posé par-dessus et remonte.
          */
         .onChange(of: chrome.homeTaps) { _, _ in backHome() }
+        /*
+         * « + » est dans la capsule, donc la feuille est ici.
+         *
+         * En style d'origine c'est Aperçu qui la présente, depuis son propre
+         * bouton ; ici le geste appartient à la coquille, qui est la seule à
+         * rester en place quand l'onglet change.
+         */
+        .sheet(isPresented: $adding) {
+            if let data = model.overview {
+                AddTransactionSheet(
+                    accounts: data.accounts,
+                    categories: data.categories,
+                    localeTag: data.localeTag,
+                    currency: data.currency,
+                    t: data.t,
+                    submit: { try await model.add($0) },
+                    onTransfer: { try await model.addTransfer($0) },
+                    onInstalments: { try await model.addInstalments($0) },
+                    isLocalLedger: model.base.scheme == "florin-local"
+                )
+            }
+        }
         // Settings is presented by RootView — see there.
         .florinToast($model.toast)
     }

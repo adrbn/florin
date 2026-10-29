@@ -18,6 +18,7 @@
 		0FC7475F516BDC8DA2821A95 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C815B4671E296193268EC13 /* WidgetSnapshot.swift */; };
 		13F221008AC2C8208BE2C62F /* ImportSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9002B8C0392D7D4BCEB2266 /* ImportSheet.swift */; };
 		14570AF8AED25106A817D2D0 /* WalletLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2406258388A57C80943B22BA /* WalletLog.swift */; };
+		14BC730249542591C946BDEC /* EditorialHome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28DB65A83A4AE494D6B6C58E /* EditorialHome.swift */; };
 		157CD4668E4CE3E100509CC9 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1716DE308068FD596619F829 /* Theme.swift */; };
 		15892DA826788CC24B016B11 /* SettingsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED3157EAC79D41E85F3DF2EC /* SettingsScreen.swift */; };
 		1593C4A9E7F275C4785F6F0F /* WidgetGround.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90E83F83B8A3FB9F4A92E25B /* WidgetGround.swift */; };
@@ -126,6 +127,7 @@
 		CB6B4BA1CA00858BDDDA07A8 /* TrueDate.swift in Sources */ = {isa = PBXBuildFile; fileRef = D369E2149BEF0B494A2B5467 /* TrueDate.swift */; };
 		CEEB2E9E5B5218F9F2EC773D /* LocalStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5081BF68525A3FC3417DE71E /* LocalStore.swift */; };
 		D160FFCDEF913CD06DD8BE6F /* Palette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D4A3DFFE4F3A4DCC92464BA /* Palette.swift */; };
+		D2335F78BD8D6F4A9BB0EE20 /* EditorialKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = B809DD9A440EB454C13B5645 /* EditorialKit.swift */; };
 		D3718BFB4D4F07581CB58334 /* LocalDay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 526A3D81BB2ED5F736D5F2AE /* LocalDay.swift */; };
 		D4E019863964058D703761CE /* BottomScrim.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1DD2E38FDF8F23D07715D59 /* BottomScrim.swift */; };
 		D54AEBA180187C6F00BD7E69 /* ProductNames.swift in Sources */ = {isa = PBXBuildFile; fileRef = C817EE35E708179DA13C49D8 /* ProductNames.swift */; };
@@ -208,6 +210,7 @@
 		24A8CF18ACAA0CA5B471CD27 /* LocalCategories.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalCategories.swift; sourceTree = "<group>"; };
 		26287A1F7C976E83B6DDBF26 /* SQLiteValue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SQLiteValue.swift; sourceTree = "<group>"; };
 		263DE84037C85CC838A30F67 /* FloatingTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingTabBar.swift; sourceTree = "<group>"; };
+		28DB65A83A4AE494D6B6C58E /* EditorialHome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorialHome.swift; sourceTree = "<group>"; };
 		2B1761AD39E3267CD8E7EA5D /* WalletQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletQueue.swift; sourceTree = "<group>"; };
 		2B9D688258E231DAD13B47A2 /* FilterSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterSheet.swift; sourceTree = "<group>"; };
 		3043699DDFC45335EED6DED0 /* CategoryEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryEditorSheet.swift; sourceTree = "<group>"; };
@@ -287,6 +290,7 @@
 		B006DB2AE639B75BB2FAD768 /* TxSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TxSearch.swift; sourceTree = "<group>"; };
 		B468D0C6054280C2520C30BA /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B70C1BD2212D9DC6EBE54B14 /* Toast.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Toast.swift; sourceTree = "<group>"; };
+		B809DD9A440EB454C13B5645 /* EditorialKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorialKit.swift; sourceTree = "<group>"; };
 		B9002B8C0392D7D4BCEB2266 /* ImportSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportSheet.swift; sourceTree = "<group>"; };
 		B96B6367C0815D184665BA96 /* WidgetStrings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetStrings.swift; sourceTree = "<group>"; };
 		B9A820FC9213E4493C163519 /* ActivityModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityModel.swift; sourceTree = "<group>"; };
@@ -396,6 +400,15 @@
 			path = Design;
 			sourceTree = "<group>";
 		};
+		14B2528B9BED30665E9A86DE /* Editorial */ = {
+			isa = PBXGroup;
+			children = (
+				28DB65A83A4AE494D6B6C58E /* EditorialHome.swift */,
+				B809DD9A440EB454C13B5645 /* EditorialKit.swift */,
+			);
+			path = Editorial;
+			sourceTree = "<group>";
+		};
 		2604D425F797A9C5E754AB47 /* Florin */ = {
 			isa = PBXGroup;
 			children = (
@@ -411,6 +424,7 @@
 				EA13768EB13255CAC3A809B2 /* Banking */,
 				9A989DE3F156C0B779D8DDE8 /* Components */,
 				0937106559E863AE98221F58 /* Design */,
+				14B2528B9BED30665E9A86DE /* Editorial */,
 				9CD4BAB11FA3A8521D6C32E5 /* Intents */,
 				C110FFE60BA8A55CAC2FBA4E /* Local */,
 				8C7FB096140A4A12718C11A4 /* Onboarding */,
@@ -766,6 +780,8 @@
 				5B4111C7309CCDDA821AD38E /* CategoryRemovalSheet.swift in Sources */,
 				BC3FB0255CBA4207B6992527 /* DataSource.swift in Sources */,
 				30EB900C687EDBBC94DEC3E7 /* DaySheet.swift in Sources */,
+				14BC730249542591C946BDEC /* EditorialHome.swift in Sources */,
+				D2335F78BD8D6F4A9BB0EE20 /* EditorialKit.swift in Sources */,
 				3EBF8DD05E6E18D4E4DBE8D7 /* EmptyStart.swift in Sources */,
 				2D3A287A5CAD7B268445E55E /* EnableBanking.swift in Sources */,
 				F0E9D6A42524894D40D4FE68 /* FilterSheet.swift in Sources */,
@@ -909,7 +925,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Florin/Florin.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 510;
+				CURRENT_PROJECT_VERSION = 511;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Florin/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;
@@ -930,7 +946,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = FlorinWidgets/FlorinWidgets.entitlements;
-				CURRENT_PROJECT_VERSION = 510;
+				CURRENT_PROJECT_VERSION = 511;
 				INFOPLIST_FILE = FlorinWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1035,7 +1051,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = FlorinWidgets/FlorinWidgets.entitlements;
-				CURRENT_PROJECT_VERSION = 510;
+				CURRENT_PROJECT_VERSION = 511;
 				INFOPLIST_FILE = FlorinWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1118,7 +1134,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Florin/Florin.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 510;
+				CURRENT_PROJECT_VERSION = 511;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Florin/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;
