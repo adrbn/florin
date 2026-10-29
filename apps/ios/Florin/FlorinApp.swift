@@ -641,23 +641,18 @@ struct MainTabs: View {
             // state and lazy loading.
             .ignoresSafeArea(.keyboard)
             /*
-             * Les onglets glissent, ils ne se fondent pas.
+             * Pas de style page, et c'est le fondu des bords qui l'a décidé.
              *
-             * Un `TabView` nu change d'onglet par un fondu croisé : deux
-             * écrans se superposent sans qu'aucun ne vienne de quelque part,
-             * et on perd le seul renseignement qu'une transition porte — de
-             * quel côté on vient. En style page c'est un vrai défilement
-             * horizontal : le contenu suit le doigt au lieu d'attendre qu'un
-             * seuil soit franchi, et un appui sur la capsule fait glisser de
-             * la même façon qu'un balayage.
+             * `.page` faisait glisser les onglets sous le doigt, ce qui valait
+             * mieux que le fondu croisé d'un `TabView` nu. Mais il héberge
+             * chaque page dans son propre pagineur : le `ScrollView` de la
+             * page n'est plus celui que l'effet de bord d'iOS 26 regarde, donc
+             * les deux bords cessent de fondre et il ne reste que le fond,
+             * coupé net — une bande claire en haut comme en bas.
              *
-             * Le style porte donc aussi le balayage, et `edSwipe` ne sert
-             * plus ici — il reste pour les puces d'Analyse, qui ne sont pas
-             * un `TabView`. Posé seulement en éditorial, où changer de
-             * palette reconstruit déjà toute l'arborescence : un
-             * `tabViewStyle` ne se change pas à chaud.
+             * Le fondu est ce qu'on nous a demandé deux fois ; le glissement
+             * latéral, personne. Les bords gagnent.
              */
-            .modifier(EdPaging(enabled: editorial))
 
             // Content dissolves into the bottom of the screen rather than
             // running on under the bar and out through the home indicator.
@@ -872,52 +867,6 @@ extension View {
     /// custom one — two stacked bars.
     func hideSystemTabBar() -> some View {
         toolbar(.hidden, for: .tabBar)
-            // Chaque page porte le dresseur du pagineur. Il remonte depuis
-            // n'importe où dans la page, donc une seule pose suffirait — mais
-            // la première page construite n'est pas toujours la même.
-            .background(EdPagerTamer().frame(width: 0, height: 0))
     }
 }
 
-/*
- * Ce que SwiftUI ne laisse pas dire au pagineur du `TabView`.
- *
- * Deux choses, et aucune n'a de modificateur.
- *
- * Le rebond aux extrémités. À gauche du premier onglet il n'y a rien : le
- * balayage ne mène nulle part, et tout ce qu'il donne est un élastique qui
- * laisse croire une seconde qu'il existe une page de plus.
- *
- * Le verrou de direction. Sans lui, un doigt qui descend en biais emmène
- * l'onglet avec lui : la page défile *et* glisse de côté, les deux à moitié.
- * Avec, la première direction prise gagne et garde la main jusqu'au
- * relâchement — c'est ce qui fait qu'un défilement vertical reste vertical.
- *
- * On ne touche qu'au défilement paginé : les `ScrollView` des pages n'ont pas
- * `isPagingEnabled`, donc leur rebond — celui qu'écoute `refreshable` — est
- * hors d'atteinte.
- */
-private struct EdPagerTamer: UIViewRepresentable {
-    func makeUIView(context: Context) -> UIView {
-        let marker = UIView(frame: .zero)
-        marker.isUserInteractionEnabled = false
-        DispatchQueue.main.async { tame(from: marker) }
-        return marker
-    }
-
-    func updateUIView(_ uiView: UIView, context: Context) {
-        DispatchQueue.main.async { tame(from: uiView) }
-    }
-
-    private func tame(from view: UIView) {
-        var node = view.superview
-        while let current = node {
-            if let scroll = current as? UIScrollView, scroll.isPagingEnabled {
-                scroll.bounces = false
-                scroll.isDirectionalLockEnabled = true
-                return
-            }
-            node = current.superview
-        }
-    }
-}
