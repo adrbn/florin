@@ -8,6 +8,27 @@ final class ChromeState: ObservableObject {
     /// A sheet is open inside a web tab. The bar must get out of its way.
     @Published var sheetOpen = false
 
+    /*
+     * Un écran est poussé par-dessus un onglet.
+     *
+     * Le balayage éditorial change d'onglet, et il le faisait aussi depuis le
+     * relevé d'un compte : on quittait Comptes pour Accueil sans jamais
+     * refermer le relevé. Un balayage dépile d'abord ce qui est posé dessus —
+     * c'est l'ordre partout ailleurs sur iOS. Tant qu'il y a quelque chose
+     * dessus, le pagineur se tait et seul le retour arrière répond.
+     */
+    @Published var detailOpen = false
+
+    /*
+     * L'onglet qu'on vient de quitter.
+     *
+     * Revenir sur un onglet doit le reprendre au début : on le laissait au
+     * milieu d'une liste et on le retrouvait là, à chercher où l'on était.
+     * Le rembobinage se fait au DÉPART, pas au retour — personne ne voit
+     * défiler un écran qui n'est plus à l'écran.
+     */
+    @Published var left: TabRoute?
+
     /// Kept so the web tabs and the native scroll views have somewhere to
     /// report to. The bar used to collapse on scroll; it no longer does — a bar
     /// that moves while you are reading is one more thing shifting under the

@@ -14,6 +14,7 @@ import SwiftUI
 struct EditorialActivity: View {
     @ObservedObject var overview: OverviewModel
     var onOpenSettings: () -> Void = {}
+    @ObservedObject var chrome: ChromeState
     var startNeedsReview = false
 
     @StateObject private var model: ActivityModel
@@ -42,11 +43,13 @@ struct EditorialActivity: View {
     init(
         overview: OverviewModel,
         onOpenSettings: @escaping () -> Void = {},
-        startNeedsReview: Bool = false
+        startNeedsReview: Bool = false,
+        chrome: ChromeState
     ) {
         self.overview = overview
         self.onOpenSettings = onOpenSettings
         self.startNeedsReview = startNeedsReview
+        self.chrome = chrome
         _model = StateObject(wrappedValue: ActivityModel(base: overview.base))
     }
 
@@ -97,6 +100,7 @@ struct EditorialActivity: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 header
+                .id(edTopAnchor)
                 if searching { searchField }
                 EdPill(
                     text: t("v2.activity.title", "Activité") + " · "
@@ -126,6 +130,7 @@ struct EditorialActivity: View {
             .padding(.top, 10)
             .padding(.bottom, 120)
         }
+        .edRewind(.activity, chrome: chrome)
         .scrollIndicators(.hidden)
         .background(Florin.bg)
         .refreshable { await model.reload() }

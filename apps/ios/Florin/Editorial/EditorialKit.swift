@@ -288,7 +288,19 @@ struct EdTabBar: View {
         }
         .padding(.horizontal, 8)
         .frame(height: 60)
-        .modifier(EdBarGlass())
+        /*
+         * Un aplat, et pas du verre.
+         *
+         * Le verre a été essayé, teinté de la même encre et `.interactive()`
+         * pour qu'il se tienne sous le doigt. Il coûtait deux choses :
+         * `.interactive()` installe sa propre gestion du toucher sur le
+         * conteneur et avale le clic avant les boutons — c'est la raison déjà
+         * écrite dans `FloatingTabBar` — et la présence d'un verre fait poser
+         * à iOS 26 son effet de bord sur les listes, ce bandeau opaque en
+         * haut d'écran derrière lequel le contenu disparaît au lieu de se
+         * fondre. Deux régressions pour une matière : l'aplat reste.
+         */
+        .background(Capsule().fill(Florin.text))
     }
 
     /*
@@ -324,7 +336,10 @@ struct EdTabBar: View {
             Image(systemName: symbol)
                 .font(.system(size: 18, weight: .medium))
                 .foregroundStyle(active ? Florin.text : Florin.bg)
-                .frame(width: 52, height: 44)
+                // Six items — cinq onglets et « Ajouter » — dans la largeur
+                // d'un téléphone : 52 pt débordaient, 46 tiennent, et la
+                // cible reste à 44 pt de haut.
+                .frame(width: 46, height: 44)
                 .background {
                     if active {
                         Capsule()
@@ -339,30 +354,6 @@ struct EdTabBar: View {
     }
 }
 
-/*
- * La capsule, en verre — même encre, autre matière.
- *
- * C'était un aplat : `Capsule().fill(Florin.text)`. Il a le bon rendu et
- * aucune réaction ; un aplat ne se tient pas sous le doigt. Le verre teinté
- * de la même encre garde le rendu et ajoute ce qu'on lui demande, le
- * `.interactive()` : la capsule se déforme sous l'appui et suit le doigt
- * qu'on y traîne, avec le ressort et le retour haptique du système.
- *
- * `FloatingTabBar` évite `.interactive()` pour une raison qui ne vaut pas
- * ici : là-bas le verre avale le toucher avant le `UISegmentedControl` posé
- * derrière. Ici il n'y a que des boutons SwiftUI, qui restent devant.
- *
- * Sous iOS 26, l'aplat d'origine — il n'y a pas de verre à imiter.
- */
-private struct EdBarGlass: ViewModifier {
-    func body(content: Content) -> some View {
-        if #available(iOS 26.0, *) {
-            content.glassEffect(.regular.tint(Florin.text).interactive(), in: .capsule)
-        } else {
-            content.background(Capsule().fill(Florin.text))
-        }
-    }
-}
 
 // MARK: - L'en-tête d'écran
 
@@ -657,7 +648,7 @@ extension View {
  * ailleurs, sans jamais pouvoir y aller. Une page qu'on traverse est une page
  * qui mérite son onglet.
  */
-let edTabOrder: [TabRoute] = [.overview, .accounts, .plan, .activity]
+let edTabOrder: [TabRoute] = [.overview, .accounts, .plan, .activity, .analysis]
 
 /*
  * Le doigt est pris ailleurs.
@@ -684,5 +675,30 @@ struct EdPaging: ViewModifier {
         } else {
             content
         }
+    }
+}
+
+
+/// L'ancre du haut d'un écran éditorial. `EdRewind` y revient.
+let edTopAnchor = "edTop"
+
+/// Revenir sur un onglet le reprend au début — voir `ChromeState.left`.
+struct EdRewind: ViewModifier {
+    let tab: TabRoute
+    @ObservedObject var chrome: ChromeState
+
+    func body(content: Content) -> some View {
+        ScrollViewReader { proxy in
+            content.onChange(of: chrome.left) { _, left in
+                guard left == tab else { return }
+                proxy.scrollTo(edTopAnchor, anchor: .top)
+            }
+        }
+    }
+}
+
+extension View {
+    func edRewind(_ tab: TabRoute, chrome: ChromeState) -> some View {
+        modifier(EdRewind(tab: tab, chrome: chrome))
     }
 }

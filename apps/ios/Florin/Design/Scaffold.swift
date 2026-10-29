@@ -172,7 +172,29 @@ struct HeroBlock<Sub: View>: View {
                     .foregroundStyle(Florin.text2)
             }
 
-            SlotAmount(value: value, spinning: spinning, locale: locale, currency: currency, size: size)
+            /*
+             * Le même chiffre partout, ou deux typographies pour une question.
+             *
+             * `SlotAmount` dessine le héros d'Obsidienne : maigre, les
+             * centimes rognés à 44 % et grisés, un crénage serré. Posé tel
+             * quel dans un écran éditorial, le solde d'un compte n'avait rien
+             * à voir avec le patrimoine de l'accueil, qui est pourtant la
+             * même phrase à une échelle près. Les bobines sont communes ;
+             * seul le visage change.
+             */
+            if editorial {
+                SlotReels(value: value, spinning: spinning) { rolling in
+                    EdAmount(
+                        text: Money.string(rolling, locale: locale, currency: currency),
+                        size: size
+                    )
+                }
+            } else {
+                SlotAmount(
+                    value: value, spinning: spinning,
+                    locale: locale, currency: currency, size: size
+                )
+            }
 
             sub.frame(minHeight: 20)
         }

@@ -15,6 +15,7 @@ struct EditorialPlan: View {
     @ObservedObject var overview: OverviewModel
     var route: (TabRoute, String) -> Void = { _, _ in }
     var onOpenSettings: () -> Void = {}
+    @ObservedObject var chrome: ChromeState
 
     @StateObject private var model: PlanModel
     /*
@@ -46,11 +47,13 @@ struct EditorialPlan: View {
     init(
         overview: OverviewModel,
         route: @escaping (TabRoute, String) -> Void = { _, _ in },
-        onOpenSettings: @escaping () -> Void = {}
+        onOpenSettings: @escaping () -> Void = {},
+        chrome: ChromeState
     ) {
         self.overview = overview
         self.route = route
         self.onOpenSettings = onOpenSettings
+        self.chrome = chrome
         _model = StateObject(wrappedValue: PlanModel(base: overview.base))
     }
 
@@ -62,6 +65,7 @@ struct EditorialPlan: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 header
+                .id(edTopAnchor)
                 if let plan = model.plan {
                     EdPill(text: "\(t("v2.plan.title", "Plan")) · \(plan.year)")
                         .padding(.top, 18)
@@ -105,6 +109,7 @@ struct EditorialPlan: View {
             .padding(.top, 10)
             .padding(.bottom, 120)
         }
+        .edRewind(.plan, chrome: chrome)
         .scrollIndicators(.hidden)
         .background(Florin.bg)
         .refreshable { await model.load() }

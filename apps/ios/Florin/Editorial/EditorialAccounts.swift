@@ -16,9 +16,14 @@ struct EditorialAccounts: View {
     @ObservedObject var model: OverviewModel
     let onBack: () -> Void
     let onOpenSettings: () -> Void
+    @ObservedObject var chrome: ChromeState
 
     @State private var drill: ActivityRoute?
-    @State private var showNet = true
+    /// Net ou brut : c'est un choix, pas un réglage d'usine. Il était
+    /// repris à `true` à chaque ouverture de l'app, donc reposé à la main
+    /// à chaque fois. Les deux écrans lisent la même clé, parce que c'est
+    /// la même question posée deux fois.
+    @AppStorage("florin.showNet") private var showNet = true
     /// Le point sous le doigt sur la courbe — même geste que sur l'accueil.
     @State private var scrubbed: PatrimonyPoint?
     @State private var addingAccount = false
@@ -42,6 +47,8 @@ struct EditorialAccounts: View {
         NavigationStack {
             page
                 .toolbar(.hidden, for: .navigationBar)
+                .onChange(of: drill?.id) { _, open in chrome.detailOpen = open != nil }
+                .onDisappear { chrome.detailOpen = false }
                 .navigationDestination(item: $drill) { target in
                     AccountDetailScreen(model: model, route: target)
                         .toolbar(.hidden, for: .navigationBar)
@@ -53,6 +60,7 @@ struct EditorialAccounts: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 header
+                .id(edTopAnchor)
                 if let data = model.overview {
                     figure(data).edEnter()
                     curve(data).edEnter()
@@ -70,6 +78,7 @@ struct EditorialAccounts: View {
             .padding(.top, 10)
             .padding(.bottom, 120)
         }
+        .edRewind(.accounts, chrome: chrome)
         .scrollIndicators(.hidden)
         .background(Florin.bg)
         .refreshable { await model.load() }

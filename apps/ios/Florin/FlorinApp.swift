@@ -551,7 +551,8 @@ struct MainTabs: View {
                         EditorialHome(
                             model: model,
                             onOpenSettings: openSettings,
-                            onOpenAccounts: { route(to: .accounts, path: TabRoute.accounts.rootPath) }
+                            onOpenAccounts: { route(to: .accounts, path: TabRoute.accounts.rootPath) },
+                            chrome: chrome
                         )
                     } else {
                         OverviewScreen(
@@ -567,7 +568,8 @@ struct MainTabs: View {
                         EditorialAccounts(
                             model: model,
                             onBack: { route(to: .overview, path: TabRoute.overview.rootPath) },
-                            onOpenSettings: openSettings
+                            onOpenSettings: openSettings,
+                            chrome: chrome
                         )
                     } else {
                         classicAccounts
@@ -579,7 +581,8 @@ struct MainTabs: View {
                 Group {
                     if editorial {
                         EditorialPlan(
-                            overview: model, route: route, onOpenSettings: openSettings
+                            overview: model, route: route,
+                            onOpenSettings: openSettings, chrome: chrome
                         )
                     } else {
                         PlanScreen(overview: model, route: route, onOpenSettings: openSettings)
@@ -593,7 +596,8 @@ struct MainTabs: View {
                         EditorialActivity(
                             overview: model,
                             onOpenSettings: openSettings,
-                            startNeedsReview: paths[.activity]?.contains("needsReview") == true
+                            startNeedsReview: paths[.activity]?.contains("needsReview") == true,
+                            chrome: chrome
                         )
                     } else {
                         ActivityScreen(
@@ -634,6 +638,9 @@ struct MainTabs: View {
              * `tabViewStyle` ne se change pas à chaud.
              */
             .modifier(EdPaging(enabled: editorial))
+            // Un balayage dépile avant de changer d'onglet : voir
+            // `ChromeState.detailOpen`.
+            .scrollDisabled(chrome.detailOpen)
 
             // Content dissolves into the bottom of the screen rather than
             // running on under the bar and out through the home indicator.
@@ -663,7 +670,11 @@ struct MainTabs: View {
                 )
             }
         }
-        .onChange(of: selection) { _, _ in chrome.reset() }
+        .onChange(of: selection) { previous, _ in
+            chrome.reset()
+            // L'onglet quitté se rembobine — voir `EdRewind`.
+            chrome.left = previous
+        }
         /*
          * Retaper l'onglet où l'on est : retour à son accueil.
          *

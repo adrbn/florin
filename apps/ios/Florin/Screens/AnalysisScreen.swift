@@ -58,17 +58,8 @@ struct AnalysisScreen: View {
 
     var body: some View {
         TabScaffold(tint: TabRoute.analysis.tint, refresh: { await model.load() }) {
-            /*
-             * En éditorial, Analyse n'a pas d'onglet : on y entre par le total
-             * de Plan, et il faut donc pouvoir en ressortir. Le bouton de
-             * gauche ramène d'où l'on vient au lieu d'ouvrir les réglages —
-             * ailleurs l'onglet est toujours là, et l'engrenage reste utile.
-             */
             TopBar(
-                onProfile: editorial
-                    ? { route(.plan, TabRoute.plan.rootPath) }
-                    : onOpenSettings,
-                back: editorial,
+                onProfile: onOpenSettings,
                 centersMiddle: true
             ) {
                     Text(t("v2.analysis.title", "Analyse"))

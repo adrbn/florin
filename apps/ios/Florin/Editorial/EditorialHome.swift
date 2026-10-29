@@ -24,10 +24,14 @@ struct EditorialHome: View {
     @ObservedObject var model: OverviewModel
     let onOpenSettings: () -> Void
     let onOpenAccounts: () -> Void
+    @ObservedObject var chrome: ChromeState
 
     @State private var addingAccount = false
-    /// Net ou brut : le chiffre bascule au doigt, comme sur l'écran Comptes.
-    @State private var showNet = true
+    /// Net ou brut : c'est un choix, pas un réglage d'usine. Il était
+    /// repris à `true` à chaque ouverture de l'app, donc reposé à la main
+    /// à chaque fois. Les deux écrans lisent la même clé, parce que c'est
+    /// la même question posée deux fois.
+    @AppStorage("florin.showNet") private var showNet = true
     /// Le point sous le doigt sur la courbe. Tant qu'il y en a un, le chiffre
     /// du haut dit ce jour-là plutôt qu'aujourd'hui.
     @State private var scrubbed: PatrimonyPoint?
@@ -39,6 +43,12 @@ struct EditorialHome: View {
     @State private var dragging: String?
     /// La carte sous le doigt. Elle se soulève, les autres s'effacent.
     @State private var touched: String?
+    /// Le compte qu'on ouvre. Une carte mène à SON relevé — elle ouvrait
+    /// l'onglet Comptes, c'est-à-dire la liste de tous.
+    @State private var drill: ActivityRoute?
+    /// La place laissée à la pile, lue dans le défilement et rendue à la
+    /// couche qui la dessine par-dessus. Voir `stackLayer`.
+    @State private var room: CGRect = .zero
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage(Greeting.key) private var firstName = ""
 
@@ -46,10 +56,28 @@ struct EditorialHome: View {
     private var local: Bool { model.base.scheme == "florin-local" }
 
     var body: some View {
+        NavigationStack {
+            page
+                .toolbar(.hidden, for: .navigationBar)
+                .onChange(of: drill?.id) { _, open in chrome.detailOpen = open != nil }
+                .onDisappear { chrome.detailOpen = false }
+                .navigationDestination(item: $drill) { target in
+                    AccountDetailScreen(model: model, route: target)
+                        .toolbar(.hidden, for: .navigationBar)
+                }
+        }
+    }
+
+    /// Le nom de l'espace où la pile lit sa place. Le défilement le pose, le
+    /// gabarit transparent s'y mesure, la couche s'y positionne.
+    private static let space = "edHomeStack"
+
+    private var page: some View {
         ScrollView {
             if let data = model.overview {
                 VStack(alignment: .leading, spacing: 0) {
                     header
+                    .id(edTopAnchor)
                     EdHero(text: Greeting.line(t, name: firstName), oneLine: true)
                         .padding(.top, 14)
                     netWorth(data)
@@ -66,10 +94,16 @@ struct EditorialHome: View {
                      * a plus de somme à faire juste, donc plus de somme à
                      * faire fausse.
                      */
-                    GeometryReader { room in
-                        stack(data, room: room.size)
-                    }
-                    .frame(maxHeight: .infinity)
+                    Color.clear
+                        .frame(maxHeight: .infinity)
+                        .overlay(
+                            GeometryReader { g in
+                                Color.clear.preference(
+                                    key: EdStackRoom.self,
+                                    value: g.frame(in: .named(Self.space))
+                                )
+                            }
+                        )
                 }
                 .padding(.horizontal, Ed.gutter)
                 // La capsule flotte à 28 pt du bas sur 60 pt de haut : le
@@ -88,6 +122,27 @@ struct EditorialHome: View {
                     .padding(.top, 120)
             }
         }
+        .edRewind(.overview, chrome: chrome)
+        .coordinateSpace(.named(Self.space))
+        .onPreferenceChange(EdStackRoom.self) { room = $0 }
+        /*
+         * La pile se dessine PAR-DESSUS le défilement, pas dedans.
+         *
+         * Dedans, elle partageait chaque toucher avec le geste de
+         * défilement : l'appui long aboutissait, puis le moindre mouvement
+         * nourrissait les deux — la carte montait et la page élastiquait
+         * sous elle. Couper le défilement à cet instant ne suffisait pas,
+         * le geste était déjà engagé.
+         *
+         * Ici la pile n'est plus dans le défilement du tout. Un gabarit
+         * transparent lui garde sa place au même endroit et dit où il est ;
+         * la couche se pose exactement dessus. La disposition ne change pas
+         * d'un point, et plus rien ne dispute le toucher à la carte.
+         *
+         * Ce qui se perd : tirer-pour-synchroniser en partant d'une carte.
+         * Le haut de l'écran — le chiffre, la courbe — le porte toujours.
+         */
+        .overlay(alignment: .topLeading) { stackLayer }
         .scrollIndicators(.hidden)
         // Le contenu tient parfois tout entier dans l'écran, et un `ScrollView`
         // qui ne rebondit pas n'offre pas de tirer-pour-rafraîchir : sans ça le
@@ -440,6 +495,15 @@ struct EditorialHome: View {
     }
 
     @ViewBuilder
+    private var stackLayer: some View {
+        if let data = model.overview, room.height > 0 {
+            stack(data, room: room.size)
+                .frame(width: room.width, height: room.height, alignment: .top)
+                .offset(x: room.minX, y: room.minY)
+        }
+    }
+
+    @ViewBuilder
     private func stack(_ data: Overview, room: CGSize) -> some View {
         let shown = fitting(cards(data), room: room)
         let height = cardHeight(room: room, stacked: shown.count)
@@ -478,7 +542,9 @@ struct EditorialHome: View {
         _ account: Account, _ data: Overview, rank: Int, lead: Bool, height: CGFloat
     ) -> some View {
         let lifted = touched == account.id || dragging == account.id
-        Button(action: onOpenAccounts) {
+        Button {
+            drill = ActivityRoute(accountId: account.id, title: account.name)
+        } label: {
             face(account, data, rank: rank, lead: lead, open: lifted || lead)
                 .frame(height: height)
         }
@@ -646,7 +712,15 @@ private struct EdReorder: ViewModifier {
         if enabled {
             content
                 .offset(shift)
-                .gesture(
+                /*
+                 * Prioritaire sur le bouton qu'elle habille.
+                 *
+                 * `.gesture` est examiné APRÈS les gestes de la vue qu'il
+                 * enveloppe : le bouton voyait l'appui en premier et gardait
+                 * la séquence. Un appui court échoue toujours ici avant 0,45 s
+                 * et rend la main au bouton — le clic reste un clic.
+                 */
+                .highPriorityGesture(
                     LongPressGesture(minimumDuration: 0.45)
                         .sequenced(before: DragGesture(coordinateSpace: .local))
                         .onChanged { value in
@@ -712,5 +786,18 @@ private struct EdShare: View {
             }
         }
         .frame(height: 3)
+    }
+}
+
+
+/// Où la pile de cartes a le droit de se dessiner.
+///
+/// Elle vit hors du défilement pour garder ses gestes, mais sa place est
+/// décidée par la disposition du défilement. Un gabarit transparent la mesure
+/// là-bas et la passe ici ; la dernière mesure gagne, il n'y en a qu'une.
+private struct EdStackRoom: PreferenceKey {
+    static let defaultValue: CGRect = .zero
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        value = nextValue()
     }
 }
