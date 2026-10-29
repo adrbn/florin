@@ -610,3 +610,17 @@ final class EdGesture: ObservableObject {
     static let shared = EdGesture()
     @Published var scrubbing = false
 }
+
+/// Le style page, mais seulement en éditorial : les deux branches gardent la
+/// même vue, c'est le conteneur qui change de façon de la présenter.
+struct EdPaging: ViewModifier {
+    let enabled: Bool
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content.tabViewStyle(.page(indexDisplayMode: .never))
+        } else {
+            content
+        }
+    }
+}

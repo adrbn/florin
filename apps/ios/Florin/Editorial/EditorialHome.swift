@@ -8,13 +8,15 @@ import SwiftUI
  * sa pastille, sa courbe, et la pile de comptes où la carte du dessous est
  * celle qu'on regarde.
  *
- * La page défile, et c'est un retour en arrière assumé.
+ * La page ne défile pas, et pourtant on tire pour rafraîchir.
  *
- * Elle avait été figée pour qu'un accueil tienne d'un coup d'œil, et ce que
- * ça coûtait s'est vu tout de suite : trois comptes sur six, le reste réduit
- * à « +3 autres », et aucun tirer-pour-rafraîchir puisque rien ne défilait.
- * Le haut — salut, chiffre, courbe — tient toujours au-dessus du pli ; les
- * comptes continuent dessous, tous, et c'est le défilement qui les porte.
+ * Les deux vont ensemble : c'est un `ScrollView` dont le contenu tient tout
+ * entier dans l'écran. Il n'y a donc rien à faire défiler, mais le rebond
+ * existe — et le rebond est ce que `refreshable` écoute. Interdire le
+ * défilement pour de bon (`scrollDisabled`) emporterait le geste avec lui.
+ *
+ * « Tenir dans l'écran » n'est pas une espérance : la pile mesure la place
+ * qui lui reste et s'y taille. Voir `stack`.
  *
  * Rien ici ne lit la base : tout vient du modèle que l'ancien écran lit déjà.
  */
@@ -35,6 +37,13 @@ struct EditorialHome: View {
     /// L'ordre posé à la main, le temps que la base se relise.
     @State private var order: [String] = []
     @State private var dragging: String?
+    /// La carte sous le doigt. Elle se soulève, les autres s'effacent.
+    @State private var touched: String?
+    /// Ce que mesurent les deux lecteurs de géométrie : la hauteur de tout ce
+    /// qui précède la pile, et celle de la fenêtre. La pile prend la
+    /// différence — c'est ce qui garantit qu'il n'y a jamais à défiler.
+    @State private var chromeHeight: CGFloat = 0
+    @State private var viewport: CGSize = .zero
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage(Greeting.key) private var firstName = ""
 
@@ -45,12 +54,21 @@ struct EditorialHome: View {
         ScrollView {
             if let data = model.overview {
                 VStack(alignment: .leading, spacing: 0) {
-                    header
-                    EdHero(text: Greeting.line(t, name: firstName), oneLine: true)
-                        .padding(.top, 14)
-                    netWorth(data)
-                    curve(data)
-                    accountsHeading(data)
+                    VStack(alignment: .leading, spacing: 0) {
+                        header
+                        EdHero(text: Greeting.line(t, name: firstName), oneLine: true)
+                            .padding(.top, 14)
+                        netWorth(data)
+                        curve(data)
+                        accountsHeading(data)
+                    }
+                    .background(
+                        GeometryReader { chrome in
+                            Color.clear.preference(
+                                key: EdChromeHeight.self, value: chrome.size.height
+                            )
+                        }
+                    )
                     stack(data)
                 }
                 .padding(.horizontal, Ed.gutter)
@@ -72,7 +90,15 @@ struct EditorialHome: View {
         // geste n'existe que les jours où l'on a beaucoup de comptes.
         .scrollBounceBehavior(.always, axes: .vertical)
         .refreshable { await model.load(showSpinner: false) }
-        .background(Florin.bg)
+        // Le fond mesure la fenêtre : l'arrière-plan d'un `ScrollView` a la
+        // taille de ce qu'on en voit, jamais celle de son contenu.
+        .background(
+            GeometryReader { window in
+                Florin.bg.preference(key: EdViewport.self, value: window.size)
+            }
+        )
+        .onPreferenceChange(EdChromeHeight.self) { chromeHeight = $0 }
+        .onPreferenceChange(EdViewport.self) { viewport = $0 }
         /*
          * C'est l'écran qui demande les chiffres, pas le modèle qui s'éveille.
          *
@@ -344,92 +370,109 @@ struct EditorialHome: View {
     }
 
     /*
-     * La pile, dans un tiroir.
+     * La pile, comme un portefeuille.
      *
-     * Toutes les cartes à plat, c'était six boîtes trapues empilées sur une
-     * page qui n'en tient pas six — la dernière passait sous la barre et le
-     * chevauchement, étalé, ne ressemblait plus à une pile mais à une liste
-     * mal cadrée.
+     * Le tiroir à fondu réglait la hauteur en créant deux défauts : une carte
+     * tranchée en deux par le haut du tiroir, et un défilement vertical de
+     * plus sur une page qui en avait déjà un. Des tranches serrées n'ont ni
+     * l'un ni l'autre — mais elles ont une contrainte dure, et c'est elle qui
+     * fixe tout le reste.
      *
-     * Le tiroir rend la forme d'origine : des cartes qui se recouvrent, dont
-     * on ne voit que la tranche, et celle du bas ouverte. Ce qui ne tient pas
-     * dans sa hauteur n'est pas supprimé, il défile — le tiroir s'ouvre sur
-     * le bas, donc la carte ouverte est là d'emblée et les autres remontent
-     * en se fondant dans le haut.
+     * UNE TRANCHE FAIT 44 PT, le minimum d'une cible tactile. Apple Wallet
+     * s'autorise moins, parce qu'y toucher OUVRE la pile : rater sa carte n'y
+     * coûte rien, on retape. Ici un appui navigue, donc rater coûte un
+     * mauvais compte — la tranche ne peut pas descendre sous le doigt.
      *
-     * Le `zIndex` compte à l'endroit, sauf la carte tenue qui passe au-dessus
-     * de toutes : sinon on la voit glisser SOUS la pile qu'elle traverse.
+     * De là tombe le nombre. Le pas est fixé par le doigt, la hauteur par un
+     * écran qui ne défile pas : quatre cartes est ce qui reste, pas un choix
+     * de goût. Les autres sont à un appui, sur la ligne qui suit la pile.
      */
+    private static let step: CGFloat = 44
+    private static let shownAtMost = 4
+
     @ViewBuilder
     private func stack(_ data: Overview) -> some View {
-        let shown = cards(data)
+        let all = cards(data)
+        let shown = Array(all.prefix(Self.shownAtMost))
+        let rest = all.count - shown.count
+        let height = cardHeight(stacked: shown.count, rest: rest > 0)
         if !shown.isEmpty {
-            ScrollView {
-                VStack(spacing: -Self.overlap) {
-                    ForEach(Array(shown.enumerated()), id: \.element.id) { index, account in
-                        card(account, data, rank: index, last: index == shown.count - 1)
-                            .zIndex(dragging == account.id ? 1000 : Double(index))
-                    }
+            // La carte menée est la dernière : posée le plus bas, donc tout en
+            // haut de l'ordre d'empilement. L'ordre du `ZStack` le dit déjà,
+            // sauf pour celle qu'on tient, qui doit passer devant toutes.
+            ZStack(alignment: .top) {
+                ForEach(Array(shown.enumerated()), id: \.element.id) { index, account in
+                    card(
+                        account, data,
+                        rank: index, lead: index == shown.count - 1, height: height
+                    )
+                    .offset(y: CGFloat(index) * Self.step)
+                    .zIndex(dragging == account.id ? 1000 : Double(index))
                 }
-                .animation(EdMotion.spring, value: shown.map(\.id))
             }
-            .scrollIndicators(.hidden)
-            .scrollDisabled(dragging != nil)
-            // Ouvert sur le bas : la carte dépliée est ce qu'on vient voir.
-            .defaultScrollAnchor(.bottom)
-            .frame(height: drawerHeight(shown.count))
-            /*
-             * Un fondu, pas une coupe.
-             *
-             * Le haut du tiroir tranche au milieu d'une carte — un bord net y
-             * ressemble à un défaut d'affichage. Le dégradé dit « ça continue
-             * au-dessus », ce qui est précisément l'information.
-             */
-            .mask(
-                LinearGradient(
-                    stops: [
-                        .init(color: .clear, location: 0),
-                        .init(color: .black, location: 0.16),
-                        .init(color: .black, location: 1),
-                    ],
-                    startPoint: .top, endPoint: .bottom
-                )
+            .frame(
+                height: height + CGFloat(shown.count - 1) * Self.step,
+                alignment: .top
             )
+            .animation(EdMotion.spring, value: shown.map(\.id))
+
+            if rest > 0 { more(rest) }
         }
     }
 
-    /// Le chevauchement, et le pas du glissement : les deux sont le même
-    /// nombre, et les séparer fait sauter la carte d'un cran de trop.
-    private static let overlap: CGFloat = 18
-    private static let foldedHeight: CGFloat = 70
-
-    /// Trois cartes au plus dans le tiroir — au-delà, la page a mieux à faire
-    /// de sa hauteur, et le reste est à un doigt de défilement.
-    private func drawerHeight(_ count: Int) -> CGFloat {
-        let folds = CGFloat(min(count, 3) - 1)
-        return folds * (Self.foldedHeight - Self.overlap) + 126
+    /*
+     * La hauteur d'une carte, qui est le seul réglage de toute la page.
+     *
+     * Au format d'une carte bancaire (1,6) quand la place le permet, et sinon
+     * exactement ce qui reste : fenêtre moins le haut, moins les tranches des
+     * cartes repliées, moins la place de la capsule. Tant qu'une mesure
+     * manque on prend l'idéal — un écran de plus ou de moins pendant la
+     * première passe de calcul, puis plus jamais.
+     */
+    private func cardHeight(stacked: Int, rest: Bool) -> CGFloat {
+        let width = (viewport.width > 0 ? viewport.width : 393) - 2 * Ed.gutter
+        let ideal = width / 1.6
+        guard viewport.height > 0, chromeHeight > 0 else { return ideal }
+        let free = viewport.height
+            - chromeHeight
+            - CGFloat(stacked - 1) * Self.step
+            - (rest ? 44 : 0)
+            - 104
+        // Jamais moins que ce qu'il faut pour écrire un nom et un montant.
+        return max(150, min(ideal, free))
     }
 
     @ViewBuilder
     private func card(
-        _ account: Account, _ data: Overview, rank: Int, last: Bool
+        _ account: Account, _ data: Overview, rank: Int, lead: Bool, height: CGFloat
     ) -> some View {
-        let held = dragging == account.id
+        let lifted = touched == account.id || dragging == account.id
         Button(action: onOpenAccounts) {
-            if last {
-                expanded(account, data)
-            } else {
-                folded(account, data, rank: rank)
-            }
+            face(account, data, rank: rank, lead: lead, open: lifted || lead)
+                .frame(height: height)
         }
-        .buttonStyle(.edPress)
-        .scaleEffect(held ? 1.03 : 1)
-        .animation(EdMotion.spring, value: held)
+        /*
+         * L'appui se lit sur le style, pas sur un geste.
+         *
+         * Un `DragGesture(minimumDistance: 0)` sur la carte dirait la même
+         * chose et volerait le tirer-pour-rafraîchir dès que le doigt commence
+         * sur une carte. `isPressed` d'un `ButtonStyle` s'annule tout seul
+         * quand le défilement prend la main : c'est le seul signal d'appui qui
+         * ne se batte avec rien.
+         */
+        .buttonStyle(EdLift { pressed in touched = pressed ? account.id : nil })
+        .offset(y: lifted ? -14 : 0)
+        .scaleEffect(lifted ? 1.02 : 1)
+        // Celle qu'on tient reste pleine, les autres reculent : c'est ce
+        // recul qui dit « celle-là », plus sûrement que le soulèvement seul.
+        .opacity(touched == nil || lifted ? 1 : 0.55)
+        .animation(EdMotion.spring, value: lifted)
+        .animation(EdMotion.spring, value: touched)
         .modifier(
             EdReorder(
                 enabled: local,
                 id: account.id,
-                step: Self.foldedHeight - Self.overlap,
+                step: Self.step,
                 dragging: $dragging,
                 order: Binding(
                     get: { cards(data).map(\.id) },
@@ -445,51 +488,24 @@ struct EditorialHome: View {
         )
     }
 
-    /// Une carte repliée : le nom et le solde, le reste sous la suivante.
-    private func folded(_ account: Account, _ data: Overview, rank: Int) -> some View {
-        // Blanc, puis inverse : la maquette fait alterner les remplissages
-        // pour que deux cartes voisines ne se confondent jamais.
-        let inverse = rank % 2 == 1
-        return HStack {
-            Text(account.name)
-                .font(.system(size: 15))
-                .lineLimit(1)
-            Spacer(minLength: 8)
-            Text(Money.string(
-                account.displayValue, locale: data.localeTag, currency: data.currency,
-                decimals: false
-            ))
-            .font(.system(size: 15, weight: .semibold))
-            .monospacedDigit()
-            .hiddenWhenPrivate()
-        }
-        .foregroundStyle(inverse ? Florin.bg : Florin.text)
-        .padding(.horizontal, 18)
-        .padding(.top, 15)
-        .frame(maxWidth: .infinity, minHeight: Self.foldedHeight, alignment: .top)
-        .background(
-            UnevenRoundedRectangle(
-                topLeadingRadius: Ed.smallCard, bottomLeadingRadius: 0,
-                bottomTrailingRadius: 0, topTrailingRadius: Ed.smallCard,
-                style: .continuous
-            )
-            .fill(inverse ? Florin.text : Florin.surface)
-        )
-        .overlay(
-            UnevenRoundedRectangle(
-                topLeadingRadius: Ed.smallCard, bottomLeadingRadius: 0,
-                bottomTrailingRadius: 0, topTrailingRadius: Ed.smallCard,
-                style: .continuous
-            )
-            .strokeBorder(Florin.text.opacity(inverse ? 0 : 0.10), lineWidth: 1)
-        )
-    }
+    /*
+     * Le visage d'une carte.
+     *
+     * Le nom et le montant tiennent dans les 44 pt du haut — la seule bande
+     * qu'on voit d'une carte repliée. Le reste n'apparaît que sur la carte
+     * menée, ou sur celle qu'on soulève.
+     */
+    private func face(
+        _ account: Account, _ data: Overview, rank: Int, lead: Bool, open: Bool
+    ) -> some View {
+        // Blanc, puis inverse : deux cartes voisines ne se confondent jamais.
+        let inverse = !lead && rank % 2 == 1
+        let ink: Color = lead ? Florin.onAccent : (inverse ? Florin.bg : Florin.text)
+        let total = max(abs(data.netWorth.gross), 1)
+        let share = Int((abs(account.displayValue) / total * 100).rounded())
 
-    /// La carte du bas, ouverte : c'est elle qui porte les liquidités et
-    /// l'heure de la dernière synchronisation.
-    private func expanded(_ account: Account, _ data: Overview) -> some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack {
+        return VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
                 Text(account.name)
                     .font(.system(size: 15))
                     .lineLimit(1)
@@ -502,32 +518,71 @@ struct EditorialHome: View {
                 .monospacedDigit()
                 .hiddenWhenPrivate()
             }
-            HStack(alignment: .bottom) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(t("v2.overview.cash", "Liquidités"))
-                        .font(.system(size: 12))
-                        .opacity(0.85)
+            .frame(height: Self.step - 18, alignment: .center)
+
+            VStack(alignment: .leading, spacing: 10) {
+                if lead {
                     Text(Money.string(
                         data.allocation.cash, locale: data.localeTag,
                         currency: data.currency, decimals: false
                     ))
-                    .font(.system(size: 20, weight: .medium))
+                    .font(.system(size: 26, weight: .medium))
                     .monospacedDigit()
                     .hiddenWhenPrivate()
                 }
-                Spacer(minLength: 8)
-                Text(syncLine(data))
-                    .font(.system(size: 12))
-                    .opacity(0.85)
+                Spacer(minLength: 0)
+                EdShare(share: share, ink: ink)
+                HStack(spacing: 8) {
+                    Text("\(share)%")
+                        .monospacedDigit()
+                    Text(lead
+                        ? syncLine(data)
+                        : (account.isSynced == true
+                            ? t("v2.accounts.synced", "Synchronisé")
+                            : t("v2.accounts.manual", "Saisie manuelle")))
+                    .lineLimit(1)
+                    Spacer(minLength: 0)
+                }
+                .font(.system(size: 12))
+                .opacity(0.85)
             }
+            .opacity(open ? 1 : 0)
+            .animation(EdMotion.spring, value: open)
         }
-        .foregroundStyle(Florin.onAccent)
-        .padding(18)
+        .foregroundStyle(ink)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: Ed.smallCard, style: .continuous)
-                .fill(Florin.accent)
+                .fill(lead ? Florin.accent : (inverse ? Florin.text : Florin.surface))
         )
+        .overlay(
+            RoundedRectangle(cornerRadius: Ed.smallCard, style: .continuous)
+                .strokeBorder(
+                    Florin.text.opacity(lead || inverse ? 0 : 0.10), lineWidth: 1
+                )
+        )
+        .shadow(color: .black.opacity(open && !lead ? 0.18 : 0), radius: 18, y: 10)
+    }
+
+    /// Ce que la pile ne montre pas. La hauteur du doigt, pas celle du texte.
+    private func more(_ count: Int) -> some View {
+        Button(action: onOpenAccounts) {
+            HStack(spacing: 6) {
+                Text(t("v2.overview.moreAccounts", "+{count} autres", [
+                    "count": "\(count)",
+                ]))
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 10, weight: .semibold))
+            }
+            .font(.system(size: 13))
+            .foregroundStyle(Florin.text2)
+            .frame(height: 44)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.edPress)
     }
 
     private func syncLine(_ data: Overview) -> String {
@@ -614,5 +669,53 @@ private struct EdReorder: ViewModifier {
         next.insert(id, at: to)
         UISelectionFeedbackGenerator().selectionChanged()
         order = next
+    }
+}
+
+/// La hauteur de tout ce qui précède la pile, et celle de la fenêtre. Deux
+/// mesures, deux clés : la pile prend ce que l'une laisse à l'autre.
+private struct EdChromeHeight: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
+private struct EdViewport: PreferenceKey {
+    static let defaultValue: CGSize = .zero
+    static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
+        let next = nextValue()
+        if next != .zero { value = next }
+    }
+}
+
+/// Un style qui ne fait rien d'autre que dire quand on appuie. La carte, elle,
+/// se soulève depuis l'état — et pas en se rétrécissant comme `EdPress`, qui
+/// dirait l'inverse de ce qu'on veut montrer.
+private struct EdLift: ButtonStyle {
+    let onPress: (Bool) -> Void
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .onChange(of: configuration.isPressed) { _, pressed in onPress(pressed) }
+    }
+}
+
+/// La part du patrimoine, de la couleur de l'encre de la carte : sur fond
+/// accent comme sur fond blanc, une barre qui emprunte le texte est lisible.
+private struct EdShare: View {
+    let share: Int
+    let ink: Color
+
+    var body: some View {
+        GeometryReader { bar in
+            ZStack(alignment: .leading) {
+                Capsule().fill(ink.opacity(0.22))
+                Capsule()
+                    .fill(ink)
+                    .frame(width: bar.size.width * min(max(CGFloat(share) / 100, 0.01), 1))
+            }
+        }
+        .frame(height: 3)
     }
 }

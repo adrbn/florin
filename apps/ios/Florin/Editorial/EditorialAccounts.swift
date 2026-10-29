@@ -276,15 +276,29 @@ struct EditorialAccounts: View {
                         currency: data.currency, decimals: false
                     )
                 )
+                .edEnter()
+                /*
+                 * Le fondu se prend ligne par ligne, pas groupe par groupe.
+                 *
+                 * `edEnter` portait sur le bloc entier : un groupe de six
+                 * comptes s'effaçait d'un seul morceau, donc tant qu'un seul
+                 * de ses pixels restait dans la fenêtre le bloc valait
+                 * identité et rien ne bougeait. Posé sur chaque ligne — son
+                 * filet compris, sinon le trait survit à sa ligne — chaque
+                 * compte sort de la vue pour son propre compte, comme dans
+                 * Activité.
+                 */
                 VStack(spacing: 0) {
                     ForEach(Array(group.accounts.enumerated()), id: \.element.id) { index, account in
-                        if index > 0 { EdRule() }
-                        row(account, data, scale: scale, ink: ink(rank))
+                        VStack(spacing: 0) {
+                            if index > 0 { EdRule() }
+                            row(account, data, scale: scale, ink: ink(rank))
+                        }
+                        .edEnter()
                     }
                 }
             }
             .padding(.top, 30)
-            .edEnter()
         }
     }
 

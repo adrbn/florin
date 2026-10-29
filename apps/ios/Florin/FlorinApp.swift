@@ -616,9 +616,24 @@ struct MainTabs: View {
             // when minimised and it has no long-press. TabView still owns tab
             // state and lazy loading.
             .ignoresSafeArea(.keyboard)
-            // Le pouce passe d'un onglet à l'autre. Voir `edSwipe` pour
-            // pourquoi le défilement vertical continue de gagner.
-            .edSwipe(edTabOrder, selection: $selection, enabled: editorial)
+            /*
+             * Les onglets glissent, ils ne se fondent pas.
+             *
+             * Un `TabView` nu change d'onglet par un fondu croisé : deux
+             * écrans se superposent sans qu'aucun ne vienne de quelque part,
+             * et on perd le seul renseignement qu'une transition porte — de
+             * quel côté on vient. En style page c'est un vrai défilement
+             * horizontal : le contenu suit le doigt au lieu d'attendre qu'un
+             * seuil soit franchi, et un appui sur la capsule fait glisser de
+             * la même façon qu'un balayage.
+             *
+             * Le style porte donc aussi le balayage, et `edSwipe` ne sert
+             * plus ici — il reste pour les puces d'Analyse, qui ne sont pas
+             * un `TabView`. Posé seulement en éditorial, où changer de
+             * palette reconstruit déjà toute l'arborescence : un
+             * `tabViewStyle` ne se change pas à chaud.
+             */
+            .modifier(EdPaging(enabled: editorial))
 
             // Content dissolves into the bottom of the screen rather than
             // running on under the bar and out through the home indicator.
