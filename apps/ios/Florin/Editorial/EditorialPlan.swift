@@ -267,7 +267,7 @@ struct EditorialPlan: View {
         let over = category.available < 0
         return HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text((category.emoji.map { "\($0) " } ?? "") + category.name)
+                Text(category.name)
                     .font(.system(size: 17, weight: .medium))
                     .foregroundStyle(Florin.text)
                     .lineLimit(1)

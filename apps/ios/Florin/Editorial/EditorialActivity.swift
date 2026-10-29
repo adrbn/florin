@@ -19,6 +19,8 @@ struct EditorialActivity: View {
     @StateObject private var model: ActivityModel
     @State private var detail: Transaction?
     @State private var filtering = false
+    @State private var upcomingOpen = false
+    @State private var instalmentsOpen = false
     @State private var searching = false
     @State private var draft = ""
     @FocusState private var searchFocused: Bool
@@ -38,11 +40,35 @@ struct EditorialActivity: View {
     private var locale: String { overview.overview?.localeTag ?? "fr-FR" }
     private var currency: String { overview.overview?.currency ?? "EUR" }
 
+    /*
+     * Ce qui n'a pas encore eu lieu ne se range pas avec ce qui a eu lieu.
+     *
+     * Une banque publie un prélèvement plusieurs jours avant de le prendre,
+     * et un achat en quatre fois connaît ses trois échéances suivantes le
+     * jour même. Par date, tout cela arrive en tête — donc un « 30 octobre »
+     * s'ouvrait au-dessus d'« Aujourd'hui » et poussait les vraies opérations
+     * vers le bas. Elles sont déjà hors de tous les totaux ; elles sortent
+     * aussi des journées, et se replient dans leur propre pli au-dessus.
+     */
+    private var upcoming: [Transaction] {
+        model.rows.filter { $0.isUpcoming && !$0.isInstalment }
+    }
+
+    private var instalments: [Transaction] {
+        model.rows.filter { $0.isScheduled && $0.isInstalment }
+    }
+
     /// Les lignes regroupées par jour, dans l'ordre où elles arrivent — le
     /// serveur les rend déjà triées, donc ce découpage n'a rien à retrier.
+    ///
+    /// Les deux jambes d'un virement sont repliées en une : les voir toutes
+    /// les deux, à une ligne d'écart et au signe près, ne dit rien de plus
+    /// que la ligne unique et fait croire à deux mouvements.
     private var days: [(day: Date, rows: [Transaction])] {
+        let announced = Set(upcoming.filter(\.isToCome).map(\.id))
+            .union(instalments.map(\.id))
         var out: [(day: Date, rows: [Transaction])] = []
-        for row in model.rows {
+        for row in model.rows where !announced.contains(row.id) {
             let day = Calendar.current.startOfDay(for: row.day)
             if out.last?.day == day {
                 out[out.count - 1].rows.append(row)
@@ -50,7 +76,7 @@ struct EditorialActivity: View {
                 out.append((day, [row]))
             }
         }
-        return out
+        return out.map { ($0.day, TransferPairs.collapsed($0.rows)) }
     }
 
     var body: some View {
@@ -63,6 +89,8 @@ struct EditorialActivity: View {
                         + t("v2.activity.count", "{count} opérations", ["count": model.total])
                 )
                 .padding(.top, 18)
+
+                waiting
 
                 if let first = days.first {
                     hero(first)
@@ -224,6 +252,105 @@ struct EditorialActivity: View {
         return f.string(from: day)
     }
 
+    // MARK: Ce qui attend
+
+    /// Deux plis, repliés par défaut : ce qui vient de la banque, et ce qu'on
+    /// a soi-même étalé en plusieurs fois. Ils comptent leur total et leur
+    /// nombre sans déplier, ce qui est presque toujours tout ce qu'on venait
+    /// y lire.
+    @ViewBuilder
+    private var waiting: some View {
+        if !upcoming.isEmpty || !instalments.isEmpty {
+            VStack(spacing: 10) {
+                if !upcoming.isEmpty {
+                    fold(
+                        title: t("v2.activity.upcomingCount", "{count} à venir",
+                                 ["count": upcoming.count]),
+                        rows: upcoming,
+                        open: $upcomingOpen,
+                        inverse: false
+                    )
+                }
+                if !instalments.isEmpty {
+                    fold(
+                        title: t("v2.activity.instalmentPlanCount",
+                                 "{count} en plusieurs fois",
+                                 ["count": instalments.count]),
+                        rows: instalments,
+                        open: $instalmentsOpen,
+                        inverse: true
+                    )
+                }
+            }
+            .padding(.top, 22)
+        }
+    }
+
+    private func fold(
+        title: String, rows: [Transaction], open: Binding<Bool>, inverse: Bool
+    ) -> some View {
+        let total = rows.reduce(0) { $0 + $1.amount }
+        return VStack(alignment: .leading, spacing: 0) {
+            Button {
+                withAnimation(EdMotion.spring) { open.wrappedValue.toggle() }
+            } label: {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        EdInk(text: title, size: 13, dim: true)
+                        EdInk(
+                            text: Money.string(
+                                total, locale: locale, currency: currency,
+                                decimals: false, signed: true
+                            ),
+                            size: 22, weight: .medium
+                        )
+                    }
+                    Spacer(minLength: 8)
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(inverse ? Florin.bg : Florin.text2)
+                        .rotationEffect(.degrees(open.wrappedValue ? 180 : 0))
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.edPress)
+
+            if open.wrappedValue {
+                ForEach(rows) { tx in
+                    Rectangle()
+                        .fill((inverse ? Florin.bg : Florin.text).opacity(0.12))
+                        .frame(height: 1)
+                        .padding(.top, 10)
+                    Button { detail = tx } label: { foldedRow(tx, inverse: inverse) }
+                        .buttonStyle(.edPress)
+                }
+                .transition(.opacity)
+            }
+        }
+        .modifier(EdFoldSkin(inverse: inverse))
+    }
+
+    private func foldedRow(_ tx: Transaction, inverse: Bool) -> some View {
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 1) {
+                EdInk(text: tx.payee.isEmpty
+                    ? t("v2.activity.unnamedPayee", "Opération")
+                    : tx.payee, size: 15, weight: .medium)
+                    .lineLimit(1)
+                EdInk(text: dayLabel(tx.day), size: 12, dim: true)
+            }
+            Spacer(minLength: 8)
+            EdInk(
+                text: Money.string(
+                    tx.amount, locale: locale, currency: currency, signed: true
+                ),
+                size: 15, weight: .medium
+            )
+        }
+        .frame(minHeight: 44)
+        .contentShape(Rectangle())
+    }
+
     // MARK: Les lignes
 
     private func rows(_ list: [Transaction]) -> some View {
@@ -252,11 +379,19 @@ struct EditorialActivity: View {
                     .lineLimit(1)
             }
             Spacer(minLength: 8)
+            /*
+             * Aucune couleur sur un montant.
+             *
+             * L'accent était donné aux entrées, ce qui mettait en alerte le
+             * remboursement de huit euros et laissait en blanc le loyer. Dans
+             * ce thème l'orange ne veut dire qu'une chose — quelque chose
+             * demande une décision — et une rentrée d'argent n'en demande
+             * aucune. Le signe suffit à dire le sens.
+             */
             EdAmountPill(
                 text: Money.string(
                     tx.amount, locale: locale, currency: currency, signed: true
-                ),
-                tone: tx.amount < 0 ? Florin.text : Florin.accent
+                )
             )
         }
         .frame(minHeight: 62)

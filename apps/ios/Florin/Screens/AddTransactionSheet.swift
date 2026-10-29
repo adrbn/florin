@@ -193,7 +193,32 @@ struct AddTransactionSheet: View {
         return !payee.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
+    /*
+     * Deux habillages, une seule feuille.
+     *
+     * Ce qui change en Éditorial, c'est le cadre : la barre de navigation
+     * devient une pastille et une croix, le montant passe de 52 à 80 points,
+     * « Enregistrer » descend en bouton pleine largeur. Ce qui ne change pas,
+     * c'est `fields` — la catégorie devinée, le partage en plusieurs fois,
+     * l'échéance, le ticket de caisse. Une copie éditoriale de tout ça serait
+     * une seconde occasion de s'en écarter.
+     *
+     * La queue de modificateurs ne regarde pas la mise en page non plus
+     * (préremplissage du compte, préchauffage du classificateur, sélecteur de
+     * catégorie), d'où `plumbed` : écrite une fois, appliquée aux deux.
+     */
+    private var editorial: Bool { FlorinPalette.selected == .editorial }
+
     var body: some View {
+        if editorial {
+            plumbed(editorialShell)
+        } else {
+            plumbed(classicShell)
+        }
+    }
+
+    @ViewBuilder
+    private var classicShell: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
@@ -228,6 +253,129 @@ struct AddTransactionSheet: View {
                 }
             }
         }
+    }
+
+    // MARK: Éditorial
+
+    private var editorialShell: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                edHeader
+                edDirection
+                edFigure
+                fields
+                if let errorMessage {
+                    Text(errorMessage)
+                        .font(.system(size: 13))
+                        .foregroundStyle(Florin.negative)
+                        .padding(.horizontal, Ed.gutter)
+                        .padding(.top, 14)
+                }
+                edSave
+            }
+            .padding(.bottom, 24)
+        }
+        .scrollIndicators(.hidden)
+        .scrollDismissesKeyboard(.interactively)
+        .background(Florin.bg)
+    }
+
+    private var edHeader: some View {
+        HStack {
+            EdPill(text: isEditing
+                ? t("v2.common.edit", "Modifier")
+                : t("v2.add.title", "Nouvelle opération"))
+            Spacer(minLength: 8)
+            EdIconButton(symbol: "xmark", label: t("v2.common.cancel", "Annuler")) {
+                dismiss()
+            }
+        }
+        .padding(.horizontal, Ed.gutter)
+        .padding(.trailing, -10)
+        .padding(.top, 14)
+    }
+
+    /// Les trois sens en pastilles, celle qui est choisie pleine. Aucune
+    /// couleur par sens : le signe devant le montant le dit déjà, et trois
+    /// teintes dans un écran qui n'en tient qu'une le déferaient.
+    private var edDirection: some View {
+        HStack(spacing: 8) {
+            edKindPill(t("v2.add.expense", "Dépense"), .expense)
+            edKindPill(t("v2.add.income", "Entrée"), .income)
+            if !isEditing, usableAccounts.count > 1 {
+                edKindPill(t("v2.add.transfer", "Virement"), .transfer)
+            }
+        }
+        .padding(.horizontal, Ed.gutter)
+        .padding(.top, 22)
+    }
+
+    private func edKindPill(_ label: String, _ target: Kind) -> some View {
+        Button {
+            UISelectionFeedbackGenerator().selectionChanged()
+            withAnimation(EdMotion.spring) { kind = target }
+        } label: {
+            Text(label)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(kind == target ? Florin.bg : Florin.text)
+                .frame(maxWidth: .infinity)
+                .frame(height: 40)
+                .background(Capsule().fill(kind == target ? Florin.text : .clear))
+                .overlay(Capsule().strokeBorder(
+                    kind == target ? .clear : Florin.text.opacity(0.28), lineWidth: 1
+                ))
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// Le montant à 80 points : c'est le sujet de la feuille, il s'écrit à la
+    /// taille d'un titre et non à celle d'un champ.
+    private var edFigure: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Text(kind == .income ? "+" : "−")
+                .font(.system(size: 40, weight: .medium))
+                .foregroundStyle(magnitude > 0 ? Florin.text2 : Florin.text3)
+            TextField("0", text: $amount)
+                .keyboardType(.decimalPad)
+                .focused($amountFocused)
+                .font(.system(size: 80, weight: .medium))
+                .monospacedDigit()
+                .tracking(Ed.tracking(80, 0.045))
+                .foregroundStyle(Florin.text)
+                .fixedSize()
+            Text(Money.currencySymbol(locale: localeTag, currency: currency))
+                .font(.system(size: 40, weight: .medium))
+                .foregroundStyle(Florin.text3)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, Ed.gutter)
+        .padding(.top, 26)
+        .padding(.bottom, 10)
+    }
+
+    private var edSave: some View {
+        Button(action: save) {
+            Text(saving
+                ? "…"
+                : isEditing ? t("v2.common.save", "Enregistrer") : t("v2.nav.add", "Ajouter"))
+                .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(Florin.onAccent)
+                .frame(maxWidth: .infinity)
+                .frame(height: 56)
+                .background(Capsule().fill(Florin.accent))
+                // Un bouton éteint garde sa place et perd son aplomb : le
+                // faire disparaître ferait sauter la page sous le doigt.
+                .opacity(isValid && !saving ? 1 : 0.35)
+        }
+        .buttonStyle(.edPress)
+        .disabled(!isValid || saving)
+        .padding(.horizontal, Ed.gutter)
+        .padding(.top, 28)
+    }
+
+    @ViewBuilder
+    private func plumbed(_ content: some View) -> some View {
+        content
         .presentationBackground(.clear)
         .onAppear {
             if accountId.isEmpty {

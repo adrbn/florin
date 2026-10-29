@@ -67,7 +67,7 @@ struct CategoryPicker: View {
                                 dismiss()
                             } label: {
                                 HStack(spacing: 10) {
-                                    Text(hint.emoji ?? "•").frame(width: 22)
+                                    Text(EdSymbols.bullet(hint.emoji)).frame(width: 22)
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text(hint.name).foregroundStyle(Florin.text)
                                         if index == 0 {
@@ -135,7 +135,7 @@ struct CategoryPicker: View {
                                 dismiss()
                             } label: {
                                 HStack(spacing: 10) {
-                                    Text(category.emoji ?? "•").frame(width: 22)
+                                    Text(EdSymbols.bullet(category.emoji)).frame(width: 22)
                                     Text(category.name).foregroundStyle(Florin.text)
                                     Spacer()
                                     if category.name == selected {

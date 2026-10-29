@@ -12,22 +12,44 @@ struct Bubble: View {
 
     private var tint: Color { Florin.seriesColor(for: label) }
 
+    /*
+     * Éditorial ne met pas d'emoji dans ses listes.
+     *
+     * Un emoji apporte sa propre palette — jaune, rose, vert — dans un écran
+     * qui n'en veut qu'une, et sa propre graisse de dessin dans un écran qui
+     * tient par le type. Vingt lignes et c'est un écran de messagerie.
+     *
+     * Le repli existait déjà : les initiales sur une pastille. Ce thème s'y
+     * branche au lieu d'inventer un second jeu d'icônes à tenir à jour — un
+     * cercle au filet, l'encre du texte, aucune teinte. Ce qui n'est pas de
+     * la décoration reste : le logo d'un marchand dit *lequel*, et une icône
+     * système nommée explicitement a été demandée.
+     *
+     * Ailleurs, rien ne change : les quatre autres thèmes gardent leurs
+     * emojis, et c'est exactement ce qu'on leur demande.
+     */
+    private var flat: Bool { FlorinPalette.selected == .editorial }
+
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: size * 0.33, style: .continuous)
-                .fill(tint.opacity(0.15))
+            if flat {
+                Circle().strokeBorder(Florin.text.opacity(0.28), lineWidth: 1)
+            } else {
+                RoundedRectangle(cornerRadius: size * 0.33, style: .continuous)
+                    .fill(tint.opacity(0.15))
+            }
             if let logo {
                 logoFace(logo)
-            } else if let emoji, !emoji.isEmpty {
+            } else if let emoji, !emoji.isEmpty, !flat {
                 Text(emoji).font(.system(size: size * 0.42))
             } else if let systemImage {
                 Image(systemName: systemImage)
                     .font(.system(size: size * 0.4, weight: .medium))
-                    .foregroundStyle(tint)
+                    .foregroundStyle(flat ? Florin.text : tint)
             } else {
                 Text(Self.initials(label))
-                    .font(.system(size: size * 0.36, weight: .semibold))
-                    .foregroundStyle(tint)
+                    .font(.system(size: size * 0.36, weight: flat ? .medium : .semibold))
+                    .foregroundStyle(flat ? Florin.text : tint)
             }
         }
         .frame(width: size, height: size)

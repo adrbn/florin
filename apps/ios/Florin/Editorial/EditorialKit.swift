@@ -437,3 +437,39 @@ extension View {
             .presentationBackground(Florin.bg)
     }
 }
+
+// MARK: - Les emojis, ou leur absence
+
+/// Là où un emoji est posé en clair plutôt que dans une `Bubble`, ce passage
+/// décide à sa place. Un point médian tient la colonne sans y mettre de
+/// couleur : la ligne garde son alignement, l'écran garde sa palette.
+enum EdSymbols {
+    static func bullet(_ emoji: String?) -> String {
+        if FlorinPalette.selected == .editorial { return "·" }
+        return emoji ?? "•"
+    }
+}
+
+/// La peau d'un pli : en négatif pour le second, au filet pour le premier.
+/// La maquette alterne les deux afin qu'on les distingue d'un coup d'œil sans
+/// avoir à les lire.
+struct EdFoldSkin: ViewModifier {
+    let inverse: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: Ed.smallCard, style: .continuous)
+                    .fill(inverse ? Florin.text : Color.clear)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: Ed.smallCard, style: .continuous)
+                    .strokeBorder(
+                        inverse ? .clear : Florin.text.opacity(0.18), lineWidth: 1
+                    )
+            )
+            .environment(\.edInverse, inverse)
+    }
+}
