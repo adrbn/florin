@@ -27,6 +27,13 @@ struct EditorialHome: View {
     @ObservedObject var chrome: ChromeState
 
     @State private var addingAccount = false
+    /// Noter une opération depuis les quatre gestes. `income` dit laquelle
+    /// des deux : la feuille s'ouvre sur « reçu » ou sur « dépense ».
+    @State private var addingTx = false
+    @State private var income = false
+    /// Les comptes écartés de la pile, choisis compte par compte dans
+    /// Comptes. Voir `HomeCards`.
+    @AppStorage(HomeCards.key) private var hiddenCards = ""
     /// Net ou brut : c'est un choix, pas un réglage d'usine. Il était
     /// repris à `true` à chaque ouverture de l'app, donc reposé à la main
     /// à chaque fois. Les deux écrans lisent la même clé, parce que c'est
@@ -49,9 +56,6 @@ struct EditorialHome: View {
     /// Le compte qu'on ouvre. Une carte mène à SON relevé — elle ouvrait
     /// l'onglet Comptes, c'est-à-dire la liste de tous.
     @State private var drill: ActivityRoute?
-    /// La place laissée à la pile, lue dans le défilement et rendue à la
-    /// couche qui la dessine par-dessus. Voir `stackLayer`.
-    @State private var room: CGRect = .zero
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage(Greeting.key) private var firstName = ""
 
@@ -79,52 +83,87 @@ struct EditorialHome: View {
         }
     }
 
-    /// Le nom de l'espace où la pile lit sa place. Le défilement le pose, le
-    /// gabarit transparent s'y mesure, la couche s'y positionne.
-    private static let space = "edHomeStack"
-
     private var page: some View {
         ScrollView {
             if let data = model.overview {
                 VStack(alignment: .leading, spacing: 0) {
-                    header
-                    .id(edTopAnchor)
-                    EdHero(text: Greeting.line(t, name: firstName), oneLine: true)
-                        .padding(.top, 14)
-                    netWorth(data)
-                    curve(data)
-                    accountsHeading(data)
                     /*
-                     * La pile prend ce qui reste, et elle le LIT.
+                     * Le premier écran, à la hauteur de l'écran.
                      *
-                     * Elle le calculait : fenêtre moins le haut, moins la
-                     * capsule, moins les tranches. Trois mesures à tenir
-                     * d'accord, et la dernière carte passait sous la barre
-                     * dès que l'une bougeait d'un point. Ici le `GeometryReader`
-                     * reçoit l'espace que la disposition lui a laissé — il n'y
-                     * a plus de somme à faire juste, donc plus de somme à
-                     * faire fausse.
+                     * Le salut, le chiffre, la courbe et la pile tiennent
+                     * dans la fenêtre sans défiler : c'est ce qu'on voit en
+                     * ouvrant l'app, et on n'a rien à faire pour le voir.
+                     * Ce qui suit se lit en descendant.
                      */
-                    Color.clear
+                    VStack(alignment: .leading, spacing: 0) {
+                        header
+                        .id(edTopAnchor)
+                        EdHero(text: Greeting.line(t, name: firstName), oneLine: true)
+                            .padding(.top, 14)
+                        netWorth(data)
+                        curve(data)
+                        accountsHeading(data)
+                        /*
+                         * La pile prend ce qui reste, et elle le LIT.
+                         *
+                         * Elle le calculait : fenêtre moins le haut, moins la
+                         * capsule, moins les tranches. Trois mesures à tenir
+                         * d'accord, et la dernière carte passait sous la barre
+                         * dès que l'une bougeait d'un point. Ici le
+                         * `GeometryReader` reçoit l'espace que la disposition
+                         * lui a laissé — il n'y a plus de somme à faire juste,
+                         * donc plus de somme à faire fausse.
+                         *
+                         * Elle vit de nouveau DANS le défilement : elle en
+                         * était sortie pour garder le toucher de l'appui long
+                         * qui déplaçait une carte, et ce geste a été retiré.
+                         * Un appui simple ne dispute rien au défilement, et
+                         * une pile posée en surimpression ne saurait pas où se
+                         * dessiner dès que la page descend.
+                         */
+                        GeometryReader { g in
+                            stack(data, room: g.size)
+                        }
                         .frame(maxHeight: .infinity)
-                        .overlay(
-                            GeometryReader { g in
-                                Color.clear.preference(
-                                    key: EdStackRoom.self,
-                                    value: g.frame(in: .named(Self.space))
-                                )
-                            }
-                        )
+                    }
+                    // La capsule flotte à 28 pt du bas sur 60 pt de haut : le
+                    // premier écran s'arrête au-dessus, sans quoi la dernière
+                    // carte passe dessous.
+                    .padding(.bottom, 104)
+                    // Exactement la hauteur de la fenêtre.
+                    .containerRelativeFrame(.vertical)
+
+                    // MARK: Ce qui se lit en descendant
+
+                    EdActions(
+                        t: t,
+                        syncing: model.syncing,
+                        canSync: data.bankSyncConfigured,
+                        onExpense: { income = false; addingTx = true },
+                        onIncome: { income = true; addingTx = true },
+                        onSync: { Task { await model.sync(confirmCurrent: false) } },
+                        onAccounts: onOpenAccounts
+                    )
+                    .edEnter()
+                    .padding(.bottom, 44)
+
+                    EdMonthSplit(data: data)
+                        .edEnter()
+                        .padding(.bottom, 44)
+
+                    EdMonthEnd(data: data)
+                        .edEnter()
+                        .padding(.bottom, 44)
+
+                    EdAllocation(data: data)
+                        .edEnter()
+                        .padding(.bottom, 44)
+
+                    EdSavings(data: data)
+                        .edEnter()
                 }
                 .padding(.horizontal, Ed.gutter)
-                // La capsule flotte à 28 pt du bas sur 60 pt de haut : le
-                // contenu s'arrête au-dessus, sans quoi la dernière carte
-                // passe dessous.
                 .padding(.bottom, 104)
-                // Le contenu fait exactement la hauteur de la fenêtre : rien
-                // à faire défiler, et le rebond — donc le tirer-pour-
-                // rafraîchir — reste entier.
-                .containerRelativeFrame(.vertical)
             } else {
                 ProgressView()
                     .controlSize(.large)
@@ -134,43 +173,12 @@ struct EditorialHome: View {
             }
         }
         .edRewind(.overview, chrome: chrome)
-        .coordinateSpace(.named(Self.space))
-        .onPreferenceChange(EdStackRoom.self) { room = $0 }
-        /*
-         * La pile se dessine PAR-DESSUS le défilement, pas dedans.
-         *
-         * Dedans, elle partageait chaque toucher avec le geste de
-         * défilement : l'appui long aboutissait, puis le moindre mouvement
-         * nourrissait les deux — la carte montait et la page élastiquait
-         * sous elle. Couper le défilement à cet instant ne suffisait pas,
-         * le geste était déjà engagé.
-         *
-         * Ici la pile n'est plus dans le défilement du tout. Un gabarit
-         * transparent lui garde sa place au même endroit et dit où il est ;
-         * la couche se pose exactement dessus. La disposition ne change pas
-         * d'un point, et plus rien ne dispute le toucher à la carte.
-         *
-         * Ce qui se perd : tirer-pour-synchroniser en partant d'une carte.
-         * Le haut de l'écran — le chiffre, la courbe — le porte toujours.
-         */
-        .overlay(alignment: .topLeading) { stackLayer }
         .scrollIndicators(.hidden)
-        .edPlainEdges(top: 0, bottom: 0)
+        .edPlainEdges()
         // Le contenu tient parfois tout entier dans l'écran, et un `ScrollView`
         // qui ne rebondit pas n'offre pas de tirer-pour-rafraîchir : sans ça le
         // geste n'existe que les jours où l'on a beaucoup de comptes.
         .scrollBounceBehavior(.always, axes: .vertical)
-        /*
-         * Pendant qu'on déplace une carte, la page ne bouge plus.
-         *
-         * Le rebond vertical reste armé — c'est lui qui porte le tirer-pour-
-         * synchroniser — donc l'appui long aboutissait, puis le moindre
-         * mouvement nourrissait les deux gestes à la fois : la carte montait
-         * et la page élastiquait sous elle. Couper le défilement à l'instant
-         * où l'appui aboutit arrive avant que le doigt n'ait bougé, donc
-         * avant que le geste de défilement n'ait commencé ; il est annulé, et
-         * seule la carte suit le doigt.
-         */
         /*
          * Tirer demande à la banque, et le chiffre tourne en attendant.
          *
@@ -198,6 +206,23 @@ struct EditorialHome: View {
         .sheet(isPresented: $addingAccount) {
             AddAccountSheet(t: t, onSaved: { Task { await model.load() } })
                 .edSheet()
+        }
+        .sheet(isPresented: $addingTx) {
+            if let data = model.overview {
+                AddTransactionSheet(
+                    accounts: data.accounts,
+                    categories: data.categories,
+                    localeTag: data.localeTag,
+                    currency: data.currency,
+                    t: t,
+                    submit: { try await model.add($0) },
+                    onTransfer: { try await model.addTransfer($0) },
+                    onInstalments: { try await model.addInstalments($0) },
+                    isLocalLedger: local,
+                    presetIncome: income
+                )
+                .edSheet()
+            }
         }
     }
 
@@ -245,10 +270,22 @@ struct EditorialHome: View {
             withAnimation(EdMotion.spring) { showNet.toggle() }
         } label: {
             VStack(alignment: .leading, spacing: 8) {
-                EdPill(text: scrubbed.map { dayLabel($0.day, data) }
-                    ?? (showNet
-                        ? t("v2.overview.netWorth", "Patrimoine")
-                        : t("v2.overview.gross", "Brut")))
+                HStack(spacing: 10) {
+                    EdPill(text: scrubbed.map { dayLabel($0.day, data) }
+                        ?? (showNet
+                            ? t("v2.overview.netWorth", "Patrimoine")
+                            : t("v2.overview.gross", "Brut")))
+                    /*
+                     * Le rideau se tire sur le chiffre, pas dans un menu.
+                     *
+                     * Masquer les montants vivait dans Réglages et dans une
+                     * secousse du téléphone. Le geste qu'on cherche quand
+                     * quelqu'un se penche est à l'endroit qu'on veut couvrir :
+                     * ici, à côté du grand nombre.
+                     */
+                    EdEye()
+                    Spacer(minLength: 0)
+                }
                 // Les bobines tournent pendant la synchro et se posent une à
                 // une — le même mécanisme qu'Obsidienne, dans la typographie
                 // d'ici. Jamais sous le doigt : la date change soixante fois
@@ -419,7 +456,10 @@ struct EditorialHome: View {
     /// corps de sa cachette — il n'y avait pas de façon de le dessiner qui
     /// reste lisible. L'ordre se change dans Comptes.
     private func cards(_ data: Overview) -> [Account] {
-        data.accounts.filter { !$0.isArchived && $0.isIncludedInNetWorth }
+        let hidden = HomeCards.hidden(hiddenCards)
+        return data.accounts.filter {
+            !$0.isArchived && $0.isIncludedInNetWorth && !hidden.contains($0.id)
+        }
     }
 
     /*
@@ -507,15 +547,6 @@ struct EditorialHome: View {
         let slices = Int(((room.height - Self.minCard) / Self.tightStep).rounded(.down))
         let count = max(1, min(Self.shownAtMost, slices + 1))
         return Array(all.prefix(count))
-    }
-
-    @ViewBuilder
-    private var stackLayer: some View {
-        if let data = model.overview, room.height > 0 {
-            stack(data, room: room.size)
-                .frame(width: room.width, height: room.height, alignment: .top)
-                .offset(x: room.minX, y: room.minY)
-        }
     }
 
     @ViewBuilder
@@ -768,18 +799,5 @@ private struct EdShare: View {
             }
         }
         .frame(height: 3)
-    }
-}
-
-
-/// Où la pile de cartes a le droit de se dessiner.
-///
-/// Elle vit hors du défilement pour garder ses gestes, mais sa place est
-/// décidée par la disposition du défilement. Un gabarit transparent la mesure
-/// là-bas et la passe ici ; la dernière mesure gagne, il n'y en a qu'une.
-private struct EdStackRoom: PreferenceKey {
-    static let defaultValue: CGRect = .zero
-    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
-        value = nextValue()
     }
 }

@@ -24,6 +24,8 @@ struct AccountEditSheet: View {
     @State private var icon: String
     @State private var amount: String
     @State private var contentHeight: CGFloat = 0
+    /// Les comptes écartés de la pile de l'accueil. Voir `HomeCards`.
+    @AppStorage(HomeCards.key) private var hiddenCards = ""
     @FocusState private var focused: Bool
 
     /// A short palette beats the emoji keyboard: one tap instead of a search,
@@ -126,6 +128,35 @@ struct AccountEditSheet: View {
                             }
                         }
                     }
+
+                    /*
+                     * Sur l'accueil, ou pas.
+                     *
+                     * La pile de l'accueil tient dans la hauteur de trois
+                     * cartes quel qu'en soit le nombre : au-delà, elle se
+                     * tasse jusqu'à son pas plancher et un trousseau de douze
+                     * comptes ne montre plus que des bandeaux. Le choix se
+                     * fait ici, compte par compte, et seulement pour
+                     * l'affichage — le compte reste entier dans le
+                     * patrimoine et dans les listes.
+                     */
+                    Toggle(isOn: Binding(
+                        get: { !HomeCards.hidden(hiddenCards).contains(account.id) },
+                        set: { hiddenCards = HomeCards.write(account.id, shown: $0, in: hiddenCards) }
+                    )) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(t("v2.ed.onHome", "Afficher sur l'accueil"))
+                                .font(.system(size: 15))
+                            Text(t(
+                                "v2.ed.onHomeHint",
+                                "La carte de ce compte apparaît dans la pile."
+                            ))
+                            .font(.system(size: 12))
+                            .foregroundStyle(Florin.text3)
+                        }
+                    }
+                    .tint(Florin.accent)
+                    .padding(.horizontal, Florin.gutter)
 
                     VStack(alignment: .leading, spacing: 10) {
                         Eyebrow(text: t("v2.plan.categoryIcon", "Icône"))

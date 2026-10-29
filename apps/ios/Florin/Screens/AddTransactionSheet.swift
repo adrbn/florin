@@ -96,7 +96,12 @@ struct AddTransactionSheet: View {
         editing: Transaction? = nil,
         onPatch: @escaping (TxPatch) async -> Void = { _ in },
         presetAccountId: String? = nil,
-        isLocalLedger: Bool = false
+        isLocalLedger: Bool = false,
+        /// Ouverte sur « reçu » plutôt que sur « dépense ». Les quatre gestes
+        /// de l'accueil éditorial nomment les deux séparément : sans ça,
+        /// « Reçu » ouvrait la même feuille que « Dépense » et il fallait
+        /// retrouver la bascule.
+        presetIncome: Bool = false
     ) {
         self.accounts = accounts
         self.categories = categories
@@ -111,7 +116,11 @@ struct AddTransactionSheet: View {
         self.presetAccountId = presetAccountId
         self.isLocalLedger = isLocalLedger
 
-        _kind = State(initialValue: (editing?.amount ?? -1) < 0 ? .expense : .income)
+        if let editing {
+            _kind = State(initialValue: editing.amount < 0 ? .expense : .income)
+        } else {
+            _kind = State(initialValue: presetIncome ? .income : .expense)
+        }
         // Typed as the locale writes it, so a French reader edits "12,40" —
         // and unsigned, because the sign is the chips above it.
         _amount = State(

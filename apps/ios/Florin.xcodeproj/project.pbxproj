@@ -16,6 +16,7 @@
 		097A9A7EE7645B3AA663D444 /* LocalSchema.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD643C2F44F11D71E2F7CA73 /* LocalSchema.swift */; };
 		0BD9FE3CFA72A3F04F4ED9F8 /* PlanModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64BDA3BB3A85D55389B90A43 /* PlanModel.swift */; };
 		0C0F0E087D436E275DA1A339 /* ServerProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = A430BB992FA1860E239C34C8 /* ServerProbe.swift */; };
+		0C2350E30ACE96F4B899D2AC /* MonthForecast.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB38C7FAAF1473C100763F20 /* MonthForecast.swift */; };
 		0FC7475F516BDC8DA2821A95 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C815B4671E296193268EC13 /* WidgetSnapshot.swift */; };
 		13F221008AC2C8208BE2C62F /* ImportSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9002B8C0392D7D4BCEB2266 /* ImportSheet.swift */; };
 		14570AF8AED25106A817D2D0 /* WalletLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2406258388A57C80943B22BA /* WalletLog.swift */; };
@@ -45,6 +46,7 @@
 		2ED83E4E75DB0DBEA0A037F4 /* LocalHoldings.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD8D00CFBF99A69C1BC612F8 /* LocalHoldings.swift */; };
 		302F4643CDA591613AD8B258 /* AmountText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75D28CE358FB2C14BF840725 /* AmountText.swift */; };
 		30EB900C687EDBBC94DEC3E7 /* DaySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CF1EDFEA6B96F300B0E16EC /* DaySheet.swift */; };
+		318B03D95FB9965CD712E41C /* EditorialMonth.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3537C37632DE19D250D9675 /* EditorialMonth.swift */; };
 		31B1D1DF613445C5C45A0568 /* LocalAnalysis.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72FE45643769E71AEFCDC7D4 /* LocalAnalysis.swift */; };
 		3342203CA12166B860659D6E /* TransactionDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDF4A709768A421F61F9223E /* TransactionDetailSheet.swift */; };
 		378E13284CB5ABEB3C6AE3D9 /* Reachability.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A2E5050FDA9374F4898E6D9 /* Reachability.swift */; };
@@ -318,6 +320,7 @@
 		CF76048AF929B992877341B9 /* SyncLogScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncLogScreen.swift; sourceTree = "<group>"; };
 		D01218C78CF2722622A51E5B /* Brand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Brand.swift; sourceTree = "<group>"; };
 		D1D62499D2405CFC7C953ABE /* BackgroundRefresh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundRefresh.swift; sourceTree = "<group>"; };
+		D3537C37632DE19D250D9675 /* EditorialMonth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorialMonth.swift; sourceTree = "<group>"; };
 		D369E2149BEF0B494A2B5467 /* TrueDate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrueDate.swift; sourceTree = "<group>"; };
 		D5618684CA95C08C40B83835 /* SuggestionPills.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuggestionPills.swift; sourceTree = "<group>"; };
 		D819CCD023A8552EED3FEA54 /* FlorinAuth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlorinAuth.swift; sourceTree = "<group>"; };
@@ -325,6 +328,7 @@
 		D9827F713A8EE3D5E4D707EA /* CategoriesScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoriesScreen.swift; sourceTree = "<group>"; };
 		DACD180DD215EA3B81655A72 /* WalletGuideSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletGuideSheet.swift; sourceTree = "<group>"; };
 		DB14175F23A5549664049321 /* AccountsLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountsLogic.swift; sourceTree = "<group>"; };
+		DB38C7FAAF1473C100763F20 /* MonthForecast.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonthForecast.swift; sourceTree = "<group>"; };
 		DB92AC9E5814FF0A7879214E /* DataSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataSource.swift; sourceTree = "<group>"; };
 		DCA4B188AFA3350AE1C4604E /* LoanSettingsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoanSettingsSheet.swift; sourceTree = "<group>"; };
 		DEA94E1C0A6307106C6B8EAB /* Florin.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Florin.entitlements; sourceTree = "<group>"; };
@@ -416,6 +420,7 @@
 				B6D115E6ACF2AAEDEBA8B274 /* EditorialActivity.swift */,
 				28DB65A83A4AE494D6B6C58E /* EditorialHome.swift */,
 				B809DD9A440EB454C13B5645 /* EditorialKit.swift */,
+				D3537C37632DE19D250D9675 /* EditorialMonth.swift */,
 				2681B08E8F172F11DED9AB49 /* EditorialPlan.swift */,
 			);
 			path = Editorial;
@@ -462,6 +467,7 @@
 				D819CCD023A8552EED3FEA54 /* FlorinAuth.swift */,
 				F3AFD81B650F2340FC3E4131 /* FlorinClient.swift */,
 				F2C17878447D95C0266AFAEB /* Models.swift */,
+				DB38C7FAAF1473C100763F20 /* MonthForecast.swift */,
 				64BDA3BB3A85D55389B90A43 /* PlanModel.swift */,
 				66BFF60356B227C9DB19C1F8 /* PortfolioModel.swift */,
 				3A2E5050FDA9374F4898E6D9 /* Reachability.swift */,
@@ -797,6 +803,7 @@
 				203AA8AE726E3B764F651B36 /* EditorialActivity.swift in Sources */,
 				14BC730249542591C946BDEC /* EditorialHome.swift in Sources */,
 				D2335F78BD8D6F4A9BB0EE20 /* EditorialKit.swift in Sources */,
+				318B03D95FB9965CD712E41C /* EditorialMonth.swift in Sources */,
 				9B1068FD6BD0512318784E36 /* EditorialPlan.swift in Sources */,
 				3EBF8DD05E6E18D4E4DBE8D7 /* EmptyStart.swift in Sources */,
 				2D3A287A5CAD7B268445E55E /* EnableBanking.swift in Sources */,
@@ -837,6 +844,7 @@
 				81FD555E5E6D1971BE3D29D8 /* MerchantNames.swift in Sources */,
 				E08134F854EB187800CA46C7 /* MerchantsScreen.swift in Sources */,
 				8F6443725DD79B98B0DF939F /* Models.swift in Sources */,
+				0C2350E30ACE96F4B899D2AC /* MonthForecast.swift in Sources */,
 				B152DE26315C421734CB76D7 /* MovementSheet.swift in Sources */,
 				B15C51D77EA7FE29F5EA552D /* NetWorthChart.swift in Sources */,
 				915922155D4454202FDA87CE /* OnboardingFlow.swift in Sources */,
@@ -941,7 +949,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Florin/Florin.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 534;
+				CURRENT_PROJECT_VERSION = 535;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Florin/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;
@@ -962,7 +970,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = FlorinWidgets/FlorinWidgets.entitlements;
-				CURRENT_PROJECT_VERSION = 534;
+				CURRENT_PROJECT_VERSION = 535;
 				INFOPLIST_FILE = FlorinWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1067,7 +1075,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = FlorinWidgets/FlorinWidgets.entitlements;
-				CURRENT_PROJECT_VERSION = 534;
+				CURRENT_PROJECT_VERSION = 535;
 				INFOPLIST_FILE = FlorinWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1150,7 +1158,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Florin/Florin.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 534;
+				CURRENT_PROJECT_VERSION = 535;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Florin/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;

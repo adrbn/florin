@@ -291,10 +291,8 @@ struct SoftScrollEdge: ViewModifier {
 
     func body(content: Content) -> some View {
         if FlorinPalette.selected == .editorial {
-            // Un voile flouté est exactement ce que cette direction n'a pas,
-            // et il éteint un bloc entier à un endroit fixe. Le même masque
-            // dégradé que les écrans éditoriaux, pour que le bord se lise
-            // pareil d'un onglet à l'autre.
+            // Pas de voile ici non plus : c'est `edEnter` qui fait partir ce
+            // qui sort, et deux fondus ne valent jamais mieux qu'un.
             content.modifier(EdPlainEdges())
         } else {
             tracked(system(content))

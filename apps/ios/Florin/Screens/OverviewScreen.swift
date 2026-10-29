@@ -879,69 +879,13 @@ struct OverviewScreen: View {
 
     private func monthEnd(_ data: Overview) -> some View {
         let lts = data.leftToSpend
-        /*
-         * The same projection the web card runs — see computeMonthForecast.
-         *
-         * A month is two things: bills that land whichever day the bank
-         * chooses but always land, and a daily habit that can genuinely be
-         * lighter than usual. The fixed part is carried whole; the variable
-         * part is a daily rate scaled to the month, blended with this
-         * account's own history by how much of the month has been observed.
-         *
-         * It replaces a floor that clamped the projection to the six-month
-         * average right up to the last day, so a month spent 500 € under
-         * budget still reported an average month and the saving never showed.
-         */
-        // The prior's weight decays as the month fills in — three days say
-        // nothing, the 28th says almost everything. 60 is where measurement
-        // puts the minimum; see computeMonthForecast.
-        let priorDays = 60.0
-        let daysInMonth = Double(lts.daysElapsed + lts.daysRemaining)
-        let elapsed = Double(lts.daysElapsed)
-        let priorWeight = daysInMonth > 0 ? priorDays * (1 - elapsed / daysInMonth) : 0
-        let expectedFixed = lts.expectedMonthlyFixed ?? 0
-        let variable = max(0, lts.monthSpent - lts.monthSpentFixed)
-        let observedDaily = elapsed > 0 ? variable / elapsed : 0
-        let priorDaily = daysInMonth > 0
-            ? max(0, lts.expectedMonthlySpend - expectedFixed) / daysInMonth
-            : 0
-        let weight = elapsed + priorWeight
-        let blendedDaily = weight > 0
-            ? (elapsed * observedDaily + priorWeight * priorDaily) / weight
-            : observedDaily
-        let fixedComponent = max(lts.monthSpentFixed, expectedFixed)
-        let projectedGross = max(lts.monthSpent, blendedDaily * daysInMonth + fixedComponent)
-        /*
-         * Projected gross, margin net — see computeMonthForecast.
-         *
-         * Refunds arrive in lumps and late, so a model fed net spending stops
-         * believing the month it describes. Gross is the predictable series;
-         * the refunds already banked are simply known and subtracted. Future
-         * ones are not predicted, which errs on the pessimistic side of a
-         * margin — the harmless direction.
-         */
-        /*
-         * And the refunds still to come are projected too.
-         *
-         * Counting only the ones already banked, against a gross prior, meant
-         * a month began by assuming every reimbursement it usually receives
-         * would not arrive. On this ledger that is 416 € a month: the margin
-         * read +86 € on the 3rd with the bar drawn nearly full, for a month
-         * that reliably ends near +500 €. Blended like the daily spend — habit
-         * leads early, what has landed decides late — and never below what has
-         * actually come back.
-         */
-        let refunds = lts.monthRefunds ?? 0
-        let observedRefundDaily = elapsed > 0 ? refunds / elapsed : 0
-        let priorRefundDaily = daysInMonth > 0
-            ? max(0, lts.expectedMonthlyRefunds ?? 0) / daysInMonth
-            : 0
-        let blendedRefundDaily = weight > 0
-            ? (elapsed * observedRefundDaily + priorWeight * priorRefundDaily) / weight
-            : observedRefundDaily
-        let projectedRefunds = max(refunds, blendedRefundDaily * daysInMonth)
-        let projected = max(lts.monthSpent - refunds, projectedGross - projectedRefunds)
-        let margin = lts.monthIncome > 0 ? lts.monthIncome - projected : nil
+        // Le mélange vit dans `MonthForecast` : l'accueil éditorial demande la
+        // même marge, et deux copies font deux vérités.
+        let forecast = MonthForecast(lts)
+        let daysInMonth = forecast.daysInMonth
+        let fixedComponent = forecast.fixedComponent
+        let projected = forecast.projected
+        let margin = forecast.margin
 
         return section(data.t("v2.overview.forecast", "Fin de mois")) {
             Button { route(.plan, TabRoute.plan.rootPath) } label: {
