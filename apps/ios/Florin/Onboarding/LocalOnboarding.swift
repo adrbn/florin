@@ -30,6 +30,19 @@ enum AccountKind: String, CaseIterable {
         }
     }
 
+    /// Le même nom, mais dans la langue qu'un écran a déjà en main.
+    ///
+    /// `label` lit celle du téléphone parce qu'il sert à *écrire* la ligne ;
+    /// une feuille qui affiche le choix, elle, parle la langue de l'app.
+    func name(_ t: Strings) -> String {
+        switch self {
+        case .checking: t("v2.account.kindChecking", "Courant")
+        case .savings: t("v2.account.kindSavings", "Épargne")
+        case .broker: t("v2.account.kindBroker", "Titres")
+        case .loan: t("v2.account.kindLoan", "Prêt")
+        }
+    }
+
     var emoji: String {
         switch self {
         case .checking: "🏦"

@@ -17,7 +17,31 @@ struct EditorialPlan: View {
     var onOpenSettings: () -> Void = {}
 
     @StateObject private var model: PlanModel
-    @State private var assigning: PlanCategory?
+    /*
+     * Une seule modale pour trois destinations.
+     *
+     * Empiler deux `.sheet` sur la même vue est documenté comme non spécifié —
+     * c'est la même raison qu'en Obsidienne, et le même remède : un énoncé qui
+     * dit laquelle on veut.
+     */
+    @State private var dest: Dest?
+    @State private var pickingSource = false
+
+    private enum Dest: Identifiable {
+        case assign(PlanCategory)
+        case shape(CategoryDraft)
+        /// Le compte voyage avec : la question ne se pose que parce qu'il n'est
+        /// pas nul, et la feuille le dit avant de demander.
+        case remove(PlanCategory, Int)
+
+        var id: String {
+            switch self {
+            case let .assign(category): "assign:\(category.id)"
+            case let .shape(draft): "shape:\(draft.id)"
+            case let .remove(category, _): "remove:\(category.id)"
+            }
+        }
+    }
 
     init(
         overview: OverviewModel,
@@ -41,8 +65,26 @@ struct EditorialPlan: View {
                 if let plan = model.plan {
                     EdPill(text: "\(t("v2.plan.title", "Plan")) · \(plan.year)")
                         .padding(.top, 18)
+                    /*
+                     * Le rare, sur ce qu'il modifie.
+                     *
+                     * Reprendre un plan arrive une fois par mois ; un bouton
+                     * de barre lui donnerait la place d'un geste quotidien.
+                     * Tenu, le mois offre ce qu'on fait à un mois.
+                     */
                     EdHero(text: monthName(plan.year, plan.month))
                         .padding(.top, 10)
+                        .contextMenu {
+                            if !model.planSources.isEmpty {
+                                Button { pickingSource = true } label: {
+                                    Label(
+                                        t("v2.plan.copyPlan", "Reprendre le plan d'un autre mois"),
+                                        systemImage: "doc.on.doc"
+                                    )
+                                }
+                            }
+                        }
+                    emptyOffer(plan)
                     readyToAssign(plan).edEnter()
                     spending(plan).edEnter()
                     envelopes(plan)
@@ -68,19 +110,60 @@ struct EditorialPlan: View {
         .refreshable { await model.load() }
         .task { if model.plan == nil { await model.load() } }
         .reloadsOnLedgerChange { await model.load() }
-        .sheet(item: $assigning) { category in
-            AssignSheet(
-                category: category,
-                locale: locale,
-                currency: currency,
+        .sheet(isPresented: $pickingSource) {
+            PlanCopySheet(
+                sources: model.planSources,
+                hasAmounts: (model.plan?.totalAssigned ?? 0) > 0,
                 t: t,
-                readyToAssign: model.plan?.readyToAssign ?? 0,
-                month: model.month,
-                base: overview.base
-            ) { amount in
-                await model.assign(amount, to: category.id)
+                locale: locale,
+                currency: currency
+            ) { source in
+                await model.copyPlan(from: source)
             }
             .edSheet()
+        }
+        .sheet(item: $dest) { destination in
+            switch destination {
+            case let .assign(category):
+                AssignSheet(
+                    category: category,
+                    locale: locale,
+                    currency: currency,
+                    t: t,
+                    readyToAssign: model.plan?.readyToAssign ?? 0,
+                    month: model.month,
+                    base: overview.base
+                ) { amount in
+                    await model.assign(amount, to: category.id)
+                }
+                .edSheet()
+            case let .shape(draft):
+                CategoryEditorSheet(draft: draft, t: t) { name, emoji, isFixed in
+                    if let existing = draft.category {
+                        await model.editCategory(
+                            existing.id, name: name, emoji: emoji, isFixed: isFixed
+                        )
+                    } else {
+                        await model.addCategory(
+                            to: draft.groupId, name: name, emoji: emoji, isFixed: isFixed
+                        )
+                    }
+                }
+                .edSheet()
+            case let .remove(category, count):
+                CategoryRemovalSheet(
+                    category: category,
+                    count: count,
+                    candidates: (model.plan?.groups.flatMap(\.categories) ?? [])
+                        .filter { $0.id != category.id },
+                    t: t
+                ) { how in
+                    await model.removeCategory(
+                        category.id, named: category.name, how: how, t: t
+                    )
+                }
+                .edSheet()
+            }
         }
         .florinToast($model.toast)
     }
@@ -122,6 +205,34 @@ struct EditorialPlan: View {
         f.setLocalizedDateFormatFromTemplate("MMMM")
         let name = f.string(from: date)
         return name.prefix(1).uppercased() + name.dropFirst()
+    }
+
+    // MARK: Le mois vide
+
+    /*
+     * Le mois vide le dit lui-même.
+     *
+     * Le menu tenu existe aussi, mais une action qu'on fait une fois par mois
+     * ne s'apprend pas par un appui long : la première fois, elle doit être à
+     * l'écran, juste sous le mois qui n'a rien.
+     */
+    @ViewBuilder
+    private func emptyOffer(_ plan: MonthPlan) -> some View {
+        if plan.totalAssigned == 0, !model.planSources.isEmpty {
+            Button { pickingSource = true } label: {
+                HStack(spacing: 10) {
+                    EdInk(text: t("v2.plan.emptyTitle", "Ce mois est vide"), size: 15)
+                    Image(systemName: "arrow.forward")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Florin.text2)
+                    Spacer(minLength: 0)
+                }
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.edPress)
+            .padding(.top, 10)
+        }
     }
 
     // MARK: À répartir
@@ -251,12 +362,63 @@ struct EditorialPlan: View {
                 )
                 .padding(.top, 34)
                 .padding(.bottom, 6)
+                .contextMenu {
+                    if model.canEditCategories {
+                        Button {
+                            dest = .shape(
+                                CategoryDraft(groupId: group.id, groupName: group.name)
+                            )
+                        } label: {
+                            Label(
+                                t("v2.plan.newCategory", "Nouvelle enveloppe"),
+                                systemImage: "plus"
+                            )
+                        }
+                    }
+                }
 
                 ForEach(group.categories) { category in
                     EdRule()
-                    Button { assigning = category } label: { row(category) }
+                    Button { dest = .assign(category) } label: { row(category) }
                         .buttonStyle(.edPress)
                         .edEnter()
+                        .contextMenu {
+                            if model.canEditCategories {
+                                Button {
+                                    dest = .shape(
+                                        CategoryDraft(
+                                            groupId: group.id, groupName: group.name,
+                                            category: category
+                                        )
+                                    )
+                                } label: {
+                                    Label(t("v2.common.edit", "Modifier"), systemImage: "pencil")
+                                }
+                                Button(role: .destructive) {
+                                    /*
+                                     * Une enveloppe jamais servie se supprime.
+                                     * Celle qui a un passé demande ce qu'il
+                                     * devient — seul celui qui a classé ces
+                                     * lignes peut répondre.
+                                     */
+                                    let used = model.categoryUsage(category.id)
+                                    if used == 0 {
+                                        Task {
+                                            await model.removeCategory(
+                                                category.id, named: category.name,
+                                                how: .detach, t: t
+                                            )
+                                        }
+                                    } else {
+                                        dest = .remove(category, used)
+                                    }
+                                } label: {
+                                    Label(
+                                        t("v2.common.delete", "Supprimer"), systemImage: "trash"
+                                    )
+                                }
+                            }
+                        }
                 }
                 EdRule()
             }

@@ -22,6 +22,15 @@ struct EditorialActivity: View {
     @State private var upcomingOpen = false
     @State private var instalmentsOpen = false
     @State private var searching = false
+    /*
+     * Ce qu'un appui long sur une ligne a demandé — voir `TransactionMenu`.
+     *
+     * L'écran classique l'avait, le nôtre pas : vérifier, catégoriser,
+     * renommer, rembourser, joindre un ticket demandaient tous d'ouvrir la
+     * feuille de détail d'abord. Le menu est partagé, et les actions qu'il
+     * déclenche aussi — ni l'un ni l'autre n'est réécrit ici.
+     */
+    @State private var menuRequest: TxActionRequest?
     @State private var draft = ""
     @FocusState private var searchFocused: Bool
 
@@ -159,6 +168,31 @@ struct EditorialActivity: View {
             }
             .edSheet()
         }
+        .transactionActions(
+            request: $menuRequest,
+            categories: model.categories,
+            accounts: model.accounts,
+            locale: locale,
+            currency: currency,
+            t: t,
+            onPatch: { tx, patch in
+                await model.apply(patch, to: tx.id, t: t)
+                await overview.load(showSpinner: false)
+            },
+            onDelete: { tx in
+                await model.delete(tx.id, t: t)
+                await overview.load(showSpinner: false)
+            },
+            onAttach: { tx, accountId in
+                await model.attachTransfer(tx.id, to: accountId, t: t)
+                await overview.load(showSpinner: false)
+            },
+            onRefunded: {
+                await model.reload()
+                await overview.load(showSpinner: false)
+            },
+            isLocalLedger: model.isLocalLedger
+        )
         .florinToast($model.toast)
     }
 
@@ -323,6 +357,14 @@ struct EditorialActivity: View {
                         .padding(.top, 10)
                     Button { detail = tx } label: { foldedRow(tx, inverse: inverse) }
                         .buttonStyle(.edPress)
+                        .transactionMenu(
+                            tx, t: t, locale: locale, currency: currency,
+                            canTransfer: !tx.isTransfer && tx.amount < 0
+                                && model.accounts.count > 1,
+                            request: $menuRequest,
+                            isLocalLedger: model.isLocalLedger
+                        )
+                        .buttonStyle(.edPress)
                 }
                 .transition(.opacity)
             }
@@ -355,6 +397,13 @@ struct EditorialActivity: View {
         ForEach(list) { tx in
             EdRule()
             Button { detail = tx } label: { row(tx) }
+                .buttonStyle(.edPress)
+                .transactionMenu(
+                    tx, t: t, locale: locale, currency: currency,
+                    canTransfer: !tx.isTransfer && tx.amount < 0 && model.accounts.count > 1,
+                    request: $menuRequest,
+                    isLocalLedger: model.isLocalLedger
+                )
                 .buttonStyle(.edPress)
                 .edEnter()
         }

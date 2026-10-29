@@ -17,7 +17,18 @@ import SwiftUI
 /// right there underneath, unchanged and one scroll away, because it is the
 /// route taken most often.
 struct AddAccountSheet: View {
+    /*
+     * La langue, passée par l'écran qui ouvre la feuille.
+     *
+     * `Strings.device` lit celle du téléphone ; le reste de l'app parle celle
+     * du registre. Les deux tombaient d'accord tant que personne n'avait un
+     * téléphone en anglais et des comptes en français — et ce jour-là cette
+     * feuille a été la seule page anglaise de l'app.
+     */
+    var t: Strings = .device
     let onSaved: () -> Void
+
+    private var editorial: Bool { FlorinPalette.selected == .editorial }
 
     @Environment(\.dismiss) private var dismiss
     /// Bank sync writes into the device ledger; with a server the accounts come
@@ -33,6 +44,293 @@ struct AddAccountSheet: View {
     private enum Field { case name, balance }
 
     var body: some View {
+        Group {
+            if editorial { editorialShell } else { classicShell }
+        }
+
+        /*
+         * A cover, and it closes this sheet behind it.
+         *
+         * Connecting a bank ends with accounts that already exist, so returning
+         * to a half-filled "nouveau compte" form would be asking the same
+         * question twice.
+         */
+        .fullScreenCover(isPresented: $connectingBank) {
+            BankingSettings(onConnected: {
+                connectingBank = false
+                onSaved()
+                dismiss()
+            })
+        }
+        .alert(
+            t("v2.connect.mappingNew", "Nouveau compte"),
+            isPresented: Binding(get: { failure != nil }, set: { if !$0 { failure = nil } })
+        ) {
+            Button("OK", role: .cancel) { failure = nil }
+        } message: {
+            Text(failure ?? "")
+        }
+    }
+
+    /// The bank, offered as the first answer rather than a setting to go find.
+    private var bankRoute: some View {
+        Button { connectingBank = true } label: {
+            HStack(spacing: 14) {
+                Image(systemName: "building.columns")
+                    .font(.system(size: 17, weight: .medium))
+                    .foregroundStyle(Florin.accent)
+                    .frame(width: 30)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(t("v2.empty.bankTitle", "Connecter ma banque"))
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Florin.text)
+                    Text(t(
+                        "v2.empty.bankBody",
+                        "Comptes, soldes et opérations arrivent tout seuls. Environ deux minutes, une seule fois."
+                    ))
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(Florin.text2)
+                    .lineSpacing(1.5)
+                    .multilineTextAlignment(.leading)
+                }
+                Spacer(minLength: 6)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Florin.text3)
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .florinGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .padding(.top, 8)
+    }
+
+    /// Two routes need a seam, or the form below reads as part of the card
+    /// above it — as though naming an account were step two of connecting a
+    /// bank.
+    private var manualHeading: some View {
+        // Not `Hairline`, which carries a leading gutter for list rows and
+        // would draw the two halves of the seam at different lengths.
+        HStack(spacing: 10) {
+            rule
+            Text(t("v2.account.orByHand", "ou à la main"))
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Florin.text3)
+                .fixedSize()
+            rule
+        }
+        .padding(.top, 2)
+    }
+
+    private var rule: some View {
+        Rectangle().fill(Florin.text.opacity(0.09)).frame(height: 1)
+    }
+
+    private func save() {
+        focus = nil
+        do {
+            let typed = name.trimmingCharacters(in: .whitespaces)
+            try LocalOnboarding.createAccount(
+                // Sans nom, c'est la nature qui en tient lieu — dans la langue
+                // de l'app, pas dans celle du téléphone.
+                name: typed.isEmpty ? kind.name(t) : typed,
+                kind: kind,
+                balance: OnboardingFlow.parse(balanceText)
+            )
+            onSaved()
+            dismiss()
+        } catch {
+            failure = error.localizedDescription
+        }
+    }
+
+
+    // MARK: Éditorial
+
+    /*
+     * La même feuille, dans la langue du reste de l'app.
+     *
+     * Rien n'y est posé sur du gris : la banque est une ligne entre deux
+     * filets, les quatre natures sont des pastilles de texte — les émojis
+     * tombent, ce style n'en pose nulle part — et le solde s'écrit à la
+     * taille d'un titre, comme sur la feuille d'opération.
+     */
+    private var editorialShell: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                if sourceRaw != DataSource.server.rawValue {
+                    edBankRoute
+                    edSeam
+                } else {
+                    Text(t("v2.account.manualHint", "Un compte que vous tenez vous-même."))
+                        .font(.system(size: 15))
+                        .foregroundStyle(Florin.text2)
+                        .padding(.horizontal, Ed.gutter)
+                        .padding(.top, 18)
+                }
+
+                TextField(
+                    t("v2.onboard.accountPlaceholder", "Compte courant"), text: $name
+                )
+                .font(.system(size: 28, weight: .medium))
+                .tracking(Ed.tracking(28, 0.03))
+                .foregroundStyle(Florin.text)
+                .focused($focus, equals: .name)
+                .submitLabel(.next)
+                .onSubmit { focus = .balance }
+                .padding(.horizontal, Ed.gutter)
+                .padding(.top, 26)
+                .padding(.bottom, 14)
+
+                EdRule()
+
+                edKinds
+
+                EdRule()
+
+                Text(
+                    kind == .loan
+                        ? t("v2.account.loanHint", "Combien reste-t-il à rembourser ?")
+                        : t("v2.account.balanceQuestion", "Combien y a-t-il dessus aujourd'hui ?")
+                )
+                .font(.system(size: 13))
+                .foregroundStyle(Florin.text2)
+                .padding(.horizontal, Ed.gutter)
+                .padding(.top, 22)
+
+                edFigure
+            }
+            .padding(.bottom, 20)
+        }
+        .scrollIndicators(.hidden)
+        .scrollDismissesKeyboard(.interactively)
+        .safeAreaInset(edge: .top, spacing: 0) { edHeader.background(Florin.bg) }
+        .safeAreaInset(edge: .bottom, spacing: 0) { edSave.background(Florin.bg) }
+        .background(Florin.bg)
+    }
+
+    private var edHeader: some View {
+        HStack {
+            EdPill(text: t("v2.connect.mappingNew", "Nouveau compte"))
+            Spacer(minLength: 8)
+            EdIconButton(symbol: "xmark", label: t("v2.common.cancel", "Annuler")) {
+                dismiss()
+            }
+        }
+        .padding(.horizontal, Ed.gutter)
+        .padding(.trailing, -10)
+        .padding(.top, 12)
+        .padding(.bottom, 8)
+    }
+
+    /// La banque en premier, sans carte : le chevron dit déjà qu'on part
+    /// ailleurs, et l'accent est réservé à ce qu'on valide.
+    private var edBankRoute: some View {
+        Button { connectingBank = true } label: {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(t("v2.empty.bankTitle", "Connecter ma banque"))
+                        .font(.system(size: 20, weight: .medium))
+                        .tracking(-0.4)
+                        .foregroundStyle(Florin.text)
+                    Text(t(
+                        "v2.empty.bankBody",
+                        "Comptes, soldes et opérations arrivent tout seuls. Environ deux minutes, une seule fois."
+                    ))
+                    .font(.system(size: 13))
+                    .foregroundStyle(Florin.text2)
+                    .multilineTextAlignment(.leading)
+                }
+                Spacer(minLength: 6)
+                Image(systemName: "arrow.forward")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Florin.text2)
+            }
+            .padding(.horizontal, Ed.gutter)
+            .padding(.vertical, 16)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.edPress)
+    }
+
+    private var edSeam: some View {
+        HStack(spacing: 10) {
+            rule
+            Text(t("v2.account.orByHand", "ou à la main"))
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Florin.text2)
+                .fixedSize()
+            rule
+        }
+        .padding(.horizontal, Ed.gutter)
+        .padding(.top, 6)
+    }
+
+    private var edKinds: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 8) {
+                ForEach(AccountKind.allCases, id: \.self) { option in
+                    let picked = option == kind
+                    Button {
+                        UISelectionFeedbackGenerator().selectionChanged()
+                        withAnimation(EdMotion.spring) { kind = option }
+                    } label: {
+                        Text(option.name(t))
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(picked ? Florin.bg : Florin.text)
+                            .padding(.horizontal, 16)
+                            .frame(height: 44)
+                            .background(Capsule().fill(picked ? Florin.text : .clear))
+                            .overlay(Capsule().strokeBorder(
+                                picked ? .clear : Florin.text.opacity(0.28), lineWidth: 1
+                            ))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, Ed.gutter)
+        }
+        .scrollIndicators(.hidden)
+        .padding(.vertical, 16)
+    }
+
+    private var edFigure: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            TextField("0", text: $balanceText)
+                .font(.system(size: balanceText.count > 6 ? 56 : 80, weight: .medium))
+                .monospacedDigit()
+                .tracking(Ed.tracking(80, 0.045))
+                .foregroundStyle(Florin.text)
+                .keyboardType(.numbersAndPunctuation)
+                .focused($focus, equals: .balance)
+                .fixedSize()
+            Text("€")
+                .font(.system(size: 34, weight: .medium))
+                .foregroundStyle(Florin.text3)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, Ed.gutter)
+        .padding(.top, 6)
+    }
+
+    private var edSave: some View {
+        Button(action: save) {
+            Text(t("v2.account.addAction", "Ajouter le compte"))
+                .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(Florin.onAccent)
+                .frame(maxWidth: .infinity)
+                .frame(height: 56)
+                .background(Capsule().fill(Florin.accent))
+        }
+        .buttonStyle(.edPress)
+        .padding(.horizontal, Ed.gutter)
+        .padding(.top, 12)
+        .padding(.bottom, 8)
+    }
+
+    /// La grammaire d'origine, celle des quatre autres thèmes.
+    private var classicShell: some View {
         NavigationStack {
             ZStack {
                 Backdrop(tint: TabRoute.accounts.tint).ignoresSafeArea()
@@ -43,7 +341,7 @@ struct AddAccountSheet: View {
                             bankRoute
                             manualHeading
                         } else {
-                            Text(Strings.device("v2.account.manualHint", "Un compte que vous tenez vous-même."))
+                            Text(t("v2.account.manualHint", "Un compte que vous tenez vous-même."))
                                 .font(.system(size: 14))
                                 .foregroundStyle(Florin.text2)
                                 .padding(.top, 8)
@@ -87,8 +385,8 @@ struct AddAccountSheet: View {
                         VStack(spacing: 4) {
                             Text(
                                 kind == .loan
-                                    ? Strings.device("v2.account.loanHint", "Combien reste-t-il à rembourser ?")
-                                    : Strings.device("v2.account.balanceQuestion", "Combien y a-t-il dessus aujourd'hui ?")
+                                    ? t("v2.account.loanHint", "Combien reste-t-il à rembourser ?")
+                                    : t("v2.account.balanceQuestion", "Combien y a-t-il dessus aujourd'hui ?")
                             )
                             .font(.system(size: 12.5, weight: .medium))
                             .foregroundStyle(Florin.text3)
@@ -109,7 +407,7 @@ struct AddAccountSheet: View {
                         .padding(.top, 6)
 
                         Button(action: save) {
-                            Text(Strings.device("v2.account.addAction", "Ajouter le compte"))
+                            Text(t("v2.account.addAction", "Ajouter le compte"))
                                 .font(.system(size: 17, weight: .semibold))
                                 .foregroundStyle(Florin.onAccent)
                                 .frame(maxWidth: .infinity)
@@ -124,106 +422,13 @@ struct AddAccountSheet: View {
                 }
                 .scrollDismissesKeyboard(.interactively)
             }
-            .navigationTitle("Nouveau compte")
+            .navigationTitle(t("v2.connect.mappingNew", "Nouveau compte"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Annuler") { dismiss() }
+                    Button(t("v2.common.cancel", "Annuler")) { dismiss() }
                 }
             }
-        }
-
-        /*
-         * A cover, and it closes this sheet behind it.
-         *
-         * Connecting a bank ends with accounts that already exist, so returning
-         * to a half-filled "nouveau compte" form would be asking the same
-         * question twice.
-         */
-        .fullScreenCover(isPresented: $connectingBank) {
-            BankingSettings(onConnected: {
-                connectingBank = false
-                onSaved()
-                dismiss()
-            })
-        }
-        .alert(
-            "Nouveau compte",
-            isPresented: Binding(get: { failure != nil }, set: { if !$0 { failure = nil } })
-        ) {
-            Button("OK", role: .cancel) { failure = nil }
-        } message: {
-            Text(failure ?? "")
-        }
-    }
-
-    /// The bank, offered as the first answer rather than a setting to go find.
-    private var bankRoute: some View {
-        Button { connectingBank = true } label: {
-            HStack(spacing: 14) {
-                Image(systemName: "building.columns")
-                    .font(.system(size: 17, weight: .medium))
-                    .foregroundStyle(Florin.accent)
-                    .frame(width: 30)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(Strings.device("v2.empty.bankTitle", "Connecter ma banque"))
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Florin.text)
-                    Text(Strings.device(
-                        "v2.empty.bankBody",
-                        "Comptes, soldes et opérations arrivent tout seuls. Environ deux minutes, une seule fois."
-                    ))
-                    .font(.system(size: 12.5))
-                    .foregroundStyle(Florin.text2)
-                    .lineSpacing(1.5)
-                    .multilineTextAlignment(.leading)
-                }
-                Spacer(minLength: 6)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Florin.text3)
-            }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .florinGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .padding(.top, 8)
-    }
-
-    /// Two routes need a seam, or the form below reads as part of the card
-    /// above it — as though naming an account were step two of connecting a
-    /// bank.
-    private var manualHeading: some View {
-        // Not `Hairline`, which carries a leading gutter for list rows and
-        // would draw the two halves of the seam at different lengths.
-        HStack(spacing: 10) {
-            rule
-            Text(Strings.device("v2.account.orByHand", "ou à la main"))
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(Florin.text3)
-                .fixedSize()
-            rule
-        }
-        .padding(.top, 2)
-    }
-
-    private var rule: some View {
-        Rectangle().fill(Florin.text.opacity(0.09)).frame(height: 1)
-    }
-
-    private func save() {
-        focus = nil
-        do {
-            try LocalOnboarding.createAccount(
-                name: name.trimmingCharacters(in: .whitespaces),
-                kind: kind,
-                balance: OnboardingFlow.parse(balanceText)
-            )
-            onSaved()
-            dismiss()
-        } catch {
-            failure = error.localizedDescription
         }
     }
 }

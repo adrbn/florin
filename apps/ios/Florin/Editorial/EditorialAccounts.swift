@@ -59,7 +59,7 @@ struct EditorialAccounts: View {
             AccountDetailScreen(model: model, route: target)
         }
         .sheet(isPresented: $addingAccount) {
-            AddAccountSheet(onSaved: { Task { await model.load(showSpinner: false) } })
+            AddAccountSheet(t: t, onSaved: { Task { await model.load(showSpinner: false) } })
                 .edSheet()
         }
         .sheet(item: $renaming) { account in

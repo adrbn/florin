@@ -151,7 +151,7 @@ struct OverviewScreen: View {
             })
         }
         .sheet(isPresented: $addingAccount) {
-            AddAccountSheet(onSaved: { Task { await model.load(showSpinner: false) } })
+            AddAccountSheet(t: t, onSaved: { Task { await model.load(showSpinner: false) } })
         }
         /*
          * Pas de `if let` autour de la feuille.
