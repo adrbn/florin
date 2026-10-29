@@ -242,7 +242,7 @@ struct EdInk: View {
 /// et depuis Plan. Ils restent des `TabRoute`, donc un lien profond y arrive
 /// toujours — simplement aucune pastille ne s'allume, ce qui est exactement ce
 /// qu'on veut d'un écran qu'on a poussé.
-private let edTabs: [TabRoute] = [.overview, .plan, .activity]
+private var edTabs: [TabRoute] { edTabOrder }
 
 /// Le pictogramme de la maquette, qui n'est pas celui de la barre d'origine :
 /// une maison, une horloge, une liste. Trois traits, aucune couleur.
@@ -545,3 +545,44 @@ extension EdSymbols {
         return "\(emoji) \(name)"
     }
 }
+
+/*
+ * Passer d'un onglet à l'autre au pouce.
+ *
+ * `simultaneousGesture` et non `highPriorityGesture` : la page doit continuer
+ * de défiler verticalement pendant que le geste est observé, sinon le swipe
+ * confisque le défilement, qui est le geste cent fois plus fréquent. D'où les
+ * deux gardes — soixante points parcourus, et deux fois plus en largeur qu'en
+ * hauteur : un défilement légèrement oblique ne change pas d'écran.
+ *
+ * Rien ne se passe si l'onglet courant n'est pas dans la liste (on est arrivé
+ * sur un écran qui n'a pas de place dans la barre) ni aux deux bouts : la
+ * liste ne boucle pas, parce qu'un geste qui ramène au début après le dernier
+ * onglet fait perdre où l'on est.
+ */
+extension View {
+    func edSwipe<Value: Hashable>(
+        _ order: [Value], selection: Binding<Value>, enabled: Bool = true
+    ) -> some View {
+        simultaneousGesture(
+            DragGesture(minimumDistance: 24)
+                .onEnded { move in
+                    guard enabled else { return }
+                    let dx = move.translation.width
+                    let dy = move.translation.height
+                    guard abs(dx) > 60, abs(dx) > abs(dy) * 2,
+                          let here = order.firstIndex(of: selection.wrappedValue)
+                    else { return }
+                    let next = dx < 0 ? here + 1 : here - 1
+                    guard order.indices.contains(next) else { return }
+                    UISelectionFeedbackGenerator().selectionChanged()
+                    withAnimation(EdMotion.spring) { selection.wrappedValue = order[next] }
+                }
+        )
+    }
+}
+
+/// L'ordre des onglets de la barre éditoriale, pour que le swipe et la barre
+/// soient d'accord sur « le suivant » — une seule liste, pas deux à tenir
+/// synchronisées.
+let edTabOrder: [TabRoute] = [.overview, .plan, .activity]

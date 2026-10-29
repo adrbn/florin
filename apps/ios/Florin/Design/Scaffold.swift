@@ -68,6 +68,8 @@ struct TopBar<Middle: View, Trailing: View>: View {
     @ViewBuilder var middle: Middle
     @ViewBuilder var trailing: Trailing
 
+    private var editorial: Bool { FlorinPalette.selected == .editorial }
+
     var body: some View {
         HStack(spacing: 10) {
             /*
@@ -81,9 +83,20 @@ struct TopBar<Middle: View, Trailing: View>: View {
              * field beside it.
              */
             Button(action: onProfile) {
-                Image(systemName: back ? "xmark" : "gearshape")
-                    .font(.system(size: back ? 17 : 21, weight: back ? .bold : .regular))
-                    .foregroundStyle(Florin.text2)
+                // En éditorial le réglage est un trait de menu à l'encre, pas
+                // un engrenage gris : la maquette n'a qu'une encre et aucun
+                // pictogramme figuratif dans son bandeau.
+                // Un chevron en éditorial, pas une croix : ces écrans-là ne
+                // se ferment pas, on en revient — et une croix promet de
+                // refermer quelque chose qui n'a pas été ouvert par-dessus.
+                Image(systemName: editorial
+                    ? (back ? "chevron.left" : "line.3.horizontal")
+                    : (back ? "xmark" : "gearshape"))
+                    .font(.system(
+                        size: editorial ? 18 : (back ? 17 : 21),
+                        weight: editorial ? .medium : (back ? .bold : .regular)
+                    ))
+                    .foregroundStyle(editorial ? Florin.text : Florin.text2)
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
@@ -94,17 +107,26 @@ struct TopBar<Middle: View, Trailing: View>: View {
                     : Strings.device("v2.settings.title", "Réglages")
             )
 
-            if centersMiddle {
+            /*
+             * Rien n'est centré en éditorial.
+             *
+             * Un titre centré à 17 points est la chose la plus étrangère à
+             * cette maquette : elle lit sur une colonne alignée à gauche et
+             * tire sa hiérarchie du corps, pas de la position. Le titre
+             * reprend donc sa place dans la rangée, à côté du menu.
+             */
+            if centersMiddle, !editorial {
                 Spacer(minLength: 0)
                 trailing
             } else {
                 middle
+                Spacer(minLength: 8)
                 trailing
             }
         }
         .padding(.horizontal, Florin.gutter)
         .overlay {
-            if centersMiddle {
+            if centersMiddle, !editorial {
                 middle
                     // Clear of the widest side, so a long title shrinks rather
                     // than sliding under a button.
@@ -130,16 +152,32 @@ struct HeroBlock<Sub: View>: View {
     @ViewBuilder var sub: Sub
 
     var body: some View {
-        VStack(spacing: 10) {
-            Text(caption)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(Florin.text2)
+        /*
+         * Le même héros, dans deux grammaires.
+         *
+         * Ailleurs il est centré : c'est le chiffre du haut d'une page, posé
+         * comme un titre d'affiche. En éditorial rien n'est centré — la page
+         * se lit sur une colonne alignée à gauche, l'étiquette est une
+         * pastille au contour, et le chiffre porte le poids plutôt que la
+         * position. Trois lignes de différence plutôt qu'un second composant
+         * qui dériverait du premier.
+         */
+        let editorial = FlorinPalette.selected == .editorial
+        return VStack(alignment: editorial ? .leading : .center, spacing: editorial ? 8 : 10) {
+            if editorial {
+                EdPill(text: caption)
+            } else {
+                Text(caption)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(Florin.text2)
+            }
 
             SlotAmount(value: value, spinning: spinning, locale: locale, currency: currency, size: size)
 
             sub.frame(minHeight: 20)
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: editorial ? .leading : .center)
+        .padding(.horizontal, editorial ? Ed.gutter : 0)
         .contentShape(Rectangle())
         .onTapGesture {
             guard let onTap else { return }
@@ -325,7 +363,13 @@ struct ChipBar<Value: Hashable>: View {
                         .background(Florin.negative, in: Capsule())
                 }
             }
-            .foregroundStyle(active ? Florin.text : Florin.text2)
+            // Sur une capsule pleine d'encre, le mot s'écrit dans le fond de
+            // la page — sans quoi il disparaît dans son propre remplissage.
+            .foregroundStyle(
+                active
+                    ? (FlorinPalette.selected == .editorial ? Florin.bg : Florin.text)
+                    : Florin.text2
+            )
             .padding(.horizontal, padding)
             .padding(.vertical, 9)
             .frame(maxWidth: .infinity)
@@ -397,7 +441,21 @@ private struct ChipGlass: ViewModifier {
     let active: Bool
 
     func body(content: Content) -> some View {
-        if #available(iOS 26.0, *) {
+        /*
+         * En éditorial, l'onglet choisi est plein d'encre, les autres sont des
+         * contours — exactement la barre d'onglets du bas, pour que « choisi »
+         * veuille dire la même chose aux deux bouts de l'écran. Le verre d'iOS
+         * 26 et le lavis orange sont justement ce que ce style ne pose pas.
+         */
+        if FlorinPalette.selected == .editorial {
+            content
+                .background(active ? Florin.text : Color.clear, in: Capsule())
+                .overlay {
+                    if !active {
+                        Capsule().strokeBorder(Florin.text.opacity(0.22), lineWidth: 1)
+                    }
+                }
+        } else if #available(iOS 26.0, *) {
             content.glassEffect(
                 active ? .regular.tint(Florin.accent.opacity(0.35)).interactive()
                        : .regular.interactive(),

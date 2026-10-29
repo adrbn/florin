@@ -50,13 +50,27 @@ struct AnalysisScreen: View {
 
     private enum Tab: Hashable { case where_, trends, flows, calendar, subs }
 
+    private var editorial: Bool { FlorinPalette.selected == .editorial }
+
     private var t: Strings { overview.overview?.t ?? .device }
     private var locale: String { overview.overview?.localeTag ?? "fr-FR" }
     private var currency: String { overview.overview?.currency ?? "EUR" }
 
     var body: some View {
         TabScaffold(tint: TabRoute.analysis.tint, refresh: { await model.load() }) {
-            TopBar(onProfile: onOpenSettings, centersMiddle: true) {
+            /*
+             * En éditorial, Analyse n'a pas d'onglet : on y entre par le total
+             * de Plan, et il faut donc pouvoir en ressortir. Le bouton de
+             * gauche ramène d'où l'on vient au lieu d'ouvrir les réglages —
+             * ailleurs l'onglet est toujours là, et l'engrenage reste utile.
+             */
+            TopBar(
+                onProfile: editorial
+                    ? { route(.plan, TabRoute.plan.rootPath) }
+                    : onOpenSettings,
+                back: editorial,
+                centersMiddle: true
+            ) {
                     Text(t("v2.analysis.title", "Analyse"))
                         .font(.system(size: 17, weight: .semibold))
                         .lineLimit(1)
@@ -70,7 +84,16 @@ struct AnalysisScreen: View {
 
             hero
             ChipBar(options: chips, selection: tabBinding)
-            content
+            /*
+             * Le pouce change d'onglet, sauf sur le calendrier.
+             *
+             * La grille des jours a son propre geste horizontal — on glisse le
+             * doigt sur les carrés pour lire les montants — et les deux se
+             * verraient simultanément : lire une semaine ferait changer
+             * d'onglet. Le calendrier garde donc ses chips, qui sont juste
+             * au-dessus.
+             */
+            content.edSwipe(chips.map(\.value), selection: tabBinding, enabled: tab != .calendar)
         }
         .fullScreenCover(item: $drill) { target in
             AccountDetailScreen(model: overview, route: target)

@@ -609,6 +609,9 @@ struct MainTabs: View {
             // when minimised and it has no long-press. TabView still owns tab
             // state and lazy loading.
             .ignoresSafeArea(.keyboard)
+            // Le pouce passe d'un onglet à l'autre. Voir `edSwipe` pour
+            // pourquoi le défilement vertical continue de gagner.
+            .edSwipe(edTabOrder, selection: $selection, enabled: editorial)
 
             // Content dissolves into the bottom of the screen rather than
             // running on under the bar and out through the home indicator.
