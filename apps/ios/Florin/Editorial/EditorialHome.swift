@@ -38,11 +38,14 @@ struct EditorialHome: View {
     /// La ligne sous le chiffre répond à deux questions ; celle-ci dit
     /// laquelle — même bascule que sur Obsidienne.
     @State private var showSaving = false
-    /// L'ordre posé à la main, le temps que la base se relise.
-    @State private var order: [String] = []
-    @State private var dragging: String?
-    /// La carte sous le doigt. Elle se soulève, les autres s'effacent.
-    @State private var touched: String?
+    /// La carte mise en avant.
+    ///
+    /// Dans une pile, une carte est à moitié couverte par la suivante : on
+    /// lit son nom, rarement son montant. Un premier appui la fait passer
+    /// devant et se soulever — on la voit en entier. Le second l'ouvre.
+    /// Deux appuis, parce qu'un seul demanderait de choisir entre lire et
+    /// ouvrir.
+    @State private var raised: String?
     /// Le compte qu'on ouvre. Une carte mène à SON relevé — elle ouvrait
     /// l'onglet Comptes, c'est-à-dire la liste de tous.
     @State private var drill: ActivityRoute?
@@ -168,7 +171,6 @@ struct EditorialHome: View {
          * avant que le geste de défilement n'ait commencé ; il est annulé, et
          * seule la carte suit le doigt.
          */
-        .scrollDisabled(dragging != nil)
         /*
          * Tirer demande à la banque, et le chiffre tourne en attendant.
          *
@@ -409,17 +411,15 @@ struct EditorialHome: View {
 
     // MARK: Les comptes
 
-    /// Tous les comptes vivants, dans l'ordre posé à la main.
+    /// Tous les comptes vivants, dans l'ordre de la base.
     ///
-    /// `display_order` est ce que la base trie déjà ; l'ordre local ne sert
-    /// qu'entre le lâcher de la carte et la relecture qui suit.
+    /// `display_order` est ce que la base trie déjà. Réagencer la pile au
+    /// doigt a été retiré : une carte de pile fait la hauteur d'une carte
+    /// entière et n'en montre qu'un bandeau, donc la déplacer sortait son
+    /// corps de sa cachette — il n'y avait pas de façon de le dessiner qui
+    /// reste lisible. L'ordre se change dans Comptes.
     private func cards(_ data: Overview) -> [Account] {
-        let live = data.accounts.filter { !$0.isArchived && $0.isIncludedInNetWorth }
-        guard !order.isEmpty else { return live }
-        let byId = Dictionary(uniqueKeysWithValues: live.map { ($0.id, $0) })
-        let placed = order.compactMap { byId[$0] }
-        // Un compte apparu depuis le glissement reste visible, à la fin.
-        return placed + live.filter { !order.contains($0.id) }
+        data.accounts.filter { !$0.isArchived && $0.isIncludedInNetWorth }
     }
 
     /*
@@ -517,60 +517,39 @@ struct EditorialHome: View {
     @ViewBuilder
     private func stack(_ data: Overview, room: CGSize) -> some View {
         let shown = fitting(cards(data), room: room)
-        /*
-         * Pendant qu'on range, la pile devient une liste.
-         *
-         * Une carte de la pile fait toute la hauteur d'une carte : on n'en
-         * voit qu'un bandeau parce que la suivante la couvre. Dès qu'on en
-         * déplace une, son corps entier sort de sa cachette et recouvre la
-         * moitié de l'écran — c'est ce qu'on voyait, pas un bogue d'ordre
-         * d'empilement.
-         *
-         * Donc tant qu'un doigt tient une carte, toutes se replient au
-         * bandeau. Des rangées de même hauteur, régulièrement espacées :
-         * on voit ce qu'on déplace et où ça va. Au relâchement la pile se
-         * redéploie, d'un ressort.
-         */
-        let reordering = dragging != nil
-        let height = reordering
-            ? Self.step + 18
-            : cardHeight(room: room, stacked: shown.count)
+        let height = cardHeight(room: room, stacked: shown.count)
         if !shown.isEmpty {
             // La carte menée est la dernière : posée le plus bas, donc tout en
             // haut de l'ordre d'empilement. L'ordre du `ZStack` le dit déjà,
-            // sauf pour celle qu'on tient, qui passe devant.
+            // sauf pour celle qu'on met en avant.
             ZStack(alignment: .top) {
                 ForEach(Array(shown.enumerated()), id: \.element.id) { index, account in
                     card(
                         account, data,
-                        rank: index, lead: !reordering && index == shown.count - 1,
-                        height: height, shownCount: shown.count,
-                        reordering: reordering
+                        rank: index, lead: index == shown.count - 1,
+                        height: height
                     )
                     .offset(y: CGFloat(index) * Self.step)
                     /*
-                     * Une carte tenue garde sa profondeur.
+                     * Celle qu'on met en avant passe devant.
                      *
-                     * Elle passait tout devant — un `zIndex` de mille — et
-                     * recouvrait donc les cartes posées plus bas, qui sont
-                     * les plus proches de l'œil dans une pile. On tire une
-                     * carte d'ENTRE les autres, pas par-dessus ; le
-                     * soulèvement et l'ombre disent déjà laquelle on tient.
+                     * C'est tout l'objet du premier appui : une carte prise
+                     * entre deux autres ne montre qu'un bandeau, et le
+                     * montant est justement au bout de ce bandeau. Devant,
+                     * elle se lit en entier — et redescend dès qu'on en
+                     * touche une autre.
                      */
-                    .zIndex(dragging == account.id ? 1000 : Double(index))
+                    .zIndex(raised == account.id ? 1000 : Double(index))
                 }
             }
             .frame(
                 height: height + CGFloat(shown.count - 1) * Self.step,
                 alignment: .top
             )
-            .frame(
-                maxHeight: cardHeight(room: room, stacked: shown.count)
-                    + CGFloat(shown.count - 1) * Self.step,
-                alignment: .top
-            )
             .animation(EdMotion.spring, value: shown.map(\.id))
-            .animation(EdMotion.spring, value: reordering)
+            // Toucher à côté de la pile repose la carte levée.
+            .contentShape(Rectangle())
+            .onTapGesture { raised = nil }
         }
     }
 
@@ -585,57 +564,38 @@ struct EditorialHome: View {
     @ViewBuilder
     private func card(
         _ account: Account, _ data: Overview,
-        rank: Int, lead: Bool, height: CGFloat, shownCount: Int,
-        reordering: Bool
+        rank: Int, lead: Bool, height: CGFloat
     ) -> some View {
-        // Plus de `Button` ici.
-        //
-        // Un bouton et un appui long sur la même vue se disputent la séquence :
-        // en priorité au geste, le tap était avalé ; en priorité au bouton,
-        // c'est l'appui long qui ne partait plus. Un `onTapGesture` et un
-        // geste simultané ne se gênent pas — et laissent passer le balayage
-        // horizontal jusqu'au pagineur, qui est au-dessus.
-        let lifted = dragging == account.id
-        face(account, data, rank: rank, lead: lead, open: lead)
+        /*
+         * Deux appuis, et aucun geste tenu.
+         *
+         * Le déplacement au doigt a été retiré : il n'y avait pas de façon
+         * de dessiner une carte qu'on déplace qui reste lisible, et il se
+         * disputait de toute façon le toucher avec l'ouverture et le
+         * balayage d'onglet. Le balayage de la vue redevient donc ce qu'il
+         * est partout ailleurs.
+         */
+        let up = raised == account.id
+        face(account, data, rank: rank, lead: lead, open: up || lead)
             .frame(height: height)
             .clipShape(RoundedRectangle(cornerRadius: Ed.smallCard, style: .continuous))
             .contentShape(RoundedRectangle(cornerRadius: Ed.smallCard, style: .continuous))
             .onTapGesture {
-                guard dragging == nil else { return }
+                guard up || lead else {
+                    raised = account.id
+                    UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                    return
+                }
                 UISelectionFeedbackGenerator().selectionChanged()
                 drill = ActivityRoute(accountId: account.id, title: account.name)
             }
+            .offset(y: up ? -10 : 0)
+            .scaleEffect(up ? 1.02 : 1)
             .shadow(
-                color: .black.opacity(lifted ? 0.34 : 0),
-                radius: lifted ? 18 : 0, y: lifted ? 10 : 0
+                color: .black.opacity(up ? 0.3 : 0),
+                radius: up ? 16 : 0, y: up ? 8 : 0
             )
-            .scaleEffect(lifted ? 1.03 : 1)
-            // Celle qu'on tient reste pleine, les autres reculent : c'est ce
-            // recul qui dit « celle-là », plus sûrement que le soulèvement.
-            .opacity(!reordering || lifted ? 1 : 0.45)
-            .animation(EdMotion.spring, value: lifted)
-            .animation(EdMotion.spring, value: reordering)
-        .modifier(
-            EdReorder(
-                enabled: local,
-                id: account.id,
-                step: Self.step,
-                // On ne range que dans ce qu'on voit : descendre d'un cran
-                // vers une carte hors de la pile ne montrait rien bouger.
-                limit: shownCount,
-                dragging: $dragging,
-                order: Binding(
-                    get: { cards(data).map(\.id) },
-                    set: { next in
-                        order = next
-                        let byId = Dictionary(
-                            uniqueKeysWithValues: data.accounts.map { ($0.id, $0) }
-                        )
-                        AccountsLogic.reorder(next.compactMap { byId[$0] })
-                    }
-                )
-            )
-        )
+            .animation(EdMotion.spring, value: up)
     }
 
     /*
@@ -733,122 +693,6 @@ struct EditorialHome: View {
          */
         let moment = min(synced, Date().addingTimeInterval(-60))
         return relative.localizedString(for: moment, relativeTo: Date())
-    }
-}
-
-/*
- * Tenir une carte, la déplacer, la lâcher ailleurs.
- *
- * Pas `List` et son `onMove` : cette pile se chevauche, et une liste refait
- * des lignes séparées. Pas `draggable`/`dropDestination` non plus — ils
- * passent par le presse-papiers du système et montrent un aperçu gris qui
- * n'est pas la carte.
- *
- * Un appui maintenu d'une demi-seconde PUIS un glissement : la séquence est
- * ce qui permet au défilement de garder tous les balayages ordinaires. La
- * place visée se déduit de la distance parcourue divisée par la hauteur d'un
- * cran — on ne mesure pas les autres cartes, on sait de combien elles sont
- * décalées.
- */
-private struct EdReorder: ViewModifier {
-    let enabled: Bool
-    let id: String
-    /// Le pas de la pile : la hauteur d'une carte repliée moins son
-    /// chevauchement. Il vient de l'appelant, qui pose les deux.
-    let step: CGFloat
-    /// Jusqu'où le rangement a le droit d'aller : le nombre de cartes posées.
-    let limit: Int
-    @Binding var dragging: String?
-    @Binding var order: [String]
-
-    @State private var shift: CGSize = .zero
-    func body(content: Content) -> some View {
-        if enabled {
-            content
-                .offset(shift)
-                /*
-                 * Un geste ordinaire, pas prioritaire.
-                 *
-                 * En prioritaire il passait avant le bouton — et avalait
-                 * l'appui court avec : taper une carte n'ouvrait plus rien.
-                 * La pile vit maintenant hors du défilement, donc plus rien
-                 * ne lui dispute le toucher et la priorité n'a plus de raison
-                 * d'être. Le bouton reprend les taps, l'appui long déplace.
-                 */
-                /*
-                 * Simultané, ni prioritaire ni ordinaire.
-                 *
-                 * Prioritaire, le geste passait avant le tap et l'avalait :
-                 * taper une carte n'ouvrait plus rien. Ordinaire, c'est le
-                 * contraire — le tap gagnait et l'appui long ne partait
-                 * jamais. Simultané, les deux vivent : un appui court ouvre,
-                 * un appui tenu déplace, et le balayage horizontal continue
-                 * de remonter jusqu'au pagineur.
-                 */
-                .simultaneousGesture(
-                    LongPressGesture(minimumDuration: 0.4)
-                        .sequenced(before: DragGesture(coordinateSpace: .local))
-                        .onChanged { value in
-                            guard case let .second(true, drag?) = value else {
-                                if dragging != id { haptic() }
-                                dragging = id
-                                return
-                            }
-                            /*
-                             * La pile ne bouge pas tant qu'on tient.
-                             *
-                             * Elle se rangeait à chaque cran franchi. Mais
-                             * ranger change l'ordre, et l'ordre décide quelle
-                             * carte est la grande du dessous, donc la hauteur
-                             * de toutes les autres : la pile se redessinait
-                             * entièrement sous le doigt, à chaque cran, et on
-                             * ne savait plus laquelle on tenait.
-                             *
-                             * Seule la carte tenue bouge. Le rangement arrive
-                             * au relâchement, une fois, là où elle a été
-                             * lâchée.
-                             */
-                            shift = CGSize(width: 0, height: drag.translation.height)
-                        }
-                        .onEnded { value in
-                            defer {
-                                shift = .zero
-                                dragging = nil
-                            }
-                            guard case let .second(true, drag?) = value else { return }
-                            move(by: Int((drag.translation.height / step).rounded()))
-                        }
-                )
-        } else {
-            content
-        }
-    }
-
-    private func haptic() {
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-    }
-
-    private func move(by steps: Int) {
-        guard steps != 0, let from = order.firstIndex(of: id) else { return }
-        let to = min(max(from + steps, 0), max(0, min(limit, order.count) - 1))
-        guard to != from else { return }
-        var next = order
-        next.remove(at: from)
-        next.insert(id, at: to)
-        UISelectionFeedbackGenerator().selectionChanged()
-        order = next
-    }
-}
-
-/// Un style qui ne fait rien d'autre que dire quand on appuie. La carte, elle,
-/// se soulève depuis l'état — et pas en se rétrécissant comme `EdPress`, qui
-/// dirait l'inverse de ce qu'on veut montrer.
-private struct EdLift: ButtonStyle {
-    let onPress: (Bool) -> Void
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .onChange(of: configuration.isPressed) { _, pressed in onPress(pressed) }
     }
 }
 
