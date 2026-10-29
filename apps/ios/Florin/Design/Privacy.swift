@@ -69,7 +69,12 @@ struct Redactable: ViewModifier {
             .overlay {
                 if privacy.hidden {
                     GeometryReader { geo in
-                        Crosses(tint: tint, box: geo.size)
+                        Capsule()
+                            .fill(tint.opacity(0.22))
+                            .frame(
+                                width: max(44, min(geo.size.width, geo.size.width * 0.86)),
+                                height: max(6, geo.size.height * 0.42)
+                            )
                             .frame(
                                 width: geo.size.width, height: geo.size.height,
                                 alignment: .trailing
@@ -79,30 +84,6 @@ struct Redactable: ViewModifier {
                 }
             }
             .accessibilityValue(privacy.hidden ? Strings.device("v2.a11y.hidden", "Masqué") : "")
-    }
-}
-
-/// Les croix qui remplacent un chiffre couvert.
-///
-/// Leur nombre ne dépend pas de celui des chiffres — ce serait rendre la
-/// longueur du montant, qui est justement ce qu'on cache. Quatre, toujours,
-/// dimensionnées sur la hauteur de la ligne qu'elles occupent pour qu'un
-/// grand nombre soit couvert par de grandes croix et une ligne de liste par
-/// de petites.
-private struct Crosses: View {
-    let tint: Color
-    let box: CGSize
-
-    var body: some View {
-        let unit = min(max(box.height * 0.52, 7), 26)
-        HStack(spacing: unit * 0.34) {
-            ForEach(0 ..< 4, id: \.self) { _ in
-                Image(systemName: "xmark")
-                    .font(.system(size: unit, weight: .semibold))
-            }
-        }
-        .foregroundStyle(tint.opacity(0.42))
-        .frame(maxHeight: box.height, alignment: .center)
     }
 }
 
@@ -124,6 +105,37 @@ struct HideWhenPrivate: ViewModifier {
 
     func body(content: Content) -> some View {
         content.opacity(privacy.hidden ? 0 : 1)
+    }
+}
+
+/*
+ * Un texte qui se couvre, caractère par caractère.
+ *
+ * La barre, puis les croix posées par-dessus, disaient toutes les deux la
+ * même chose de travers : quelque chose est DESSINÉ À LA PLACE du chiffre, à
+ * sa taille à lui et non à celle du texte, et ça se voit — une barre flotte,
+ * des croix tombent à côté des caractères qu'elles couvrent.
+ *
+ * Ici il n'y a rien par-dessus. C'est le même `Text`, à la même place, dans la
+ * même police, avec un autre contenu : chaque caractère est un X. Les espaces
+ * restent des espaces, sinon « XXXXXXXXXXX » ne ressemble plus à un montant et
+ * la ligne change de longueur.
+ */
+struct PrivateText: View {
+    @ObservedObject private var privacy = Privacy.shared
+    private let text: String
+
+    init(_ text: String) { self.text = text }
+
+    var body: some View {
+        Text(privacy.hidden ? Privacy.mask(text) : text)
+    }
+}
+
+extension Privacy {
+    /// Chaque caractère devient un X — l'espace reste un espace.
+    static func mask(_ text: String) -> String {
+        String(text.map { $0 == " " || $0 == "\u{202F}" || $0 == "\u{00A0}" ? $0 : "X" })
     }
 }
 

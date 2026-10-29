@@ -149,11 +149,16 @@ struct EdMonthSplit: View {
                 parts: [
                     .init(value: variable, tone: Florin.text),
                     .init(value: fixed, tone: Florin.text.opacity(0.38)),
-                    .init(value: rest, tone: Florin.text.opacity(0.10)),
                 ],
                 total: total,
                 mark: pace > 0 && pace < 1 ? pace : nil
             )
+            /*
+             * Les deux premiers chiffres sont ce qui est SORTI — du rouge le
+             * dirait trois fois (le signe, la part de barre, la couleur) et
+             * ferait d'une dépense ordinaire une alerte. Seul le reste à
+             * vivre change de camp selon qu'il existe encore ou non.
+             */
             EdFigures(figures: [
                 .init(
                     label: t("v2.ed.daily", "Quotidien"),
@@ -166,52 +171,20 @@ struct EdMonthSplit: View {
                 .init(
                     label: t("v2.overview.leftToSpend", "Reste"),
                     text: money(rest),
-                    tone: lts.leftToSpend >= 0 ? Florin.text : Florin.negative
+                    tone: lts.leftToSpend >= 0 ? Florin.positive : Florin.negative
                 ),
             ])
-            pacing(lts, pace: pace, budget: budget, days: days)
         }
     }
 
     /*
-     * La phrase du repère, et elle ne gronde pas.
+     * Pas de phrase sous les chiffres.
      *
-     * « Tu as dépensé 68 % de ton budget » ne dit pas si c'est beaucoup : au
-     * 25 du mois c'est une bonne nouvelle. Ce qui se compare, c'est la part
-     * du budget à la part du mois — et l'écart se compte en jours.
+     * Il y en avait une : « Au 29, tu devrais être à 94 % du budget. Tu es à
+     * 91 % — 1 j d'avance. » Trois nombres pour dire ce que le repère rouge
+     * sur la barre dit d'un coup d'œil, sur deux lignes, dans une grammaire
+     * que personne n'emploie. Le repère reste, la phrase part.
      */
-    @ViewBuilder
-    private func pacing(
-        _ lts: LeftToSpend, pace: Double, budget: Double, days: Double
-    ) -> some View {
-        if days > 0, lts.daysElapsed > 0 {
-            let should = Double(lts.daysElapsed) / days
-            let spent = min(lts.monthSpent / budget, 2)
-            let lead = (should - spent) * days
-            let rounded = Int(abs(lead).rounded())
-            Text(
-                rounded < 1
-                    ? t("v2.ed.onPace", "Au {day}, tu es exactement dans le rythme du mois.",
-                        ["day": "\(lts.daysElapsed)"])
-                    : t(
-                        lead > 0 ? "v2.ed.ahead" : "v2.ed.behind",
-                        lead > 0
-                            ? "Au {day}, tu devrais être à {should} % du budget. Tu es à {spent} % — {days} j d'avance."
-                            : "Au {day}, tu devrais être à {should} % du budget. Tu es à {spent} % — {days} j de retard.",
-                        [
-                            "day": "\(lts.daysElapsed)",
-                            "should": "\(Int((should * 100).rounded()))",
-                            "spent": "\(Int((spent * 100).rounded()))",
-                            "days": "\(rounded)",
-                        ]
-                    )
-            )
-            .font(.system(size: 15))
-            .foregroundStyle(Florin.text2)
-            .fixedSize(horizontal: false, vertical: true)
-            .hiddenWhenPrivate()
-        }
-    }
 
     private func t(
         _ key: String, _ fallback: String, _ args: [String: CustomStringConvertible] = [:]
@@ -237,7 +210,7 @@ struct EdMonthEnd: View {
     var body: some View {
         let lts = data.leftToSpend
         let forecast = MonthForecast(lts)
-        return VStack(alignment: .leading, spacing: 14) {
+        return VStack(alignment: .leading, spacing: 2) {
             EdSection(text: data.t("v2.overview.forecast", "Fin de mois"))
             VStack(spacing: 0) {
                 row(
@@ -302,7 +275,16 @@ struct EdMonthEnd: View {
                     .foregroundStyle(Florin.text)
                 Spacer(minLength: 10)
                 if let amount {
+                    /*
+                     * Deux montants l'un sous l'autre, un seul bord droit.
+                     *
+                     * `minimumScaleFactor` rapetisse le plus long sans
+                     * rétrécir son cadre, et un texte rapetissé se range du
+                     * côté de `multilineTextAlignment` — à gauche par défaut.
+                     * Le chiffre décollait donc du bord, et seulement celui-là.
+                     */
                     EdAmount(text: amount, size: 28, tone: tone)
+                        .multilineTextAlignment(.trailing)
                 } else {
                     Text("—").foregroundStyle(Florin.text3)
                 }
@@ -313,7 +295,7 @@ struct EdMonthEnd: View {
                 .lineLimit(2)
                 .hiddenWhenPrivate()
         }
-        .padding(.vertical, 14)
+        .padding(.vertical, 12)
     }
 }
 
@@ -395,7 +377,7 @@ struct EdSavings: View {
                 .foregroundStyle(Florin.text2)
             // Les taux arrivent déjà en pourcents — `Money.percent` divise
             // par cent, donc les multiplier ici les centuplerait.
-            Text(Money.percent(rate, locale: data.localeTag, digits: 0))
+            PrivateText(Money.percent(rate, locale: data.localeTag, digits: 0))
                 .font(.system(size: 30, weight: .medium))
                 .monospacedDigit()
                 .foregroundStyle(
@@ -403,7 +385,6 @@ struct EdSavings: View {
                         ? Florin.text3
                         : ((rate ?? 0) >= 0 ? Florin.positive : Florin.negative)
                 )
-                .redactable(tint: Florin.text2)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -427,20 +408,31 @@ struct EdParts: View {
     var mark: Double?
     var height: CGFloat = 12
 
+    /*
+     * UNE barre, découpée — et non des barres posées bout à bout.
+     *
+     * Chaque part était une capsule avec trois points d'écart : la part noire
+     * finissait donc par un demi-cercle et la grise recommençait par l'autre
+     * moitié, ce qui se lit comme deux objets qui se touchent plutôt que
+     * comme une jauge et son reste. Ici le creux est une seule capsule, les
+     * parts sont des rectangles sans écart, et c'est le découpage de
+     * l'ensemble qui arrondit les deux bouts — les seuls qui soient des bords.
+     */
     var body: some View {
         GeometryReader { geo in
             let shown = parts.filter { $0.value > 0 }
-            let gaps = CGFloat(max(0, shown.count - 1)) * 3
-            let usable = max(0, geo.size.width - gaps)
             ZStack(alignment: .leading) {
-                HStack(spacing: 3) {
+                Capsule().fill(Florin.text.opacity(0.10))
+                HStack(spacing: 0) {
                     ForEach(Array(shown.enumerated()), id: \.offset) { _, part in
-                        Capsule()
+                        Rectangle()
                             .fill(part.tone)
-                            .frame(width: usable * CGFloat(min(part.value / total, 1)))
+                            .frame(width: geo.size.width * CGFloat(min(part.value / total, 1)))
                     }
                     Spacer(minLength: 0)
                 }
+                .frame(width: geo.size.width, alignment: .leading)
+                .clipShape(Capsule())
                 if let mark {
                     Capsule()
                         .fill(Florin.accent)
@@ -472,13 +464,12 @@ struct EdFigures: View {
                         .font(.system(size: 13))
                         .foregroundStyle(Florin.text2)
                         .lineLimit(1)
-                    Text(figure.text)
+                    PrivateText(figure.text)
                         .font(.system(size: 19, weight: .medium))
                         .monospacedDigit()
                         .foregroundStyle(figure.tone)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
-                        .redactable(tint: Florin.text2)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -503,7 +494,10 @@ struct EdEye: View {
         Image(systemName: privacy.hidden ? "eye.slash" : "eye")
             .font(.system(size: 13))
             .foregroundStyle(Florin.text2)
-            .frame(width: 44, height: 24)
+            // La cible garde ses 44 pt — c'est le minimum d'un doigt — mais le
+            // glyphe se range à son bord gauche : sinon l'œil flotte à vingt
+            // points de la pastille qu'il concerne.
+            .frame(width: 44, height: 24, alignment: .leading)
             .contentShape(Rectangle())
             .onTapGesture { privacy.toggle() }
             .accessibilityLabel(privacy.hidden ? "Afficher les montants" : "Masquer les montants")

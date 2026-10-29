@@ -56,6 +56,9 @@ struct EditorialHome: View {
     /// Le compte qu'on ouvre. Une carte mène à SON relevé — elle ouvrait
     /// l'onglet Comptes, c'est-à-dire la liste de tous.
     @State private var drill: ActivityRoute?
+    /// Ce que le premier écran a déjà rendu de sa marge du bas. Voir
+    /// `EdFirstScreenTop`.
+    @State private var lift: CGFloat = 0
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage(Greeting.key) private var firstName = ""
 
@@ -130,10 +133,27 @@ struct EditorialHome: View {
                         }
                         .frame(maxHeight: .infinity)
                     }
-                    // La capsule flotte à 28 pt du bas sur 60 pt de haut : le
-                    // premier écran s'arrête au-dessus, sans quoi la dernière
-                    // carte passe dessous.
-                    .padding(.bottom, 104)
+                    /*
+                     * La capsule flotte à 28 pt du bas sur 60 pt de haut : le
+                     * premier écran s'arrête au-dessus, sans quoi la dernière
+                     * carte passe dessous.
+                     *
+                     * Mais cette marge n'a de raison d'être qu'EN HAUT. Dès
+                     * qu'on descend, la capsule n'est plus devant la pile :
+                     * les 104 pt deviennent un trou entre la dernière carte et
+                     * les quatre gestes. Ils se referment donc au fur et à
+                     * mesure du défilement, et sont rendus en entier dès qu'on
+                     * est revenu en haut.
+                     */
+                    .padding(.bottom, Self.breathe - lift)
+                    .background(
+                        GeometryReader { g in
+                            Color.clear.preference(
+                                key: EdFirstScreenTop.self,
+                                value: -g.frame(in: .named(Self.space)).minY
+                            )
+                        }
+                    )
                     // Exactement la hauteur de la fenêtre.
                     .containerRelativeFrame(.vertical)
 
@@ -175,6 +195,13 @@ struct EditorialHome: View {
                     .frame(maxWidth: .infinity)
                     .padding(.top, 120)
             }
+        }
+        .coordinateSpace(name: Self.space)
+        // Par pas de douze points : de quoi suivre le doigt sans refaire la
+        // page à chaque image.
+        .onPreferenceChange(EdFirstScreenTop.self) { y in
+            let next = min(Self.breathe, max(0, (y / 12).rounded() * 12))
+            if next != lift { lift = next }
         }
         .edRewind(.overview, chrome: chrome)
         .scrollIndicators(.hidden)
@@ -340,22 +367,20 @@ struct EditorialHome: View {
 
         HStack(spacing: 6) {
             if !showNet, scrubbed == nil {
-                Text(t("v2.overview.debt", "Dettes") + " " + Money.string(
+                PrivateText(t("v2.overview.debt", "Dettes") + " " + Money.string(
                     data.netWorth.liability, locale: data.localeTag,
                     currency: data.currency, decimals: false
                 ))
                 .foregroundStyle(Florin.text2)
-                .redactable(tint: Florin.text2)
             } else if !data.recent.isEmpty, showSaving, scrubbed == nil, let kept {
                 arrow(kept >= 0).hiddenWhenPrivate()
-                Text(Money.string(
+                PrivateText(Money.string(
                     abs(kept), locale: data.localeTag, currency: data.currency,
                     decimals: abs(kept) < 1000
                 ))
                 .monospacedDigit()
                 .fontWeight(.semibold)
                 .foregroundStyle(kept >= 0 ? Florin.positive : Florin.negative)
-                .redactable(tint: Florin.text2)
                 Text(data.leftToSpend.savedPrevMonthToDate.map {
                     t("v2.overview.keptVsLastMonth", "vs {prev} ({date})", [
                         "prev": Money.string(
@@ -368,14 +393,13 @@ struct EditorialHome: View {
                 .foregroundStyle(Florin.text2)
             } else if !data.recent.isEmpty {
                 arrow(move >= 0).hiddenWhenPrivate()
-                Text(Money.string(
+                PrivateText(Money.string(
                     abs(move), locale: data.localeTag, currency: data.currency,
                     decimals: abs(move) < 1000
                 ))
                 .monospacedDigit()
                 .fontWeight(.semibold)
                 .foregroundStyle(move >= 0 ? Florin.positive : Florin.negative)
-                .redactable(tint: Florin.text2)
                 Text(scrubbed.map { dayLabel($0.day, data) }
                     ?? t("v2.overview.inMonth", "en {month}", [
                         "month": MonthLabel.short(
@@ -524,10 +548,19 @@ struct EditorialHome: View {
      * écran qui ne défile pas : quatre cartes est ce qui reste, pas un choix
      * de goût. Les autres sont à un appui, sur la ligne qui suit la pile.
      */
+    /// Ce que le premier écran laisse sous la pile pour que la capsule ne
+    /// recouvre rien.
+    private static let breathe: CGFloat = 104
+    private static let space = "edHome"
     private static let step: CGFloat = 44
     /// Le pas serré. En dessous, le nom et le montant n'ont plus de ligne
     /// lisible où tenir — c'est un plancher, pas une préférence.
-    private static let tightStep: CGFloat = 30
+    ///
+    /// Il était à 30, et 30 moins les 18 pt que la carte prend en haut laisse
+    /// 12 pt à du texte de 15 : à six cartes, les noms se touchaient. Le
+    /// plancher est ce qu'il faut au bandeau, pas ce qui fait entrer une carte
+    /// de plus.
+    private static let tightStep: CGFloat = 34
     private static let shownAtMost = 8
     /// Ce qu'il faut à la carte menée pour écrire son nom, son montant, sa
     /// part et l'heure de la synchro. En dessous, autant ne pas la déplier.
@@ -597,6 +630,7 @@ struct EditorialHome: View {
                 height: height + CGFloat(shown.count - 1) * step,
                 alignment: .top
             )
+            .edEnter()
             .animation(EdMotion.spring, value: shown.map(\.id))
         }
     }
@@ -711,25 +745,23 @@ struct EditorialHome: View {
                     .font(.system(size: 15))
                     .lineLimit(1)
                 Spacer(minLength: 8)
-                Text(Money.string(
+                PrivateText(Money.string(
                     account.displayValue, locale: data.localeTag, currency: data.currency,
                     decimals: false
                 ))
                 .font(.system(size: 15, weight: .semibold))
                 .monospacedDigit()
-                .redactable(tint: ink)
             }
-            .frame(height: max(14, band - 18), alignment: .center)
+            .frame(height: max(18, band - 14), alignment: .center)
 
             VStack(alignment: .leading, spacing: 10) {
                 if lead {
-                    Text(Money.string(
+                    PrivateText(Money.string(
                         data.allocation.cash, locale: data.localeTag,
                         currency: data.currency, decimals: false
                     ))
                     .font(.system(size: 26, weight: .medium))
                     .monospacedDigit()
-                    .redactable(tint: ink)
                 }
                 Spacer(minLength: 0)
                 EdShare(share: share, ink: ink)
@@ -803,5 +835,13 @@ private struct EdShare: View {
             }
         }
         .frame(height: 3)
+    }
+}
+
+/// De combien le premier écran est sorti par le haut.
+private struct EdFirstScreenTop: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }

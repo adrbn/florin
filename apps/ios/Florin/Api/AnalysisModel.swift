@@ -212,6 +212,15 @@ enum MonthLabel {
         let f = DateFormatter()
         f.locale = Locale(identifier: locale)
         f.setLocalizedDateFormatFromTemplate("MMMMy")
-        return f.string(from: date).capitalized
+        /*
+         * Pas de capitale forcée.
+         *
+         * `.capitalized` donnait « Octobre 2026 » au fil d'une phrase — « en
+         * Octobre 2026 » — alors qu'un mois ne prend pas de capitale en
+         * français. Le formateur, lui, sait déjà : « octobre » en français,
+         * « Oktober » en allemand, « October » en anglais. Capitaliser
+         * par-dessus ne corrigeait qu'une langue et en cassait deux.
+         */
+        return f.string(from: date)
     }
 }

@@ -890,7 +890,8 @@
     "v2.buy.payee": "Purchase {asset}",
     "v2.demo.showcase": "Demo mode",
     "v2.demo.showcaseHint": "Invented accounts and transactions, in a separate file — to show the app without showing your money. Your own data is neither read nor changed.",
-    "v2.demo.showcaseOn": "You are looking at an invented ledger. Your accounts are untouched: switch this off to get them back."
+    "v2.demo.showcaseOn": "You are looking at an invented ledger. Your accounts are untouched: switch this off to get them back.",
+    "v2.activity.dayTotal": "Day total"
   },
   "fr": {
     "v2.a11y.back": "Retour",
@@ -1783,7 +1784,8 @@
     "v2.buy.payee": "Achat {asset}",
     "v2.demo.showcase": "Mode démonstration",
     "v2.demo.showcaseHint": "Des comptes et des opérations inventés, dans un fichier séparé — pour montrer l'app sans montrer votre argent. Vos données ne sont ni lues ni modifiées.",
-    "v2.demo.showcaseOn": "Vous regardez un grand livre inventé. Vos comptes sont intacts : éteignez pour les retrouver."
+    "v2.demo.showcaseOn": "Vous regardez un grand livre inventé. Vos comptes sont intacts : éteignez pour les retrouver.",
+    "v2.activity.dayTotal": "Total du jour"
   },
   "nl": {
     "v2.a11y.back": "Terug",
@@ -2676,7 +2678,8 @@
     "v2.buy.payee": "Aankoop {asset}",
     "v2.demo.showcase": "Demomodus",
     "v2.demo.showcaseHint": "Verzonnen rekeningen en transacties, in een apart bestand — om de app te laten zien zonder uw geld te tonen. Uw eigen gegevens worden niet gelezen of gewijzigd.",
-    "v2.demo.showcaseOn": "U kijkt naar een verzonnen grootboek. Uw rekeningen blijven ongemoeid: zet dit uit om ze terug te krijgen."
+    "v2.demo.showcaseOn": "U kijkt naar een verzonnen grootboek. Uw rekeningen blijven ongemoeid: zet dit uit om ze terug te krijgen.",
+    "v2.activity.dayTotal": "Dagtotaal"
   },
   "it": {
     "v2.a11y.back": "Indietro",
@@ -3569,7 +3572,8 @@
     "v2.buy.payee": "Acquisto {asset}",
     "v2.demo.showcase": "Modalità dimostrativa",
     "v2.demo.showcaseHint": "Conti e operazioni inventati, in un file separato — per mostrare l'app senza mostrare il tuo denaro. I tuoi dati non vengono né letti né modificati.",
-    "v2.demo.showcaseOn": "Stai guardando un registro inventato. I tuoi conti sono intatti: disattiva per ritrovarli."
+    "v2.demo.showcaseOn": "Stai guardando un registro inventato. I tuoi conti sono intatti: disattiva per ritrovarli.",
+    "v2.activity.dayTotal": "Totale del giorno"
   },
   "es": {
     "v2.a11y.back": "Atrás",
@@ -4462,7 +4466,8 @@
     "v2.buy.payee": "Compra {asset}",
     "v2.demo.showcase": "Modo demostración",
     "v2.demo.showcaseHint": "Cuentas y operaciones inventadas, en un archivo aparte — para enseñar la app sin enseñar tu dinero. Tus datos no se leen ni se modifican.",
-    "v2.demo.showcaseOn": "Estás viendo un libro inventado. Tus cuentas siguen intactas: desactívalo para recuperarlas."
+    "v2.demo.showcaseOn": "Estás viendo un libro inventado. Tus cuentas siguen intactas: desactívalo para recuperarlas.",
+    "v2.activity.dayTotal": "Total del día"
   },
   "ca": {
     "v2.a11y.back": "Enrere",
@@ -5355,7 +5360,8 @@
     "v2.buy.payee": "Compra {asset}",
     "v2.demo.showcase": "Mode demostració",
     "v2.demo.showcaseHint": "Comptes i operacions inventats, en un fitxer a part — per ensenyar l'app sense ensenyar els teus diners. Les teves dades no es llegeixen ni es modifiquen.",
-    "v2.demo.showcaseOn": "Estàs veient un llibre inventat. Els teus comptes són intactes: desactiva-ho per recuperar-los."
+    "v2.demo.showcaseOn": "Estàs veient un llibre inventat. Els teus comptes són intactes: desactiva-ho per recuperar-los.",
+    "v2.activity.dayTotal": "Total del dia"
   },
   "de": {
     "v2.a11y.back": "Zurück",
@@ -6248,7 +6254,8 @@
     "v2.buy.payee": "Kauf {asset}",
     "v2.demo.showcase": "Demomodus",
     "v2.demo.showcaseHint": "Erfundene Konten und Buchungen in einer eigenen Datei — um die App zu zeigen, ohne Ihr Geld zu zeigen. Ihre Daten werden weder gelesen noch geändert.",
-    "v2.demo.showcaseOn": "Sie sehen ein erfundenes Hauptbuch. Ihre Konten bleiben unberührt: schalten Sie es aus, um sie zurückzubekommen."
+    "v2.demo.showcaseOn": "Sie sehen ein erfundenes Hauptbuch. Ihre Konten bleiben unberührt: schalten Sie es aus, um sie zurückzubekommen.",
+    "v2.activity.dayTotal": "Tagessumme"
   },
   "pt": {
     "v2.a11y.back": "Voltar",
@@ -7141,7 +7148,8 @@
     "v2.buy.payee": "Compra {asset}",
     "v2.demo.showcase": "Modo demonstração",
     "v2.demo.showcaseHint": "Contas e operações inventadas, num ficheiro separado — para mostrar a app sem mostrar o seu dinheiro. Os seus dados não são lidos nem alterados.",
-    "v2.demo.showcaseOn": "Está a ver um livro inventado. As suas contas estão intactas: desligue para as recuperar."
+    "v2.demo.showcaseOn": "Está a ver um livro inventado. As suas contas estão intactas: desligue para as recuperar.",
+    "v2.activity.dayTotal": "Total do dia"
   },
   "tr": {
     "v2.a11y.back": "Geri",
@@ -8034,6 +8042,7 @@
     "v2.buy.payee": "{asset} alımı",
     "v2.demo.showcase": "Tanıtım modu",
     "v2.demo.showcaseHint": "Ayrı bir dosyada uydurma hesaplar ve işlemler — paranızı göstermeden uygulamayı göstermek için. Kendi verileriniz ne okunur ne de değiştirilir.",
-    "v2.demo.showcaseOn": "Uydurma bir defter görüyorsunuz. Hesaplarınıza dokunulmadı: geri almak için kapatın."
+    "v2.demo.showcaseOn": "Uydurma bir defter görüyorsunuz. Hesaplarınıza dokunulmadı: geri almak için kapatın.",
+    "v2.activity.dayTotal": "Günlük toplam"
   }
 }

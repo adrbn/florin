@@ -390,25 +390,24 @@ struct AnalysisScreen: View {
                 Text(t("v2.analysis.inWord", "en"))
                     .font(.system(size: 22))
                     .foregroundStyle(Florin.text2)
-                Menu {
-                    Button(t("v2.analysis.everything", "tout")) { saidCategory = nil }
-                    ForEach(rows.sorted { $0.total > $1.total }) { row in
-                        Button(row.categoryName) { saidCategory = row.categoryName }
-                    }
-                } label: {
-                    EdWord(text: pick?.categoryName ?? t("v2.analysis.everything", "tout"))
+                EdWordPicker(
+                    label: pick?.categoryName ?? t("v2.analysis.everything", "tout"),
+                    options: [(value: "", label: t("v2.analysis.everything", "tout"))]
+                        + rows.sorted { $0.total > $1.total }
+                            .map { (value: $0.categoryName, label: $0.categoryName) }
+                ) { name in
+                    saidCategory = name.isEmpty ? nil : name
                 }
                 Text(t("v2.analysis.inWord", "en"))
                     .font(.system(size: 22))
                     .foregroundStyle(Florin.text2)
-                Menu {
-                    ForEach(complete.reversed(), id: \.self) { candidate in
-                        Button(MonthLabel.long(candidate, locale: locale)) {
-                            saidMonth = candidate
-                        }
+                EdWordPicker(
+                    label: MonthLabel.long(month, locale: locale),
+                    options: complete.reversed().map {
+                        (value: $0, label: MonthLabel.long($0, locale: locale))
                     }
-                } label: {
-                    EdWord(text: MonthLabel.long(month, locale: locale))
+                ) { candidate in
+                    saidMonth = candidate
                 }
             }
             .padding(.horizontal, Florin.gutter)

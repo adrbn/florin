@@ -112,7 +112,7 @@ struct EdAmount: View {
     var value: Double?
 
     var body: some View {
-        Text(text)
+        PrivateText(text)
             .font(.system(size: size, weight: .medium))
             .monospacedDigit()
             .tracking(Ed.tracking(size, 0.045))
@@ -120,18 +120,6 @@ struct EdAmount: View {
             .lineLimit(1)
             .minimumScaleFactor(0.6)
             .modifier(EdNumericIfNeeded(value: value))
-            /*
-             * Le rideau se tire ici, une fois pour toutes.
-             *
-             * C'est la seule définition d'« un montant » en éditorial : le
-             * grand chiffre de l'accueil, celui de Comptes, celui de Plan.
-             * L'œil les laissait tous lisibles, et les rares endroits qui
-             * répondaient le faisaient en passant à l'opacité zéro — un blanc
-             * dans la page, qu'on lit comme un défaut d'affichage plutôt que
-             * comme un chiffre couvert. Une barre dit qu'il y a quelque chose
-             * et qu'on ne le montre pas.
-             */
-            .redactable(tint: tone)
     }
 }
 
@@ -154,6 +142,8 @@ private struct EdNumericIfNeeded: ViewModifier {
 struct EdSection: View {
     let text: String
     var trailing: String?
+    /// Un total de journée se lit à sa couleur avant son signe.
+    var trailingTone: Color = Florin.text2
 
     var body: some View {
         HStack(alignment: .lastTextBaseline) {
@@ -163,10 +153,10 @@ struct EdSection: View {
                 .foregroundStyle(Florin.text)
             if let trailing {
                 Spacer(minLength: 8)
-                Text(trailing)
+                PrivateText(trailing)
                     .font(.system(size: 18))
-                    .foregroundStyle(Florin.text2)
-                    .redactable(tint: Florin.text2)
+                    .monospacedDigit()
+                    .foregroundStyle(trailingTone)
             }
         }
         .edEnter()
@@ -181,15 +171,19 @@ struct EdAmountPill: View {
     var tone: Color = Florin.text
 
     var body: some View {
-        Text(text)
+        PrivateText(text)
             .font(.system(size: 14))
             .monospacedDigit()
             .foregroundStyle(tone)
             .lineLimit(1)
-            .redactable(tint: tone)
             .padding(.horizontal, 10)
             .frame(height: 28)
-            .overlay(Capsule().strokeBorder(Florin.text.opacity(0.28), lineWidth: 1))
+            // Le filet suit l'encre : une pastille rouge cerclée de gris se
+            // lit comme un rouge posé par erreur.
+            .overlay(Capsule().strokeBorder(
+                tone == Florin.text ? Florin.text.opacity(0.28) : tone.opacity(0.42),
+                lineWidth: 1
+            ))
             .edEnter()
     }
 }
@@ -241,9 +235,13 @@ struct EdInk: View {
     var size: CGFloat = 15
     var weight: Font.Weight = .regular
     var dim = false
+    /// Un chiffre, donc quelque chose que l'œil barré doit couvrir.
+    var money = false
 
     var body: some View {
-        Text(text)
+        Group {
+            if money { PrivateText(text) } else { Text(text) }
+        }
             .font(.system(size: size, weight: weight))
             .foregroundStyle(
                 inverse
@@ -976,5 +974,86 @@ struct EdWord: View {
             .foregroundStyle(Florin.text)
             .underline(true, color: Florin.accent)
             .lineLimit(1)
+    }
+}
+
+/*
+ * Le rouge d'un montant n'est pas l'accent.
+ *
+ * Dans ce thème, `Florin.negative` EST l'accent — c'est voulu : l'alerte et
+ * le manque sont la même encre, et deux rouges voisins ne valent rien. Mais
+ * l'accent se choisit, et un accent bleu rendrait les dépenses bleues. Les
+ * montants gardent donc le rouge et le vert de la palette de base : une
+ * sortie se lit à sa couleur avant son signe, et jamais comme une alerte.
+ */
+enum EdMoney {
+    static let minus = Tone(light: 0xC4392F, dark: 0xF08072).color
+    static let plus = Tone(light: 0x1F8B5F, dark: 0x5FD9A0).color
+
+    /// L'encre d'un mouvement, par son sens.
+    static func tone(_ amount: Double) -> Color { amount < 0 ? minus : plus }
+}
+
+/*
+ * Choisir un mot dans la phrase, sans le menu du système.
+ *
+ * `Menu` ouvre la feuille contextuelle d'iOS : un fond translucide, une
+ * typographie, des coins et un rythme qui ne sont ceux d'aucun écran d'ici,
+ * posés par-dessus un écran qui ne vit que de ça. Une `popover` compacte
+ * s'ancre au même endroit et se dessine entièrement — c'est le même geste,
+ * dans la langue de l'app.
+ */
+struct EdWordPicker<Value: Hashable>: View {
+    let label: String
+    let options: [(value: Value, label: String)]
+    let pick: (Value) -> Void
+
+    @State private var open = false
+
+    var body: some View {
+        Button {
+            UISelectionFeedbackGenerator().selectionChanged()
+            open = true
+        } label: {
+            EdWord(text: label)
+        }
+        .buttonStyle(.edPress)
+        .popover(isPresented: $open) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array(options.enumerated()), id: \.element.value) { index, option in
+                        if index > 0 { EdRule() }
+                        Button {
+                            UISelectionFeedbackGenerator().selectionChanged()
+                            pick(option.value)
+                            open = false
+                        } label: {
+                            HStack(spacing: 12) {
+                                Text(option.label)
+                                    .font(.system(size: 17))
+                                    .foregroundStyle(Florin.text)
+                                    .lineLimit(1)
+                                Spacer(minLength: 8)
+                                if option.label == label {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundStyle(Florin.accent)
+                                }
+                            }
+                            .frame(minHeight: 46)
+                            .padding(.horizontal, 20)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.edPress)
+                    }
+                }
+                .padding(.vertical, 8)
+            }
+            .scrollIndicators(.hidden)
+            .frame(minWidth: 230, maxHeight: 420)
+            .presentationCompactAdaptation(.popover)
+            .presentationBackground(Florin.bg)
+        }
     }
 }

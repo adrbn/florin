@@ -68,6 +68,7 @@ struct EditorialPlan: View {
                 .edEnter()
                 .id(edTopAnchor)
                 if let plan = model.plan {
+                    VStack(alignment: .leading, spacing: 0) {
                     EdPill(text: "\(t("v2.plan.title", "Plan")) · \(plan.year)")
                         .padding(.top, 18)
                     /*
@@ -91,6 +92,9 @@ struct EditorialPlan: View {
                         }
                     emptyOffer(plan).edEnter()
                     readyToAssign(plan).edEnter()
+                    }
+                    .contentShape(Rectangle())
+                    .modifier(MonthSwipe { model.step($0) })
                     spending(plan).edEnter()
                     envelopes(plan)
                 } else if let failure = model.failure {
@@ -177,20 +181,17 @@ struct EditorialPlan: View {
 
     // MARK: Le bandeau
 
-    /// Les deux chevrons tiennent lieu de titre : le mois est écrit en 64 pt
-    /// juste dessous, il n'a pas à l'être une seconde fois dans la barre.
+    /*
+     * Plus de chevrons.
+     *
+     * Deux boutons posés au-dessus du mois annonçaient qu'il se change, et
+     * descendaient tout le reste d'autant. Le mois se change là où il est
+     * écrit : on balaie le bloc du mois, comme on tourne une page. Voir
+     * `monthSwipe`.
+     */
     private var header: some View {
         EdHeader {
-            HStack(spacing: 0) {
-                EdIconButton(
-                    symbol: "chevron.left",
-                    label: t("v2.plan.prevMonth", "Mois précédent")
-                ) { model.step(-1) }
-                EdIconButton(
-                    symbol: "chevron.right",
-                    label: t("v2.plan.nextMonth", "Mois suivant")
-                ) { model.step(1) }
-            }
+            EmptyView()
         } trailing: {
             EdIconButton(
                 symbol: "person.crop.circle",
@@ -284,9 +285,9 @@ struct EditorialPlan: View {
                         )]
                     ),
                     size: 13,
-                    dim: true
+                    dim: true,
+                    money: true
                 )
-                .redactable(tint: Florin.bg)
             }
         }
         .padding(.top, 28)
@@ -314,14 +315,13 @@ struct EditorialPlan: View {
                 HStack(alignment: .lastTextBaseline) {
                     EdSection(text: t("v2.plan.spent", "Dépensé"))
                     Spacer(minLength: 8)
-                    Text(Money.string(
+                    PrivateText(Money.string(
                         total, locale: locale, currency: currency, decimals: false
                     ))
                     .font(.system(size: 18, weight: .medium))
                     .monospacedDigit()
                     .foregroundStyle(Florin.text)
                     .underline()
-                    .redactable()
                 }
             }
             .buttonStyle(.plain)
@@ -442,7 +442,7 @@ struct EditorialPlan: View {
                     .font(.system(size: 17, weight: .medium))
                     .foregroundStyle(Florin.text)
                     .lineLimit(1)
-                Text(
+                PrivateText(
                     Money.string(
                         category.spent, locale: locale, currency: currency, decimals: false
                     ) + " / " + Money.string(
@@ -451,7 +451,6 @@ struct EditorialPlan: View {
                 )
                 .font(.system(size: 13))
                 .foregroundStyle(over ? Florin.negative : Florin.text2)
-                .redactable(tint: Florin.text2)
             }
             Spacer(minLength: 8)
             EdAmountPill(
@@ -463,5 +462,40 @@ struct EditorialPlan: View {
         }
         .frame(minHeight: 62)
         .contentShape(Rectangle())
+    }
+}
+
+/*
+ * Le mois se change en balayant le mois.
+ *
+ * Le balayage d'onglet vit sur le `TabView` et se déclenche à la fin du
+ * geste ; les deux se disputeraient ce doigt-là. `EdGesture.scrubbing` est le
+ * drapeau que le graphique pose déjà pour la même raison : posé dès le
+ * premier point du glissement, il est encore vrai quand le balayage d'onglet
+ * relève le sien, et ne retombe qu'au tour de boucle suivant.
+ */
+private struct MonthSwipe: ViewModifier {
+    let step: (Int) -> Void
+
+    func body(content: Content) -> some View {
+        content.simultaneousGesture(
+            DragGesture(minimumDistance: 24)
+                .onChanged { move in
+                    guard abs(move.translation.width) > abs(move.translation.height) else {
+                        return
+                    }
+                    EdGesture.shared.scrubbing = true
+                }
+                .onEnded { move in
+                    defer {
+                        DispatchQueue.main.async { EdGesture.shared.scrubbing = false }
+                    }
+                    let dx = move.translation.width
+                    guard abs(dx) > 50, abs(dx) > abs(move.translation.height) * 1.5
+                    else { return }
+                    UISelectionFeedbackGenerator().selectionChanged()
+                    step(dx < 0 ? 1 : -1)
+                }
+        )
     }
 }

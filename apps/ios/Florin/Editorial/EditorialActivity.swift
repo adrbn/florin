@@ -23,6 +23,8 @@ struct EditorialActivity: View {
     @State private var upcomingOpen = false
     @State private var instalmentsOpen = false
     @State private var searching = false
+    /// L'échéancier dont on regarde le détail — comme sur Obsidienne.
+    @State private var openPlan: LocalInstalments.Schedule?
     /*
      * Ce qu'un appui long sur une ligne a demandé — voir `TransactionMenu`.
      *
@@ -75,6 +77,18 @@ struct EditorialActivity: View {
         model.rows.filter { $0.isScheduled && $0.isInstalment }
     }
 
+    /*
+     * Le pli compte des ACHATS, pas des mensualités.
+     *
+     * Il listait les échéances à plat : les quatre d'un voyage mêlées aux
+     * quatre d'un manteau, et « 8 en plusieurs fois » là où il y a deux
+     * achats. On se souvient de l'achat, pas de sa troisième mensualité —
+     * c'est le raisonnement d'Obsidienne, et c'est le même modèle qui sert.
+     */
+    private var schedules: [LocalInstalments.Schedule] {
+        model.schedules.filter { !$0.isOver && $0.matches(model.filter) }
+    }
+
     /// Les lignes regroupées par jour, dans l'ordre où elles arrivent — le
     /// serveur les rend déjà triées, donc ce découpage n'a rien à retrier.
     ///
@@ -103,13 +117,10 @@ struct EditorialActivity: View {
                 .edEnter()
                 .id(edTopAnchor)
                 if searching { searchField.edEnter() }
-                EdPill(
-                    text: t("v2.activity.title", "Activité") + " · "
-                        + t("v2.activity.count", "{count} opérations", ["count": model.total])
-                )
-                .padding(.top, 18)
-
-                waiting.edEnter()
+                // La pastille « Activité · 3 223 opérations » occupait une
+                // ligne pour dire le nom de l'onglet qu'on vient d'ouvrir et
+                // un nombre dont on ne fait rien.
+                waiting.edEnter().padding(.top, 8)
 
                 if let first = days.first {
                     // Le haut de la liste sort de la vue comme le reste : il
@@ -120,12 +131,21 @@ struct EditorialActivity: View {
 
                 ForEach(Array(days.enumerated()), id: \.element.day) { index, section in
                     if index > 0 {
-                        EdSection(text: dayLabel(section.day))
-                            .padding(.top, 34)
-                            .padding(.bottom, 6)
-                            .edEnter()
+                        let net = section.rows.reduce(0) { $0 + $1.amount }
+                        EdSection(
+                            text: dayLabel(section.day),
+                            trailing: Money.string(
+                                net, locale: locale, currency: currency,
+                                decimals: false, signed: true
+                            ),
+                            trailingTone: EdMoney.tone(net)
+                        )
+                        .padding(.top, 34)
+                        .padding(.bottom, 6)
+                        .edEnter()
                     }
                     rows(section.rows)
+                    dayTotal(section.rows)
                 }
 
                 footer.edEnter()
@@ -170,6 +190,17 @@ struct EditorialActivity: View {
                 },
                 isLocalLedger: model.isLocalLedger
             )
+            .edSheet()
+        }
+        .sheet(item: $openPlan) { plan in
+            InstalmentPlanSheet(
+                plan: plan, locale: locale, currency: currency, t: t
+            ) {
+                Task {
+                    await model.reload()
+                    await overview.load(showSpinner: false)
+                }
+            }
             .edSheet()
         }
         .sheet(isPresented: $filtering) {
@@ -272,20 +303,52 @@ struct EditorialActivity: View {
 
     // MARK: Le jour en titre
 
+    /*
+     * Le total du jour, sur la ligne du jour.
+     *
+     * Il vivait sous le titre, en 20 pt et en gris : à cet endroit-là, posé
+     * seul entre un mot de 64 pt et la première ligne, il se lisait comme le
+     * début de la liste. Sur la même ligne de base que le titre, petit et
+     * teinté, il est ce qu'il est — une légende de la journée. Le même
+     * chiffre revient en pied de journée, dans la colonne des montants, où
+     * on le cherche quand on a fini de lire. Voir `dayTotal`.
+     */
     private func hero(_ section: (day: Date, rows: [Transaction])) -> some View {
         let net = section.rows.reduce(0) { $0 + $1.amount }
-        return VStack(alignment: .leading, spacing: 10) {
+        return HStack(alignment: .lastTextBaseline, spacing: 10) {
             EdHero(text: dayLabel(section.day))
-            Text(Money.string(
+            Spacer(minLength: 8)
+            PrivateText(Money.string(
                 net, locale: locale, currency: currency, decimals: false, signed: true
             ))
-            .font(.system(size: 20, weight: .medium))
+            .font(.system(size: 15, weight: .medium))
             .monospacedDigit()
-            .foregroundStyle(net < 0 ? Florin.text2 : Florin.text)
+            .foregroundStyle(EdMoney.tone(net))
             .edNumeric(net)
-            .redactable()
         }
         .padding(.top, 14)
+    }
+
+    /// Le total d'une journée, en pied, dans la colonne des montants.
+    @ViewBuilder
+    private func dayTotal(_ list: [Transaction]) -> some View {
+        let net = list.reduce(0) { $0 + $1.amount }
+        EdRule()
+        HStack(spacing: 12) {
+            Text(t("v2.activity.dayTotal", "Total du jour"))
+                .font(.system(size: 13))
+                .foregroundStyle(Florin.text3)
+            Spacer(minLength: 8)
+            EdAmountPill(
+                text: Money.string(
+                    net, locale: locale, currency: currency,
+                    decimals: false, signed: true
+                ),
+                tone: EdMoney.tone(net)
+            )
+        }
+        .frame(minHeight: 48)
+        .edEnter()
     }
 
     /// « Aujourd'hui », « Hier », puis la date écrite. Un libellé relatif ne
@@ -304,109 +367,155 @@ struct EditorialActivity: View {
 
     // MARK: Ce qui attend
 
-    /// Deux plis, repliés par défaut : ce qui vient de la banque, et ce qu'on
-    /// a soi-même étalé en plusieurs fois. Ils comptent leur total et leur
-    /// nombre sans déplier, ce qui est presque toujours tout ce qu'on venait
-    /// y lire.
+    /*
+     * Deux plis, repliés par défaut, et une seule ligne chacun.
+     *
+     * Ils prenaient deux lignes — un libellé au-dessus de son montant — soit
+     * presque cent points pour annoncer deux choses qu'on lit d'un coup
+     * d'œil, et qui repoussaient « Aujourd'hui » hors de l'écran. Le libellé
+     * à gauche, le montant à droite : la même ligne, la moitié de la hauteur.
+     *
+     * Ce qui s'ouvre dessous n'est plus dans la carte. Une liste posée sur
+     * l'accent demandait son propre jeu de couleurs — d'où des lignes qui ne
+     * ressemblaient à rien d'autre dans l'app. La carte ne porte donc que
+     * l'en-tête, et le contenu se déroule sur la page, dans les lignes de la
+     * liste : vignette, nom, catégorie dessous, montant en pastille.
+     */
     @ViewBuilder
     private var waiting: some View {
-        if !upcoming.isEmpty || !instalments.isEmpty {
-            VStack(spacing: 10) {
+        if !upcoming.isEmpty || !schedules.isEmpty {
+            VStack(spacing: 14) {
                 if !upcoming.isEmpty {
                     fold(
                         title: t("v2.activity.upcomingCount", "{count} à venir",
                                  ["count": upcoming.count]),
-                        rows: upcoming,
+                        total: upcoming.reduce(0) { $0 + $1.amount },
                         open: $upcomingOpen,
                         inverse: false
-                    )
+                    ) {
+                        ForEach(upcoming) { tx in
+                            EdRule()
+                            Button { detail = tx } label: { row(tx) }
+                                .buttonStyle(.edPress)
+                                .transactionMenu(
+                                    tx, t: t, locale: locale, currency: currency,
+                                    canTransfer: !tx.isTransfer && tx.amount < 0
+                                        && model.accounts.count > 1,
+                                    request: $menuRequest,
+                                    isLocalLedger: model.isLocalLedger
+                                )
+                        }
+                    }
                 }
-                if !instalments.isEmpty {
+                if !schedules.isEmpty {
                     fold(
                         title: t("v2.activity.instalmentPlanCount",
                                  "{count} en plusieurs fois",
-                                 ["count": instalments.count]),
-                        rows: instalments,
+                                 ["count": schedules.count]),
+                        total: -schedules.reduce(0) { $0 + $1.remaining },
                         open: $instalmentsOpen,
                         inverse: true
-                    )
+                    ) {
+                        ForEach(schedules) { plan in
+                            EdRule()
+                            Button {
+                                UISelectionFeedbackGenerator().selectionChanged()
+                                openPlan = plan
+                            } label: { planRow(plan) }
+                                .buttonStyle(.edPress)
+                        }
+                    }
                 }
             }
             .padding(.top, 22)
         }
     }
 
-    private func fold(
-        title: String, rows: [Transaction], open: Binding<Bool>, inverse: Bool
+    private func fold<Content: View>(
+        title: String, total: Double, open: Binding<Bool>, inverse: Bool,
+        @ViewBuilder content: () -> Content
     ) -> some View {
-        let total = rows.reduce(0) { $0 + $1.amount }
-        return VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 0) {
             Button {
                 withAnimation(EdMotion.spring) { open.wrappedValue.toggle() }
             } label: {
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        EdInk(text: title, size: 13, dim: true)
-                        EdInk(
-                            text: Money.string(
-                                total, locale: locale, currency: currency,
-                                decimals: false, signed: true
-                            ),
-                            size: 22, weight: .medium
-                        )
-                        .redactable()
-                    }
+                HStack(spacing: 10) {
+                    EdInk(text: title, size: 15)
                     Spacer(minLength: 8)
+                    EdInk(
+                        text: Money.string(
+                            total, locale: locale, currency: currency,
+                            decimals: false, signed: true
+                        ),
+                        size: 17, weight: .medium, money: true
+                    )
                     Image(systemName: "chevron.down")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(inverse ? Florin.bg : Florin.text2)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(inverse ? Florin.bg.opacity(0.7) : Florin.text2)
                         .rotationEffect(.degrees(open.wrappedValue ? 180 : 0))
                 }
+                .frame(minHeight: 28)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.edPress)
+            .modifier(EdFoldSkin(inverse: inverse))
 
             if open.wrappedValue {
-                ForEach(rows) { tx in
-                    Rectangle()
-                        .fill((inverse ? Florin.bg : Florin.text).opacity(0.12))
-                        .frame(height: 1)
-                        .padding(.top, 10)
-                    Button { detail = tx } label: { foldedRow(tx, inverse: inverse) }
-                        .buttonStyle(.edPress)
-                        .transactionMenu(
-                            tx, t: t, locale: locale, currency: currency,
-                            canTransfer: !tx.isTransfer && tx.amount < 0
-                                && model.accounts.count > 1,
-                            request: $menuRequest,
-                            isLocalLedger: model.isLocalLedger
-                        )
-                        .buttonStyle(.edPress)
-                }
-                .transition(.opacity)
+                content().transition(.opacity)
             }
         }
-        .modifier(EdFoldSkin(inverse: inverse))
     }
 
-    private func foldedRow(_ tx: Transaction, inverse: Bool) -> some View {
-        HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 1) {
-                EdInk(text: title(tx), size: 15, weight: .medium)
+    /*
+     * Une ligne par achat étalé.
+     *
+     * Elle dit ce qu'on se demande en passant — chez qui, combien il reste,
+     * où en est l'échéancier — et la feuille derrière dit le reste. Les
+     * pastilles d'avancement sont celles d'Obsidienne : quatre sur six se
+     * comptent sans se lire.
+     */
+    private func planRow(_ plan: LocalInstalments.Schedule) -> some View {
+        let face = logos.face(for: plan.payee)
+        return HStack(spacing: 12) {
+            Bubble(
+                label: plan.categoryName ?? plan.payee,
+                emoji: face?.emoji ?? plan.categoryEmoji,
+                size: 38,
+                logo: face?.logo
+            )
+            VStack(alignment: .leading, spacing: 2) {
+                Text(PayeeText.title(plan.payee, category: plan.categoryName))
+                    .font(.system(size: 17, weight: .medium))
+                    .foregroundStyle(Florin.text)
                     .lineLimit(1)
-                EdInk(text: dayLabel(tx.day), size: 12, dim: true)
+                Text(planSubtitle(plan))
+                    .font(.system(size: 13))
+                    .foregroundStyle(Florin.text2)
+                    .lineLimit(1)
             }
             Spacer(minLength: 8)
-            EdInk(
-                text: Money.string(
-                    tx.amount, locale: locale, currency: currency, signed: true
-                ),
-                size: 15, weight: .medium
-            )
-            .redactable()
+            VStack(alignment: .trailing, spacing: 6) {
+                EdAmountPill(
+                    text: Money.string(
+                        -plan.remaining, locale: locale, currency: currency, signed: true
+                    ),
+                    tone: EdMoney.minus
+                )
+                InstalmentProgress(count: plan.count, paid: plan.paidCount)
+                    .hiddenWhenPrivate()
+            }
         }
-        .frame(minHeight: 44)
+        .frame(minHeight: 62)
         .contentShape(Rectangle())
+    }
+
+    private func planSubtitle(_ plan: LocalInstalments.Schedule) -> String {
+        let progress = t(
+            "v2.instalments.paidOf", "{paid} sur {count} payées",
+            ["paid": plan.paidCount, "count": plan.count]
+        )
+        guard let next = plan.next else { return progress }
+        return progress + " · " + dayLabel(next.day)
     }
 
     // MARK: Les lignes
@@ -476,18 +585,20 @@ struct EditorialActivity: View {
             }
             Spacer(minLength: 8)
             /*
-             * Aucune couleur sur un montant.
+             * Rouge dehors, vert dedans — et jamais l'accent.
              *
-             * L'accent était donné aux entrées, ce qui mettait en alerte le
-             * remboursement de huit euros et laissait en blanc le loyer. Dans
-             * ce thème l'orange ne veut dire qu'une chose — quelque chose
-             * demande une décision — et une rentrée d'argent n'en demande
-             * aucune. Le signe suffit à dire le sens.
+             * La pastille était noire quoi qu'il arrive, au prétexte que le
+             * signe disait le sens : il le dit, à condition de le lire. Dans
+             * une liste qu'on parcourt, une rentrée doit sauter aux yeux sans
+             * être lue. Ce ne sont pas pour autant les encres de l'accent —
+             * voir `EdMoney` : l'orange reste réservé à ce qui demande une
+             * décision.
              */
             EdAmountPill(
                 text: Money.string(
                     tx.amount, locale: locale, currency: currency, signed: true
-                )
+                ),
+                tone: EdMoney.tone(tx.amount)
             )
         }
         .frame(minHeight: 62)

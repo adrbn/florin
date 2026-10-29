@@ -187,7 +187,7 @@ struct EditorialAccounts: View {
                     // jamais.
                     value: scrubbed == nil ? live(data) : nil
                 )
-                Text(showNet
+                PrivateText(showNet
                     ? t("v2.accounts.count", "{count} comptes",
                         ["count": AccountsLogic.visible(data).count])
                     : t("v2.overview.debt", "Dettes") + " " + Money.string(
@@ -196,7 +196,6 @@ struct EditorialAccounts: View {
                     ))
                     .font(.system(size: 15))
                     .foregroundStyle(Florin.text2)
-                    .redactable(tint: Florin.text2)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
@@ -270,14 +269,13 @@ struct EditorialAccounts: View {
                                 .font(.system(size: 15))
                                 .foregroundStyle(Florin.text)
                             Spacer(minLength: 8)
-                            Text(Money.string(
+                            PrivateText(Money.string(
                                 slice.value, locale: data.localeTag,
                                 currency: data.currency, decimals: false
                             ))
                             .font(.system(size: 15, weight: .medium))
                             .monospacedDigit()
                             .foregroundStyle(Florin.text)
-                            .redactable()
                             Text("\(Int((slice.value / total * 100).rounded()))%")
                                 .font(.system(size: 13))
                                 .foregroundStyle(Florin.text3)
@@ -351,7 +349,7 @@ struct EditorialAccounts: View {
                         .foregroundStyle(Florin.text)
                         .lineLimit(1)
                     Spacer(minLength: 8)
-                    Text(Money.string(
+                    PrivateText(Money.string(
                         account.displayValue, locale: data.localeTag,
                         currency: data.currency, decimals: false
                     ))
@@ -362,7 +360,6 @@ struct EditorialAccounts: View {
                     .foregroundStyle(
                         account.displayValue < 0 ? Florin.negative : Florin.text
                     )
-                    .redactable()
                 }
                 // La part de ce compte dans le plus gros avoir — la même
                 // échelle pour toutes les lignes, sinon la barre ne compare
