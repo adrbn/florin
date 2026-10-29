@@ -196,7 +196,7 @@ struct EditorialAccounts: View {
                     ))
                     .font(.system(size: 15))
                     .foregroundStyle(Florin.text2)
-                    .hiddenWhenPrivate()
+                    .redactable(tint: Florin.text2)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
@@ -277,7 +277,7 @@ struct EditorialAccounts: View {
                             .font(.system(size: 15, weight: .medium))
                             .monospacedDigit()
                             .foregroundStyle(Florin.text)
-                            .hiddenWhenPrivate()
+                            .redactable()
                             Text("\(Int((slice.value / total * 100).rounded()))%")
                                 .font(.system(size: 13))
                                 .foregroundStyle(Florin.text3)
@@ -362,7 +362,7 @@ struct EditorialAccounts: View {
                     .foregroundStyle(
                         account.displayValue < 0 ? Florin.negative : Florin.text
                     )
-                    .hiddenWhenPrivate()
+                    .redactable()
                 }
                 // La part de ce compte dans le plus gros avoir — la même
                 // échelle pour toutes les lignes, sinon la barre ne compare

@@ -641,18 +641,25 @@ struct MainTabs: View {
             // state and lazy loading.
             .ignoresSafeArea(.keyboard)
             /*
-             * Pas de style page, et c'est le fondu des bords qui l'a décidé.
+             * Le balayage change d'onglet, mais pas le style page.
              *
-             * `.page` faisait glisser les onglets sous le doigt, ce qui valait
-             * mieux que le fondu croisé d'un `TabView` nu. Mais il héberge
-             * chaque page dans son propre pagineur : le `ScrollView` de la
-             * page n'est plus celui que l'effet de bord d'iOS 26 regarde, donc
-             * les deux bords cessent de fondre et il ne reste que le fond,
-             * coupé net — une bande claire en haut comme en bas.
+             * `.page` faisait suivre le contenu sous le doigt, et c'était le
+             * meilleur des deux. Seulement il héberge chaque onglet dans son
+             * propre pagineur : le `ScrollView` de la page n'est plus celui
+             * que l'effet de bord d'iOS 26 regarde, donc les deux bords
+             * cessaient de fondre et il ne restait que le fond coupé net —
+             * la bande claire en haut comme en bas.
              *
-             * Le fondu est ce qu'on nous a demandé deux fois ; le glissement
-             * latéral, personne. Les bords gagnent.
+             * Le geste revient sans lui : `edSwipe` lit le balayage et pose
+             * la sélection. Le contenu ne suit plus le doigt, il arrive à la
+             * fin du geste — c'est le prix des bords, et les bords valent
+             * plus cher. Il se tait quand un écran est poussé par-dessus :
+             * un balayage dépile d'abord ce qui est posé dessus.
              */
+            .edSwipe(
+                edTabOrder, selection: $selection,
+                enabled: editorial && !chrome.detailOpen
+            )
 
             // Content dissolves into the bottom of the screen rather than
             // running on under the bar and out through the home indicator.

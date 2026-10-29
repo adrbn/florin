@@ -89,7 +89,7 @@ struct EditorialPlan: View {
                                 }
                             }
                         }
-                    emptyOffer(plan)
+                    emptyOffer(plan).edEnter()
                     readyToAssign(plan).edEnter()
                     spending(plan).edEnter()
                     envelopes(plan)
@@ -286,6 +286,7 @@ struct EditorialPlan: View {
                     size: 13,
                     dim: true
                 )
+                .redactable(tint: Florin.bg)
             }
         }
         .padding(.top, 28)
@@ -320,6 +321,7 @@ struct EditorialPlan: View {
                     .monospacedDigit()
                     .foregroundStyle(Florin.text)
                     .underline()
+                    .redactable()
                 }
             }
             .buttonStyle(.plain)
@@ -449,6 +451,7 @@ struct EditorialPlan: View {
                 )
                 .font(.system(size: 13))
                 .foregroundStyle(over ? Florin.negative : Florin.text2)
+                .redactable(tint: Florin.text2)
             }
             Spacer(minLength: 8)
             EdAmountPill(

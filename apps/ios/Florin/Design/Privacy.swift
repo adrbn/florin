@@ -51,16 +51,17 @@ final class Privacy: ObservableObject {
 ///
 /// Blur was the first attempt and it is the wrong tool: a blurred number is
 /// still a number-shaped smear whose length and rough digits read from a metre
-/// away, and it looks like a rendering bug. A solid bar of the same width says
-/// "withheld" unambiguously and gives nothing away — the width comes from the
-/// text it replaces, so the layout does not jump when it toggles.
+/// away, and it looks like a rendering bug.
+///
+/// Puis une barre pleine, qui ne disait rien de juste non plus : posée au
+/// milieu d'une page, elle se lit comme un bloc de chargement — quelque chose
+/// qui va arriver — alors qu'ici rien n'arrivera tant que le rideau est tiré.
+/// Des croix sont un signe, pas un gabarit : on voit qu'un chiffre est couvert
+/// et on ne devine ni sa longueur ni ses décimales. La hauteur vient de la
+/// ligne remplacée, donc la mise en page ne saute pas quand on bascule.
 struct Redactable: ViewModifier {
     @ObservedObject private var privacy = Privacy.shared
     var tint: Color = Florin.text
-    /// Keeps the bar honest: a two-digit figure should not redact to the same
-    /// width as a six-digit one, but neither should the bar leak the exact
-    /// count, so it is clamped.
-    var minWidth: CGFloat = 44
 
     func body(content: Content) -> some View {
         content
@@ -68,13 +69,11 @@ struct Redactable: ViewModifier {
             .overlay {
                 if privacy.hidden {
                     GeometryReader { geo in
-                        Capsule()
-                            .fill(tint.opacity(0.22))
+                        Crosses(tint: tint, box: geo.size)
                             .frame(
-                                width: max(minWidth, min(geo.size.width, geo.size.width * 0.86)),
-                                height: max(6, geo.size.height * 0.42)
+                                width: geo.size.width, height: geo.size.height,
+                                alignment: .trailing
                             )
-                            .frame(width: geo.size.width, height: geo.size.height, alignment: .trailing)
                     }
                     .transition(.opacity)
                 }
@@ -83,10 +82,34 @@ struct Redactable: ViewModifier {
     }
 }
 
+/// Les croix qui remplacent un chiffre couvert.
+///
+/// Leur nombre ne dépend pas de celui des chiffres — ce serait rendre la
+/// longueur du montant, qui est justement ce qu'on cache. Quatre, toujours,
+/// dimensionnées sur la hauteur de la ligne qu'elles occupent pour qu'un
+/// grand nombre soit couvert par de grandes croix et une ligne de liste par
+/// de petites.
+private struct Crosses: View {
+    let tint: Color
+    let box: CGSize
+
+    var body: some View {
+        let unit = min(max(box.height * 0.52, 7), 26)
+        HStack(spacing: unit * 0.34) {
+            ForEach(0 ..< 4, id: \.self) { _ in
+                Image(systemName: "xmark")
+                    .font(.system(size: unit, weight: .semibold))
+            }
+        }
+        .foregroundStyle(tint.opacity(0.42))
+        .frame(maxHeight: box.height, alignment: .center)
+    }
+}
+
 extension View {
     /// Amounts, and anything else that is a figure about money.
-    func redactable(tint: Color = Florin.text, minWidth: CGFloat = 44) -> some View {
-        modifier(Redactable(tint: tint, minWidth: minWidth))
+    func redactable(tint: Color = Florin.text) -> some View {
+        modifier(Redactable(tint: tint))
     }
 
     /// Hides a whole block — chart axis labels, a ring's centre total — where a

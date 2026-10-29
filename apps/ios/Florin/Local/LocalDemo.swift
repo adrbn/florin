@@ -18,6 +18,56 @@ enum LocalDemo {
 
     static var isActive: Bool { isActive(in: LocalStore.shared) }
 
+    // MARK: - Le mode démonstration
+
+    /*
+     * Montrer l'app à quelqu'un sans lui montrer ses comptes.
+     *
+     * L'ancienne démo remplissait le grand livre de l'appareil et le vidait
+     * ensuite : bien pour une installation neuve — c'est l'onboarding qui la
+     * proposait — et impensable sur un téléphone qui tient déjà de l'argent,
+     * puisque en sortir efface toutes les tables.
+     *
+     * Ici le mode ouvre un AUTRE fichier. Le vrai grand livre n'est pas lu,
+     * pas écrit, pas touché ; on revient dessus en rebasculant l'interrupteur.
+     * Le drapeau vit dans les préférences et non dans la base, pour la raison
+     * évidente qu'il décide quelle base ouvrir.
+     */
+    private static let showcaseKey = "florin.demoLedger"
+
+    static var showcase: Bool {
+        UserDefaults.standard.bool(forKey: showcaseKey)
+    }
+
+    /// Bascule, et rend le grand livre prêt à être lu.
+    ///
+    /// La graine n'est posée qu'une fois : revenir au mode démonstration
+    /// retrouve les mêmes comptes, y compris les lignes qu'on y a ajoutées
+    /// pour la démonstration.
+    @discardableResult
+    static func setShowcase(_ on: Bool, locale: String) -> Error? {
+        guard on != showcase else { return nil }
+        UserDefaults.standard.set(on, forKey: showcaseKey)
+        LocalStore.forget()
+        MerchantNames.shared.invalidate()
+        Task { @MainActor in MerchantLogos.shared.invalidate() }
+        guard on else { return nil }
+        do {
+            guard let store = LocalStore.shared else {
+                throw LocalOnboarding.Failure.noStore
+            }
+            _ = try LocalBootstrap.run(on: store, locale: locale)
+            if !isActive(in: store) { try seed(into: store) }
+            return nil
+        } catch {
+            // Un fichier qu'on n'arrive pas à préparer ne doit pas rester
+            // choisi : on retombe sur le vrai, qui lui s'ouvre.
+            UserDefaults.standard.set(false, forKey: showcaseKey)
+            LocalStore.forget()
+            return error
+        }
+    }
+
     static func isActive(in store: LocalStore?) -> Bool {
         guard let store,
               let value = try? store.database.scalar(

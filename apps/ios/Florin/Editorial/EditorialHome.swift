@@ -98,11 +98,15 @@ struct EditorialHome: View {
                     VStack(alignment: .leading, spacing: 0) {
                         header
                         .id(edTopAnchor)
+                        // Chaque bloc du premier écran sort de la vue pour son
+                        // propre compte : le titre, le chiffre, la courbe et la
+                        // ligne des comptes ne partent pas d'un seul tenant.
                         EdHero(text: Greeting.line(t, name: firstName), oneLine: true)
                             .padding(.top, 14)
-                        netWorth(data)
-                        curve(data)
-                        accountsHeading(data)
+                            .edEnter()
+                        netWorth(data).edEnter()
+                        curve(data).edEnter()
+                        accountsHeading(data).edEnter()
                         /*
                          * La pile prend ce qui reste, et elle le LIT.
                          *
@@ -341,9 +345,9 @@ struct EditorialHome: View {
                     currency: data.currency, decimals: false
                 ))
                 .foregroundStyle(Florin.text2)
-                .hiddenWhenPrivate()
+                .redactable(tint: Florin.text2)
             } else if !data.recent.isEmpty, showSaving, scrubbed == nil, let kept {
-                arrow(kept >= 0)
+                arrow(kept >= 0).hiddenWhenPrivate()
                 Text(Money.string(
                     abs(kept), locale: data.localeTag, currency: data.currency,
                     decimals: abs(kept) < 1000
@@ -351,7 +355,7 @@ struct EditorialHome: View {
                 .monospacedDigit()
                 .fontWeight(.semibold)
                 .foregroundStyle(kept >= 0 ? Florin.positive : Florin.negative)
-                .hiddenWhenPrivate()
+                .redactable(tint: Florin.text2)
                 Text(data.leftToSpend.savedPrevMonthToDate.map {
                     t("v2.overview.keptVsLastMonth", "vs {prev} ({date})", [
                         "prev": Money.string(
@@ -363,7 +367,7 @@ struct EditorialHome: View {
                 } ?? t("v2.overview.keptThisMonth", "ce mois-ci"))
                 .foregroundStyle(Florin.text2)
             } else if !data.recent.isEmpty {
-                arrow(move >= 0)
+                arrow(move >= 0).hiddenWhenPrivate()
                 Text(Money.string(
                     abs(move), locale: data.localeTag, currency: data.currency,
                     decimals: abs(move) < 1000
@@ -371,7 +375,7 @@ struct EditorialHome: View {
                 .monospacedDigit()
                 .fontWeight(.semibold)
                 .foregroundStyle(move >= 0 ? Florin.positive : Florin.negative)
-                .hiddenWhenPrivate()
+                .redactable(tint: Florin.text2)
                 Text(scrubbed.map { dayLabel($0.day, data) }
                     ?? t("v2.overview.inMonth", "en {month}", [
                         "month": MonthLabel.short(
@@ -713,7 +717,7 @@ struct EditorialHome: View {
                 ))
                 .font(.system(size: 15, weight: .semibold))
                 .monospacedDigit()
-                .hiddenWhenPrivate()
+                .redactable(tint: ink)
             }
             .frame(height: max(14, band - 18), alignment: .center)
 
@@ -725,7 +729,7 @@ struct EditorialHome: View {
                     ))
                     .font(.system(size: 26, weight: .medium))
                     .monospacedDigit()
-                    .hiddenWhenPrivate()
+                    .redactable(tint: ink)
                 }
                 Spacer(minLength: 0)
                 EdShare(share: share, ink: ink)

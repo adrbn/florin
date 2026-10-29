@@ -51,6 +51,15 @@ final class LocalStore {
     private nonisolated(unsafe) static var opened: LocalStore?
     private static let lock = NSLock()
 
+    /// Oublie le fichier ouvert, pour que la prochaine lecture rouvre — le
+    /// basculement du mode démonstration change le fichier sous l'app.
+    static func forget() {
+        lock.lock()
+        defer { lock.unlock() }
+        opened = nil
+        lastFailure = nil
+    }
+
     let database: SQLiteDatabase
     let url: URL
 
@@ -75,7 +84,19 @@ final class LocalStore {
         )
         let folder = base.appendingPathComponent("Florin", isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        var file = folder.appendingPathComponent("florin.db")
+        /*
+          * Deux grands livres, jamais mélangés.
+          *
+          * Le mode démonstration ne remplit pas le vrai fichier de fausses
+          * lignes pour les retirer ensuite : il en OUVRE un autre. Montrer
+          * l'app à quelqu'un ne doit pas pouvoir toucher à l'argent de
+          * personne, et le retrait des lignes inventées passait par un
+          * `DELETE FROM` sur toutes les tables — à une condition près, c'est
+          * l'effacement du grand livre.
+          */
+         var file = folder.appendingPathComponent(
+             LocalDemo.showcase ? "florin-demo.db" : "florin.db"
+         )
         /*
          * Backed up. The reasoning that excluded it has expired.
          *
@@ -94,7 +115,9 @@ final class LocalStore {
          * backups; a person's own ledger is the opposite of regenerable.
          */
         var values = URLResourceValues()
-        values.isExcludedFromBackup = false
+        // Le grand livre inventé ne vaut pas la peine d'être sauvegardé : il
+        // se régénère en une seconde à partir de sa graine.
+        values.isExcludedFromBackup = LocalDemo.showcase
         try? file.setResourceValues(values)
         return file
     }

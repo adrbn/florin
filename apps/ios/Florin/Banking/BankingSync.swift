@@ -34,6 +34,17 @@ enum BankingSync {
     ) async throws -> Result {
         var result = Result()
 
+        /*
+         * Pas de banque pendant la démonstration.
+         *
+         * Le mode démonstration ouvre un autre fichier : une synchro qui
+         * tournerait là écrirait de vraies opérations dans un grand livre
+         * inventé — et elles n'arriveraient donc jamais dans le vrai. C'est
+         * la seule porte par laquelle de l'argent réel entre, donc c'est ici
+         * qu'on la ferme, et non dans chaque bouton qui l'appelle.
+         */
+        guard !LocalDemo.showcase else { return result }
+
         let connections = try store.database.query(
             """
             SELECT id, session_id, aspsp_name, sync_start_date

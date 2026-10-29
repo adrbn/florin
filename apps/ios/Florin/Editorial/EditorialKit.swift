@@ -69,6 +69,7 @@ struct EdPill: View {
             .overlay(
                 Capsule().strokeBorder(filled ? .clear : tone.opacity(0.32), lineWidth: 1)
             )
+            .edEnter()
     }
 }
 
@@ -95,6 +96,7 @@ struct EdHero: View {
         }
         .foregroundStyle(Florin.text)
         .fixedSize(horizontal: false, vertical: true)
+        .edEnter()
         .accessibilityElement(children: .combine)
     }
 }
@@ -118,6 +120,18 @@ struct EdAmount: View {
             .lineLimit(1)
             .minimumScaleFactor(0.6)
             .modifier(EdNumericIfNeeded(value: value))
+            /*
+             * Le rideau se tire ici, une fois pour toutes.
+             *
+             * C'est la seule définition d'« un montant » en éditorial : le
+             * grand chiffre de l'accueil, celui de Comptes, celui de Plan.
+             * L'œil les laissait tous lisibles, et les rares endroits qui
+             * répondaient le faisaient en passant à l'opacité zéro — un blanc
+             * dans la page, qu'on lit comme un défaut d'affichage plutôt que
+             * comme un chiffre couvert. Une barre dit qu'il y a quelque chose
+             * et qu'on ne le montre pas.
+             */
+            .redactable(tint: tone)
     }
 }
 
@@ -152,8 +166,10 @@ struct EdSection: View {
                 Text(trailing)
                     .font(.system(size: 18))
                     .foregroundStyle(Florin.text2)
+                    .redactable(tint: Florin.text2)
             }
         }
+        .edEnter()
     }
 }
 
@@ -170,9 +186,11 @@ struct EdAmountPill: View {
             .monospacedDigit()
             .foregroundStyle(tone)
             .lineLimit(1)
+            .redactable(tint: tone)
             .padding(.horizontal, 10)
             .frame(height: 28)
             .overlay(Capsule().strokeBorder(Florin.text.opacity(0.28), lineWidth: 1))
+            .edEnter()
     }
 }
 
@@ -182,6 +200,7 @@ struct EdRule: View {
         Rectangle()
             .fill(Florin.text.opacity(0.08))
             .frame(height: 1)
+            .edEnter()
     }
 }
 
@@ -375,6 +394,7 @@ struct EdHeader<Leading: View, Trailing: View>: View {
         }
         .frame(height: 44)
         .padding(.horizontal, -10)
+        .edEnter()
     }
 }
 
@@ -402,6 +422,7 @@ struct EdIconButton: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .edEnter()
         .accessibilityLabel(Text(label))
         .onChange(of: spinning) { _, now in
             if now {
@@ -456,10 +477,48 @@ extension View {
      * le défilement devient du flottement.
      */
     func edEnter() -> some View {
-        scrollTransition(axis: .vertical) { view, phase in
-            view
-                .opacity(phase.isIdentity ? 1 : 0)
-                .offset(y: phase.isIdentity ? 0 : 12)
+        modifier(EdEnter())
+    }
+}
+
+/*
+ * L'entrée en scène, et une seule par branche.
+ *
+ * Elle est posée à la fois dans les briques — un titre, une pastille, un
+ * symbole de l'en-tête — et sur les blocs qui les contiennent, parce que les
+ * deux doivent fondre selon l'écran qu'on regarde. Empilées, elles se
+ * multiplient : deux fois douze points de décalage et une opacité au carré,
+ * ce qui donne un bloc qui part trop vite et trop loin.
+ *
+ * La plus extérieure gagne et le dit à sa descendance. Une brique posée seule
+ * fond donc pour elle-même ; la même brique dans une carte fond avec la carte.
+ */
+private struct EdEnterApplied: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var edEnterApplied: Bool {
+        get { self[EdEnterApplied.self] }
+        set { self[EdEnterApplied.self] = newValue }
+    }
+}
+
+struct EdEnter: ViewModifier {
+    @Environment(\.edEnterApplied) private var applied
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if applied {
+            content
+        } else {
+            content
+                .scrollTransition(axis: .vertical) { view, phase in
+                    view
+                        .opacity(phase.isIdentity ? 1 : 0)
+                        .offset(y: phase.isIdentity ? 0 : 12)
+                }
+                .environment(\.edEnterApplied, true)
         }
     }
 }

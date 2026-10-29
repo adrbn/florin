@@ -102,7 +102,7 @@ struct EditorialActivity: View {
                 header
                 .edEnter()
                 .id(edTopAnchor)
-                if searching { searchField }
+                if searching { searchField.edEnter() }
                 EdPill(
                     text: t("v2.activity.title", "Activité") + " · "
                         + t("v2.activity.count", "{count} opérations", ["count": model.total])
@@ -128,7 +128,7 @@ struct EditorialActivity: View {
                     rows(section.rows)
                 }
 
-                footer
+                footer.edEnter()
             }
             .padding(.horizontal, Ed.gutter)
             .padding(.top, 10)
@@ -283,6 +283,7 @@ struct EditorialActivity: View {
             .monospacedDigit()
             .foregroundStyle(net < 0 ? Florin.text2 : Florin.text)
             .edNumeric(net)
+            .redactable()
         }
         .padding(.top, 14)
     }
@@ -353,6 +354,7 @@ struct EditorialActivity: View {
                             ),
                             size: 22, weight: .medium
                         )
+                        .redactable()
                     }
                     Spacer(minLength: 8)
                     Image(systemName: "chevron.down")
@@ -401,6 +403,7 @@ struct EditorialActivity: View {
                 ),
                 size: 15, weight: .medium
             )
+            .redactable()
         }
         .frame(minHeight: 44)
         .contentShape(Rectangle())

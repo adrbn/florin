@@ -303,7 +303,6 @@ struct EdMonthEnd: View {
                 Spacer(minLength: 10)
                 if let amount {
                     EdAmount(text: amount, size: 28, tone: tone)
-                        .hiddenWhenPrivate()
                 } else {
                     Text("—").foregroundStyle(Florin.text3)
                 }
@@ -404,7 +403,7 @@ struct EdSavings: View {
                         ? Florin.text3
                         : ((rate ?? 0) >= 0 ? Florin.positive : Florin.negative)
                 )
-                .hiddenWhenPrivate()
+                .redactable(tint: Florin.text2)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -479,7 +478,7 @@ struct EdFigures: View {
                         .foregroundStyle(figure.tone)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
-                        .hiddenWhenPrivate()
+                        .redactable(tint: Florin.text2)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }

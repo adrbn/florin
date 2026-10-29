@@ -58,6 +58,8 @@ struct SettingsScreen: View {
     @State private var confirmingDemoExit = false
     /// Read once: the demo can only end from here, and ending it closes this.
     @State private var demoActive = LocalDemo.isActive
+    @State private var showcase = LocalDemo.showcase
+    @State private var demoFailure: String?
     /// La clé du service qui déchiffre les libellés de caisse. Vide = rien
     /// ne sort du téléphone.
     @State private var geminiKey = ""
@@ -1048,25 +1050,81 @@ struct SettingsScreen: View {
     }
 
     /*
-     * La sortie de la démo, en tête : c'est la première chose à trouver pour
-     * qui l'a lancée et veut maintenant ses propres comptes.
+     * Le grand livre inventé, et la sortie quand on y est.
+     *
+     * Deux démonstrations cohabitent, et elles n'ont pas le même danger.
+     *
+     * Celle de l'onboarding remplit le grand livre de l'appareil : elle ne
+     * s'adresse qu'à une installation neuve, et en sortir efface tout — d'où
+     * la confirmation et le rouge.
+     *
+     * Celle-ci ouvre un autre fichier. Les comptes et l'argent de la personne
+     * ne sont ni lus ni écrits tant qu'elle est allumée, et l'éteindre les
+     * retrouve intacts. C'est elle qu'on tend à quelqu'un par-dessus la table,
+     * donc c'est un interrupteur et non un bouton à confirmer.
      */
     @ViewBuilder
     private var demoSection: some View {
-        if demoActive, sourceBinding.wrappedValue != .server {
+        if sourceBinding.wrappedValue != .server {
             SettingsGroup(
                 title: t("v2.demo.title", "Démonstration"),
-                footer: t(
-                    "v2.demo.hint",
-                    "Ces comptes et ces opérations sont inventés. Effacez-les pour commencer avec les vôtres."
-                )
+                footer: showcase
+                    ? t(
+                        "v2.demo.showcaseOn",
+                        "Vous regardez un grand livre inventé. Vos comptes sont intacts : éteignez pour les retrouver."
+                    )
+                    : t(
+                        "v2.demo.showcaseHint",
+                        "Des comptes et des opérations inventés, dans un fichier séparé — pour montrer l'app sans montrer votre argent. Vos données ne sont ni lues ni modifiées."
+                    )
             ) {
-                SettingsRow(
-                    label: t("v2.demo.exit", "Quitter la démo"),
-                    symbol: "xmark.circle",
-                    action: { confirmingDemoExit = true },
-                    destructive: true
-                )
+                Toggle(isOn: Binding(
+                    get: { showcase },
+                    set: { on in
+                        demoFailure = LocalDemo.setShowcase(
+                            on, locale: Locale.current.identifier
+                        )?.localizedDescription
+                        showcase = LocalDemo.showcase
+                        demoActive = LocalDemo.isActive
+                        NotificationCenter.default.post(
+                            name: .florinLedgerErased, object: nil
+                        )
+                    }
+                )) {
+                    HStack(spacing: 11) {
+                        Image(systemName: "theatermasks")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(Florin.accent)
+                            .frame(width: 20)
+                        Text(t("v2.demo.showcase", "Mode démonstration"))
+                            .font(.system(size: 15.5))
+                            .foregroundStyle(Florin.text)
+                    }
+                }
+                .tint(Florin.control)
+                .padding(.horizontal, Florin.gutter)
+                .padding(.vertical, 11)
+
+                if let demoFailure {
+                    Hairline()
+                    Text(demoFailure)
+                        .font(.system(size: 13))
+                        .foregroundStyle(Florin.negative)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, Florin.gutter)
+                        .padding(.vertical, 11)
+                }
+
+                // L'autre démo — celle qui vit dans le vrai fichier.
+                if demoActive, !showcase {
+                    Hairline()
+                    SettingsRow(
+                        label: t("v2.demo.exit", "Quitter la démo"),
+                        symbol: "xmark.circle",
+                        action: { confirmingDemoExit = true },
+                        destructive: true
+                    )
+                }
             }
             .alert(
                 t("v2.demo.exitConfirm", "Effacer les données de démonstration ?"),

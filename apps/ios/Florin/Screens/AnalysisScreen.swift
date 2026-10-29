@@ -105,8 +105,8 @@ struct AnalysisScreen: View {
                 .padding(.bottom, 24)
             }
 
-            hero
-            tabs
+            hero.edEnter()
+            tabs.edEnter()
             /*
              * Le pouce change d'onglet, sauf sur le calendrier.
              *
