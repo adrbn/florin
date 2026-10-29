@@ -99,6 +99,9 @@ struct EdAmount: View {
     let text: String
     var size: CGFloat = 40
     var tone: Color = Florin.text
+    /// Ce qui a changé, pour que les chiffres roulent. Facultatif : un montant
+    /// qui ne bouge jamais n'a rien à animer.
+    var value: Double?
 
     var body: some View {
         Text(text)
@@ -108,6 +111,22 @@ struct EdAmount: View {
             .foregroundStyle(tone)
             .lineLimit(1)
             .minimumScaleFactor(0.6)
+            .modifier(EdNumericIfNeeded(value: value))
+    }
+}
+
+/// `contentTransition` sans valeur à suivre ne transite pas ; avec une valeur
+/// absente, il ne faut pas l'appliquer du tout. D'où ce passage obligé.
+private struct EdNumericIfNeeded: ViewModifier {
+    let value: Double?
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if let value {
+            content.edNumeric(value)
+        } else {
+            content
+        }
     }
 }
 
@@ -243,13 +262,18 @@ struct EdTabBar: View {
     let t: Strings
     let onAdd: () -> Void
 
+    /// La pastille active est une seule vue qui se déplace, pas quatre qui
+    /// s'allument : `matchedGeometryEffect` la fait glisser d'un onglet au
+    /// suivant, ce qui dit le changement mieux qu'un clignotement.
+    @Namespace private var pill
+
     var body: some View {
         HStack(spacing: 4) {
             ForEach(edTabs) { tab in
                 item(symbol: edSymbol(tab),
                      label: t(tab.titleKey.0, tab.titleKey.1),
                      active: tab == selection) {
-                    selection = tab
+                    withAnimation(EdMotion.spring) { selection = tab }
                 }
             }
             item(symbol: "plus", label: t("v2.nav.add", "Ajouter"), active: false,
@@ -271,7 +295,13 @@ struct EdTabBar: View {
                 .font(.system(size: 18, weight: .medium))
                 .foregroundStyle(active ? Florin.text : Florin.bg)
                 .frame(width: 52, height: 44)
-                .background(Capsule().fill(active ? Florin.bg : .clear))
+                .background {
+                    if active {
+                        Capsule()
+                            .fill(Florin.bg)
+                            .matchedGeometryEffect(id: "edTabPill", in: pill)
+                    }
+                }
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(label))
@@ -318,5 +348,92 @@ struct EdIconButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(label))
+    }
+}
+
+// MARK: - Le mouvement
+
+/*
+ * Ce style bouge, et c'est la moitié du travail.
+ *
+ * Une direction éditoriale sans mouvement n'est qu'une feuille de style : ce
+ * qui fait qu'un écran se lit, c'est l'ordre dans lequel il arrive. Trois
+ * gestes seulement, pour qu'ils restent reconnaissables :
+ *
+ *   — un chiffre qui change roule, il ne saute pas (`edNumeric`) ;
+ *   — ce qui entre par le bas entre en s'asseyant (`edEnter`) ;
+ *   — ce qu'on touche s'enfonce d'un pour cent (`EdPress`).
+ *
+ * Aucun n'invente de durée : elles viennent des ressorts du système, donc
+ * elles s'accordent aux transitions qu'iOS fait déjà par-dessus.
+ */
+enum EdMotion {
+    /// Le ressort commun. Court, sans rebond : l'écran est sérieux.
+    static let spring = Animation.spring(response: 0.34, dampingFraction: 0.86)
+    /// Pour ce qui entre : un peu plus long, le temps qu'on le voie venir.
+    static let enter = Animation.spring(response: 0.46, dampingFraction: 0.88)
+}
+
+extension View {
+    /// Un montant qui se recalcule roule chiffre par chiffre au lieu de
+    /// clignoter. `value` est ce qui déclenche : sans lui SwiftUI ne sait pas
+    /// qu'il y a eu changement et garde la transition pour lui.
+    func edNumeric(_ value: Double) -> some View {
+        contentTransition(.numericText(value: value))
+            .animation(EdMotion.spring, value: value)
+    }
+
+    /*
+     * L'entrée en scène, au défilement.
+     *
+     * `scrollTransition` donne la position de la vue dans la fenêtre : on s'en
+     * sert pour que ce qui arrive par le bas monte de douze points en
+     * apparaissant. Rien ne bouge en haut — la vue déjà lue reste fixe, sinon
+     * le défilement devient du flottement.
+     */
+    func edEnter() -> some View {
+        scrollTransition(axis: .vertical) { view, phase in
+            view
+                .opacity(phase.isIdentity ? 1 : 0)
+                .offset(y: phase.isIdentity ? 0 : 12)
+        }
+    }
+}
+
+/// Ce qu'on touche répond. Un pour cent suffit : plus, et l'écran a l'air
+/// mou ; rien, et on doute d'avoir appuyé.
+struct EdPress: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.99 : 1)
+            .opacity(configuration.isPressed ? 0.82 : 1)
+            .animation(EdMotion.spring, value: configuration.isPressed)
+    }
+}
+
+extension ButtonStyle where Self == EdPress {
+    static var edPress: EdPress { EdPress() }
+}
+
+// MARK: - La présentation des feuilles
+
+extension View {
+    /*
+     * Ce qui fait qu'une feuille est éditoriale, posé du dehors.
+     *
+     * Les vingt-deux feuilles de l'app peignent déjà leur fond par `Backdrop`
+     * et `florinGlass`, qui savent tous deux lire le thème — donc elles sont
+     * à plat sans qu'on les ouvre. Restent le rayon du haut et la poignée,
+     * qui sont des propriétés de la *présentation* et non du contenu : elles
+     * s'appliquent depuis l'écran qui présente, ce qui évite d'aller les
+     * recopier dans chaque feuille et d'en oublier une.
+     *
+     * 28 pt, comme la maquette. La poignée reste visible : ces feuilles se
+     * ferment en les tirant vers le bas, et rien d'autre ne le dit.
+     */
+    func edSheet() -> some View {
+        presentationCornerRadius(Ed.sheet)
+            .presentationDragIndicator(.visible)
+            .presentationBackground(Florin.bg)
     }
 }

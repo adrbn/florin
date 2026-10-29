@@ -27,8 +27,8 @@ struct EditorialHome: View {
                 header
                 EdHero(text: t("v2.overview.morning", "Bonjour"))
                     .padding(.top, 18)
-                netWorth
-                accountsHeading
+                netWorth.edEnter()
+                accountsHeading.edEnter()
                 stack
             }
             .padding(.horizontal, Ed.gutter)
@@ -55,6 +55,7 @@ struct EditorialHome: View {
         }
         .sheet(isPresented: $addingAccount) {
             AddAccountSheet(onSaved: { Task { await model.load() } })
+            .edSheet()
         }
     }
 
@@ -95,7 +96,8 @@ struct EditorialHome: View {
                 EdAmount(
                     text: Money.string(
                         data.netWorth.net, locale: data.localeTag, currency: data.currency
-                    )
+                    ),
+                    value: data.netWorth.net
                 )
                 Text(
                     Money.string(
@@ -183,8 +185,9 @@ struct EditorialHome: View {
                             folded(account, data, rank: index)
                         }
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.edPress)
                     .zIndex(Double(index))
+                    .edEnter()
                 }
             }
             .padding(.top, 18)

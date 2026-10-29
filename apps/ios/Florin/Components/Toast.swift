@@ -9,7 +9,21 @@ import SwiftUI
 extension View {
     @ViewBuilder
     func florinGlass(in shape: some Shape) -> some View {
-        if #available(iOS 26.0, *) {
+        /*
+         * Éditorial refuse le verre, partout d'un coup.
+         *
+         * Les vingt-quatre feuilles de l'app ne peignent pas leur fond : elles
+         * passent toutes par ici. Donc ce thème se fait obéir en un endroit,
+         * au lieu d'être recopié vingt-quatre fois — et une feuille écrite
+         * demain héritera du bon fond sans qu'on y pense.
+         *
+         * À plat : un aplat de surface et un filet. Pas de matière, pas
+         * d'ombre portée — une ombre est un dégradé qui n'avoue pas son nom.
+         */
+        if FlorinPalette.selected == .editorial {
+            self.background(Florin.surface, in: shape)
+                .overlay(shape.stroke(Florin.text.opacity(0.10), lineWidth: 1))
+        } else if #available(iOS 26.0, *) {
             self.glassEffect(.regular, in: shape)
         } else {
             self.background(.ultraThinMaterial, in: shape)

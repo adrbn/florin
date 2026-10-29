@@ -43,8 +43,8 @@ struct EditorialPlan: View {
                         .padding(.top, 18)
                     EdHero(text: monthName(plan.year, plan.month))
                         .padding(.top, 10)
-                    readyToAssign(plan)
-                    spending(plan)
+                    readyToAssign(plan).edEnter()
+                    spending(plan).edEnter()
                     envelopes(plan)
                 } else if let failure = model.failure {
                     Text(failure)
@@ -80,6 +80,7 @@ struct EditorialPlan: View {
             ) { amount in
                 await model.assign(amount, to: category.id)
             }
+            .edSheet()
         }
         .florinToast($model.toast)
     }
@@ -149,7 +150,8 @@ struct EditorialPlan: View {
                         plan.readyToAssign, locale: locale, currency: currency
                     ),
                     size: 48,
-                    tone: plan.readyToAssign < 0 ? Florin.negative : Florin.bg
+                    tone: plan.readyToAssign < 0 ? Florin.negative : Florin.bg,
+                    value: plan.readyToAssign
                 )
                 EdInk(
                     text: Money.string(
@@ -213,6 +215,7 @@ struct EditorialPlan: View {
                     }
                 }
                 .frame(height: 220)
+                .animation(EdMotion.enter, value: plan.key)
             }
         }
         .padding(.top, 34)
@@ -252,7 +255,8 @@ struct EditorialPlan: View {
                 ForEach(group.categories) { category in
                     EdRule()
                     Button { assigning = category } label: { row(category) }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.edPress)
+                        .edEnter()
                 }
                 EdRule()
             }

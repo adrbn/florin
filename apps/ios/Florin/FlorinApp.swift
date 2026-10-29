@@ -554,12 +554,22 @@ struct MainTabs: View {
                     .hideSystemTabBar()
                     .tag(TabRoute.accounts)
 
-                ActivityScreen(
-                    overview: model,
-                    route: route,
-                    onOpenSettings: openSettings,
-                    startNeedsReview: paths[.activity]?.contains("needsReview") == true
-                )
+                Group {
+                    if editorial {
+                        EditorialActivity(
+                            overview: model,
+                            onOpenSettings: openSettings,
+                            startNeedsReview: paths[.activity]?.contains("needsReview") == true
+                        )
+                    } else {
+                        ActivityScreen(
+                            overview: model,
+                            route: route,
+                            onOpenSettings: openSettings,
+                            startNeedsReview: paths[.activity]?.contains("needsReview") == true
+                        )
+                    }
+                }
                 .id(paths[.activity] ?? TabRoute.activity.rootPath)
                 .hideSystemTabBar()
                 .tag(TabRoute.activity)
@@ -643,6 +653,7 @@ struct MainTabs: View {
                     onInstalments: { try await model.addInstalments($0) },
                     isLocalLedger: model.base.scheme == "florin-local"
                 )
+                .edSheet()
             }
         }
         // Settings is presented by RootView — see there.
