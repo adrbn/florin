@@ -20,6 +20,10 @@ struct AnalysisScreen: View {
     @State private var drill: ActivityRoute?
     @State private var pickedMonth: MonthlyFlow?
     @State private var expanded: String?
+    /// Les deux mots que la phrase laisse changer : la catégorie (nil = tout)
+    /// et le mois (nil = le dernier mois complet). Voir `sentence`.
+    @State private var saidCategory: String?
+    @State private var saidMonth: String?
     /*
      * The calendar's filter, and it lives here rather than in storage.
      *
@@ -58,10 +62,37 @@ struct AnalysisScreen: View {
 
     var body: some View {
         TabScaffold(tint: TabRoute.analysis.tint, refresh: { await model.load() }) {
-            TopBar(
-                onProfile: onOpenSettings,
-                centersMiddle: true
-            ) {
+            if editorial {
+                /*
+                 * Le même en-tête que les quatre écrans réécrits.
+                 *
+                 * `TopBar` centre un titre de 17 pt entre deux ronds : c'est
+                 * la grammaire d'Obsidienne. Ici le titre de l'écran est la
+                 * pastille au-dessus du chiffre, et l'en-tête ne porte que
+                 * les deux gestes.
+                 */
+                EdHeader {
+                    EdIconButton(
+                        symbol: "line.3.horizontal",
+                        label: t("v2.settings.title", "Réglages"),
+                        action: onOpenSettings
+                    )
+                } trailing: {
+                    EdIconButton(
+                        symbol: "arrow.left.arrow.right",
+                        label: t("v2.nav.activity", "Activité")
+                    ) {
+                        route(.activity, TabRoute.activity.rootPath)
+                    }
+                    .padding(.trailing, -10)
+                }
+                .padding(.top, 18)
+                .padding(.horizontal, Ed.gutter)
+            } else {
+                TopBar(
+                    onProfile: onOpenSettings,
+                    centersMiddle: true
+                ) {
                     Text(t("v2.analysis.title", "Analyse"))
                         .font(.system(size: 17, weight: .semibold))
                         .lineLimit(1)
@@ -72,9 +103,10 @@ struct AnalysisScreen: View {
                     }
                 }
                 .padding(.bottom, 24)
+            }
 
             hero
-            ChipBar(options: chips, selection: tabBinding)
+            tabs
             /*
              * Le pouce change d'onglet, sauf sur le calendrier.
              *
@@ -119,6 +151,38 @@ struct AnalysisScreen: View {
         )
     }
 
+    /*
+     * Les onglets : des pastilles, pas des chips.
+     *
+     * `ChipBar` est un segment plein à coins arrondis — le vocabulaire
+     * d'Obsidienne. En éditorial, l'onglet choisi est une pastille pleine et
+     * les autres portent leur seul filet, comme `EdPill` partout ailleurs.
+     */
+    @ViewBuilder
+    private var tabs: some View {
+        if editorial {
+            ScrollView(.horizontal) {
+                HStack(spacing: 8) {
+                    ForEach(chips, id: \.value) { chip in
+                        Button {
+                            UISelectionFeedbackGenerator().selectionChanged()
+                            withAnimation(EdMotion.spring) { tabBinding.wrappedValue = chip.value }
+                        } label: {
+                            EdPill(text: chip.label, filled: chip.value == tab)
+                        }
+                        .buttonStyle(.edPress)
+                    }
+                }
+                .padding(.horizontal, Ed.gutter)
+                .padding(.vertical, 2)
+            }
+            .scrollIndicators(.hidden)
+            .edEnter()
+        } else {
+            ChipBar(options: chips, selection: tabBinding)
+        }
+    }
+
     private var chips: [(value: Tab, label: String, badge: Int)] {
         [
             (.where_, t("v2.analysis.tab.overview", "Où"), 0),
@@ -132,7 +196,7 @@ struct AnalysisScreen: View {
     /// The headline follows the visible tab — a fixed figure over four different
     /// views would be describing the wrong one three times. On Flux it also
     /// follows the scrub, so dragging across the bars reads out that month.
-    private var hero: some View {
+    private var hero: AnyView {
         let data = model.data
         let (caption, value, sub): (String, Double, String) = {
             switch tab {
@@ -212,17 +276,54 @@ struct AnalysisScreen: View {
             }
         }()
 
-        return HeroBlock(
-            caption: caption, value: value, locale: locale, currency: currency, size: 44
-        ) {
-            Text(sub)
-                .font(.system(size: 13))
-                .foregroundStyle(Florin.text2)
-                .multilineTextAlignment(.center)
-                // Some tabs put real amounts in this line.
-                .hiddenWhenPrivate()
+        if editorial {
+            /*
+             * Le chiffre à gauche, pas au milieu.
+             *
+             * `HeroBlock` centre tout — la légende, le nombre, la ligne du
+             * dessous. Centré, un chiffre n'a pas de marge à laquelle
+             * s'aligner et le texte qui suit repart d'un bord différent à
+             * chaque longueur. Ici tout part du même bord, comme sur les
+             * quatre écrans réécrits.
+             */
+            return AnyView(
+                VStack(alignment: .leading, spacing: 8) {
+                    EdPill(text: caption)
+                    EdAmount(
+                        text: Money.string(
+                            value, locale: locale, currency: currency, decimals: false
+                        ),
+                        size: 48, value: value
+                    )
+                    .hiddenWhenPrivate()
+                    if !sub.isEmpty {
+                        Text(sub)
+                            .font(.system(size: 15))
+                            .foregroundStyle(Florin.text2)
+                            .fixedSize(horizontal: false, vertical: true)
+                            // Some tabs put real amounts in this line.
+                            .hiddenWhenPrivate()
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, Ed.gutter)
+                .edEnter()
+            )
         }
-        .padding(.bottom, 2)
+
+        return AnyView(
+            HeroBlock(
+                caption: caption, value: value, locale: locale, currency: currency, size: 44
+            ) {
+                Text(sub)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Florin.text2)
+                    .multilineTextAlignment(.center)
+                    // Some tabs put real amounts in this line.
+                    .hiddenWhenPrivate()
+            }
+            .padding(.bottom, 2)
+        )
     }
 
     @ViewBuilder
@@ -251,6 +352,120 @@ struct AnalysisScreen: View {
         }
     }
 
+    // MARK: - La phrase est le filtre
+
+    /*
+     * « Tu as dépensé 550,20 € en Alimentation en septembre. »
+     *
+     * Une rangée de chips demande de deviner ce qu'elle filtre ; une phrase
+     * le dit. Les deux mots soulignés s'ouvrent sur la liste des catégories
+     * et sur celle des mois, et le chiffre au milieu est la réponse — il n'y
+     * a rien d'autre à lire pour savoir ce qu'on regarde.
+     *
+     * Les chiffres viennent de `categorySeries`, qui porte déjà le détail
+     * mois par mois et catégorie par catégorie : la phrase ne demande rien
+     * de nouveau à la base.
+     */
+    @ViewBuilder
+    private func sentence(_ data: AnalysisData) -> some View {
+        let months = data.categorySeries.months
+        // Le mois en cours est incomplet : il se lit comme une chute.
+        let complete = Array(months.dropLast())
+        let month = saidMonth.flatMap { complete.contains($0) ? $0 : nil } ?? complete.last
+        if let month, let index = months.firstIndex(of: month) {
+            let rows = data.categorySeries.categories
+            let pick = saidCategory.flatMap { name in rows.first { $0.categoryName == name } }
+            let amount = pick.map { $0.monthly.indices.contains(index) ? $0.monthly[index] : 0 }
+                ?? rows.reduce(0) { $0 + ($1.monthly.indices.contains(index) ? $1.monthly[index] : 0) }
+
+            EdFlow {
+                Text(t("v2.analysis.youSpent", "Tu as dépensé"))
+                    .font(.system(size: 22))
+                    .foregroundStyle(Florin.text2)
+                Text(Money.string(amount, locale: locale, currency: currency, decimals: false))
+                    .font(.system(size: 22, weight: .semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(Florin.text)
+                    .hiddenWhenPrivate()
+                Text(t("v2.analysis.inWord", "en"))
+                    .font(.system(size: 22))
+                    .foregroundStyle(Florin.text2)
+                Menu {
+                    Button(t("v2.analysis.everything", "tout")) { saidCategory = nil }
+                    ForEach(rows.sorted { $0.total > $1.total }) { row in
+                        Button(row.categoryName) { saidCategory = row.categoryName }
+                    }
+                } label: {
+                    EdWord(text: pick?.categoryName ?? t("v2.analysis.everything", "tout"))
+                }
+                Text(t("v2.analysis.inWord", "en"))
+                    .font(.system(size: 22))
+                    .foregroundStyle(Florin.text2)
+                Menu {
+                    ForEach(complete.reversed(), id: \.self) { candidate in
+                        Button(MonthLabel.long(candidate, locale: locale)) {
+                            saidMonth = candidate
+                        }
+                    }
+                } label: {
+                    EdWord(text: MonthLabel.long(month, locale: locale))
+                }
+            }
+            .padding(.horizontal, Florin.gutter)
+            .edEnter()
+        }
+    }
+
+    // MARK: - Le pic du mois, nommé
+
+    /*
+     * Ce qui a vraiment changé, en une ligne.
+     *
+     * Huit catégories classées par écart demandent de comparer huit nombres
+     * pour trouver celle qui compte. Celle-là est nommée, chiffrée en euros
+     * — pas en pourcents, parce que « + 426 % » sur quinze euros n'est pas
+     * une nouvelle — et rapportée à son habitude.
+     *
+     * Le seuil de vingt euros par mois est là pour ça : sous ce montant,
+     * « trois fois l'habitude » ne dit rien du mois.
+     */
+    private func standout(_ data: AnalysisData) -> (name: String, excess: Double, times: Double)? {
+        data.categorySeries.categories
+            .compactMap { row -> (name: String, excess: Double, times: Double)? in
+                let series = row.monthly.dropLast()
+                guard series.count >= 3, let last = series.last else { return nil }
+                let prior = series.dropLast()
+                let average = prior.reduce(0, +) / Double(prior.count)
+                guard average > 20 else { return nil }
+                return (name: row.categoryName, excess: last - average, times: last / average)
+            }
+            .max { abs($0.excess) < abs($1.excess) }
+    }
+
+    @ViewBuilder
+    private func standoutLine(_ data: AnalysisData) -> some View {
+        let months = data.categorySeries.months
+        if let peak = standout(data), abs(peak.excess) > 40,
+           let month = months.dropLast().last {
+            let amount = Money.string(
+                peak.excess, locale: locale, currency: currency, decimals: false, signed: true
+            )
+            let times = String(format: "%.1f", peak.times)
+            Text(t(
+                "v2.analysis.standout",
+                "{month} ressemble aux autres mois, sauf {name} : {amount}, soit {times}× l'habitude.",
+                ["month": MonthLabel.long(month, locale: locale),
+                 "name": peak.name, "amount": amount, "times": times]
+            ))
+            .font(.system(size: 17))
+            .foregroundStyle(Florin.text)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, Florin.gutter)
+            .hiddenWhenPrivate()
+            .edEnter()
+        }
+    }
+
     // MARK: - Où
 
     private func whereTab(_ data: AnalysisData) -> some View {
@@ -260,6 +475,7 @@ struct AnalysisScreen: View {
         let byGroup = groupTotals(ranked)
 
         return VStack(alignment: .leading, spacing: 30) {
+            if editorial { sentence(data) }
             if byGroup.count > 1 {
                 ScreenSection(title: t("v2.analysis.byGroup", "Par poste")) {
                     FlorinCard {
@@ -325,15 +541,22 @@ struct AnalysisScreen: View {
                 ScreenSection(title: t("v2.analysis.ageOfMoney", "Âge de l'argent")) {
                     FlorinCard {
                         HStack(alignment: .center, spacing: 14) {
-                            Bubble(label: "age", systemImage: "hourglass", size: 44)
-                            VStack(alignment: .leading, spacing: 2) {
+                            // Le sablier est une vignette : en éditorial le
+                            // chiffre se tient tout seul.
+                            if !editorial {
+                                Bubble(label: "age", systemImage: "hourglass", size: 44)
+                            }
+                            VStack(alignment: .leading, spacing: editorial ? 4 : 2) {
                                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                                     Text("\(Int(age.rounded()))")
-                                        .font(.system(size: 30, weight: .light))
+                                        .font(.system(
+                                            size: editorial ? 34 : 30,
+                                            weight: editorial ? .medium : .light
+                                        ))
                                         .monospacedDigit()
                                         .foregroundStyle(Florin.text)
                                     Text(t("v2.common.days", "jours"))
-                                        .font(.system(size: 14))
+                                        .font(.system(size: editorial ? 17 : 14))
                                         .foregroundStyle(Florin.text2)
                                 }
                                 Text(
@@ -342,8 +565,9 @@ struct AnalysisScreen: View {
                                         "Depuis combien de temps l'argent dépensé était là"
                                     )
                                 )
-                                .font(.system(size: 11.5))
-                                .foregroundStyle(Florin.text3)
+                                .font(.system(size: editorial ? 14 : 11.5))
+                                .foregroundStyle(editorial ? Florin.text2 : Florin.text3)
+                                .fixedSize(horizontal: false, vertical: true)
                             }
                             Spacer(minLength: 0)
                         }
@@ -366,21 +590,34 @@ struct AnalysisScreen: View {
             .sorted { $0.total > $1.total }
     }
 
+    /// En éditorial le chiffre est au-dessus de sa légende et aligné à
+    /// gauche, à la taille qu'on lit de loin : un 22 pt maigre centré est la
+    /// grammaire de l'autre thème.
     private func rate(_ label: String, _ value: Double?) -> some View {
-        VStack(spacing: 4) {
+        VStack(alignment: editorial ? .leading : .center, spacing: editorial ? 6 : 4) {
+            if editorial {
+                Text("\(label) " + t("v2.common.months", "mois"))
+                    .font(.system(size: 13))
+                    .foregroundStyle(Florin.text2)
+            }
             Text(Money.percent(value, locale: locale, digits: 0))
-                .font(.system(size: 22, weight: .light))
+                .font(.system(
+                    size: editorial ? 30 : 22, weight: editorial ? .medium : .light
+                ))
                 .monospacedDigit()
                 .foregroundStyle(
                     value == nil
                         ? Florin.text3
                         : ((value ?? 0) >= 0 ? Florin.positive : Florin.negative)
                 )
-            Text("\(label) " + t("v2.common.months", "mois"))
-                .font(.system(size: 11.5))
-                .foregroundStyle(Florin.text3)
+                .hiddenWhenPrivate()
+            if !editorial {
+                Text("\(label) " + t("v2.common.months", "mois"))
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(Florin.text3)
+            }
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: editorial ? .leading : .center)
     }
 
     // MARK: - Tendances
@@ -420,6 +657,7 @@ struct AnalysisScreen: View {
             .sorted { $0.total > $1.total }
 
         return VStack(alignment: .leading, spacing: 30) {
+            if editorial { standoutLine(data) }
             if !ranked.isEmpty {
                 ScreenSection(
                     title: t("v2.analysis.movers", "Ce qui bouge"),
@@ -479,11 +717,15 @@ struct AnalysisScreen: View {
                 UISelectionFeedbackGenerator().selectionChanged()
                 withAnimation(.snappy(duration: 0.28)) { expanded = open ? nil : row.id }
             } label: {
-                VStack(alignment: .leading, spacing: 9) {
+                VStack(alignment: .leading, spacing: editorial ? 11 : 9) {
                     HStack(spacing: 10) {
-                        Bubble(label: row.categoryName, emoji: row.emoji, size: 32)
+                        // L'emoji est le vocabulaire d'Obsidienne : en
+                        // éditorial, le nom porte seul la ligne.
+                        if !editorial {
+                            Bubble(label: row.categoryName, emoji: row.emoji, size: 32)
+                        }
                         Text(row.categoryName)
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.system(size: editorial ? 19 : 15, weight: .medium))
                             .foregroundStyle(Florin.text)
                             .lineLimit(1)
                             .minimumScaleFactor(0.85)
@@ -494,15 +736,28 @@ struct AnalysisScreen: View {
                             .foregroundStyle(Florin.text3)
                     }
 
-                    HStack(spacing: 6) {
-                        AmountText(
-                            value: row.total, locale: locale, currency: currency,
-                            decimals: false, size: 14
-                        )
-                        Text(t("v2.analysis.over12", "sur 12 mois"))
-                            .font(.system(size: 12))
-                            .foregroundStyle(Florin.text3)
-                        Spacer(minLength: 0)
+                    /*
+                     * La moyenne, pas le total.
+                     *
+                     * « 1 405 € sur 12 mois » est un chiffre qu'on ne compare
+                     * à rien : ni à un budget, ni à une semaine, ni à l'autre
+                     * catégorie dont la fenêtre est plus courte. « 27 € par
+                     * semaine » se compare à une sortie. Le total reste, en
+                     * second, parce qu'il répond à une autre question.
+                     */
+                    if editorial {
+                        weekly(row, months: months)
+                    } else {
+                        HStack(spacing: 6) {
+                            AmountText(
+                                value: row.total, locale: locale, currency: currency,
+                                decimals: false, size: 14
+                            )
+                            Text(t("v2.analysis.over12", "sur 12 mois"))
+                                .font(.system(size: 12))
+                                .foregroundStyle(Florin.text3)
+                            Spacer(minLength: 0)
+                        }
                     }
 
                     if !open {
@@ -542,6 +797,60 @@ struct AnalysisScreen: View {
             }
         }
         .florinSurface()
+    }
+
+    /*
+     * Combien par semaine, et depuis quand ça a changé.
+     *
+     * Les mois complets seulement : le mois en cours n'a pas fini de se
+     * remplir et tirerait la moyenne vers le bas tous les mois. 4,345 est le
+     * nombre de semaines dans un mois moyen — pas 4, qui perdrait quatre
+     * jours par mois, soit un mois entier par an.
+     *
+     * La variation compare les trois derniers mois complets aux trois
+     * d'avant, et NOMME le mois où cette fenêtre commence : « depuis juin »
+     * se vérifie d'un coup d'œil sur la courbe juste en dessous, « +12 % »
+     * tout seul ne se vérifie pas.
+     */
+    @ViewBuilder
+    private func weekly(_ row: CategorySeries.Row, months: [String]) -> some View {
+        let complete = Array(row.monthly.dropLast())
+        if complete.count >= 2 {
+            let weeks = Double(complete.count) * 4.345
+            let perWeek = complete.reduce(0, +) / weeks
+            let span = min(3, complete.count / 2)
+            let recent = Array(complete.suffix(span))
+            let before = Array(complete.dropLast(span).suffix(span))
+            let beforeMean = before.isEmpty ? 0 : before.reduce(0, +) / Double(before.count)
+            let recentMean = recent.isEmpty ? 0 : recent.reduce(0, +) / Double(recent.count)
+            let change = beforeMean > 1 ? (recentMean - beforeMean) / beforeMean * 100 : nil
+            let since = months.count >= complete.count
+                ? months[max(0, complete.count - span * 2)]
+                : nil
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(t(
+                    "v2.analysis.perWeekAvg", "{amount} par semaine en moyenne, sur {count} mois",
+                    ["amount": Money.string(
+                        perWeek, locale: locale, currency: currency, decimals: false
+                    ),
+                     "count": complete.count]
+                ))
+                .font(.system(size: 15))
+                .foregroundStyle(Florin.text)
+                .hiddenWhenPrivate()
+                if let change, abs(change) >= 5, let since {
+                    Text(t(
+                        "v2.analysis.sinceMonth", "{percent} depuis {month}",
+                        ["percent": Money.percent(change, locale: locale, digits: 0),
+                         "month": MonthLabel.long(since, locale: locale)]
+                    ))
+                    .font(.system(size: 13))
+                    .foregroundStyle(change > 0 ? Florin.negative : Florin.positive)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 
     // MARK: - Flux

@@ -858,3 +858,91 @@ extension View {
             )
     }
 }
+
+// MARK: - Une phrase qui revient à la ligne
+
+/*
+ * La disposition qu'il faut pour que des mots soient des boutons.
+ *
+ * Un `Text` sait revenir à la ligne mais pas porter un toucher par mot ; un
+ * `HStack` sait porter des boutons mais pas revenir à la ligne. « Tu as
+ * dépensé 550,20 € en Alimentation en septembre » a besoin des deux : les
+ * mots s'enchaînent comme une phrase et deux d'entre eux s'ouvrent.
+ *
+ * Chaque enfant est mesuré à sa taille idéale, posé à la suite, et la ligne
+ * se casse quand le suivant ne tient plus. C'est tout — pas d'alignement
+ * justifié, pas de césure : une phrase de six morceaux n'en a pas besoin.
+ */
+struct EdFlow: Layout {
+    var spacing: CGFloat = 5
+    var lineSpacing: CGFloat = 7
+
+    func sizeThatFits(
+        proposal: ProposedViewSize, subviews: Subviews, cache: inout ()
+    ) -> CGSize {
+        let width = proposal.width ?? .infinity
+        let rows = arrange(subviews, width: width)
+        let height = rows.reduce(0) { $0 + $1.height }
+            + lineSpacing * CGFloat(max(0, rows.count - 1))
+        return CGSize(
+            width: proposal.width ?? (rows.map(\.width).max() ?? 0),
+            height: height
+        )
+    }
+
+    func placeSubviews(
+        in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()
+    ) {
+        var y = bounds.minY
+        for row in arrange(subviews, width: bounds.width) {
+            var x = bounds.minX
+            for index in row.indices {
+                let size = subviews[index].sizeThatFits(.unspecified)
+                subviews[index].place(
+                    at: CGPoint(x: x, y: y + (row.height - size.height) / 2),
+                    proposal: ProposedViewSize(size)
+                )
+                x += size.width + spacing
+            }
+            y += row.height + lineSpacing
+        }
+    }
+
+    private struct Row {
+        var indices: [Subviews.Index] = []
+        var width: CGFloat = 0
+        var height: CGFloat = 0
+    }
+
+    private func arrange(_ subviews: Subviews, width: CGFloat) -> [Row] {
+        var rows: [Row] = []
+        var row = Row()
+        for index in subviews.indices {
+            let size = subviews[index].sizeThatFits(.unspecified)
+            let next = row.indices.isEmpty ? size.width : row.width + spacing + size.width
+            if next > width, !row.indices.isEmpty {
+                rows.append(row)
+                row = Row()
+            }
+            row.width = row.indices.isEmpty ? size.width : row.width + spacing + size.width
+            row.height = max(row.height, size.height)
+            row.indices.append(index)
+        }
+        if !row.indices.isEmpty { rows.append(row) }
+        return rows
+    }
+}
+
+/// Un mot de la phrase qu'on peut changer : souligné, donc visiblement vivant.
+struct EdWord: View {
+    let text: String
+    var size: CGFloat = 22
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: size, weight: .medium))
+            .foregroundStyle(Florin.text)
+            .underline(true, color: Florin.accent)
+            .lineLimit(1)
+    }
+}

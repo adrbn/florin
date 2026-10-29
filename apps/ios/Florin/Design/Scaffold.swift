@@ -258,15 +258,34 @@ struct ScreenSection<Content: View>: View {
     var trailing: String?
     @ViewBuilder var content: Content
 
+    /*
+     * En éditorial, une section entre et sort en se fondant.
+     *
+     * C'est `edEnter` — le même mouvement que sur les quatre écrans réécrits.
+     * Posé ici plutôt que sur chaque section d'Analyse : il n'y a qu'une
+     * définition de « section », donc un seul endroit où le dire.
+     */
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        if FlorinPalette.selected == .editorial {
+            stack.edEnter()
+        } else {
+            stack
+        }
+    }
+
+    private var stack: some View {
+        VStack(alignment: .leading, spacing: FlorinPalette.selected == .editorial ? 14 : 10) {
             HStack {
                 Eyebrow(text: title)
                 Spacer()
                 if let trailing {
                     Text(trailing)
-                        .font(.system(size: 11.5))
-                        .foregroundStyle(Florin.text3)
+                        .font(.system(
+                            size: FlorinPalette.selected == .editorial ? 14 : 11.5
+                        ))
+                        .foregroundStyle(
+                            FlorinPalette.selected == .editorial ? Florin.text2 : Florin.text3
+                        )
                         // Most section trailers are a total.
                         .hiddenWhenPrivate()
                 }
