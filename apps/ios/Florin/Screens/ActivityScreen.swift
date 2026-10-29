@@ -14,6 +14,8 @@ extension Notification.Name {
      * champ aussi, et le clavier monte.
      */
     static let florinFocusSearch = Notification.Name("florin.focusSearch")
+    /// Un appui sur l'onglet déjà ouvert. L'objet porte le `TabRoute` visé.
+    static let florinTabReselected = Notification.Name("florin.tabReselected")
 }
 
 /// Activité, natively — and the review queue with it.

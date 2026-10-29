@@ -692,9 +692,40 @@ struct EdRewind: ViewModifier {
 
     func body(content: Content) -> some View {
         ScrollViewReader { proxy in
-            content.onChange(of: chrome.left) { _, left in
+            content
+            .onReceive(
+                NotificationCenter.default.publisher(for: .florinTabReselected)
+            ) { note in
+                guard note.object as? TabRoute == tab, !chrome.detailOpen else { return }
+                withAnimation(EdMotion.spring) {
+                    proxy.scrollTo(edTopAnchor, anchor: .top)
+                }
+            }
+            .onChange(of: chrome.left) { _, left in
                 guard left == tab else { return }
-                proxy.scrollTo(edTopAnchor, anchor: .top)
+                /*
+                 * On remonte une fois la page sortie, pas en sortant.
+                 *
+                 * `chrome.left` est posé quand la sélection bascule,
+                 * c'est-à-dire au début du glissement : la page qu'on quitte
+                 * est encore à l'écran pour un tiers de seconde, et on la
+                 * voyait remonter en partant. Le temps d'attente est celui
+                 * du glissement du pagineur.
+                 *
+                 * Et sans animation : si le doigt revient en arrière plus
+                 * vite que prévu, mieux vaut la trouver déjà en haut que la
+                 * surprendre en train d'y aller.
+                 */
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(420))
+                    guard chrome.left == tab else { return }
+                    // `Transaction` tout court est le modèle de l'app.
+                    var instant = SwiftUI.Transaction()
+                    instant.disablesAnimations = true
+                    withTransaction(instant) {
+                        proxy.scrollTo(edTopAnchor, anchor: .top)
+                    }
+                }
             }
         }
     }
@@ -734,4 +765,64 @@ struct EdPlainEdges: ViewModifier {
 
 extension View {
     func edPlainEdges() -> some View { modifier(EdPlainEdges()) }
+}
+
+/*
+ * Rendre le balayage de retour à un écran sans barre de navigation.
+ *
+ * Cacher la barre (`toolbar(.hidden, for: .navigationBar)`) ne cache pas
+ * qu'elle : UIKit coupe en même temps le geste de retour, parce que ce geste
+ * est normalement l'autre façon d'appuyer sur un chevron qui n'existe plus.
+ * Nos écrans dessinent leur propre chevron, donc le geste doit revenir.
+ *
+ * Le délégué remis à plat est repris par le nôtre, et non laissé à `nil` : à
+ * `nil`, le geste part aussi depuis la racine de la pile, où il n'y a rien à
+ * dépiler — et l'app reste figée sur un retour qui ne se termine jamais.
+ */
+private struct EdSwipeBack: UIViewRepresentable {
+    final class Keeper: NSObject, UIGestureRecognizerDelegate {
+        weak var nav: UINavigationController?
+
+        func gestureRecognizerShouldBegin(_ recognizer: UIGestureRecognizer) -> Bool {
+            (nav?.viewControllers.count ?? 0) > 1
+        }
+
+        func gestureRecognizer(
+            _ recognizer: UIGestureRecognizer,
+            shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
+        ) -> Bool { false }
+    }
+
+    func makeCoordinator() -> Keeper { Keeper() }
+
+    func makeUIView(context: Context) -> UIView {
+        let marker = UIView(frame: .zero)
+        marker.isUserInteractionEnabled = false
+        DispatchQueue.main.async { restore(from: marker, with: context.coordinator) }
+        return marker
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        DispatchQueue.main.async { restore(from: uiView, with: context.coordinator) }
+    }
+
+    private func restore(from view: UIView, with keeper: Keeper) {
+        var responder: UIResponder? = view
+        while let current = responder {
+            if let nav = current as? UINavigationController {
+                keeper.nav = nav
+                nav.interactivePopGestureRecognizer?.isEnabled = true
+                nav.interactivePopGestureRecognizer?.delegate = keeper
+                return
+            }
+            responder = current.next
+        }
+    }
+}
+
+extension View {
+    /// Le chevron est dessiné à la main, le geste doit l'être aussi.
+    func edSwipeBack() -> some View {
+        background(EdSwipeBack().frame(width: 0, height: 0))
+    }
 }

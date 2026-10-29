@@ -61,9 +61,17 @@ struct EditorialHome: View {
                 .toolbar(.hidden, for: .navigationBar)
                 .onChange(of: drill?.id) { _, open in chrome.detailOpen = open != nil }
                 .onDisappear { chrome.detailOpen = false }
+                // Un appui sur l'onglet déjà ouvert dépile d'abord.
+                .onReceive(
+                    NotificationCenter.default.publisher(for: .florinTabReselected)
+                ) { note in
+                    guard note.object as? TabRoute == .overview, drill != nil else { return }
+                    drill = nil
+                }
                 .navigationDestination(item: $drill) { target in
                     AccountDetailScreen(model: model, route: target)
                         .toolbar(.hidden, for: .navigationBar)
+                        .edSwipeBack()
                 }
         }
     }
@@ -509,7 +517,24 @@ struct EditorialHome: View {
     @ViewBuilder
     private func stack(_ data: Overview, room: CGSize) -> some View {
         let shown = fitting(cards(data), room: room)
-        let height = cardHeight(room: room, stacked: shown.count)
+        /*
+         * Pendant qu'on range, la pile devient une liste.
+         *
+         * Une carte de la pile fait toute la hauteur d'une carte : on n'en
+         * voit qu'un bandeau parce que la suivante la couvre. Dès qu'on en
+         * déplace une, son corps entier sort de sa cachette et recouvre la
+         * moitié de l'écran — c'est ce qu'on voyait, pas un bogue d'ordre
+         * d'empilement.
+         *
+         * Donc tant qu'un doigt tient une carte, toutes se replient au
+         * bandeau. Des rangées de même hauteur, régulièrement espacées :
+         * on voit ce qu'on déplace et où ça va. Au relâchement la pile se
+         * redéploie, d'un ressort.
+         */
+        let reordering = dragging != nil
+        let height = reordering
+            ? Self.step + 18
+            : cardHeight(room: room, stacked: shown.count)
         if !shown.isEmpty {
             // La carte menée est la dernière : posée le plus bas, donc tout en
             // haut de l'ordre d'empilement. L'ordre du `ZStack` le dit déjà,
@@ -518,8 +543,9 @@ struct EditorialHome: View {
                 ForEach(Array(shown.enumerated()), id: \.element.id) { index, account in
                     card(
                         account, data,
-                        rank: index, lead: index == shown.count - 1,
-                        height: height, shownCount: shown.count
+                        rank: index, lead: !reordering && index == shown.count - 1,
+                        height: height, shownCount: shown.count,
+                        reordering: reordering
                     )
                     .offset(y: CGFloat(index) * Self.step)
                     /*
@@ -531,14 +557,20 @@ struct EditorialHome: View {
                      * carte d'ENTRE les autres, pas par-dessus ; le
                      * soulèvement et l'ombre disent déjà laquelle on tient.
                      */
-                    .zIndex(Double(index))
+                    .zIndex(dragging == account.id ? 1000 : Double(index))
                 }
             }
             .frame(
                 height: height + CGFloat(shown.count - 1) * Self.step,
                 alignment: .top
             )
+            .frame(
+                maxHeight: cardHeight(room: room, stacked: shown.count)
+                    + CGFloat(shown.count - 1) * Self.step,
+                alignment: .top
+            )
             .animation(EdMotion.spring, value: shown.map(\.id))
+            .animation(EdMotion.spring, value: reordering)
         }
     }
 
@@ -553,7 +585,8 @@ struct EditorialHome: View {
     @ViewBuilder
     private func card(
         _ account: Account, _ data: Overview,
-        rank: Int, lead: Bool, height: CGFloat, shownCount: Int
+        rank: Int, lead: Bool, height: CGFloat, shownCount: Int,
+        reordering: Bool
     ) -> some View {
         // Plus de `Button` ici.
         //
@@ -563,20 +596,25 @@ struct EditorialHome: View {
         // geste simultané ne se gênent pas — et laissent passer le balayage
         // horizontal jusqu'au pagineur, qui est au-dessus.
         let lifted = dragging == account.id
-        face(account, data, rank: rank, lead: lead, open: lifted || lead)
+        face(account, data, rank: rank, lead: lead, open: lead)
             .frame(height: height)
+            .clipShape(RoundedRectangle(cornerRadius: Ed.smallCard, style: .continuous))
             .contentShape(RoundedRectangle(cornerRadius: Ed.smallCard, style: .continuous))
             .onTapGesture {
+                guard dragging == nil else { return }
                 UISelectionFeedbackGenerator().selectionChanged()
                 drill = ActivityRoute(accountId: account.id, title: account.name)
             }
-            .offset(y: lifted ? -14 : 0)
-            .scaleEffect(lifted ? 1.02 : 1)
+            .shadow(
+                color: .black.opacity(lifted ? 0.34 : 0),
+                radius: lifted ? 18 : 0, y: lifted ? 10 : 0
+            )
+            .scaleEffect(lifted ? 1.03 : 1)
             // Celle qu'on tient reste pleine, les autres reculent : c'est ce
             // recul qui dit « celle-là », plus sûrement que le soulèvement.
-            .opacity(dragging == nil || lifted ? 1 : 0.55)
+            .opacity(!reordering || lifted ? 1 : 0.45)
             .animation(EdMotion.spring, value: lifted)
-            .animation(EdMotion.spring, value: dragging)
+            .animation(EdMotion.spring, value: reordering)
         .modifier(
             EdReorder(
                 enabled: local,

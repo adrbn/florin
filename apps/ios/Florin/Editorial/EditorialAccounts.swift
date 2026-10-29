@@ -49,9 +49,17 @@ struct EditorialAccounts: View {
                 .toolbar(.hidden, for: .navigationBar)
                 .onChange(of: drill?.id) { _, open in chrome.detailOpen = open != nil }
                 .onDisappear { chrome.detailOpen = false }
+                // Un appui sur l'onglet déjà ouvert dépile d'abord.
+                .onReceive(
+                    NotificationCenter.default.publisher(for: .florinTabReselected)
+                ) { note in
+                    guard note.object as? TabRoute == .accounts, drill != nil else { return }
+                    drill = nil
+                }
                 .navigationDestination(item: $drill) { target in
                     AccountDetailScreen(model: model, route: target)
                         .toolbar(.hidden, for: .navigationBar)
+                        .edSwipeBack()
                 }
         }
     }

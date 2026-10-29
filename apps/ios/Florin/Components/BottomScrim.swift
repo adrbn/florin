@@ -101,15 +101,47 @@ struct TopScrim: View {
         endPoint: .bottom
     )
 
+    /*
+     * Éditorial ne floute pas : il fond.
+     *
+     * Un matériau pose du verre, et le verre est justement ce que cette
+     * direction n'a pas. Pire, il *éclaircit* ce qu'il couvre : sur le noir
+     * pur du mode sombre, la rampe à moitié dense virait au gris — une
+     * bande claire sous une bande noire, là où on voulait ne rien voir du
+     * tout. Le fond de la page, opaque au bord et transparent plus bas,
+     * fait exactement ce qu'on demande : les mots perdent le haut de
+     * l'écran sans que rien ne soit posé par-dessus.
+     */
+    private var editorial: Bool { FlorinPalette.selected == .editorial }
+
+    private var fade: LinearGradient {
+        LinearGradient(
+            stops: [
+                .init(color: Florin.bg, location: 0),
+                .init(color: Florin.bg.opacity(0.92), location: 0.42),
+                .init(color: Florin.bg.opacity(0.45), location: 0.72),
+                .init(color: Florin.bg.opacity(0), location: 1),
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
+
     var body: some View {
-        Rectangle()
-            .fill(.ultraThinMaterial)
-            // Just enough to stop the material reading as a pale strip.
-            .overlay(Color.black.opacity(0.08))
-            .mask(Self.ramp)
-            .frame(height: Self.safeTop + 16)
-            .opacity(min(max(scrolled / 20, 0), 1))
-            .ignoresSafeArea(.container, edges: .top)
-            .allowsHitTesting(false)
+        Group {
+            if editorial {
+                fade
+            } else {
+                Rectangle()
+                    .fill(.ultraThinMaterial)
+                    // Just enough to stop the material reading as a pale strip.
+                    .overlay(Color.black.opacity(0.08))
+                    .mask(Self.ramp)
+            }
+        }
+        .frame(height: Self.safeTop + (editorial ? 26 : 16))
+        .opacity(min(max(scrolled / 20, 0), 1))
+        .ignoresSafeArea(.container, edges: .top)
+        .allowsHitTesting(false)
     }
 }

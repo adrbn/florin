@@ -680,7 +680,31 @@ struct MainTabs: View {
                  * l'écart est égal sur les deux axes. Seize points au lieu de
                  * vingt-huit mettent le bas à cinquante, comme les côtés.
                  */
-                EdTabBar(selection: $selection, t: t, onAdd: { adding = true })
+                /*
+                 * Appuyer sur l'onglet déjà ouvert fait quelque chose.
+                 *
+                 * Écrire la même valeur dans l'état ne déclenche rien, donc
+                 * l'appui tombait dans le vide. On l'intercepte : l'écran
+                 * concerné dépile s'il a de quoi dépiler, et remonte en haut
+                 * sinon — la convention d'iOS, que l'app ne suivait pas
+                 * parce que sa barre n'est pas celle du système.
+                 */
+                EdTabBar(
+                    selection: Binding(
+                        get: { selection },
+                        set: { next in
+                            guard next != selection else {
+                                NotificationCenter.default.post(
+                                    name: .florinTabReselected, object: next
+                                )
+                                return
+                            }
+                            selection = next
+                        }
+                    ),
+                    t: t,
+                    onAdd: { adding = true }
+                )
                     .padding(.bottom, 16)
                     .opacity(chrome.sheetOpen ? 0 : 1)
                     .animation(.easeOut(duration: 0.2), value: chrome.sheetOpen)
@@ -845,5 +869,52 @@ extension View {
     /// custom one — two stacked bars.
     func hideSystemTabBar() -> some View {
         toolbar(.hidden, for: .tabBar)
+            // Chaque page porte le dresseur du pagineur. Il remonte depuis
+            // n'importe où dans la page, donc une seule pose suffirait — mais
+            // la première page construite n'est pas toujours la même.
+            .background(EdPagerTamer().frame(width: 0, height: 0))
+    }
+}
+
+/*
+ * Ce que SwiftUI ne laisse pas dire au pagineur du `TabView`.
+ *
+ * Deux choses, et aucune n'a de modificateur.
+ *
+ * Le rebond aux extrémités. À gauche du premier onglet il n'y a rien : le
+ * balayage ne mène nulle part, et tout ce qu'il donne est un élastique qui
+ * laisse croire une seconde qu'il existe une page de plus.
+ *
+ * Le verrou de direction. Sans lui, un doigt qui descend en biais emmène
+ * l'onglet avec lui : la page défile *et* glisse de côté, les deux à moitié.
+ * Avec, la première direction prise gagne et garde la main jusqu'au
+ * relâchement — c'est ce qui fait qu'un défilement vertical reste vertical.
+ *
+ * On ne touche qu'au défilement paginé : les `ScrollView` des pages n'ont pas
+ * `isPagingEnabled`, donc leur rebond — celui qu'écoute `refreshable` — est
+ * hors d'atteinte.
+ */
+private struct EdPagerTamer: UIViewRepresentable {
+    func makeUIView(context: Context) -> UIView {
+        let marker = UIView(frame: .zero)
+        marker.isUserInteractionEnabled = false
+        DispatchQueue.main.async { tame(from: marker) }
+        return marker
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        DispatchQueue.main.async { tame(from: uiView) }
+    }
+
+    private func tame(from view: UIView) {
+        var node = view.superview
+        while let current = node {
+            if let scroll = current as? UIScrollView, scroll.isPagingEnabled {
+                scroll.bounces = false
+                scroll.isDirectionalLockEnabled = true
+                return
+            }
+            node = current.superview
+        }
     }
 }
