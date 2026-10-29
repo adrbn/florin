@@ -17,6 +17,7 @@ struct EditorialHome: View {
     let onOpenAccounts: () -> Void
 
     @State private var addingAccount = false
+    @Environment(\.scenePhase) private var scenePhase
 
     private var t: Strings { model.overview?.t ?? .empty }
 
@@ -39,6 +40,19 @@ struct EditorialHome: View {
         .scrollIndicators(.hidden)
         .background(Florin.bg)
         .refreshable { await model.load() }
+        /*
+         * C'est l'écran qui demande les chiffres, pas le modèle qui s'éveille.
+         *
+         * `OverviewModel` ne charge rien tout seul : `OverviewScreen` l'appelait
+         * ici, et l'écran éditorial s'est installé à sa place sans reprendre le
+         * geste — d'où un « Bonjour » suivi d'un rond qui tourne pour toujours.
+         * Le retour d'arrière-plan compte aussi : c'est le moment où les
+         * chiffres ont le plus de chances d'être périmés.
+         */
+        .task { await model.onForeground() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await model.onForeground() } }
+        }
         .sheet(isPresented: $addingAccount) {
             AddAccountSheet(onSaved: { Task { await model.load() } })
         }

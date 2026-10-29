@@ -564,9 +564,17 @@ struct MainTabs: View {
                 .hideSystemTabBar()
                 .tag(TabRoute.activity)
 
-                PlanScreen(overview: model, route: route, onOpenSettings: openSettings)
-                    .hideSystemTabBar()
-                    .tag(TabRoute.plan)
+                Group {
+                    if editorial {
+                        EditorialPlan(
+                            overview: model, route: route, onOpenSettings: openSettings
+                        )
+                    } else {
+                        PlanScreen(overview: model, route: route, onOpenSettings: openSettings)
+                    }
+                }
+                .hideSystemTabBar()
+                .tag(TabRoute.plan)
 
                 AnalysisScreen(overview: model, route: route, onOpenSettings: openSettings)
                     .hideSystemTabBar()
