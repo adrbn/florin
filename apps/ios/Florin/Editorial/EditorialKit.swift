@@ -78,6 +78,10 @@ struct EdPill: View {
 struct EdHero: View {
     let text: String
     var size: CGFloat = 64
+    /// Quand le texte doit tenir sur une ligne quoi qu'il arrive : il se réduit
+    /// plutôt que de se couper. « Bon après-midi Adrien » est deux fois plus
+    /// long que « Bonjour », et un salut coupé en deux n'est plus un salut.
+    var oneLine = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: Ed.heroLeading(size)) {
@@ -85,6 +89,8 @@ struct EdHero: View {
                 Text(String(line))
                     .font(.system(size: size, weight: .medium))
                     .tracking(Ed.tracking(size, 0.05))
+                    .lineLimit(oneLine ? 1 : nil)
+                    .minimumScaleFactor(oneLine ? 0.46 : 1)
             }
         }
         .foregroundStyle(Florin.text)
@@ -471,5 +477,29 @@ struct EdFoldSkin: ViewModifier {
                     )
             )
             .environment(\.edInverse, inverse)
+    }
+}
+
+/*
+ * Le salut de l'accueil.
+ *
+ * Trois clés existaient dans `Strings.json` depuis toujours — matin, après-midi,
+ * soir — et aucun écran ne les lisait : l'accueil disait « Bonjour » à minuit.
+ * L'heure décide du mot, le réglage décide s'il y a un prénom derrière, et un
+ * prénom vide rend exactement la phrase d'avant.
+ */
+enum Greeting {
+    static let key = "florin.firstName"
+
+    static func line(_ t: Strings, name: String, at date: Date = Date()) -> String {
+        let hour = Calendar.current.component(.hour, from: date)
+        let hello: String
+        switch hour {
+        case 5 ..< 12: hello = t("v2.overview.morning", "Bonjour")
+        case 12 ..< 18: hello = t("v2.overview.afternoon", "Bon après-midi")
+        default: hello = t("v2.overview.evening", "Bonsoir")
+        }
+        let who = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return who.isEmpty ? hello : "\(hello) \(who)"
     }
 }

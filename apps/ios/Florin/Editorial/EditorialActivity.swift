@@ -333,9 +333,7 @@ struct EditorialActivity: View {
     private func foldedRow(_ tx: Transaction, inverse: Bool) -> some View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 1) {
-                EdInk(text: tx.payee.isEmpty
-                    ? t("v2.activity.unnamedPayee", "Opération")
-                    : tx.payee, size: 15, weight: .medium)
+                EdInk(text: title(tx), size: 15, weight: .medium)
                     .lineLimit(1)
                 EdInk(text: dayLabel(tx.day), size: 12, dim: true)
             }
@@ -362,12 +360,31 @@ struct EditorialActivity: View {
         }
     }
 
+    /*
+     * Le nom d'une ligne n'est pas ce que la banque a écrit.
+     *
+     * « PREL DE ORANGE SA 16321… » est un libellé de rail : un préfixe, une
+     * référence de mandat, une date de capture. L'app sait déjà en tirer un
+     * nom — et surtout, elle sait lequel on lui a donné soi-même, puisque
+     * renommer un marchand est une fonction de Florin. Écrire `tx.payee`
+     * jetait les deux : les renommages n'apparaissaient nulle part, et la
+     * liste montrait des références tronquées.
+     *
+     * `PayeeText.title` est exactement ce que l'ancienne liste appelle, donc
+     * les deux styles disent la même chose du même marchand.
+     */
+    private func title(_ tx: Transaction) -> String {
+        if tx.payee.isEmpty { return t("v2.activity.unnamedPayee", "Opération") }
+        if tx.isPairedTransfer, !tx.isPairedRepayment {
+            return t("v2.common.ownTransfer", "Virement")
+        }
+        return PayeeText.title(tx.payee, category: tx.categoryName)
+    }
+
     private func row(_ tx: Transaction) -> some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(tx.payee.isEmpty
-                    ? t("v2.activity.unnamedPayee", "Opération")
-                    : tx.payee)
+                Text(title(tx))
                     .font(.system(size: 17, weight: .medium))
                     .foregroundStyle(Florin.text)
                     .lineLimit(1)

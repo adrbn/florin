@@ -39,6 +39,7 @@ struct SettingsScreen: View {
     /// The release notes, re-opened from À propos.
     @State private var news: ReleaseNotes.Release?
     @AppStorage("florin.locale") private var chosenLocale = ""
+    @AppStorage(Greeting.key) private var firstName = ""
     @AppStorage(AppLock.key) private var lockOn = false
     @AppStorage("florin.merchantLogos") private var logosOn = true
 
@@ -477,6 +478,8 @@ struct SettingsScreen: View {
      */
     private var displaySection: some View {
         SettingsGroup(title: t("v2.settings.display", "Affichage")) {
+            nameRow
+            Hairline()
             choiceRow(
                 t("v2.settings.appearance", "Apparence"),
                 symbol: "circle.lefthalf.filled",
@@ -582,6 +585,31 @@ struct SettingsScreen: View {
             }
         }
         .buttonStyle(.plain)
+    }
+
+    /*
+     * Le prénom, pour que l'accueil puisse dire bonjour à quelqu'un.
+     *
+     * Un champ dans la ligne, pas un écran à lui : c'est un mot, il se tape où
+     * on le lit. Vide est une réponse valable — l'accueil dit alors « Bonjour »
+     * tout court, comme avant.
+     */
+    private var nameRow: some View {
+        SettingsRow(label: t("v2.settings.firstName", "Votre prénom"), symbol: "person") {
+            TextField(
+                t("v2.settings.firstNameHint", "Sert à vous saluer sur l'accueil."),
+                text: $firstName,
+                prompt: Text(verbatim: "—").foregroundStyle(Florin.text3)
+            )
+            .labelsHidden()
+            .font(.system(size: 15))
+            .foregroundStyle(Florin.text2)
+            .multilineTextAlignment(.trailing)
+            .textInputAutocapitalization(.words)
+            .autocorrectionDisabled()
+            .submitLabel(.done)
+            .frame(maxWidth: 170)
+        }
     }
 
     private func choiceRow(

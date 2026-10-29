@@ -18,6 +18,7 @@ struct EditorialHome: View {
 
     @State private var addingAccount = false
     @Environment(\.scenePhase) private var scenePhase
+    @AppStorage(Greeting.key) private var firstName = ""
 
     private var t: Strings { model.overview?.t ?? .empty }
 
@@ -25,8 +26,11 @@ struct EditorialHome: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 header
-                EdHero(text: t("v2.overview.morning", "Bonjour"))
-                    .padding(.top, 18)
+                EdHero(
+                    text: Greeting.line(t, name: firstName),
+                    oneLine: true
+                )
+                .padding(.top, 18)
                 netWorth.edEnter()
                 accountsHeading.edEnter()
                 stack
