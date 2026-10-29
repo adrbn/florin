@@ -331,7 +331,7 @@ struct SettingsScreen: View {
                             .foregroundStyle(Florin.text)
                     }
                 }
-                .tint(Florin.accent)
+                .tint(Florin.control)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
             }
@@ -441,7 +441,7 @@ struct SettingsScreen: View {
                         .foregroundStyle(Florin.text)
                     }
                 }
-                .tint(Florin.accent)
+                .tint(Florin.control)
                 .padding(.horizontal, Florin.gutter)
                 .padding(.vertical, 11)
                 Hairline()
@@ -460,7 +460,7 @@ struct SettingsScreen: View {
                         .foregroundStyle(Florin.text)
                 }
             }
-            .tint(Florin.accent)
+            .tint(Florin.control)
             .padding(.horizontal, Florin.gutter)
             .padding(.vertical, 11)
         }
@@ -994,7 +994,7 @@ struct SettingsScreen: View {
                         .foregroundStyle(Florin.text)
                 }
             }
-            .tint(Florin.accent)
+            .tint(Florin.control)
             .padding(.horizontal, Florin.gutter)
             .padding(.vertical, 11)
         }

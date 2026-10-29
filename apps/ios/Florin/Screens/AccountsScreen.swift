@@ -97,86 +97,20 @@ struct AccountsScreen: View {
     private func commitEdit(
         _ account: Account, name: String, icon: String, balance: Double?
     ) async {
-        guard let store = LocalStore.shared, !name.isEmpty else { return }
-        try? store.database.run(
-            "UPDATE accounts SET name = ?, display_icon = ?, updated_at = datetime('now') WHERE id = ?",
-            [.text(name), .text(icon), .text(account.id)]
-        )
-        if let balance {
-            try? LocalHoldings.setBalance(store: store, accountId: account.id, to: balance)
-        }
+        AccountsLogic.commitEdit(account, name: name, icon: icon, balance: balance)
         await model.load(showSpinner: false)
     }
 
-    /// Le solde n'est modifiable que là où il est à nous : pas sur un compte
-    /// que la banque réécrit à chaque sync, pas sur un prêt dont le restant dû
-    /// se déduit du contrat, pas sur un portefeuille valorisé par ses titres.
     private func editableBalance(_ account: Account) -> Double? {
-        guard model.base.scheme == "florin-local",
-              account.isSynced != true,
-              !account.isLoan,
-              account.kind != "broker_portfolio"
-        else { return nil }
-        return account.total
+        AccountsLogic.editableBalance(account, local: model.base.scheme == "florin-local")
     }
 
     private func commitDelete(_ account: Account) {
-        guard let store = LocalStore.shared else { return }
         deleting = nil
-        /*
-         * Gone, with its rows, in one transaction.
-         *
-         * Archiving would leave the transactions counting towards spending
-         * while the account they belong to is invisible — a balance nobody can
-         * point at. If someone asks for an account to be deleted, the honest
-         * answer is that it is.
-         */
-        try? store.database.transaction {
-            /*
-             * The bank link goes with it, or the account comes back.
-             *
-             * The sync finds an account by the uid the bank gave it, and that
-             * uid lived on the row being deleted. With the row gone the next
-             * sync matches nothing and inserts the account again, with its
-             * transactions — so deleting a synced account looked like it worked
-             * and then quietly undid itself on the next refresh. Someone who
-             * deletes an account is saying they do not want it tracked; the
-             * connection that keeps re-adding it has to go too, but only if no
-             * other account still rides on it.
-             */
-            let connection = try store.database.scalar(
-                "SELECT bank_connection_id FROM accounts WHERE id = ?", [.text(account.id)]
-            )?.string
-
-            try store.database.run(
-                "DELETE FROM transactions WHERE account_id = ?", [.text(account.id)]
-            )
-            try store.database.run("DELETE FROM accounts WHERE id = ?", [.text(account.id)])
-
-            if let connection {
-                let others = try store.database.scalar(
-                    "SELECT count(*) FROM accounts WHERE bank_connection_id = ?",
-                    [.text(connection)]
-                )?.int ?? 0
-                if others == 0 {
-                    try store.database.run(
-                        """
-                        DELETE FROM bank_sync_account_results
-                         WHERE run_id IN (SELECT id FROM bank_sync_runs WHERE connection_id = ?)
-                        """,
-                        [.text(connection)]
-                    )
-                    try store.database.run(
-                        "DELETE FROM bank_sync_runs WHERE connection_id = ?", [.text(connection)]
-                    )
-                    try store.database.run(
-                        "DELETE FROM bank_connections WHERE id = ?", [.text(connection)]
-                    )
-                }
-            }
-        }
+        AccountsLogic.delete(account)
         Task { await model.load(showSpinner: false) }
     }
+
 
     private func loaded(_ data: Overview) -> some View {
         TabScaffold(tint: TabRoute.accounts.tint, refresh: { model.refresh() }) {
@@ -364,26 +298,20 @@ struct AccountsScreen: View {
         }
     }
 
-    /// The biggest single holding, so every bar is on the same scale — a bar
-    /// normalised per row says nothing at all.
     private func assetTotal(_ data: Overview) -> Double {
-        visible(data).map { abs($0.displayValue) }.max() ?? 0
+        AccountsLogic.assetTotal(data)
     }
 
     private func allocation(_ data: Overview) -> some View {
-        let slices: [(String, Double, Color)] = [
-            (t("v2.overview.cash", "Liquidités"), data.allocation.cash, Florin.series[0]),
-            (t("v2.overview.invested", "Investi"), data.allocation.invested, Florin.series[2]),
-            (t("v2.overview.debt", "Dettes"), data.allocation.loans, Florin.negative),
-        ].filter { $0.1 > 0 }
-        let total = slices.reduce(0) { $0 + $1.1 }
+        let slices = AccountsLogic.slices(data, t: t)
+        let total = slices.reduce(0) { $0 + $1.value }
 
         return Group {
             if total > 0 {
                 ScreenSection(title: t("v2.overview.allocation", "Répartition")) {
                     FlorinCard {
                         AllocationCard(
-                            slices: slices.map { (label: $0.0, value: $0.1, color: $0.2) },
+                            slices: slices,
                             center: Money.compact(data.netWorth.gross, locale: data.localeTag,
                                                   currency: data.currency),
                             caption: t("v2.overview.gross", "Brut"),
@@ -397,38 +325,10 @@ struct AccountsScreen: View {
         }
     }
 
-    private func visible(_ data: Overview) -> [Account] {
-        data.accounts.filter { !$0.isArchived }
-    }
+    private func visible(_ data: Overview) -> [Account] { AccountsLogic.visible(data) }
 
-    private struct Bucket {
-        let title: String
-        let accounts: [Account]
-        var total: Double { accounts.reduce(0) { $0 + $1.displayValue } }
-    }
-
-    private func buckets(_ data: Overview) -> [Bucket] {
-        let all = visible(data)
-        let definitions: [(String, String, [String])] = [
-            ("v2.accounts.group.checking", "Comptes courants", ["checking", "cash"]),
-            ("v2.accounts.group.savings", "Épargne", ["savings"]),
-            ("v2.accounts.group.broker", "Investissement", ["broker_cash", "broker_portfolio"]),
-            ("v2.accounts.group.loan", "Emprunts", ["loan"]),
-        ]
-        var used = Set<String>()
-        var out = definitions.compactMap { key, fallback, kinds -> Bucket? in
-            let matched = all.filter { kinds.contains($0.kind) }
-            guard !matched.isEmpty else { return nil }
-            matched.forEach { used.insert($0.id) }
-            return Bucket(title: t(key, fallback), accounts: matched)
-        }
-        // Anything the buckets do not name still has to appear — a kind added
-        // to the schema later must not silently vanish from this screen.
-        let rest = all.filter { !used.contains($0.id) }
-        if !rest.isEmpty {
-            out.append(Bucket(title: t("v2.accounts.group.other", "Autres"), accounts: rest))
-        }
-        return out
+    private func buckets(_ data: Overview) -> [AccountsLogic.Bucket] {
+        AccountsLogic.buckets(data, t: t)
     }
 }
 

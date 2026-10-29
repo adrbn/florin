@@ -10,6 +10,7 @@
 		00264CD2FF9819E72DFEBF14 /* LedgerUnavailable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06123341C48B7130B314E0C1 /* LedgerUnavailable.swift */; };
 		012BE24BDACB110AE8BBB323 /* Brand.swift in Sources */ = {isa = PBXBuildFile; fileRef = D01218C78CF2722622A51E5B /* Brand.swift */; };
 		02E0A5C7DD9F371326789EE1 /* TaskSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89E7EC2A6990567E31F4543F /* TaskSheet.swift */; };
+		06AF2FA5602E4A88751981E8 /* AccountsLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB14175F23A5549664049321 /* AccountsLogic.swift */; };
 		0721A4ADB20B964A866C3EF8 /* BuySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BA7D5761878CB027DA9A53E /* BuySheet.swift */; };
 		0938BB07A60E7EC99C6E54F2 /* LocalWallet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE9DE8AEC99BB029D9DE5C4C /* LocalWallet.swift */; };
 		097A9A7EE7645B3AA663D444 /* LocalSchema.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD643C2F44F11D71E2F7CA73 /* LocalSchema.swift */; };
@@ -138,6 +139,7 @@
 		D8C4A835B901DE7371E70C4D /* AccountsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA33E1BDF4ED187D578701D0 /* AccountsScreen.swift */; };
 		D8E717E2EFA4C2614DF87DA8 /* LedgerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39F2BEAF49AC9AD5ADF0E624 /* LedgerTests.swift */; };
 		DD09BB6D259B1B1BDFA2F37F /* CategoriesScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9827F713A8EE3D5E4D707EA /* CategoriesScreen.swift */; };
+		DECDD721A269F1B69DC71B0E /* EditorialAccounts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BCEFDE470DAE649D38425F7 /* EditorialAccounts.swift */; };
 		E08134F854EB187800CA46C7 /* MerchantsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3A99F69BD4F0DE7DFD05513 /* MerchantsScreen.swift */; };
 		E16667917102CE1271FB589A /* Strings.json in Resources */ = {isa = PBXBuildFile; fileRef = 4BE4F540065C6E543C0B8A5D /* Strings.json */; };
 		E4D2995C390903037F10DDB7 /* OverviewScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CF3F5843E841E89E60775AB /* OverviewScreen.swift */; };
@@ -261,6 +263,7 @@
 		772EFF8D3DF1CE1E2F3D2ADA /* CategoryRemovalSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryRemovalSheet.swift; sourceTree = "<group>"; };
 		7AB3BB28F5C79A6CA7BB503F /* BankingTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankingTypes.swift; sourceTree = "<group>"; };
 		7ADCEE2967BBD9EE265CD0F8 /* WalletInbox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletInbox.swift; sourceTree = "<group>"; };
+		7BCEFDE470DAE649D38425F7 /* EditorialAccounts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorialAccounts.swift; sourceTree = "<group>"; };
 		84BAB9F84D78CB4801400265 /* Appearance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Appearance.swift; sourceTree = "<group>"; };
 		84E153B45F8DCF03658782FF /* ServerFieldsCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerFieldsCard.swift; sourceTree = "<group>"; };
 		86665E5949173D99AC181418 /* EmptyStart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStart.swift; sourceTree = "<group>"; };
@@ -321,6 +324,7 @@
 		D88841043DF911CC3CBE4B95 /* EnableBanking.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnableBanking.swift; sourceTree = "<group>"; };
 		D9827F713A8EE3D5E4D707EA /* CategoriesScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoriesScreen.swift; sourceTree = "<group>"; };
 		DACD180DD215EA3B81655A72 /* WalletGuideSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletGuideSheet.swift; sourceTree = "<group>"; };
+		DB14175F23A5549664049321 /* AccountsLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountsLogic.swift; sourceTree = "<group>"; };
 		DB92AC9E5814FF0A7879214E /* DataSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataSource.swift; sourceTree = "<group>"; };
 		DCA4B188AFA3350AE1C4604E /* LoanSettingsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoanSettingsSheet.swift; sourceTree = "<group>"; };
 		DEA94E1C0A6307106C6B8EAB /* Florin.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Florin.entitlements; sourceTree = "<group>"; };
@@ -348,6 +352,7 @@
 			isa = PBXGroup;
 			children = (
 				4674A636DF0340B4297CF009 /* AccountEditSheet.swift */,
+				DB14175F23A5549664049321 /* AccountsLogic.swift */,
 				AA33E1BDF4ED187D578701D0 /* AccountsScreen.swift */,
 				57359F03A6215282B0FBF364 /* ActivityScreen.swift */,
 				94411516F56A17BA12CD1C5F /* AddTransactionSheet.swift */,
@@ -407,6 +412,7 @@
 		14B2528B9BED30665E9A86DE /* Editorial */ = {
 			isa = PBXGroup;
 			children = (
+				7BCEFDE470DAE649D38425F7 /* EditorialAccounts.swift */,
 				B6D115E6ACF2AAEDEBA8B274 /* EditorialActivity.swift */,
 				28DB65A83A4AE494D6B6C58E /* EditorialHome.swift */,
 				B809DD9A440EB454C13B5645 /* EditorialKit.swift */,
@@ -751,6 +757,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				27C794850EBC13407EE98500 /* AccountEditSheet.swift in Sources */,
+				06AF2FA5602E4A88751981E8 /* AccountsLogic.swift in Sources */,
 				D8C4A835B901DE7371E70C4D /* AccountsScreen.swift in Sources */,
 				B7865848DCF5CB5807AE1B58 /* ActivityModel.swift in Sources */,
 				EEB484F10F89B2DA71DD8A12 /* ActivityScreen.swift in Sources */,
@@ -786,6 +793,7 @@
 				5B4111C7309CCDDA821AD38E /* CategoryRemovalSheet.swift in Sources */,
 				BC3FB0255CBA4207B6992527 /* DataSource.swift in Sources */,
 				30EB900C687EDBBC94DEC3E7 /* DaySheet.swift in Sources */,
+				DECDD721A269F1B69DC71B0E /* EditorialAccounts.swift in Sources */,
 				203AA8AE726E3B764F651B36 /* EditorialActivity.swift in Sources */,
 				14BC730249542591C946BDEC /* EditorialHome.swift in Sources */,
 				D2335F78BD8D6F4A9BB0EE20 /* EditorialKit.swift in Sources */,
@@ -933,7 +941,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Florin/Florin.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 515;
+				CURRENT_PROJECT_VERSION = 517;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Florin/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;
@@ -954,7 +962,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = FlorinWidgets/FlorinWidgets.entitlements;
-				CURRENT_PROJECT_VERSION = 515;
+				CURRENT_PROJECT_VERSION = 517;
 				INFOPLIST_FILE = FlorinWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1059,7 +1067,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = FlorinWidgets/FlorinWidgets.entitlements;
-				CURRENT_PROJECT_VERSION = 515;
+				CURRENT_PROJECT_VERSION = 517;
 				INFOPLIST_FILE = FlorinWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1142,7 +1150,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Florin/Florin.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 515;
+				CURRENT_PROJECT_VERSION = 517;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Florin/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;

@@ -156,7 +156,7 @@ struct CalendarFilterSheet: View {
                 Image(systemName: shown ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 19))
                     .foregroundStyle(shown ? Florin.accent : Florin.text3)
-                Text("\(category.emoji.map { $0 + " " } ?? "")\(category.name)")
+                Text(EdSymbols.label(category.emoji, category.name))
                     .foregroundStyle(shown ? Florin.text : Florin.text2)
                     .lineLimit(1)
                 Spacer(minLength: 8)

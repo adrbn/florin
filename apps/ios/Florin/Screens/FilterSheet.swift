@@ -44,7 +44,7 @@ struct FilterSheet: View {
                         Text(t("v2.filters.allCategories", "Toutes les catégories")).tag("")
                         Text(t("v2.common.uncategorized", "Sans catégorie")).tag(NONE)
                         ForEach(categories) { category in
-                            Text("\(category.emoji.map { $0 + " " } ?? "")\(category.name)")
+                            Text(EdSymbols.label(category.emoji, category.name))
                                 .tag(category.id)
                         }
                     }

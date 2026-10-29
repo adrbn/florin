@@ -243,7 +243,7 @@ struct OnboardingFlow: View {
         }
         .animation(Self.pageMotion, value: step)
         .animation(Self.pageMotion, value: tint)
-        .preferredColorScheme(.dark)
+
         .alert(
             Strings.device("v2.onboard.title", "Onboarding"),
             isPresented: Binding(get: { failure != nil }, set: { if !$0 { failure = nil } })

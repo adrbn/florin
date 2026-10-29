@@ -652,7 +652,7 @@ struct PlanRow: View {
     var body: some View {
         VStack(spacing: 8) {
             HStack(spacing: 10) {
-                Text(category.emoji ?? "•").font(.system(size: 15)).frame(width: 22)
+                Text(EdSymbols.bullet(category.emoji)).font(.system(size: 15)).frame(width: 22)
                 Text(category.name)
                     .font(.system(size: 14.5, weight: .medium))
                     .foregroundStyle(Florin.text)
@@ -776,7 +776,7 @@ struct AssignSheet: View {
             ScrollView {
                 VStack(spacing: 22) {
                 VStack(spacing: 6) {
-                    Text(category.emoji ?? "•").font(.system(size: 32))
+                    Text(EdSymbols.bullet(category.emoji)).font(.system(size: 32))
                     Text(category.name)
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(Florin.text)
@@ -802,7 +802,13 @@ struct AssignSheet: View {
                  */
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     TextField("0", text: $text)
-                        .font(.system(size: 46, weight: .light))
+                        // En éditorial le chiffre est le sujet de la feuille :
+                        // il s'écrit à la taille d'un titre, et le maigre d'un
+                        // écran sombre n'y a plus de fond pour le porter.
+                        .font(.system(
+                            size: FlorinPalette.selected == .editorial ? 64 : 46,
+                            weight: FlorinPalette.selected == .editorial ? .medium : .light
+                        ))
                         .monospacedDigit()
                         .multilineTextAlignment(.center)
                         .keyboardType(.decimalPad)

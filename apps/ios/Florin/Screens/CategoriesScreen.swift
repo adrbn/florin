@@ -130,7 +130,7 @@ struct CategoriesScreen: View {
 
     private func row(_ category: PlanCategory, in group: Group) -> some View {
         HStack(spacing: 12) {
-            Text(category.emoji ?? "•")
+            Text(EdSymbols.bullet(category.emoji))
                 .font(.system(size: 19))
                 .frame(width: 24)
             VStack(alignment: .leading, spacing: 1) {

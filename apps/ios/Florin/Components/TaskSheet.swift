@@ -29,7 +29,7 @@ struct TaskSheet: View {
                 case let .running(message):
                     ProgressView()
                         .controlSize(.large)
-                        .tint(Florin.accent)
+                        .tint(Florin.control)
                     Text(title)
                         .font(.system(size: 20, weight: .semibold))
                         .foregroundStyle(Florin.text)

@@ -116,7 +116,7 @@ struct SetupView: View {
                 }
             }
         }
-        .preferredColorScheme(.dark)
+
         .onAppear {
             draft = server.rawURL.isEmpty ? ServerStore.suggestedHost : server.rawURL
             token = server.apiToken

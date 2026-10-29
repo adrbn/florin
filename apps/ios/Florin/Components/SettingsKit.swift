@@ -42,7 +42,10 @@ struct SettingsRow<Trailing: View>: View {
 
     var body: some View {
         let content = HStack(spacing: 11) {
-            if let symbol {
+            // En éditorial, pas de pictogramme coloré devant chaque ligne :
+            // une page de réglages en compte une trentaine, et trente taches
+            // orange en colonne répètent trente mots déjà écrits à côté.
+            if let symbol, !editorial {
                 Image(systemName: symbol)
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(tint)
@@ -70,7 +73,21 @@ struct SettingsRow<Trailing: View>: View {
         }
     }
 
-    private var tint: Color { destructive ? Florin.negative : Florin.accent }
+    private var editorial: Bool { FlorinPalette.selected == .editorial }
+
+    /*
+     * La couleur d'une ligne qui mène quelque part.
+     *
+     * Ailleurs c'est l'accent, qui est la convention de l'app pour « ceci
+     * s'ouvre ». En éditorial l'accent appartient au héros et aux alertes : une
+     * ligne qui ouvre un écran s'écrit à l'encre et c'est le chevron qui dit
+     * qu'elle s'ouvre. Le destructif garde sa couleur dans les deux — c'est le
+     * seul endroit où du rouge est une information, pas une décoration.
+     */
+    private var tint: Color {
+        if destructive { return Florin.negative }
+        return editorial ? Florin.text : Florin.accent
+    }
 }
 
 extension SettingsRow where Trailing == EmptyView {

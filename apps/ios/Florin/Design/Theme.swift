@@ -32,6 +32,18 @@ enum Florin {
 
     // MARK: Accent and semantics
     static let accent = token(\.accent)
+
+    /*
+     * La teinte des contrôles du système — bascules, sélecteurs, curseurs.
+     *
+     * C'est l'accent partout, sauf en éditorial où l'accent est réservé au
+     * héros et aux alertes : une bascule orange y crierait au danger pour dire
+     * « oui ». Un seul jeton plutôt qu'une bascule par écran, parce que la
+     * dixième qu'on oublie est celle qu'on voit.
+     */
+    static var control: Color {
+        FlorinPalette.selected == .editorial ? text : accent
+    }
     /*
      * Ce qui s'écrit SUR l'accent, et qui n'est pas la même encre des deux
      * côtés.
@@ -143,13 +155,32 @@ struct FlorinCard<Content: View>: View {
     }
 }
 
+/*
+ * Le titre d'une section — et c'est le même mot dans les deux grammaires.
+ *
+ * Partout ailleurs : petites capitales grises, un sous-titre qui se tient à
+ * l'écart. En éditorial : le titre EST la hiérarchie, écrit en bas de casse à
+ * une taille qu'on lit de loin, parce que ce style ne met rien dans une boîte
+ * et n'a que la typo pour dire ce qui compte.
+ *
+ * Une seule définition, donc tous les écrans de l'app suivent — y compris ceux
+ * qu'on n'a pas réécrits.
+ */
 struct Eyebrow: View {
     let text: String
     var body: some View {
-        Text(text.uppercased())
-            .font(.system(size: 11, weight: .semibold))
-            .tracking(1.0)
-            .foregroundStyle(Florin.text3)
+        if FlorinPalette.selected == .editorial {
+            Text(text)
+                .font(.system(size: 22, weight: .medium))
+                .tracking(-0.5)
+                .foregroundStyle(Florin.text)
+                .lineLimit(2)
+        } else {
+            Text(text.uppercased())
+                .font(.system(size: 11, weight: .semibold))
+                .tracking(1.0)
+                .foregroundStyle(Florin.text3)
+        }
     }
 }
 
@@ -157,12 +188,21 @@ struct Pill: View {
     let text: String
     var tone: Color = Florin.text2
     var body: some View {
+        let editorial = FlorinPalette.selected == .editorial
         Text(text)
             .font(.system(size: 12, weight: .medium))
-            .foregroundStyle(tone)
+            .foregroundStyle(editorial ? Florin.text : tone)
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
-            .background(tone.opacity(0.12), in: Capsule())
+            // Contour plutôt que lavis : la maquette ne pose aucun aplat
+            // teinté, et dix pastilles lavées font dix cases sur une page qui
+            // n'en veut pas.
+            .background(editorial ? Color.clear : tone.opacity(0.12), in: Capsule())
+            .overlay {
+                if editorial {
+                    Capsule().strokeBorder(Florin.text.opacity(0.28), lineWidth: 1)
+                }
+            }
     }
 }
 
@@ -199,15 +239,32 @@ extension View {
     ///   something — the review queue, say. Tinting the rows instead gives two
     ///   nested shapes with two radii, and the inner one always looks wrong.
     func florinSurface(radius: CGFloat = Florin.cardRadius, tint: Color? = nil) -> some View {
-        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+        /*
+         * En éditorial, une carte est un trait, pas un relief.
+         *
+         * C'est la seule définition de « carte » dans l'app : la tordre ici
+         * repeint les lignes d'un formulaire, les blocs de réglage et les
+         * cartons de l'accueil d'un coup, sans ouvrir un seul des écrans qui
+         * les posent. L'ombre portée et la surface grise sont justement ce que
+         * la maquette refuse — elle hiérarchise par la typo, pas par le relief.
+         */
+        let editorial = FlorinPalette.selected == .editorial
+        let shape = RoundedRectangle(
+            cornerRadius: editorial ? 18 : radius, style: .continuous
+        )
         return self
             // Clip first: rows paint their own backgrounds (the amber wash on a
             // "à vérifier" line), and without this they run square into the
             // card's rounded corners.
             .clipShape(shape)
-            .background(Florin.surface, in: shape)
+            .background(editorial ? Color.clear : Florin.surface, in: shape)
             .background(tint ?? .clear, in: shape)
-            .overlay(shape.strokeBorder(Florin.text.opacity(0.06), lineWidth: 0.5))
-            .shadow(color: .black.opacity(0.10), radius: 8, x: 0, y: 3)
+            .overlay(shape.strokeBorder(
+                Florin.text.opacity(editorial ? 0.14 : 0.06), lineWidth: editorial ? 1 : 0.5
+            ))
+            .shadow(
+                color: .black.opacity(editorial ? 0 : 0.10),
+                radius: editorial ? 0 : 8, x: 0, y: editorial ? 0 : 3
+            )
     }
 }

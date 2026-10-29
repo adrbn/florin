@@ -132,7 +132,7 @@ struct AddAccountSheet: View {
                 }
             }
         }
-        .preferredColorScheme(.dark)
+
         /*
          * A cover, and it closes this sheet behind it.
          *

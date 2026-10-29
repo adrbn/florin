@@ -339,7 +339,12 @@ struct EdHeader<Leading: View, Trailing: View>: View {
 struct EdIconButton: View {
     let symbol: String
     let label: String
+    /// Il tourne pendant qu'il travaille. Un aller-retour bancaire prend des
+    /// secondes, et éteindre le bouton se lit « indisponible », pas « occupé ».
+    var spinning = false
     var action: () -> Void
+
+    @State private var angle: Double = 0
 
     var body: some View {
         Button {
@@ -349,11 +354,21 @@ struct EdIconButton: View {
             Image(systemName: symbol)
                 .font(.system(size: 18, weight: .medium))
                 .foregroundStyle(Florin.text)
+                .rotationEffect(.degrees(angle))
                 .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(label))
+        .onChange(of: spinning) { _, now in
+            if now {
+                withAnimation(.linear(duration: 1).repeatForever(autoreverses: false)) {
+                    angle = 360
+                }
+            } else {
+                withAnimation(EdMotion.spring) { angle = 0 }
+            }
+        }
     }
 }
 
@@ -501,5 +516,32 @@ enum Greeting {
         }
         let who = name.trimmingCharacters(in: .whitespacesAndNewlines)
         return who.isEmpty ? hello : "\(hello) \(who)"
+    }
+}
+
+/// Le pictogramme d'une ligne de formulaire — et rien du tout en éditorial,
+/// où six taches orange en colonne ne font que redire six mots déjà écrits à
+/// côté. Une seule définition, pour que les cinq lignes restent d'accord.
+struct RowIcon: View {
+    let symbol: String
+    init(_ symbol: String) { self.symbol = symbol }
+
+    var body: some View {
+        if FlorinPalette.selected != .editorial {
+            Image(systemName: symbol)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(Florin.accent.opacity(0.85))
+                .frame(width: 22)
+        }
+    }
+}
+
+extension EdSymbols {
+    /// « 🍔 Courses », ou « Courses » tout court en éditorial — où l'émoji
+    /// devant un nom de catégorie fait un confetti au milieu d'une page qui
+    /// n'a que du noir, du blanc et un orange.
+    static func label(_ emoji: String?, _ name: String) -> String {
+        guard FlorinPalette.selected != .editorial, let emoji else { return name }
+        return "\(emoji) \(name)"
     }
 }

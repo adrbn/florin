@@ -320,7 +320,7 @@ struct ReceiptsSheet: View {
             .padding(.vertical, 14)
             .background(Florin.accent.opacity(0.14), in: RoundedRectangle(cornerRadius: 14))
         }
-        .tint(Florin.accent)
+        .tint(Florin.control)
         .buttonStyle(PressScale())
         .disabled(reading)
     }

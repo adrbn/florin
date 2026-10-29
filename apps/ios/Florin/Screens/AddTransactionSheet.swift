@@ -257,10 +257,23 @@ struct AddTransactionSheet: View {
 
     // MARK: Éditorial
 
+    /*
+     * Le bandeau en haut, le bouton en bas, le reste défile entre les deux.
+     *
+     * Tout était dans le même `ScrollView`, et le champ du montant prend le
+     * clavier dès l'ouverture : SwiftUI fait alors défiler le champ visé dans
+     * la zone qui reste, ce qui emportait le bandeau hors de l'écran et
+     * tranchait le chiffre de 80 points en deux sur le bord haut. Le bouton
+     * « Ajouter », lui, finissait sous le clavier — le geste qui valide
+     * demandait d'abord de ranger le clavier pour le retrouver.
+     *
+     * Les deux sont maintenant des marges sûres de la feuille : `safeAreaInset`
+     * les pose hors du défilement, et le clavier pousse l'insert du bas au lieu
+     * de le recouvrir.
+     */
     private var editorialShell: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                edHeader
                 edDirection
                 edFigure
                 fields
@@ -271,12 +284,17 @@ struct AddTransactionSheet: View {
                         .padding(.horizontal, Ed.gutter)
                         .padding(.top, 14)
                 }
-                edSave
             }
-            .padding(.bottom, 24)
+            .padding(.bottom, 20)
         }
         .scrollIndicators(.hidden)
         .scrollDismissesKeyboard(.interactively)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            edHeader.background(Florin.bg)
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            edSave.background(Florin.bg)
+        }
         .background(Florin.bg)
     }
 
@@ -292,7 +310,8 @@ struct AddTransactionSheet: View {
         }
         .padding(.horizontal, Ed.gutter)
         .padding(.trailing, -10)
-        .padding(.top, 14)
+        .padding(.top, 12)
+        .padding(.bottom, 8)
     }
 
     /// Les trois sens en pastilles, celle qui est choisie pleine. Aucune
@@ -338,9 +357,9 @@ struct AddTransactionSheet: View {
             TextField("0", text: $amount)
                 .keyboardType(.decimalPad)
                 .focused($amountFocused)
-                .font(.system(size: 80, weight: .medium))
+                .font(.system(size: figureSize, weight: .medium))
                 .monospacedDigit()
-                .tracking(Ed.tracking(80, 0.045))
+                .tracking(Ed.tracking(figureSize, 0.045))
                 .foregroundStyle(Florin.text)
                 .fixedSize()
             Text(Money.currencySymbol(locale: localeTag, currency: currency))
@@ -349,8 +368,19 @@ struct AddTransactionSheet: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, Ed.gutter)
-        .padding(.top, 26)
+        .padding(.top, 22)
         .padding(.bottom, 10)
+    }
+
+    /// Le chiffre descend quand il s'allonge : « 123 456,78 » à 80 points
+    /// déborde largement d'un écran de téléphone, et un montant tronqué est un
+    /// montant faux.
+    private var figureSize: CGFloat {
+        switch amount.count {
+        case ...6: return 80
+        case 7, 8: return 60
+        default: return 44
+        }
     }
 
     private var edSave: some View {
@@ -370,7 +400,8 @@ struct AddTransactionSheet: View {
         .buttonStyle(.edPress)
         .disabled(!isValid || saving)
         .padding(.horizontal, Ed.gutter)
-        .padding(.top, 28)
+        .padding(.top, 12)
+        .padding(.bottom, 8)
     }
 
     @ViewBuilder
@@ -512,10 +543,7 @@ struct AddTransactionSheet: View {
             // are about to choose twice.
             if kind != .transfer {
                 HStack(spacing: 13) {
-                    Image(systemName: "person.crop.circle")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(Florin.accent.opacity(0.85))
-                        .frame(width: 22)
+                    RowIcon("person.crop.circle")
                     TextField(t("v2.add.payee", "Bénéficiaire"), text: $payee)
                         .textInputAutocapitalization(.words)
                         .font(.system(size: 15.5, weight: .medium))
@@ -606,7 +634,7 @@ struct AddTransactionSheet: View {
                                 .foregroundStyle(Florin.text3)
                         }
                         menuValue(
-                            selected.map { "\($0.emoji.map { $0 + " " } ?? "")\($0.name)" }
+                            selected.map { EdSymbols.label($0.emoji, $0.name) }
                                 ?? t("v2.common.uncategorized", "Sans catégorie")
                         )
                     }
@@ -641,10 +669,7 @@ struct AddTransactionSheet: View {
                 let forced = instalmentCount > 1
                 Toggle(isOn: forced ? .constant(true) : $upcoming) {
                     HStack(spacing: 13) {
-                        Image(systemName: "clock")
-                            .font(.system(size: 15, weight: .medium))
-                            .foregroundStyle(Florin.accent.opacity(0.85))
-                            .frame(width: 22)
+                        RowIcon("clock")
                         VStack(alignment: .leading, spacing: 2) {
                             Text(t("v2.wallet.guide.flowUpcoming", "En prévision"))
                                 .font(.system(size: 14.5))
@@ -662,7 +687,7 @@ struct AddTransactionSheet: View {
                         }
                     }
                 }
-                .tint(Florin.accent)
+                .tint(Florin.control)
                 .disabled(forced)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
@@ -676,10 +701,7 @@ struct AddTransactionSheet: View {
             }
 
             HStack(spacing: 13) {
-                Image(systemName: "text.alignleft")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(Florin.accent.opacity(0.85))
-                    .frame(width: 22)
+                RowIcon("text.alignleft")
                 TextField(t("v2.add.memo", "Note"), text: $memo, axis: .vertical)
                     .font(.system(size: 16))
                     .lineLimit(1...3)
@@ -709,10 +731,19 @@ struct AddTransactionSheet: View {
                 .font(.system(size: 10, weight: .bold))
                 .opacity(0.7)
         }
-        .foregroundStyle(Florin.accent)
+        /*
+         * En éditorial la pastille garde sa forme et perd sa teinte : l'accent
+         * y est réservé au héros et aux alertes, et quatre pastilles orange
+         * dans une même feuille feraient passer le choix d'un compte pour un
+         * avertissement.
+         */
+        .foregroundStyle(editorial ? Florin.text : Florin.accent)
         .padding(.horizontal, 11)
         .padding(.vertical, 6)
-        .background(Florin.accent.opacity(0.14), in: Capsule())
+        .background(editorial ? Color.clear : Florin.accent.opacity(0.14), in: Capsule())
+        .overlay {
+            if editorial { Capsule().strokeBorder(Florin.text.opacity(0.28), lineWidth: 1) }
+        }
         .frame(maxWidth: 200, alignment: .trailing)
     }
 
@@ -856,10 +887,7 @@ struct AddTransactionSheet: View {
         @ViewBuilder control: () -> Content
     ) -> some View {
         HStack(spacing: 13) {
-            Image(systemName: symbol)
-                .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(Florin.accent.opacity(0.85))
-                .frame(width: 22)
+            RowIcon(symbol)
             // The label is the quieter half: what matters on each row is the
             // value, which is also the thing you tap.
             Text(label)
@@ -1011,10 +1039,7 @@ struct AddTransactionSheet: View {
         VStack(alignment: .leading, spacing: 12) {
             Toggle(isOn: splitting) {
                 HStack(spacing: 13) {
-                    Image(systemName: "calendar.badge.clock")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(Florin.accent.opacity(0.85))
-                        .frame(width: 22)
+                    RowIcon("calendar.badge.clock")
                     VStack(alignment: .leading, spacing: 2) {
                         Text(t("v2.add.instalments", "En plusieurs fois"))
                             .font(.system(size: 14.5))
@@ -1026,7 +1051,7 @@ struct AddTransactionSheet: View {
                     }
                 }
             }
-            .tint(Florin.accent)
+            .tint(Florin.control)
 
             if instalmentCount > 1 {
                 HStack(spacing: 8) {

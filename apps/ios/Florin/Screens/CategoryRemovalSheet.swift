@@ -27,7 +27,7 @@ struct CategoryRemovalSheet: View {
             ScrollView {
                 VStack(spacing: 22) {
                     VStack(spacing: 8) {
-                        Text(category.emoji ?? "•").font(.system(size: 34))
+                        Text(EdSymbols.bullet(category.emoji)).font(.system(size: 34))
                         Text(category.name)
                             .font(.system(size: 19, weight: .semibold))
                             .foregroundStyle(Florin.text)
@@ -156,7 +156,7 @@ private struct CategoryTargetPicker: View {
                     ForEach(Array(candidates.enumerated()), id: \.element.id) { index, item in
                         if index > 0 { Hairline() }
                         HStack(spacing: 12) {
-                            Text(item.emoji ?? "•").font(.system(size: 20))
+                            Text(EdSymbols.bullet(item.emoji)).font(.system(size: 20))
                             Text(item.name)
                                 .font(.system(size: 15))
                                 .foregroundStyle(Florin.text)

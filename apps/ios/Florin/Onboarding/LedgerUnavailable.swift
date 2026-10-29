@@ -74,6 +74,6 @@ struct LedgerUnavailable: View {
             .padding(.horizontal, Florin.gutter)
             .padding(.bottom, 24)
         }
-        .preferredColorScheme(.dark)
+
     }
 }

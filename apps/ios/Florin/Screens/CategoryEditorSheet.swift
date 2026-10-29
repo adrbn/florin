@@ -111,7 +111,7 @@ struct CategoryEditorSheet: View {
                             .foregroundStyle(Florin.text2)
                         }
                     }
-                    .tint(Florin.accent)
+                    .tint(Florin.control)
                     .padding(.horizontal, Florin.gutter)
                     .padding(.bottom, 10)
                 }

@@ -283,7 +283,7 @@ struct RootView: View {
                 .zIndex(10)
             }
         }
-        .tint(Florin.accent)
+        .tint(Florin.control)
         .preferredColorScheme(appearance.colorScheme)
         .onAppear {
             // The path monitor takes a moment to report; started at launch it
@@ -519,6 +519,23 @@ struct MainTabs: View {
         BackToTop.run()
     }
 
+    /// L'écran Comptes d'origine, avec le compte qu'un lien a demandé :
+    /// « /m/accounts/<id>#<nonce> » — l'id est ce que le lien visait, le nonce
+    /// ne sert qu'à rendre chaque arrivée distincte.
+    private var classicAccounts: some View {
+        AccountsScreen(
+            model: model, route: route, onOpenSettings: openSettings,
+            openAccountId: paths[.accounts]
+                .flatMap { $0.split(separator: "#").first.map(String.init) }
+                .flatMap { path in
+                    path.hasPrefix("/m/accounts/")
+                        ? String(path.dropFirst("/m/accounts/".count))
+                        : nil
+                }
+                .flatMap { $0.isEmpty ? nil : $0 }
+        )
+    }
+
     var body: some View {
         ZStack(alignment: .bottom) {
             TabView(selection: $selection) {
@@ -538,21 +555,19 @@ struct MainTabs: View {
                 .hideSystemTabBar()
                 .tag(TabRoute.overview)
 
-                AccountsScreen(
-                    model: model, route: route, onOpenSettings: openSettings,
-                    // "/m/accounts/<id>#<nonce>" — the id is what the link was
-                    // about, and the nonce only makes each arrival distinct.
-                    openAccountId: paths[.accounts]
-                        .flatMap { $0.split(separator: "#").first.map(String.init) }
-                        .flatMap { path in
-                            path.hasPrefix("/m/accounts/")
-                                ? String(path.dropFirst("/m/accounts/".count))
-                                : nil
-                        }
-                        .flatMap { $0.isEmpty ? nil : $0 }
-                )
-                    .hideSystemTabBar()
-                    .tag(TabRoute.accounts)
+                Group {
+                    if editorial {
+                        EditorialAccounts(
+                            model: model,
+                            onBack: { route(to: .overview, path: TabRoute.overview.rootPath) },
+                            onOpenSettings: openSettings
+                        )
+                    } else {
+                        classicAccounts
+                    }
+                }
+                .hideSystemTabBar()
+                .tag(TabRoute.accounts)
 
                 Group {
                     if editorial {

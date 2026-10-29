@@ -336,11 +336,14 @@ struct TransactionDetailSheet: View {
          */
     }
 
+    private var editorial: Bool { FlorinPalette.selected == .editorial }
+
     private var summary: some View {
         VStack(spacing: 12) {
             AmountText(
                 value: tx.amount, locale: locale, currency: currency,
-                signed: true, tone: .auto, size: 40, weight: .light
+                signed: true, tone: editorial ? .neutral : .auto,
+                size: editorial ? 56 : 40, weight: editorial ? .medium : .light
             )
 
             Text(fullDate)
@@ -352,8 +355,11 @@ struct TransactionDetailSheet: View {
             FlowRow(spacing: 8) {
                 Pill(text: tx.accountName)
                 Pill(
-                    text: ((tx.categoryEmoji.map { $0 + " " } ?? "")
-                        + (filed ?? tx.categoryName ?? t("v2.common.uncategorized", "Sans catégorie"))),
+                    text: EdSymbols.label(
+                        tx.categoryEmoji,
+                        filed ?? tx.categoryName
+                            ?? t("v2.common.uncategorized", "Sans catégorie")
+                    ),
                     tone: (filed ?? tx.categoryName) == nil ? Florin.text3 : Florin.accent
                 )
                 if tx.needsReview {
@@ -447,25 +453,61 @@ struct SheetAction: View {
     var destructive = false
     let action: () -> Void
 
+    private var editorial: Bool { FlorinPalette.selected == .editorial }
+
+    /// Capsule en éditorial, coin arrondi ailleurs. Un rayon de 28 sur un
+    /// bouton de 50 points de haut EST une capsule — le rayon se borne à la
+    /// moitié de la hauteur — donc une seule forme suffit aux deux styles.
+    private var shape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: editorial ? 28 : 16, style: .continuous)
+    }
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: 9) {
                 Image(systemName: symbol).font(.system(size: 15, weight: .semibold))
                 Text(label).font(.system(size: 16, weight: .semibold))
             }
+            /*
+             * Noir sur l'accent était faux en clair.
+             *
+             * L'accent est soutenu en mode clair et porte du blanc ; le noir
+             * écrit en dur datait d'une app qui n'avait qu'une face. `onAccent`
+             * est le jeton qui sait lequel des deux va dessus.
+             */
             .foregroundStyle(
-                prominent ? Color.black : (destructive ? Florin.negative : Florin.text)
+                prominent
+                    ? Florin.onAccent
+                    : (destructive ? Florin.negative : Florin.text)
             )
             .frame(maxWidth: .infinity)
             .padding(.vertical, 15)
+            /*
+             * En éditorial, un bouton secondaire est un contour.
+             *
+             * Le gris plein de `surface2` est justement ce que la maquette
+             * refuse : elle ne remplit que l'action principale, et laisse les
+             * autres se tenir dans un trait d'un point. Le destructif garde sa
+             * couleur — c'est une information, pas une décoration.
+             */
             .background(
                 prominent
                     ? AnyShapeStyle(Florin.accent)
                     : AnyShapeStyle(
-                        destructive ? Florin.negative.opacity(0.12) : Florin.surface2
+                        editorial
+                            ? Color.clear
+                            : (destructive ? Florin.negative.opacity(0.12) : Florin.surface2)
                     ),
-                in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                in: shape
             )
+            .overlay {
+                if editorial, !prominent {
+                    shape.strokeBorder(
+                        (destructive ? Florin.negative : Florin.text).opacity(0.28),
+                        lineWidth: 1
+                    )
+                }
+            }
         }
         .buttonStyle(.plain)
     }

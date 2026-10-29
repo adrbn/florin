@@ -32,6 +32,7 @@ struct EditorialHome: View {
                 )
                 .padding(.top, 18)
                 netWorth.edEnter()
+                curve.edEnter()
                 accountsHeading.edEnter()
                 stack
             }
@@ -119,6 +120,40 @@ struct EditorialHome: View {
                 .tint(Florin.text3)
                 .frame(maxWidth: .infinity)
                 .padding(.top, 40)
+        }
+    }
+
+    /*
+     * La courbe, sous le chiffre.
+     *
+     * Un patrimoine est un nombre et une direction ; l'accueil ne disait que
+     * le nombre, et « +120 € sur 30 jours » en dessous demande de se
+     * représenter la pente au lieu de la voir. Au trait et sans axes — en
+     * éditorial `NetWorthChart` laisse tomber son dégradé — elle tient en
+     * 92 points et ne coûte aucune requête : la série est déjà dans le modèle
+     * que l'écran affiche.
+     *
+     * Les pointillés de prévision sont écartés : c'est l'accueil, pas l'analyse.
+     */
+    @ViewBuilder
+    private var curve: some View {
+        if let data = model.overview {
+            let points = Array(
+                (data.netSeries ?? data.series)
+                    .filter { $0.projected != true }
+                    .suffix(200)
+            )
+            if points.count > 2 {
+                NetWorthChart(
+                    points: points,
+                    height: 92,
+                    selection: .constant(nil),
+                    animationKey: "home",
+                    tint: Florin.text
+                )
+                .padding(.top, 20)
+                .allowsHitTesting(false)
+            }
         }
     }
 

@@ -144,6 +144,8 @@ struct NetWorthChart: View {
             : (lo, hi)
     }
 
+    private var editorial: Bool { FlorinPalette.selected == .editorial }
+
     var body: some View {
         Chart {
             ForEach(measured) { point in
@@ -152,12 +154,22 @@ struct NetWorthChart: View {
                     yStart: .value("Base", bounds.min),
                     yEnd: .value("Solde", point.balance)
                 )
+                /*
+                 * En éditorial, la courbe n'a pas de sol.
+                 *
+                 * Le dégradé sous la ligne est le seul de l'app, et la maquette
+                 * n'en veut aucun : une courbe au trait sur du blanc ou du noir
+                 * se lit mieux qu'une teinte qui s'évanouit, et c'est ce que
+                 * fait n'importe quelle page économique imprimée.
+                 */
                 .foregroundStyle(
-                    .linearGradient(
-                        colors: [tint.opacity(hasTrend ? 0.10 : 0.22), tint.opacity(0)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
+                    editorial
+                        ? AnyShapeStyle(Color.clear)
+                        : AnyShapeStyle(.linearGradient(
+                            colors: [tint.opacity(hasTrend ? 0.10 : 0.22), tint.opacity(0)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ))
                 )
 
                 LineMark(
@@ -165,10 +177,11 @@ struct NetWorthChart: View {
                     y: .value("Solde", point.balance),
                     series: .value("Série", "réel")
                 )
-                .foregroundStyle(tint.opacity(hasTrend ? 0.32 : 1))
+                .foregroundStyle(tint.opacity(hasTrend && !editorial ? 0.32 : 1))
                 .lineStyle(
                     StrokeStyle(
-                        lineWidth: hasTrend ? 1 : 1.6, lineCap: .round, lineJoin: .round
+                        lineWidth: hasTrend && !editorial ? 1 : 1.6,
+                        lineCap: .round, lineJoin: .round
                     )
                 )
                 .interpolationMethod(.monotone)
