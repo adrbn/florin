@@ -30,6 +30,7 @@ struct SettingsScreen: View {
     @ObservedObject private var privacy = Privacy.shared
 
     @AppStorage("florin.appearance") private var appearanceRaw = Appearance.dark.rawValue
+    @AppStorage(FlorinPalette.key) private var paletteRaw = FlorinPalette.obsidian.rawValue
     @State private var editingServer = false
     @State private var draftServer = ""
     @State private var draftToken = ""
@@ -487,6 +488,8 @@ struct SettingsScreen: View {
                 ]
             )
             Hairline()
+            themeRow
+            Hairline()
             choiceRow(
                 t("v2.settings.language", "Langue"),
                 symbol: "globe",
@@ -502,6 +505,85 @@ struct SettingsScreen: View {
     }
 
     /// A row that states a choice and opens a menu to change it.
+    /*
+     * Les thèmes se montrent, ils ne se lisent pas.
+     *
+     * Un menu déroulant aurait suffi à les énumérer, et n'aurait rien dit :
+     * « Sépia » ne décrit pas une couleur à quelqu'un qui ne l'a pas vue. Une
+     * pastille par thème — le fond, une carte dessus, l'accent — et le choix
+     * se fait sur ce qu'on verra.
+     *
+     * Le thème ne remplace pas l'apparence juste au-dessus : il la complète.
+     * Papier en clair est du noir sur blanc, Papier en sombre du blanc sur
+     * noir. Les deux réglages se composent.
+     */
+    private var themeRow: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 11) {
+                Image(systemName: "paintpalette")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(Florin.text2)
+                    .frame(width: 22)
+                Text(t("v2.settings.theme", "Thème"))
+                    .font(.system(size: 16))
+                    .foregroundStyle(Florin.text)
+                Spacer(minLength: 0)
+            }
+            HStack(spacing: 10) {
+                ForEach(FlorinPalette.allCases) { choice in
+                    themeSwatch(choice)
+                }
+            }
+            .padding(.leading, 33)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 13)
+    }
+
+    private func themeSwatch(_ choice: FlorinPalette) -> some View {
+        let palette = choice.palette
+        let chosen = choice.rawValue == paletteRaw
+        return Button {
+            guard !chosen else { return }
+            UISelectionFeedbackGenerator().selectionChanged()
+            FlorinPalette.use(choice)
+            paletteRaw = choice.rawValue
+        } label: {
+            VStack(spacing: 6) {
+                ZStack {
+                    palette.bg.color
+                    VStack(spacing: 4) {
+                        RoundedRectangle(cornerRadius: 2, style: .continuous)
+                            .fill(palette.text.color)
+                            .frame(width: 24, height: 3)
+                        RoundedRectangle(cornerRadius: 2, style: .continuous)
+                            .fill(palette.text3.color)
+                            .frame(width: 16, height: 3)
+                        Circle()
+                            .fill(palette.accent.color)
+                            .frame(width: 9, height: 9)
+                            .padding(.top, 1)
+                    }
+                }
+                .frame(height: 44)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .strokeBorder(
+                            chosen ? Florin.accent : Florin.text.opacity(0.12),
+                            lineWidth: chosen ? 2 : 0.5
+                        )
+                )
+                Text(choice.name)
+                    .font(.system(size: 11, weight: chosen ? .semibold : .regular))
+                    .foregroundStyle(chosen ? Florin.text : Florin.text3)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
     private func choiceRow(
         _ label: String,
         symbol: String,

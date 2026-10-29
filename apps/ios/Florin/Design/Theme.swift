@@ -1,10 +1,15 @@
 import SwiftUI
 
-/// The Obsidian palette, ported from `packages/core/src/components/v2/theme/v2.css`.
+/// Les jetons de dessin, lus dans le thème actif.
 ///
-/// The web tokens are a deliberately flat set of custom properties precisely so
-/// they could cross to native without re-deriving anything. Keep the two in
-/// step: a drift here shows up as a phone that does not look like the browser.
+/// Les valeurs vivent dans `Palette.swift`, une palette par thème ; ici il ne
+/// reste que les noms. Chaque jeton est une couleur dynamique dont la fonction
+/// de résolution relit `Palette.current` au moment du rendu : changer de thème
+/// n'a donc qu'à forcer un nouveau rendu, pas à reconstruire la palette.
+///
+/// Le jeu de noms reste celui de `packages/core/src/components/v2/theme/v2.css`
+/// — une dérive entre le web et le natif se voit comme un téléphone qui ne
+/// ressemble pas au navigateur.
 enum Florin {
     /// La largeur au-delà de laquelle une colonne cesse de se lire.
     ///
@@ -15,18 +20,18 @@ enum Florin {
     static let readableWidth: CGFloat = 620
 
     // MARK: Surfaces
-    static let bg = dynamic(light: 0xFBFBFD, dark: 0x0D0E12)
-    static let surface = dynamic(light: 0xFFFFFF, dark: 0x1B1D23)
-    static let surface2 = dynamic(light: 0xF3F3F6, dark: 0x22242B)
-    static let surface3 = dynamic(light: 0xEAEAEF, dark: 0x2B2D36)
+    static let bg = token(\.bg)
+    static let surface = token(\.surface)
+    static let surface2 = token(\.surface2)
+    static let surface3 = token(\.surface3)
 
     // MARK: Text
-    static let text = dynamic(light: 0x22242C, dark: 0xFAFAFC)
-    static let text2 = dynamic(light: 0x63656F, dark: 0xA6A8B3)
-    static let text3 = dynamic(light: 0x8E909B, dark: 0x6E7180)
+    static let text = token(\.text)
+    static let text2 = token(\.text2)
+    static let text3 = token(\.text3)
 
     // MARK: Accent and semantics
-    static let accent = dynamic(light: 0x4B4FD6, dark: 0x8C8CF7)
+    static let accent = token(\.accent)
     /*
      * Ce qui s'écrit SUR l'accent, et qui n'est pas la même encre des deux
      * côtés.
@@ -37,25 +42,25 @@ enum Florin {
      * du mode clair. Un jeton plutôt qu'un littéral, et les deux cas tombent
      * juste.
      */
-    static let onAccent = dynamic(light: 0xFFFFFF, dark: 0x101218)
-    static let positive = dynamic(light: 0x1F8B5F, dark: 0x5FD9A0)
-    static let negative = dynamic(light: 0xC4392F, dark: 0xF08072)
+    static let onAccent = token(\.onAccent)
+    static let positive = token(\.positive)
+    static let negative = token(\.negative)
     /// Needs a decision — not an error. Red already means "money left", so a
     /// review flag drawn in it reads as a loss rather than as a question.
-    static let warn = dynamic(light: 0xB4690E, dark: 0xF0B357)
+    static let warn = token(\.warn)
 
     /// Categorical series — never the semantic green or red, so a spending bar
     /// can't read as a gain.
-    static let series: [Color] = [
-        dynamic(light: 0x4B57D2, dark: 0x8C93F2),
-        dynamic(light: 0x1E7FA0, dark: 0x63C3DE),
-        dynamic(light: 0x148A93, dark: 0x5CCBD3),
-        dynamic(light: 0x9A6A18, dark: 0xE0B45C),
-        dynamic(light: 0xB25C1E, dark: 0xEFA26A),
-        dynamic(light: 0xA33C86, dark: 0xEC85C9),
-        dynamic(light: 0x7B45B8, dark: 0xBB92EF),
-        dynamic(light: 0x4E6B8F, dark: 0x97AECC),
-    ]
+    ///
+    /// Huit, dans tous les thèmes : la taille est fixe pour que les couleurs
+    /// restent des `let` liés à leur rang plutôt que reconstruits à chaque
+    /// lecture.
+    static let series: [Color] = (0 ..< 8).map { rank in
+        Color(UIColor { traits in
+            let tone = Palette.current.series[rank]
+            return UIColor(hex: traits.userInterfaceStyle == .dark ? tone.dark : tone.light)
+        })
+    }
 
     /// The Overview tab's ground, and the widget's.
     ///
@@ -63,7 +68,7 @@ enum Florin {
     /// the widget target needs it and cannot take `TabRoute` with it. One
     /// definition, two consumers: a widget that drifts from the screen it
     /// mirrors is the kind of thing nobody notices until it looks cheap.
-    static let overviewTint = Color(red: 0.36, green: 0.33, blue: 0.90)
+    static let overviewTint = ground(.overview)
 
     static let cardRadius: CGFloat = 26
     static let rowRadius: CGFloat = 14
@@ -108,19 +113,20 @@ enum Florin {
         })
     }
 
-    private static func dynamic(light: UInt32, dark: UInt32) -> Color {
-        Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(hex: dark) : UIColor(hex: light) })
+    /// Un jeton : la teinte est relue dans le thème actif à chaque résolution.
+    private static func token(_ path: KeyPath<Palette, Tone>) -> Color {
+        Color(UIColor { traits in
+            let tone = Palette.current[keyPath: path]
+            return UIColor(hex: traits.userInterfaceStyle == .dark ? tone.dark : tone.light)
+        })
     }
-}
 
-private extension UIColor {
-    convenience init(hex: UInt32) {
-        self.init(
-            red: CGFloat((hex >> 16) & 0xFF) / 255,
-            green: CGFloat((hex >> 8) & 0xFF) / 255,
-            blue: CGFloat(hex & 0xFF) / 255,
-            alpha: 1
-        )
+    /// Un fond coloré, par son rang. Voir `Palette.grounds`.
+    static func ground(_ which: Palette.Ground) -> Color {
+        Color(UIColor { traits in
+            let tone = Palette.current.ground(which)
+            return UIColor(hex: traits.userInterfaceStyle == .dark ? tone.dark : tone.light)
+        })
     }
 }
 

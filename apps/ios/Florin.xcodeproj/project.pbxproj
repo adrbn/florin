@@ -74,6 +74,7 @@
 		5F31D9308988DE98A0E17BB0 /* LocalDemo.swift in Sources */ = {isa = PBXBuildFile; fileRef = C262DD02E4EF484E010874E8 /* LocalDemo.swift */; };
 		62CDC847E44E16D5D812F977 /* SetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA781686F48030D4E2610C3F /* SetupView.swift */; };
 		6384AC48BCD2E2F0C917458A /* TxSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = B006DB2AE639B75BB2FAD768 /* TxSearch.swift */; };
+		660E636EB5A5207B26C5D8D3 /* Palette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D4A3DFFE4F3A4DCC92464BA /* Palette.swift */; };
 		694BCC79B07BF15EC2128C7A /* WalletInbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7ADCEE2967BBD9EE265CD0F8 /* WalletInbox.swift */; };
 		69F07F669C9388276D512B8E /* PortfolioModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66BFF60356B227C9DB19C1F8 /* PortfolioModel.swift */; };
 		6C909140154AE3375A686776 /* KnownMerchants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F00301AB25E1B51494EBAA7 /* KnownMerchants.swift */; };
@@ -124,6 +125,7 @@
 		C60EFBFFBE284311AA77BAE3 /* PlanScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22D62DF409CF3CE35918326F /* PlanScreen.swift */; };
 		CB6B4BA1CA00858BDDDA07A8 /* TrueDate.swift in Sources */ = {isa = PBXBuildFile; fileRef = D369E2149BEF0B494A2B5467 /* TrueDate.swift */; };
 		CEEB2E9E5B5218F9F2EC773D /* LocalStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5081BF68525A3FC3417DE71E /* LocalStore.swift */; };
+		D160FFCDEF913CD06DD8BE6F /* Palette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D4A3DFFE4F3A4DCC92464BA /* Palette.swift */; };
 		D3718BFB4D4F07581CB58334 /* LocalDay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 526A3D81BB2ED5F736D5F2AE /* LocalDay.swift */; };
 		D4E019863964058D703761CE /* BottomScrim.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1DD2E38FDF8F23D07715D59 /* BottomScrim.swift */; };
 		D54AEBA180187C6F00BD7E69 /* ProductNames.swift in Sources */ = {isa = PBXBuildFile; fileRef = C817EE35E708179DA13C49D8 /* ProductNames.swift */; };
@@ -187,6 +189,7 @@
 		00E74566417801045AB5E9C7 /* SettingsKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsKit.swift; sourceTree = "<group>"; };
 		053C4FF9EB60FEF2D22C6F7A /* Privacy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Privacy.swift; sourceTree = "<group>"; };
 		06123341C48B7130B314E0C1 /* LedgerUnavailable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LedgerUnavailable.swift; sourceTree = "<group>"; };
+		0D4A3DFFE4F3A4DCC92464BA /* Palette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Palette.swift; sourceTree = "<group>"; };
 		0E01B8AD2CC1890283839B9C /* ServerFields.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerFields.swift; sourceTree = "<group>"; };
 		1030F4E939DD8352B6EC5322 /* BankLogo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankLogo.swift; sourceTree = "<group>"; };
 		10D904FFFE7E0B55E4CE28DD /* SnapshotCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotCache.swift; sourceTree = "<group>"; };
@@ -382,6 +385,7 @@
 				6801683A19B982925B586CB2 /* AppLock.swift */,
 				60BAF879368733AE7877D7B5 /* Backdrop.swift */,
 				D01218C78CF2722622A51E5B /* Brand.swift */,
+				0D4A3DFFE4F3A4DCC92464BA /* Palette.swift */,
 				053C4FF9EB60FEF2D22C6F7A /* Privacy.swift */,
 				ACE82E4B69A59D03EC43D3F2 /* Scaffold.swift */,
 				4A9330BF5ABD331BDB86CCA7 /* SlotAmount.swift */,
@@ -807,6 +811,7 @@
 				C2BF337CBC79DCFA2ED0F031 /* OrderSlip.swift in Sources */,
 				E4D2995C390903037F10DDB7 /* OverviewScreen.swift in Sources */,
 				9216C90004CCCCC085D856E1 /* OwnAccounts.swift in Sources */,
+				D160FFCDEF913CD06DD8BE6F /* Palette.swift in Sources */,
 				F08D86FB9DC99E6E39A3FBFC /* PlanCopySheet.swift in Sources */,
 				0BD9FE3CFA72A3F04F4ED9F8 /* PlanModel.swift in Sources */,
 				C60EFBFFBE284311AA77BAE3 /* PlanScreen.swift in Sources */,
@@ -872,6 +877,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				7882CB323999BB3ADDE66FD7 /* FlorinWidgets.swift in Sources */,
+				660E636EB5A5207B26C5D8D3 /* Palette.swift in Sources */,
 				272F65EA94D6718484FD4F86 /* Theme.swift in Sources */,
 				1E83F30A9B7BE5AF6FE7D110 /* WidgetFace.swift in Sources */,
 				1593C4A9E7F275C4785F6F0F /* WidgetGround.swift in Sources */,
@@ -903,7 +909,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Florin/Florin.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 508;
+				CURRENT_PROJECT_VERSION = 509;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Florin/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;
@@ -924,7 +930,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = FlorinWidgets/FlorinWidgets.entitlements;
-				CURRENT_PROJECT_VERSION = 508;
+				CURRENT_PROJECT_VERSION = 509;
 				INFOPLIST_FILE = FlorinWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1029,7 +1035,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = FlorinWidgets/FlorinWidgets.entitlements;
-				CURRENT_PROJECT_VERSION = 508;
+				CURRENT_PROJECT_VERSION = 509;
 				INFOPLIST_FILE = FlorinWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1112,7 +1118,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Florin/Florin.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 508;
+				CURRENT_PROJECT_VERSION = 509;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Florin/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;

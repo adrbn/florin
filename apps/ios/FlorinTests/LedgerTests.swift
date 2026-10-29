@@ -7096,3 +7096,43 @@ struct AnnouncedNotBookedTests {
         #expect(abs(after - before) < 60)
     }
 }
+
+/*
+ * Les palettes, vérifiées sur leur forme.
+ *
+ * `Florin.series` indexe `Palette.current.series[rang]` de 0 à 7 : une palette
+ * ajoutée avec sept encres ne produit pas une couleur fade, elle fait tomber
+ * le process au premier graphique. Pareil pour les sept fonds. Rien ici ne
+ * juge le goût — seulement qu'un thème est complet.
+ */
+@Suite("Thèmes")
+struct PaletteTests {
+    @Test("chaque thème porte huit séries et sept fonds")
+    func everyPaletteIsComplete() {
+        for choice in FlorinPalette.allCases {
+            let palette = choice.palette
+            #expect(palette.series.count == 8, "\(choice.rawValue) : séries")
+            #expect(palette.grounds.count == 7, "\(choice.rawValue) : fonds")
+            #expect((0...1).contains(palette.ground), "\(choice.rawValue) : poids du fond")
+        }
+    }
+
+    @Test("Papier éteint le fond coloré")
+    func paperHasNoColouredGround() {
+        // Un voile violet très pâle reste un voile violet : le minimal se
+        // joue sur zéro, pas sur « presque rien ».
+        #expect(Palette.papier.ground == 0)
+    }
+
+    @Test("le thème choisi est celui qu'on relit")
+    func theChoiceRoundTrips() {
+        let before = FlorinPalette.selected
+        defer { FlorinPalette.use(before) }
+        for choice in FlorinPalette.allCases {
+            FlorinPalette.use(choice)
+            #expect(FlorinPalette.selected == choice)
+            // Et la palette active suit, sans attendre un relancement.
+            #expect(Palette.current.ground == choice.palette.ground)
+        }
+    }
+}

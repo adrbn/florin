@@ -56,7 +56,6 @@ struct SyncLogScreen: View {
             }
         }
         .presentationDetents([.large])
-        .preferredColorScheme(.dark)
         .task { runs = (try? LocalQueries.syncRuns(LocalStore.shared?.database)) ?? [] }
     }
 

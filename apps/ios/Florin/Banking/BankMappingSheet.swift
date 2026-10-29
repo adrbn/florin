@@ -64,7 +64,6 @@ struct BankMappingSheet: View {
                 }
             }
         }
-        .preferredColorScheme(.dark)
     }
 
     private func card(for account: Binding<DiscoveredAccount>) -> some View {

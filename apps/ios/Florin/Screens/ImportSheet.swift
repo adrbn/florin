@@ -40,7 +40,6 @@ struct ImportSheet: View {
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .presentationBackground(.clear)
-        .preferredColorScheme(.dark)
         .task {
             guard let store = LocalStore.shared else { return }
             accounts = (try? LocalQueries.readAccounts(store.database)) ?? []

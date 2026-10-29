@@ -92,7 +92,6 @@ struct TaskSheet: View {
                 }
             }
         }
-        .preferredColorScheme(.dark)
         .interactiveDismissDisabled(isRunning)
     }
 

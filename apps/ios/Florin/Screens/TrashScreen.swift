@@ -75,7 +75,6 @@ struct TrashScreen: View {
             }
         }
         .presentationDetents([.large])
-        .preferredColorScheme(.dark)
         .task { reload() }
     }
 

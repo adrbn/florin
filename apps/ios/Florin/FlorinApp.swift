@@ -1,4 +1,5 @@
 import SwiftUI
+import WidgetKit
 
 /// Florin for iPhone.
 ///
@@ -144,6 +145,17 @@ struct RootView: View {
     /// was designed dark-first; following the system would hand most users the
     /// light theme they never asked for.
     @AppStorage("florin.appearance") private var appearanceRaw = Appearance.dark.rawValue
+    /*
+     * Le thème, qui n'est pas l'apparence.
+     *
+     * Les jetons de `Florin` sont des couleurs dynamiques : leur fonction de
+     * résolution relit la palette au rendu. Mais SwiftUI ne sait pas qu'une
+     * variable globale a changé — rien ne se repeindrait. D'où la clé
+     * d'identité plus bas : changer de thème reconstruit l'arbre, ce qui est
+     * exactement ce qu'il faut pour un geste rare et volontaire, et ce qui
+     * évite d'avoir à faire observer la palette par cent vues.
+     */
+    @AppStorage(FlorinPalette.key) private var paletteRaw = FlorinPalette.obsidian.rawValue
     @State private var showingSetup = false
     @State private var splashing = true
     @State private var wantsServerForm = false
@@ -249,8 +261,14 @@ struct RootView: View {
                     )
                 }
             }
-            .id(onboarded)
+            .id("\(onboarded)-\(paletteRaw)")
             .onChange(of: sourceRaw) { _, _ in switchedSource = true }
+            .onChange(of: paletteRaw) { _, chosen in
+                // Le réglage écrit déjà la palette ; ceci rattrape le cas où
+                // elle a changé ailleurs (une restauration, un autre écran).
+                FlorinPalette.use(FlorinPalette(rawValue: chosen) ?? .obsidian)
+                WidgetCenter.shared.reloadAllTimelines()
+            }
 
             // Zero-sized, but it owns the responder chain so a shake reaches
             // us without swizzling UIWindow.

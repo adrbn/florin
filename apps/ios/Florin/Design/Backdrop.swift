@@ -40,6 +40,16 @@ struct Backdrop: View {
      */
     var floor = false
 
+    /*
+     * Combien ce fond pèse, selon le thème.
+     *
+     * Obsidienne vaut 1 : les valeurs ci-dessous sont les siennes, réglées sur
+     * elle. Papier vaut 0, et c'est la seule façon d'être réellement minimal —
+     * un voile violet très pâle reste un voile violet. Les thèmes
+     * intermédiaires l'adoucissent sans l'éteindre.
+     */
+    private var weight: Double { Palette.current.ground }
+
     var body: some View {
         ZStack {
             Florin.bg
@@ -58,9 +68,9 @@ struct Backdrop: View {
             if scheme == .light {
                 LinearGradient(
                     stops: [
-                        .init(color: tint.opacity(0.10), location: 0.00),
-                        .init(color: tint.opacity(0.045), location: 0.18),
-                        .init(color: tint.opacity(0.015), location: 0.38),
+                        .init(color: tint.opacity(0.10 * weight), location: 0.00),
+                        .init(color: tint.opacity(0.045 * weight), location: 0.18),
+                        .init(color: tint.opacity(0.015 * weight), location: 0.38),
                         .init(color: .clear, location: 0.60),
                     ],
                     startPoint: .top,
@@ -69,12 +79,12 @@ struct Backdrop: View {
             } else {
                 LinearGradient(
                     stops: [
-                        .init(color: tint.opacity(0.62), location: 0.00),
-                        .init(color: tint.opacity(0.32), location: 0.14),
-                        .init(color: tint.opacity(0.15), location: 0.30),
-                        .init(color: tint.opacity(floor ? 0.16 : 0.06), location: 0.50),
-                        .init(color: tint.opacity(floor ? 0.18 : 0.05), location: 0.72),
-                        .init(color: tint.opacity(floor ? 0.22 : 0.13), location: 1.00),
+                        .init(color: tint.opacity(0.62 * weight), location: 0.00),
+                        .init(color: tint.opacity(0.32 * weight), location: 0.14),
+                        .init(color: tint.opacity(0.15 * weight), location: 0.30),
+                        .init(color: tint.opacity((floor ? 0.16 : 0.06) * weight), location: 0.50),
+                        .init(color: tint.opacity((floor ? 0.18 : 0.05) * weight), location: 0.72),
+                        .init(color: tint.opacity((floor ? 0.22 : 0.13) * weight), location: 1.00),
                     ],
                     startPoint: .top,
                     endPoint: .bottom
@@ -85,7 +95,7 @@ struct Backdrop: View {
             // rather than on a flat band. Dark only: see the note on `scheme`.
             if scheme != .light {
                 RadialGradient(
-                    colors: [tint.opacity(0.30), .clear],
+                    colors: [tint.opacity(0.30 * weight), .clear],
                     center: UnitPoint(x: 0.5, y: 0.10),
                     startRadius: 0,
                     endRadius: 420
@@ -96,7 +106,7 @@ struct Backdrop: View {
                 // on its own; what it buys is that the lower half is never one flat
                 // value, which is the difference between "dark" and "unfinished".
                 RadialGradient(
-                    colors: [tint.opacity(0.16), .clear],
+                    colors: [tint.opacity(0.16 * weight), .clear],
                     center: UnitPoint(x: 0.14, y: 0.94),
                     startRadius: 0,
                     endRadius: 560
@@ -113,16 +123,23 @@ extension TabRoute {
     /// have read anything. Kept in the same family as the accent so the app
     /// still looks like one app.
     var tint: Color {
+        // Saturated on purpose, dans Obsidienne. A muted set was tried and it
+        // made the five screens read as one long grey scroll; the whole point
+        // of the coloured ground is that you know which room you are in before
+        // you read a word. Chaque thème a son propre jeu — voir
+        // `Palette.grounds` — et Papier les éteint par son poids, pas en les
+        // remplaçant par du gris.
+        Florin.ground(ground)
+    }
+
+    private var ground: Palette.Ground {
         switch self {
-        // Saturated on purpose. A muted set was tried and it made the five
-        // screens read as one long grey scroll; the whole point of the coloured
-        // ground is that you know which room you are in before you read a word.
-        case .overview: return Florin.overviewTint
-        case .accounts: return Color(red: 0.10, green: 0.42, blue: 0.78)
-        case .plan: return Color(red: 0.62, green: 0.30, blue: 0.62)
-        case .activity: return Color(red: 0.50, green: 0.22, blue: 0.82)
-        case .analysis: return Color(red: 0.08, green: 0.52, blue: 0.54)
-        case .settings: return Color(red: 0.30, green: 0.31, blue: 0.58)
+        case .overview: return .overview
+        case .accounts: return .accounts
+        case .plan: return .plan
+        case .activity: return .activity
+        case .analysis: return .analysis
+        case .settings: return .settings
         }
     }
 }
@@ -138,7 +155,7 @@ extension Florin {
      * row. Jade is the one part of the wheel no tab uses, and being a ground
      * rather than text it cannot be mistaken for the green that means a gain.
      */
-    static let sheetTint = Color(red: 0.09, green: 0.44, blue: 0.37)
+    static let sheetTint = ground(.sheet)
 }
 
 /// A round icon button on the coloured ground — the Revolut header/action

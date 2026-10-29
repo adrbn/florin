@@ -123,7 +123,6 @@ struct BankingSettings: View {
                 .padding(.top, onConnected == nil ? 26 : 14)
                 .zIndex(2)
         }
-        .preferredColorScheme(.dark)
         /*
          * Full height, always.
          *

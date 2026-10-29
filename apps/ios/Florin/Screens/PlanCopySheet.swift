@@ -106,7 +106,6 @@ struct PlanCopySheet: View {
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
         .presentationBackground(.clear)
-        .preferredColorScheme(.dark)
     }
 
     private static func monthName(_ year: Int, _ month: Int, _ locale: String) -> String {
