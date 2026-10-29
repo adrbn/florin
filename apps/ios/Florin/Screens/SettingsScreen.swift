@@ -58,6 +58,17 @@ struct SettingsScreen: View {
     /// La clé du service qui déchiffre les libellés de caisse. Vide = rien
     /// ne sort du téléphone.
     @State private var geminiKey = ""
+    /// Où en est cette clé : une clé posée sans être essayée ne vaut pas une
+    /// clé qui a répondu, et l'écran doit dire laquelle des deux on a.
+    @State private var keyState: KeyState = .editing
+
+    enum KeyState: Equatable {
+        case editing
+        case checking
+        /// Le modèle que le service a accepté de nommer.
+        case ready(String)
+        case failed(String)
+    }
     @AppStorage("florin.lastExport") private var lastExport = 0.0
     @State private var exported: URL?
     @State private var picking = false
@@ -712,32 +723,106 @@ struct SettingsScreen: View {
             title: t("v2.settings.receipts", "Tickets de caisse"),
             footer: t(
                 "v2.settings.receiptsHint",
-                "Facultatif. Avec une clé Gemini (gratuite sur aistudio.google.com), Florin traduit « AUR PROV VALP DOP » en « provolone Valpadana ». Seuls les libellés et le nom du commerçant sortent du téléphone — jamais la photo ni les montants. Sans clé, le ticket reste lu sur l'appareil, tel que la caisse l'a imprimé."
+                "Clé gratuite sur aistudio.google.com. Seuls les libellés et le nom du commerçant sortent du téléphone."
             )
         ) {
-            HStack(spacing: 11) {
-                Image(systemName: "sparkles")
+            if case let .ready(model) = keyState, !geminiKey.isEmpty {
+                SettingsRow(
+                    label: t("v2.settings.keyActive", "Clé active"),
+                    symbol: "checkmark.seal.fill"
+                ) {
+                    Button(t("v2.common.edit", "Modifier")) {
+                        keyState = .editing
+                    }
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(Florin.accent)
-                    .frame(width: 20)
-                SecureField(
-                    t("v2.settings.geminiKey", "Clé d'API Gemini"), text: $geminiKey
-                )
-                .font(.system(size: 15.5))
-                .foregroundStyle(Florin.text)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
+                }
+                // Le nom du modèle est la preuve que la clé a vraiment répondu,
+                // et le seul renseignement utile si elle cesse de marcher.
+                Text(model)
+                    .font(.system(size: 12))
+                    .monospaced()
+                    .foregroundStyle(Florin.text3)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, Florin.gutter)
+                    .padding(.bottom, 12)
+            } else {
+                HStack(spacing: 11) {
+                    Image(systemName: "key.fill")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(Florin.text3)
+                        .frame(width: 20)
+                    SecureField(
+                        t("v2.settings.geminiKey", "Clé d'API Gemini"), text: $geminiKey
+                    )
+                    .font(.system(size: 15.5))
+                    .foregroundStyle(Florin.text)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .onSubmit { validateKey() }
+
+                    if keyState == .checking {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Button(t("v2.common.validate", "Valider")) { validateKey() }
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(
+                                geminiKey.isEmpty ? Florin.text3 : Florin.accent
+                            )
+                            .disabled(geminiKey.isEmpty)
+                    }
+                }
+                .padding(.horizontal, Florin.gutter)
+                .padding(.vertical, 13)
+
+                if case let .failed(message) = keyState {
+                    Text(message)
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(Florin.negative)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, Florin.gutter)
+                        .padding(.bottom, 12)
+                }
             }
-            .padding(.horizontal, Florin.gutter)
-            .padding(.vertical, 13)
         }
         .task {
             guard let store = LocalStore.shared else { return }
             geminiKey = ProductNames.apiKey(store: store) ?? ""
+            // Une clé déjà rangée a forcément été validée pour l'être : on la
+            // croit sur parole plutôt que de rappeler le service à l'ouverture
+            // de l'écran.
+            keyState = geminiKey.isEmpty
+                ? .editing
+                : .ready(ProductNames.model(store: store))
         }
-        .onChange(of: geminiKey) { _, value in
-            guard let store = LocalStore.shared else { return }
-            try? ProductNames.setAPIKey(store: store, value)
+    }
+
+    /*
+     * Valider, c'est demander au service — pas regarder la forme de la clé.
+     *
+     * La liste des modèles coûte zéro quota et répond la seule chose qui
+     * compte : cette clé ouvre-t-elle quelque chose, et quoi. Le nom retenu
+     * est gardé du même coup, ce qui évite au premier ticket de découvrir
+     * tout seul que le modèle écrit en dur n'existe plus.
+     */
+    private func validateKey() {
+        let key = geminiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !key.isEmpty, let store = LocalStore.shared else { return }
+        keyState = .checking
+        Task {
+            do {
+                let model = try await ProductNames.availableModel(apiKey: key)
+                try ProductNames.setAPIKey(store: store, key)
+                try ProductNames.setModel(store: store, model)
+                geminiKey = key
+                keyState = .ready(model)
+            } catch {
+                keyState = .failed(
+                    error.localizedDescription.isEmpty
+                        ? t("v2.settings.keyRefused", "Clé refusée.")
+                        : error.localizedDescription
+                )
+            }
         }
     }
 

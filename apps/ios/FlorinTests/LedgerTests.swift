@@ -7047,29 +7047,52 @@ struct AnnouncedNotBookedTests {
         try move(store, cash, -600, payee: "Loyer", on: dayString(daysAgo: 45))
     }
 
-    @Test("la prévision part de l'argent acquis, pas du solde amputé")
-    func forecastStartsFromWhatIsOwed() throws {
-        let (store, cash) = try ledger(balance: 1_200)
-        try pastMonth(store, cash)
-        try move(store, cash, 3_000, payee: "\(Self.iban) DUPONT", on: dayString(daysAgo: 0))
-
-        let ahead = try forecast(store)
-        let first = try #require(ahead.first)
-        // Le solde relevé est 1 200 ; les 3 000 livrés comptent dans l'accroche.
-        // Sans le correctif le trait partait de 1 200 et plongeait de là.
-        #expect(first.balance > 4_000)
+    /// Une paie le 1er, des dépenses qui la mangent : le relevé monte d'un coup
+    /// puis redescend, et le dernier point dépend du jour qu'on est.
+    private func sawtooth(_ store: LocalStore, _ cash: String) throws {
+        for month in 0..<5 {
+            try move(store, cash, 2_000, payee: "Paie", on: dayString(daysAgo: month * 30 + 28))
+            for week in 0..<4 {
+                try move(
+                    store, cash, -500, payee: "Courses",
+                    on: dayString(daysAgo: month * 30 + 28 - week * 7 - 1)
+                )
+            }
+        }
     }
 
-    @Test("sans ligne annoncée la prévision part bien du dernier solde")
-    func forecastStartsFromTodayOtherwise() throws {
+    @Test("la tendance passe au milieu des dents, pas sur leur crête")
+    func trendSitsInsideTheCloud() throws {
         let (store, cash) = try ledger(balance: 1_200)
-        try pastMonth(store, cash)
+        try sawtooth(store, cash)
 
+        let measured = try series(store)
         let ahead = try forecast(store)
-        let first = try #require(ahead.first)
-        // La pente est négative : le premier point prévu est juste sous 1 200,
-        // et sûrement pas au-dessus de 1 200.
-        #expect(first.balance < 1_200)
-        #expect(first.balance > 1_100)
+        let start = try #require(ahead.first)
+        let low = try #require(measured.map(\.balance).min())
+        let high = try #require(measured.map(\.balance).max())
+
+        // Accrochée au dernier relevé, la droite héritait du jour qu'on est :
+        // un sommet le lendemain de la paie, un creux la veille.
+        #expect(start.balance > low)
+        #expect(start.balance < high)
+    }
+
+    @Test("une ligne livrée la veille ne déplace plus le départ du trait")
+    func oneLateRowNoLongerMovesTheTrend() throws {
+        let (plain, plainCash) = try ledger(balance: 1_200)
+        try sawtooth(plain, plainCash)
+        let (announced, announcedCash) = try ledger(balance: 1_200)
+        try sawtooth(announced, announcedCash)
+        try move(
+            announced, announcedCash, 3_000,
+            payee: "\(Self.iban) DUPONT", on: dayString(daysAgo: 0)
+        )
+
+        let before = try #require(try forecast(plain).first).balance
+        let after = try #require(try forecast(announced).first).balance
+        // Une moyenne sur six mois ne se laisse pas déplacer par un point :
+        // trois mille euros livrés hier en bougent au plus quelques dizaines.
+        #expect(abs(after - before) < 60)
     }
 }

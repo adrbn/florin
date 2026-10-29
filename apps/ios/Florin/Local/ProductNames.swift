@@ -110,18 +110,93 @@ enum ProductNames {
         )
     }
 
+    // MARK: - Le modèle
+
+    /*
+     * Le nom du modèle n'est pas une constante, c'est une réponse du service.
+     *
+     * Google retire et renomme ses modèles sans prévenir, et un nom écrit en
+     * dur finit par rendre 404 — un défaut que personne ne peut diagnostiquer
+     * depuis un téléphone, et qui ressemble à une clé cassée alors que la clé
+     * est bonne. La liste, elle, dit la vérité du jour : on la demande, on
+     * garde le nom qui marche, et on ne la redemande qu'au prochain 404.
+     */
+    static let modelSetting = "gemini_model"
+    static let defaultModel = "gemini-2.5-flash"
+
+    static func model(store: LocalStore) -> String {
+        let value = try? store.database.scalar(
+            "SELECT value FROM settings WHERE key = ?", [.text(modelSetting)]
+        )?.string
+        guard let value, !value.isEmpty else { return defaultModel }
+        return value
+    }
+
+    static func setModel(store: LocalStore, _ value: String) throws {
+        try store.database.run(
+            """
+            INSERT INTO settings (key, value) VALUES (?, ?)
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value
+            """,
+            [.text(modelSetting), .text(value)]
+        )
+    }
+
+    /// Ce que la clé peut vraiment appeler aujourd'hui. Sert aussi de contrôle
+    /// de la clé : le service refuse la liste avant de refuser une génération,
+    /// et pour rien — vérifier ne consomme pas de quota.
+    static func availableModel(apiKey: String) async throws -> String {
+        var request = URLRequest(
+            url: URL(string: "https://generativelanguage.googleapis.com/v1beta/models")!
+        )
+        request.setValue(apiKey, forHTTPHeaderField: "x-goog-api-key")
+        request.timeoutInterval = 20
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+            throw Failure.http(http.statusCode)
+        }
+        guard let envelope = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let models = envelope["models"] as? [[String: Any]]
+        else { throw Failure.unreadable }
+
+        let usable = models.compactMap { model -> String? in
+            guard let name = model["name"] as? String,
+                  let methods = model["supportedGenerationMethods"] as? [String],
+                  methods.contains("generateContent")
+            else { return nil }
+            return name.replacingOccurrences(of: "models/", with: "")
+        }
+        // Un « flash » d'abord : c'est celui qui porte le quota gratuit, et
+        // lire vingt libellés ne demande pas le grand modèle. Sans « lite »,
+        // qui rend des noms de produits trop approximatifs pour servir.
+        guard let pick = usable.first(where: { $0.contains("flash") && !$0.contains("lite") })
+            ?? usable.first(where: { $0.contains("flash") })
+            ?? usable.first
+        else { throw Failure.noModel }
+        return pick
+    }
+
     // MARK: - Demander
 
     enum Failure: LocalizedError {
         case noKey
         case http(Int)
         case unreadable
+        case noModel
 
         var errorDescription: String? {
             switch self {
             case .noKey: "Pose une clé d'API dans Réglages → Tickets de caisse."
-            case let .http(code): "Le service a répondu \(code)."
+            case let .http(code):
+                switch code {
+                case 400, 401, 403: "Clé refusée par le service."
+                case 404: "Aucun modèle disponible pour cette clé."
+                case 429: "Quota épuisé pour aujourd'hui."
+                default: "Le service a répondu \(code)."
+                }
             case .unreadable: "Réponse illisible."
+            case .noModel: "Cette clé ne donne accès à aucun modèle."
             }
         }
     }
@@ -142,7 +217,20 @@ enum ProductNames {
         }
         guard !asked.isEmpty else { return 0 }
 
-        let readings = try await read(labels: asked, merchant: merchant, apiKey: apiKey)
+        var readings: [String: Reading]
+        do {
+            readings = try await read(
+                labels: asked, merchant: merchant, apiKey: apiKey, model: model(store: store)
+            )
+        } catch Failure.http(404) {
+            // Le nom retenu n'existe plus. On redemande la liste, on garde le
+            // nouveau, et le prochain ticket part directement au bon endroit.
+            let fresh = try await availableModel(apiKey: apiKey)
+            try? setModel(store: store, fresh)
+            readings = try await read(
+                labels: asked, merchant: merchant, apiKey: apiKey, model: fresh
+            )
+        }
         var learnt = 0
         for (label, reading) in readings {
             try remember(store: store, label: label, reading)
@@ -159,7 +247,7 @@ enum ProductNames {
      * contrainte par un schéma, donc la réponse se décode sans rattrapage.
      */
     static func read(
-        labels: [String], merchant: String, apiKey: String
+        labels: [String], merchant: String, apiKey: String, model: String
     ) async throws -> [String: Reading] {
         let instruction = """
             Voici les lignes d'un ticket de caisse\
@@ -199,7 +287,7 @@ enum ProductNames {
         var request = URLRequest(
             url: URL(
                 string: "https://generativelanguage.googleapis.com/v1beta/models"
-                    + "/gemini-2.5-flash:generateContent"
+                    + "/\(model):generateContent"
             )!
         )
         request.httpMethod = "POST"

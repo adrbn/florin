@@ -809,10 +809,6 @@ enum LocalQueries {
          * décalerait l'histoire dans l'autre sens. Le jour où un solde dira
          * lui-même ce qu'il ignore, cette fenêtre n'aura plus lieu d'être.
          */
-        /// Ce que la banque a livré sans encore le porter au solde. Défalqué
-        /// de l'histoire au-dessus ; rendu plus bas au point d'accroche de la
-        /// prévision, qui part d'un solde amputé de cette somme.
-        var announced = 0.0
         let numbers = Set(
             try db.query("SELECT iban FROM accounts WHERE iban IS NOT NULL AND iban != ''")
                 .compactMap { $0.string("iban") }
@@ -842,9 +838,7 @@ enum LocalQueries {
                 guard let day = row.string("day"), let payee = row.string("payee"),
                       OwnAccounts.named(by: payee, among: numbers)
                 else { continue }
-                let amount = row.double("amount") ?? 0
-                byDay[day] = (byDay[day] ?? 0) - amount
-                announced += amount
+                byDay[day] = (byDay[day] ?? 0) - (row.double("amount") ?? 0)
             }
         }
 
@@ -1036,28 +1030,31 @@ enum LocalQueries {
         let repaid = (max(0, debtToday) - remaining) / Double(forecastMonths)
 
         /*
-         * La prévision part de l'argent déjà acquis, pas du solde affiché.
+         * La tendance passe au milieu des dents, pas sur leur crête.
          *
-         * Le matin de la paie, le dernier point relevé est juste et bas : la
-         * banque a écrit le virement sans le compter. Une droite accrochée là
-         * et remontée six mois en arrière atterrissait loin sous la courbe
-         * qu'elle prolongeait — tout le trait descendait d'un salaire entier,
-         * deux ou trois jours par mois, tous les mois.
+         * Accrochée au dernier solde, elle héritait du jour qu'on était. Le
+         * 28, le salaire vient de tomber : ce point-là est un sommet, et la
+         * droite longeait les sommets sur toute la fenêtre — une tendance qui
+         * ne décrivait qu'un jour du mois sur trente. Le 10, elle aurait rasé
+         * les creux, et personne n'aurait reconnu la même courbe.
          *
-         * Ce sont les mêmes lignes qu'au-dessus : celles que la banque a
-         * livrées et pas encore portées au solde. Les compter ici n'invente
-         * rien et ne double rien — la pente, elle, ne regarde que des mois
-         * complets. L'écart entre le bout de la courbe et le départ du trait
-         * est alors exactement ce qui est en route, et il se referme tout seul
-         * quand la banque comptabilise.
+         * Le niveau est donc celui qui annule l'erreur moyenne sur la fenêtre
+         * dessinée : la droite de pente donnée qui passe par le centre de
+         * gravité du nuage. La pente, elle, ne change pas — elle vient
+         * toujours des mois complets, pas d'une régression qui ferait un coude
+         * au présent.
+         *
+         * C'est aussi ce qui remplace l'ancien rattrapage des lignes livrées
+         * et pas encore comptabilisées : une moyenne sur six mois ne se laisse
+         * pas déplacer par le dernier point, quel qu'il soit.
          */
         return (
             net: net + projection(
-                from: net.last, monthly: assets + repaid, pending: announced,
+                from: net.last, monthly: assets + repaid, over: net,
                 now: now, calendar: calendar
             ),
             gross: gross + projection(
-                from: gross.last, monthly: assets, pending: announced,
+                from: gross.last, monthly: assets, over: gross,
                 now: now, calendar: calendar
             )
         )
@@ -1235,13 +1232,43 @@ enum LocalQueries {
     /// accordait ; à six mois, les deux moitiés du graphique se répondent.
     static let forecastMonths = 6
 
+    /*
+     * Le niveau d'aujourd'hui selon la tendance, pas selon le jour qu'on est.
+     *
+     * Pente imposée, ordonnée ajustée : exactement l'ordonnée des moindres
+     * carrés quand la pente est fixée, c'est-à-dire la droite qui passe par la
+     * moyenne de la fenêtre. Les dents de scie s'annulent, et la droite dit le
+     * rythme au lieu de dire un jour du mois.
+     *
+     * La fenêtre est celle que la prévision couvre devant, pour que les deux
+     * moitiés du graphique parlent de la même période.
+     */
+    private static func centred(
+        _ measured: [PatrimonyPoint], slopePerDay: Double, now: Date, calendar: Calendar
+    ) -> Double? {
+        guard let start = calendar.date(byAdding: .month, value: -forecastMonths, to: now)
+        else { return nil }
+        let today = calendar.startOfDay(for: now)
+        let window = measured.filter { $0.day >= start }
+        guard window.count >= 2 else { return nil }
+        let count = Double(window.count)
+        let meanBalance = window.reduce(0) { $0 + $1.balance } / count
+        // Comptés depuis aujourd'hui : la moyenne est négative, et la remonter
+        // à zéro donne le niveau d'aujourd'hui.
+        let meanOffset = window.reduce(0.0) {
+            $0 + $1.day.timeIntervalSince(today) / 86_400
+        } / count
+        return round2(meanBalance - slopePerDay * meanOffset)
+    }
+
     private static func projection(
-        from anchor: PatrimonyPoint?, monthly: Double, pending: Double,
+        from anchor: PatrimonyPoint?, monthly: Double, over measured: [PatrimonyPoint],
         now: Date, calendar: Calendar
     ) -> [PatrimonyPoint] {
         guard let anchor, monthly != 0 else { return [] }
         let daily = monthly / 30.44
-        var value = anchor.balance + pending
+        var value = centred(measured, slopePerDay: daily, now: now, calendar: calendar)
+            ?? anchor.balance
         var day = calendar.startOfDay(for: now)
         var points: [PatrimonyPoint] = []
         for _ in 1...(forecastMonths * 61 / 2) {  // 30,5 jours par mois
