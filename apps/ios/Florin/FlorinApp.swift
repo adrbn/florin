@@ -314,9 +314,21 @@ struct RootView: View {
          * the data source changes — so switching from the server to the device
          * closed the screen where that switch is made. Every time.
          */
-        .fullScreenCover(isPresented: $showingSettings) {
+        /*
+         * Une feuille, pour qu'on puisse la refermer d'un geste.
+         *
+         * `fullScreenCover` ne se balaie pas : la seule sortie était la croix
+         * en haut à gauche, à l'autre bout du pouce. Une feuille au grand
+         * détenteur occupe le même écran à un liseré près, se referme d'un
+         * balayage vers le bas comme toutes les autres feuilles de l'app, et
+         * garde ce que `fullScreenCover` était venu chercher ici : elle est
+         * présentée AU-DESSUS de `MainTabs`, donc changer la source des
+         * données ne la referme pas.
+         */
+        .sheet(isPresented: $showingSettings) {
             SettingsScreen(base: currentBase, onClose: { showingSettings = false })
                 .environmentObject(server)
+                .presentationDragIndicator(.visible)
         }
         /*
          * Full screen, not a sheet.

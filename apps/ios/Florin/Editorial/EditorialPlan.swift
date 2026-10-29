@@ -65,12 +65,9 @@ struct EditorialPlan: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 header
-                .edEnter()
                 .id(edTopAnchor)
                 if let plan = model.plan {
                     VStack(alignment: .leading, spacing: 0) {
-                    EdPill(text: "\(t("v2.plan.title", "Plan")) · \(plan.year)")
-                        .padding(.top, 18)
                     /*
                      * Le rare, sur ce qu'il modifie.
                      *
@@ -79,7 +76,7 @@ struct EditorialPlan: View {
                      * Tenu, le mois offre ce qu'on fait à un mois.
                      */
                     EdHero(text: monthName(plan.year, plan.month))
-                        .padding(.top, 10)
+                        .padding(.top, 4)
                         .contextMenu {
                             if !model.planSources.isEmpty {
                                 Button { pickingSource = true } label: {
@@ -94,7 +91,7 @@ struct EditorialPlan: View {
                     readyToAssign(plan).edEnter()
                     }
                     .contentShape(Rectangle())
-                    .modifier(MonthSwipe { model.step($0) })
+                    .modifier(EdMonthSwipe { model.step($0) })
                     spending(plan).edEnter()
                     envelopes(plan)
                 } else if let failure = model.failure {
@@ -182,23 +179,32 @@ struct EditorialPlan: View {
     // MARK: Le bandeau
 
     /*
-     * Plus de chevrons.
+     * Plus de chevrons, et plus de bandeau vide.
      *
      * Deux boutons posés au-dessus du mois annonçaient qu'il se change, et
      * descendaient tout le reste d'autant. Le mois se change là où il est
      * écrit : on balaie le bloc du mois, comme on tourne une page. Voir
-     * `monthSwipe`.
+     * `EdMonthSwipe`.
+     *
+     * Restait un bandeau de 44 pt ne portant qu'un bouton à droite, puis la
+     * pastille de l'année sur sa propre ligne : deux lignes pour deux
+     * éléments qui tiennent côte à côte. La pastille partage maintenant la
+     * ligne du bouton, et l'écran commence 60 pt plus haut.
      */
     private var header: some View {
-        EdHeader {
-            EmptyView()
-        } trailing: {
+        HStack(spacing: 8) {
+            if let plan = model.plan {
+                EdPill(text: "\(t("v2.plan.title", "Plan")) \(plan.year)")
+            }
+            Spacer(minLength: 0)
             EdIconButton(
-                symbol: "person.crop.circle",
+                symbol: Ed.settingsSymbol,
                 label: t("v2.settings.title", "Réglages"),
                 action: onOpenSettings
             )
+            .padding(.trailing, -10)
         }
+        .frame(height: 44)
     }
 
     /// « août 2026 » sans son année : elle est déjà dans la pastille.
@@ -474,28 +480,3 @@ struct EditorialPlan: View {
  * premier point du glissement, il est encore vrai quand le balayage d'onglet
  * relève le sien, et ne retombe qu'au tour de boucle suivant.
  */
-private struct MonthSwipe: ViewModifier {
-    let step: (Int) -> Void
-
-    func body(content: Content) -> some View {
-        content.simultaneousGesture(
-            DragGesture(minimumDistance: 24)
-                .onChanged { move in
-                    guard abs(move.translation.width) > abs(move.translation.height) else {
-                        return
-                    }
-                    EdGesture.shared.scrubbing = true
-                }
-                .onEnded { move in
-                    defer {
-                        DispatchQueue.main.async { EdGesture.shared.scrubbing = false }
-                    }
-                    let dx = move.translation.width
-                    guard abs(dx) > 50, abs(dx) > abs(move.translation.height) * 1.5
-                    else { return }
-                    UISelectionFeedbackGenerator().selectionChanged()
-                    step(dx < 0 ? 1 : -1)
-                }
-        )
-    }
-}

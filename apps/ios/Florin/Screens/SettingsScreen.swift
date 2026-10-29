@@ -82,33 +82,36 @@ struct SettingsScreen: View {
     @State private var task: TaskSheet.State?
     @AppStorage("florin.dataSource") private var sourceRaw = ""
 
+    private var editorial: Bool { FlorinPalette.selected == .editorial }
+
+    /*
+     * Treize blocs à la file, ou six portes.
+     *
+     * Les réglages étaient une seule colonne de treize sections : la clé
+     * d'API du lecteur de tickets se trouvait entre les catégories et
+     * l'import, le choix du thème venait après les sauvegardes, et pour
+     * changer de langue il fallait passer devant la démonstration, la source
+     * des données, la banque, Apple Pay et les notifications. Rien n'était
+     * caché — tout était simplement au même niveau, donc rien ne se trouvait.
+     *
+     * Les mêmes sections, derrière six portes nommées par ce qu'on y
+     * cherche, chacune disant l'état où elle est. Aucune section n'a été
+     * réécrite : ce qui change, c'est l'ordre et la profondeur.
+     */
+    private enum Page: String, Hashable, Identifiable {
+        case data, bank, naming, look, discretion, about
+        var id: String { rawValue }
+    }
+
     var body: some View {
         NavigationStack {
             ZStack {
                 Backdrop(tint: TabRoute.settings.tint).ignoresSafeArea()
 
-                ScrollView {
-                    VStack(spacing: 24) {
-                        demoSection
-                        sourceSection
-                        bankSection
-                        walletSection
-                        receiptsSection
-                        categoriesSection
-                        importSection
-                        notificationsSection
-                        backupSection
-                        displaySection
-                        privacySection
-                        serverEntrySection
-                        aboutSection
-                    }
-                    .padding(.horizontal, Florin.gutter)
-                    .padding(.top, 10)
-                    .padding(.bottom, 110)
-                }
-                .scrollIndicators(.hidden)
-                .scrollDismissesKeyboard(.interactively)
+                if editorial { edRoot } else { legacyScroll }
+            }
+            .navigationDestination(for: Page.self) { page in
+                edPage(page)
             }
             .navigationTitle(t("v2.settings.title", "Réglages"))
             .navigationBarTitleDisplayMode(.inline)
@@ -275,6 +278,165 @@ struct SettingsScreen: View {
                 await model.load(showSpinner: false)
                 readiness = await BackgroundRefresh.readiness()
             }
+        }
+    }
+
+    private var legacyScroll: some View {
+        ScrollView {
+            VStack(spacing: 24) {
+                demoSection
+                sourceSection
+                bankSection
+                walletSection
+                receiptsSection
+                categoriesSection
+                importSection
+                notificationsSection
+                backupSection
+                displaySection
+                privacySection
+                serverEntrySection
+                aboutSection
+            }
+            .padding(.horizontal, Florin.gutter)
+            .padding(.top, 10)
+            .padding(.bottom, 110)
+        }
+        .scrollIndicators(.hidden)
+        .scrollDismissesKeyboard(.interactively)
+    }
+
+    // MARK: - L'éditorial : six portes
+
+    private var edRoot: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                EdHero(text: t("v2.settings.title", "Réglages"))
+                    .padding(.top, 6)
+                    .padding(.bottom, 18)
+
+                edDoor(.data, "tray.full", t("v2.settings.data", "Données"), dataState)
+                EdRule()
+                edDoor(.bank, "building.columns", t("v2.settings.bank", "Banque"), bankState)
+                EdRule()
+                edDoor(.naming, "tag", t("v2.settings.naming", "Catégories et marchands"), nil)
+                EdRule()
+                edDoor(
+                    .look, "paintbrush", t("v2.settings.appearance", "Apparence"),
+                    FlorinPalette.selected.name
+                )
+                EdRule()
+                edDoor(
+                    .discretion, "eye.slash", t("v2.settings.discretion", "Discrétion"),
+                    privacy.hidden ? t("v2.settings.hideAmounts", "Masquer les montants") : nil
+                )
+                EdRule()
+                edDoor(.about, "info.circle", t("v2.settings.about", "À propos"), Self.version)
+            }
+            .padding(.horizontal, Ed.gutter)
+            .padding(.bottom, 60)
+        }
+        .scrollIndicators(.hidden)
+        .scrollDismissesKeyboard(.interactively)
+    }
+
+    /*
+     * Une porte dit où elle mène ET ce qu'on y a laissé.
+     *
+     * « Banque » seul oblige à entrer pour savoir si la connexion tient ;
+     * « Banque — Configurée » répond depuis le seuil. C'est la seule chose
+     * qu'un menu à deux niveaux doit rendre : la réponse sans le détour.
+     */
+    private func edDoor(
+        _ page: Page, _ symbol: String, _ title: String, _ state: String?
+    ) -> some View {
+        NavigationLink(value: page) {
+            HStack(spacing: 14) {
+                Image(systemName: symbol)
+                    .font(.system(size: 17, weight: .regular))
+                    .foregroundStyle(Florin.text2)
+                    .frame(width: 26)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 17))
+                        .foregroundStyle(Florin.text)
+                    if let state {
+                        Text(state)
+                            .font(.system(size: 13))
+                            .foregroundStyle(Florin.text3)
+                            .lineLimit(1)
+                    }
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Florin.text3)
+            }
+            .padding(.vertical, 15)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.edPress)
+    }
+
+    private var dataState: String {
+        model.base.scheme == "florin-local"
+            ? t("v2.settings.sourceDevice", "Sur l'appareil")
+            : (model.base.host ?? t("v2.settings.sourceServer", "Serveur"))
+    }
+
+    private var bankState: String {
+        BankingFlow.isConfigured
+            ? t("v2.settings.bankingReady", "Configurée")
+            : t("v2.settings.bankingMissing", "Non configurée")
+    }
+
+    /// Derrière chaque porte, les sections d'origine — dans l'ordre où on en
+    /// a besoin, et plus dans celui où elles ont été écrites.
+    @ViewBuilder
+    private func edPage(_ page: Page) -> some View {
+        ScrollView {
+            VStack(spacing: 24) {
+                switch page {
+                case .data:
+                    sourceSection
+                    serverEntrySection
+                    importSection
+                    backupSection
+                    demoSection
+                case .bank:
+                    bankSection
+                    notificationsSection
+                    walletSection
+                case .naming:
+                    categoriesSection
+                    receiptsSection
+                case .look:
+                    displaySection
+                case .discretion:
+                    privacySection
+                case .about:
+                    aboutSection
+                }
+            }
+            .padding(.horizontal, Florin.gutter)
+            .padding(.top, 10)
+            .padding(.bottom, 80)
+        }
+        .scrollIndicators(.hidden)
+        .scrollDismissesKeyboard(.interactively)
+        .background(Backdrop(tint: TabRoute.settings.tint).ignoresSafeArea())
+        .navigationTitle(edPageTitle(page))
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func edPageTitle(_ page: Page) -> String {
+        switch page {
+        case .data: return t("v2.settings.data", "Données")
+        case .bank: return t("v2.settings.bank", "Banque")
+        case .naming: return t("v2.settings.naming", "Catégories et marchands")
+        case .look: return t("v2.settings.appearance", "Apparence")
+        case .discretion: return t("v2.settings.discretion", "Discrétion")
+        case .about: return t("v2.settings.about", "À propos")
         }
     }
 

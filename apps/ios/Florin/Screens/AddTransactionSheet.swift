@@ -199,7 +199,23 @@ struct AddTransactionSheet: View {
         // names are the description, and asking for one as well would be
         // asking the user to name something they have already chosen twice.
         if kind == .transfer { return !toAccountId.isEmpty && toAccountId != accountId }
-        return !payee.trimmingCharacters(in: .whitespaces).isEmpty
+        guard !payee.trimmingCharacters(in: .whitespaces).isEmpty else { return false }
+        /*
+         * Pas de catégorie, pas d'enregistrement — sur une ligne NEUVE.
+         *
+         * « Sans catégorie » était la valeur de départ, donc oublier de
+         * répondre et répondre « aucune » produisaient la même ligne : elle
+         * partait grossir la file « à revoir », où il fallait la reprendre
+         * plus tard sans se souvenir de ce qu'on avait acheté. Le bouton
+         * attend maintenant la réponse, qui est à une tape puisque les
+         * pastilles proposent déjà les trois plus probables.
+         *
+         * Sur une MODIFICATION, non : une ligne de banque peut légitimement
+         * n'en avoir aucune, et refuser d'enregistrer un libellé corrigé
+         * parce que la catégorie manque serait bloquer la correction sur un
+         * reproche qui ne la concerne pas.
+         */
+        return isEditing || !categoryId.isEmpty
     }
 
     /*
@@ -335,7 +351,9 @@ struct AddTransactionSheet: View {
             }
         }
         .padding(.horizontal, Ed.gutter)
-        .padding(.top, 22)
+        // Le bandeau au-dessus laisse déjà 8 pt : 22 de plus faisaient 30 pt
+        // de blanc avant la première chose à décider.
+        .padding(.top, 4)
     }
 
     private func edKindPill(_ label: String, _ target: Kind) -> some View {
@@ -377,8 +395,8 @@ struct AddTransactionSheet: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, Ed.gutter)
-        .padding(.top, 22)
-        .padding(.bottom, 10)
+        .padding(.top, 14)
+        .padding(.bottom, 4)
     }
 
     /// Le chiffre descend quand il s'allonge : « 123 456,78 » à 80 points
@@ -419,8 +437,21 @@ struct AddTransactionSheet: View {
         .presentationBackground(.clear)
         .onAppear {
             if accountId.isEmpty {
+                /*
+                 * Le compte courant d'abord.
+                 *
+                 * `usableAccounts.first` est le premier de la liste des
+                 * comptes, et cette liste est triée pour l'écran Comptes, pas
+                 * pour la saisie : un livret pouvait s'y trouver en tête. Une
+                 * dépense se paie à 99 % depuis le compte courant, donc c'est
+                 * lui qui s'ouvre — et le compte passé en paramètre
+                 * (`presetAccountId`, quand on arrive depuis un compte) garde
+                 * la priorité.
+                 */
                 accountId = presetAccountId
                     ?? usableAccounts.first { $0.name == editing?.accountName }?.id
+                    ?? usableAccounts.first { $0.kind == "checking" }?.id
+                    ?? usableAccounts.first { $0.kind == "cash" }?.id
                     ?? usableAccounts.first?.id ?? ""
             }
             if isEditing, categoryId.isEmpty {
@@ -560,7 +591,7 @@ struct AddTransactionSheet: View {
                         .onChange(of: payee) { guess() }
                 }
                 .padding(.horizontal, 16)
-                .padding(.vertical, 15)
+                .padding(.vertical, editorial ? 11 : 15)
 
                 suggestions
 
@@ -644,7 +675,7 @@ struct AddTransactionSheet: View {
                         }
                         menuValue(
                             selected.map { EdSymbols.label($0.emoji, $0.name) }
-                                ?? t("v2.common.uncategorized", "Sans catégorie")
+                                ?? t("v2.add.pickCategory", "Choisir")
                         )
                     }
                 }
@@ -699,7 +730,7 @@ struct AddTransactionSheet: View {
                 .tint(Florin.control)
                 .disabled(forced)
                 .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                .padding(.vertical, rowPad)
 
                 Hairline()
             }
@@ -716,7 +747,7 @@ struct AddTransactionSheet: View {
                     .lineLimit(1...3)
             }
             .padding(.horizontal, Florin.gutter)
-            .padding(.vertical, 14)
+            .padding(.vertical, editorial ? 11 : 14)
         }
         .padding(.horizontal, Florin.gutter)
     }
@@ -906,8 +937,19 @@ struct AddTransactionSheet: View {
             control()
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.vertical, rowPad)
     }
+
+    /*
+     * Un cran de moins par ligne, en éditorial.
+     *
+     * Huit lignes à 12 pt de marge verticale débordaient de la feuille : la
+     * date et la note, qui sont les deux dernières, demandaient un
+     * défilement — et on ne défile pas un formulaire qu'on croit avoir fini.
+     * Trois points de moins par ligne, plus les 28 gagnés en haut, et tout
+     * tient sous le bouton.
+     */
+    private var rowPad: CGFloat { editorial ? 9 : 12 }
 
     private func save() {
         guard isValid, !saving else { return }

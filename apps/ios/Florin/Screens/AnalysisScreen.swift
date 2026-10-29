@@ -72,17 +72,20 @@ struct AnalysisScreen: View {
                  * les deux gestes.
                  */
                 EdHeader {
-                    EdIconButton(
-                        symbol: "line.3.horizontal",
-                        label: t("v2.settings.title", "Réglages"),
-                        action: onOpenSettings
-                    )
+                    EmptyView()
                 } trailing: {
-                    EdIconButton(
-                        symbol: "arrow.left.arrow.right",
-                        label: t("v2.nav.activity", "Activité")
-                    ) {
-                        route(.activity, TabRoute.activity.rootPath)
+                    HStack(spacing: 0) {
+                        EdIconButton(
+                            symbol: "arrow.left.arrow.right",
+                            label: t("v2.nav.activity", "Activité")
+                        ) {
+                            route(.activity, TabRoute.activity.rootPath)
+                        }
+                        EdIconButton(
+                            symbol: Ed.settingsSymbol,
+                            label: t("v2.settings.title", "Réglages"),
+                            action: onOpenSettings
+                        )
                     }
                     .padding(.trailing, -10)
                 }
@@ -168,13 +171,14 @@ struct AnalysisScreen: View {
                             UISelectionFeedbackGenerator().selectionChanged()
                             withAnimation(EdMotion.spring) { tabBinding.wrappedValue = chip.value }
                         } label: {
-                            EdPill(text: chip.label, filled: chip.value == tab)
+                            EdPill(text: chip.label, filled: chip.value == tab, large: true)
+                                .contentShape(Capsule())
                         }
                         .buttonStyle(.edPress)
                     }
                 }
                 .padding(.horizontal, Ed.gutter)
-                .padding(.vertical, 2)
+                .padding(.vertical, 4)
             }
             .scrollIndicators(.hidden)
             .edEnter()
@@ -441,24 +445,58 @@ struct AnalysisScreen: View {
             .max { abs($0.excess) < abs($1.excess) }
     }
 
+    /*
+     * Un écart se montre, il ne se raconte pas.
+     *
+     * « Septembre ressemble aux autres mois, sauf Transports : +312 €, soit
+     * 2,4× l'habitude. » Trois lignes de prose pour deux nombres, et les deux
+     * nombres noyés dedans — il fallait lire la phrase en entier pour
+     * apprendre qu'il y en avait une à lire.
+     *
+     * Les mêmes données, posées : le nom, l'écart dans sa pastille colorée,
+     * et le facteur en grand parce que c'est lui la surprise. Le mois passe
+     * en légende : il situe, il n'annonce pas.
+     */
     @ViewBuilder
     private func standoutLine(_ data: AnalysisData) -> some View {
         let months = data.categorySeries.months
         if let peak = standout(data), abs(peak.excess) > 40,
            let month = months.dropLast().last {
-            let amount = Money.string(
-                peak.excess, locale: locale, currency: currency, decimals: false, signed: true
+            // Dépenser plus que d'habitude est rouge, moins est vert : c'est
+            // le signe de l'écart, pas celui du montant.
+            let tone = peak.excess > 0 ? EdMoney.minus : EdMoney.plus
+            let times = peak.times.formatted(
+                .number.precision(.fractionLength(1)).locale(Locale(identifier: locale))
             )
-            let times = String(format: "%.1f", peak.times)
-            Text(t(
-                "v2.analysis.standout",
-                "{month} ressemble aux autres mois, sauf {name} : {amount}, soit {times}× l'habitude.",
-                ["month": MonthLabel.long(month, locale: locale),
-                 "name": peak.name, "amount": amount, "times": times]
-            ))
-            .font(.system(size: 17))
-            .foregroundStyle(Florin.text)
-            .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Text(peak.name)
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(Florin.text)
+                        .lineLimit(1)
+                    Spacer(minLength: 8)
+                    EdAmountPill(
+                        text: Money.string(
+                            peak.excess, locale: locale, currency: currency,
+                            decimals: false, signed: true
+                        ),
+                        tone: tone
+                    )
+                }
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text("\(times)×")
+                        .font(.system(size: 34, weight: .medium))
+                        .monospacedDigit()
+                        .foregroundStyle(tone)
+                    Text(t(
+                        "v2.analysis.vsUsualIn", "l'habitude, en {month}",
+                        ["month": MonthLabel.long(month, locale: locale)]
+                    ))
+                    .font(.system(size: 13))
+                    .foregroundStyle(Florin.text3)
+                    Spacer(minLength: 0)
+                }
+            }
             .padding(.horizontal, Florin.gutter)
             .hiddenWhenPrivate()
             .edEnter()
@@ -854,7 +892,135 @@ struct AnalysisScreen: View {
 
     // MARK: - Flux
 
+    @ViewBuilder
     private func flowsTab(_ data: AnalysisData) -> some View {
+        if editorial { edFlowsTab(data) } else { obsidianFlowsTab(data) }
+    }
+
+    /*
+     * Les entrées montent, les dépenses descendent.
+     *
+     * Obsidienne posait les deux barres d'un mois CÔTE À CÔTE, à partir du
+     * même bas : pour savoir si le mois était bon il fallait comparer deux
+     * hauteurs voisines, et la seule chose qui compte — l'écart — n'était
+     * dessinée nulle part. Autour d'un axe, l'écart EST le dessin : un mois
+     * qui gagne a plus de vert au-dessus que de rouge en dessous, et ça se
+     * voit sans lire un chiffre.
+     *
+     * Et plus de carte autour : l'éditorial pose l'encre sur le fond, et
+     * sépare au filet.
+     */
+    private func edFlowsTab(_ data: AnalysisData) -> some View {
+        VStack(alignment: .leading, spacing: 30) {
+            ScreenSection(
+                title: t("v2.analysis.tab.flows", "Flux"),
+                trailing: t("v2.analysis.scrubHint", "glisse sur le graphique")
+            ) {
+                VStack(alignment: .leading, spacing: 14) {
+                    EdFlowChart(
+                        flows: data.flows,
+                        selection: $pickedMonth,
+                        locale: locale,
+                        currency: currency
+                    )
+                    .frame(height: 220)
+
+                    HStack(spacing: 18) {
+                        legend(t("v2.analysis.income", "Entrées"), EdMoney.plus)
+                        legend(t("v2.analysis.expenses", "Dépenses"), EdMoney.minus)
+                        Spacer(minLength: 0)
+                        /*
+                         * « septembre en cours » plutôt que trois lignes
+                         * expliquant que les barres s'arrêtent à aujourd'hui
+                         * et que la moyenne ne compte que les mois terminés.
+                         * La barre pâle le dit déjà ; l'étiquette la nomme.
+                         */
+                        if let running = data.flows.last, running.isRunning {
+                            EdPill(text: "\(MonthLabel.long(running.month, locale: locale)) "
+                                + t("v2.analysis.running", "en cours"))
+                        }
+                    }
+                }
+                .padding(.horizontal, Florin.gutter)
+            }
+
+            ScreenSection(title: t("v2.analysis.monthByMonth", "Mois par mois")) {
+                edMonthTable(data)
+            }
+        }
+    }
+
+    /// Le tableau : un filet par ligne, les chiffres dans leur colonne, et
+    /// l'année écrite seulement quand elle change.
+    private func edMonthTable(_ data: AnalysisData) -> some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                Text(t("v2.analysis.month", "Mois"))
+                    .frame(width: 58, alignment: .leading)
+                Text(t("v2.analysis.income", "Entrées"))
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                Text(t("v2.analysis.expenses", "Dépenses"))
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                Text(t("v2.analysis.net", "Net"))
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+            .font(.system(size: 11))
+            .foregroundStyle(Florin.text3)
+            .padding(.bottom, 8)
+
+            ForEach(Array(monthRows(data).enumerated()), id: \.element.flow.id) { index, entry in
+                if let year = entry.year {
+                    Text(year)
+                        .font(.system(size: 12, weight: .semibold))
+                        .monospacedDigit()
+                        .foregroundStyle(Florin.text3)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.top, index > 0 ? 18 : 0)
+                        .padding(.bottom, 4)
+                } else if index > 0 {
+                    EdRule()
+                }
+                let flow = entry.flow
+                let picked = pickedMonth?.id == flow.id
+                Button {
+                    UISelectionFeedbackGenerator().selectionChanged()
+                    pickedMonth = picked ? nil : flow
+                } label: {
+                    HStack(spacing: 8) {
+                        Text(MonthLabel.short(flow.month, locale: locale))
+                            .font(.system(size: 14, weight: picked ? .semibold : .regular))
+                            .foregroundStyle(Florin.text)
+                            .lineLimit(1)
+                            .frame(width: 58, alignment: .leading)
+                        edCell(flow.income, tone: EdMoney.plus)
+                        edCell(-flow.expense, tone: EdMoney.minus)
+                        edCell(flow.net, tone: EdMoney.tone(flow.net), weight: .semibold)
+                    }
+                    .padding(.vertical, 12)
+                    .background(picked ? Florin.text.opacity(0.05) : .clear)
+                }
+                .buttonStyle(.edPress)
+            }
+        }
+        .padding(.horizontal, Florin.gutter)
+    }
+
+    private func edCell(
+        _ amount: Double, tone: Color, weight: Font.Weight = .regular
+    ) -> some View {
+        PrivateText(Money.string(
+            amount, locale: locale, currency: currency, decimals: false
+        ))
+        .font(.system(size: 14, weight: weight))
+        .monospacedDigit()
+        .foregroundStyle(tone)
+        .lineLimit(1)
+        .minimumScaleFactor(0.8)
+        .multilineTextAlignment(.trailing)
+        .frame(maxWidth: .infinity, alignment: .trailing)
+    }
+
+    private func obsidianFlowsTab(_ data: AnalysisData) -> some View {
         VStack(alignment: .leading, spacing: 30) {
             ScreenSection(
                 title: t("v2.analysis.tab.flows", "Flux"),
@@ -1010,7 +1176,6 @@ struct AnalysisScreen: View {
         let cells = monthCells(byDay, month: month).compactMap { $0 }.filter { !$0.future }
         let cuts = heatCuts(Array(byDay.values))
         let quiet = cells.filter { $0.amount <= 0 }.count
-        let heaviest = cells.max { $0.amount < $1.amount }
         let total = cells.reduce(0) { $0 + max(0, $1.amount) }
 
         return VStack(alignment: .leading, spacing: 30) {
@@ -1026,29 +1191,14 @@ struct AnalysisScreen: View {
                     }
                 }
                 .padding(.horizontal, Florin.gutter)
-            }
 
-            if let heaviest, heaviest.amount > 0 {
-                VStack(alignment: .leading, spacing: 12) {
-                    Eyebrow(text: t("v2.analysis.busiestDay", "Jour le plus lourd"))
+                // Ce que la grille ne compte pas pour toi : les cases vides.
+                if quiet > 0 {
+                    Text(t("v2.analysis.quietDays", "{count} jours sans dépense",
+                           ["count": quiet]))
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(Florin.text2)
                         .padding(.horizontal, Florin.gutter)
-                    FlorinCard {
-                        HStack {
-                            Text(DayLabel.string(heaviest.date, locale: locale, t: t))
-                                .font(.system(size: 14, weight: .medium))
-                            Spacer()
-                            AmountText(value: -heaviest.amount, locale: locale,
-                                       currency: currency, decimals: false, signed: false)
-                        }
-                    }
-                    .padding(.horizontal, Florin.gutter)
-                    if quiet > 0 {
-                        Text(t("v2.analysis.quietDays", "{count} jours sans dépense",
-                               ["count": quiet]))
-                            .font(.system(size: 12.5))
-                            .foregroundStyle(Florin.text2)
-                            .padding(.horizontal, Florin.gutter)
-                    }
                 }
             }
         }
@@ -1150,18 +1300,41 @@ struct AnalysisScreen: View {
     /// each other — so every month draws six rows whether it needs six or five.
     /// A grid that changed height with the month would shunt the legend and
     /// everything under it up and down on every swipe.
+    /*
+     * En éditorial, un seul mois dessiné et un balayage par-dessus.
+     *
+     * Le `TabView` paginé installe un `UIScrollView` horizontal, et ce
+     * scroll-view gagne le pan vertical qu'on commence le doigt posé sur la
+     * grille : on ne pouvait pas faire défiler la page depuis le calendrier.
+     * `EdMonthSwipe` est un geste, pas un scroll-view — il ne prend que
+     * l'horizontal, et le vertical repart au défilement de la page. C'est le
+     * même geste que le mois du Plan.
+     */
+    @ViewBuilder
     private func monthPages(_ byDay: [String: Double], months: [String], cuts: [Double]) -> some View {
         let width = gridWidth > 0 ? gridWidth : Self.estimatedGridWidth()
         let side = Self.cellSide(width)
-        return TabView(selection: monthSelection(months)) {
-            ForEach(months, id: \.self) { key in
-                grid(monthCells(byDay, month: key), cuts: cuts)
-                    .frame(maxHeight: .infinity, alignment: .top)
-                    .tag(key)
+        let height = side * CGFloat(Self.gridRows) + Self.cellGap * CGFloat(Self.gridRows - 1)
+        if editorial {
+            let month = shownMonth(months)
+            grid(monthCells(byDay, month: month), cuts: cuts)
+                .frame(height: height, alignment: .top)
+                .modifier(EdMonthSwipe { direction in
+                    let index = (months.firstIndex(of: month) ?? months.count - 1) + direction
+                    guard months.indices.contains(index) else { return }
+                    withAnimation(.snappy(duration: 0.22)) { calendarMonth = months[index] }
+                })
+        } else {
+            TabView(selection: monthSelection(months)) {
+                ForEach(months, id: \.self) { key in
+                    grid(monthCells(byDay, month: key), cuts: cuts)
+                        .frame(maxHeight: .infinity, alignment: .top)
+                        .tag(key)
+                }
             }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            .frame(height: height)
         }
-        .tabViewStyle(.page(indexDisplayMode: .never))
-        .frame(height: side * CGFloat(Self.gridRows) + Self.cellGap * CGFloat(Self.gridRows - 1))
     }
 
     private var weekdayRow: some View {
@@ -1678,6 +1851,124 @@ struct FlowChart: View {
         // graphique posé dans une liste confisque le doigt et prive l'écran de
         // son tirer-pour-rafraîchir. `chartXSelection` laisse le système
         // arbitrer — appui maintenu pour scruter, balayage pour défiler.
+        .chartXSelection(value: $touched)
+        .onChange(of: touched) { _, key in
+            guard let key else { selection = nil; return }
+            let hit = flows.first { $0.month == key }
+            if hit?.id != selection?.id {
+                selection = hit
+                UISelectionFeedbackGenerator().selectionChanged()
+            }
+        }
+    }
+}
+
+/*
+ * Les flux, autour d'un axe.
+ *
+ * Même données que `FlowChart`, même scrutation système — mais les entrées
+ * montent et les dépenses descendent, et la ligne zéro est tracée. Pas de
+ * quadrillage : deux filets suffisent, et l'encre reste franche.
+ */
+struct EdFlowChart: View {
+    let flows: [MonthlyFlow]
+    @Binding var selection: MonthlyFlow?
+    let locale: String
+    let currency: String
+
+    @State private var touched: String?
+
+    /// Pleine encre pour le mois sous le doigt, atténuée pour les autres, et
+    /// plus pâle encore pour le mois en cours — qui n'est pas fini.
+    private func ink(_ flow: MonthlyFlow) -> Double {
+        let picked = selection == nil || selection?.id == flow.id ? 1.0 : 0.3
+        return picked * (flow.isRunning ? 0.45 : 1)
+    }
+
+    var body: some View {
+        Chart {
+            ForEach(flows) { flow in
+                /*
+                 * `yStart`/`yEnd` et non `y` : une barre à intervalle explicite
+                 * n'est pas empilée avec sa voisine. Avec deux `y` au même
+                 * mois, Swift Charts les additionnerait et les dépenses
+                 * repartiraient du sommet des entrées.
+                 */
+                BarMark(
+                    x: .value("Mois", flow.month),
+                    yStart: .value("De", 0),
+                    yEnd: .value("À", flow.income),
+                    width: .fixed(7)
+                )
+                .foregroundStyle(EdMoney.plus.opacity(ink(flow)))
+                .cornerRadius(2)
+
+                BarMark(
+                    x: .value("Mois", flow.month),
+                    yStart: .value("De", -flow.expense),
+                    yEnd: .value("À", 0),
+                    width: .fixed(7)
+                )
+                .foregroundStyle(EdMoney.minus.opacity(ink(flow)))
+                .cornerRadius(2)
+
+                // Le mois en cours n'a pas encore sa paie : son net est un
+                // creux qui ne dit rien. Voir `FlowChart`.
+                if !flow.isRunning {
+                    LineMark(
+                        x: .value("Mois", flow.month),
+                        y: .value("Net", flow.net),
+                        series: .value("Série", "net")
+                    )
+                    .foregroundStyle(Florin.text.opacity(0.5))
+                    .lineStyle(StrokeStyle(lineWidth: 1.5, lineCap: .round))
+                    .interpolationMethod(.monotone)
+                }
+            }
+
+            RuleMark(y: .value("Zéro", 0))
+                .foregroundStyle(Florin.text.opacity(0.35))
+                .lineStyle(StrokeStyle(lineWidth: 1))
+
+            if let selection {
+                RuleMark(x: .value("Mois", selection.month))
+                    .foregroundStyle(Florin.text.opacity(0.12))
+                    .lineStyle(StrokeStyle(lineWidth: 1))
+            }
+        }
+        .chartLegend(.hidden)
+        .chartYAxis {
+            AxisMarks(position: .leading, values: .automatic(desiredCount: 5)) { value in
+                AxisValueLabel {
+                    if let amount = value.as(Double.self) {
+                        Text(Money.compact(abs(amount), locale: locale, currency: currency))
+                            .font(.system(size: 10))
+                            .foregroundStyle(Florin.text3)
+                            .hiddenWhenPrivate()
+                    }
+                }
+            }
+        }
+        .chartXAxis {
+            AxisMarks { value in
+                AxisValueLabel {
+                    if let key = value.as(String.self) {
+                        // Voir `FlowChart` : l'axe porte « 2026-09 » parce que
+                        // treize mois couvrent deux ans.
+                        VStack(spacing: 0) {
+                            Text(MonthLabel.short(key, locale: locale))
+                            if key == flows.first?.month || key.hasSuffix("-01") {
+                                Text(key.prefix(4))
+                                    .font(.system(size: 8, weight: .semibold))
+                                    .foregroundStyle(Florin.text3.opacity(0.7))
+                            }
+                        }
+                        .font(.system(size: 10))
+                        .foregroundStyle(Florin.text3)
+                    }
+                }
+            }
+        }
         .chartXSelection(value: $touched)
         .onChange(of: touched) { _, key in
             guard let key else { selection = nil; return }

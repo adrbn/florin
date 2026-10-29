@@ -120,7 +120,7 @@ struct EditorialActivity: View {
                 // La pastille « Activité · 3 223 opérations » occupait une
                 // ligne pour dire le nom de l'onglet qu'on vient d'ouvrir et
                 // un nombre dont on ne fait rien.
-                waiting.edEnter().padding(.top, 8)
+                waiting.edEnter().padding(.top, 4)
 
                 if let first = days.first {
                     // Le haut de la liste sort de la vue comme le reste : il
@@ -131,18 +131,10 @@ struct EditorialActivity: View {
 
                 ForEach(Array(days.enumerated()), id: \.element.day) { index, section in
                     if index > 0 {
-                        let net = section.rows.reduce(0) { $0 + $1.amount }
-                        EdSection(
-                            text: dayLabel(section.day),
-                            trailing: Money.string(
-                                net, locale: locale, currency: currency,
-                                decimals: false, signed: true
-                            ),
-                            trailingTone: EdMoney.tone(net)
-                        )
-                        .padding(.top, 34)
-                        .padding(.bottom, 6)
-                        .edEnter()
+                        EdSection(text: dayLabel(section.day))
+                            .padding(.top, 34)
+                            .padding(.bottom, 6)
+                            .edEnter()
                     }
                     rows(section.rows)
                     dayTotal(section.rows)
@@ -269,7 +261,7 @@ struct EditorialActivity: View {
                     label: t("v2.activity.filters", "Filtres")
                 ) { filtering = true }
                 EdIconButton(
-                    symbol: "person.crop.circle",
+                    symbol: Ed.settingsSymbol,
                     label: t("v2.settings.title", "Réglages"),
                     action: onOpenSettings
                 )
@@ -313,21 +305,20 @@ struct EditorialActivity: View {
      * chiffre revient en pied de journée, dans la colonne des montants, où
      * on le cherche quand on a fini de lire. Voir `dayTotal`.
      */
+    /*
+     * Le jour s'annonce, il ne se compte pas deux fois.
+     *
+     * Le net de la journée était écrit à droite du nom du jour ET en pied de
+     * la liste. Le même nombre, deux fois, à deux styles : en haut il se lit
+     * avant les lignes qui le composent, donc il ne veut rien dire encore.
+     * En pied, il clôt. Seul le pied reste.
+     */
     private func hero(_ section: (day: Date, rows: [Transaction])) -> some View {
-        let net = section.rows.reduce(0) { $0 + $1.amount }
-        return HStack(alignment: .lastTextBaseline, spacing: 10) {
-            EdHero(text: dayLabel(section.day))
-            Spacer(minLength: 8)
-            PrivateText(Money.string(
-                net, locale: locale, currency: currency, decimals: false, signed: true
-            ))
-            .font(.system(size: 15, weight: .medium))
-            .monospacedDigit()
-            .foregroundStyle(EdMoney.tone(net))
-            .edNumeric(net)
-        }
-        .padding(.top, 14)
+        EdHero(text: dayLabel(section.day))
+            .padding(.top, hasWaiting ? 4 : 14)
     }
+
+    private var hasWaiting: Bool { !upcoming.isEmpty || !schedules.isEmpty }
 
     /// Le total d'une journée, en pied, dans la colonne des montants.
     @ViewBuilder

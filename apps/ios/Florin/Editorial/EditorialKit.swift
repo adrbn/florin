@@ -37,6 +37,18 @@ enum Ed {
      */
     static func heroLeading(_ size: CGFloat) -> CGFloat { -(size * 0.22) }
 
+    /*
+     * Un seul pictogramme pour les réglages, et toujours à droite.
+     *
+     * Trois boutons différents ouvraient la même page : trois barres sur
+     * l'accueil et l'analyse, une tête dans un rond sur le plan et
+     * l'activité. Les trois barres annoncent un menu de navigation, la tête
+     * un compte utilisateur : aucun des deux ne dit « réglages ». Un
+     * engrenage le dit, et le dernier rond à droite est le même endroit sur
+     * les cinq onglets.
+     */
+    static let settingsSymbol = "gearshape"
+
     /// Le resserrement des grandes tailles, en points plutôt qu'en pourcents.
     static func tracking(_ size: CGFloat, _ ratio: CGFloat) -> CGFloat { -size * ratio }
 }
@@ -55,14 +67,23 @@ struct EdPill: View {
     let text: String
     var tone: Color = Florin.text
     var filled = false
+    /*
+     * La taille d'une étiquette, et celle d'un bouton.
+     *
+     * Une pastille qui NOMME (« Plan 2026 ») se lit à 12 pt et ne se touche
+     * pas. Une pastille qui CHANGE l'écran se touche, donc elle a besoin de
+     * ses 44 pt de cible et d'un texte qu'on lit en passant le pouce.
+     * Mêmes bords, deux tailles, un seul composant.
+     */
+    var large = false
 
     var body: some View {
         Text(text)
-            .font(.system(size: 12))
+            .font(.system(size: large ? 15 : 12, weight: large ? .semibold : .regular))
             .foregroundStyle(filled ? Florin.bg : tone)
             .lineLimit(1)
-            .padding(.horizontal, 10)
-            .frame(height: 24)
+            .padding(.horizontal, large ? 15 : 10)
+            .frame(height: large ? 36 : 24)
             .background(
                 Capsule().fill(filled ? tone : .clear)
             )
@@ -90,6 +111,17 @@ struct EdHero: View {
                 Text(String(line))
                     .font(.system(size: size, weight: .medium))
                     .tracking(Ed.tracking(size, 0.05))
+                    /*
+                     * Le resserrement rognait la dernière lettre.
+                     *
+                     * `tracking` est NÉGATIF ici — c'est le propre du titre
+                     * éditorial — et il est retiré après CHAQUE caractère, le
+                     * dernier compris. La largeur annoncée perd donc un cran
+                     * que l'encre du dernier glyphe occupe encore : le « e »
+                     * de « June » et le « y » de « Today » passaient sous le
+                     * bord. On rend ce cran, et rien d'autre.
+                     */
+                    .padding(.trailing, -Ed.tracking(size, 0.05))
                     .lineLimit(oneLine ? 1 : nil)
                     .minimumScaleFactor(oneLine ? 0.46 : 1)
             }
@@ -138,25 +170,34 @@ private struct EdNumericIfNeeded: ViewModifier {
     }
 }
 
+extension View {
+    /// `edEnter`, mais seulement quand c'est l'éditorial qui regarde : les
+    /// quatre autres thèmes n'ont pas ce mouvement.
+    @ViewBuilder
+    func edEnterIfEditorial() -> some View {
+        if FlorinPalette.selected == .editorial { edEnter() } else { self }
+    }
+}
+
 /// Le titre d'une section, un cran sous le héros.
 struct EdSection: View {
     let text: String
     var trailing: String?
-    /// Un total de journée se lit à sa couleur avant son signe.
-    var trailingTone: Color = Florin.text2
 
     var body: some View {
         HStack(alignment: .lastTextBaseline) {
             Text(text)
                 .font(.system(size: 34, weight: .medium))
                 .tracking(Ed.tracking(34, 0.045))
+                // Voir `EdHero` : le cran retiré au dernier caractère.
+                .padding(.trailing, -Ed.tracking(34, 0.045))
                 .foregroundStyle(Florin.text)
             if let trailing {
                 Spacer(minLength: 8)
                 PrivateText(trailing)
                     .font(.system(size: 18))
                     .monospacedDigit()
-                    .foregroundStyle(trailingTone)
+                    .foregroundStyle(Florin.text2)
             }
         }
         .edEnter()
@@ -571,8 +612,18 @@ extension View {
 /// décide à sa place. Un point médian tient la colonne sans y mettre de
 /// couleur : la ligne garde son alignement, l'écran garde sa palette.
 enum EdSymbols {
+    /*
+     * En éditorial, une catégorie n'a pas de vignette — et surtout pas un
+     * point à la place.
+     *
+     * Le point médian était là pour tenir la colonne où les autres thèmes
+     * posent un emoji. Mais un glyphe mis pour occuper une place se lit comme
+     * un glyphe RATÉ : dans le sélecteur de catégories, soixante lignes
+     * commençaient par « · » et on cherchait l'icône qui n'avait pas chargé.
+     * La colonne reste (les noms s'alignent), elle est juste vide.
+     */
     static func bullet(_ emoji: String?) -> String {
-        if FlorinPalette.selected == .editorial { return "·" }
+        if FlorinPalette.selected == .editorial { return "" }
         return emoji ?? "•"
     }
 }
@@ -621,7 +672,17 @@ enum Greeting {
         default: hello = t("v2.overview.evening", "Bonsoir")
         }
         let who = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        return who.isEmpty ? hello : "\(hello) \(who)"
+        /*
+         * Le prénom à la ligne.
+         *
+         * « Bon après-midi Adrien » sur une seule ligne de 64 pt fait deux
+         * fois la largeur de l'écran : `minimumScaleFactor` le ramenait à
+         * 0,46, c'est-à-dire 29 pt, et un titre réduit de moitié qui touche
+         * les deux bords ne ressemble plus à un titre — il a l'air centré.
+         * Sur deux lignes il garde son corps, et l'interligne négatif du
+         * héros fait que la seconde ne coûte pas une ligne entière.
+         */
+        return who.isEmpty ? hello : "\(hello)\n\(who)"
     }
 }
 
@@ -969,11 +1030,29 @@ struct EdWord: View {
     var size: CGFloat = 22
 
     var body: some View {
-        Text(text)
-            .font(.system(size: size, weight: .medium))
-            .foregroundStyle(Florin.text)
-            .underline(true, color: Florin.accent)
-            .lineLimit(1)
+        /*
+         * Cliquable sans être souligné.
+         *
+         * Le trait orange sous un mot de 22 pt traversait la phrase de part
+         * en part et se lisait comme une faute de frappe signalée. Le mot
+         * porte son propre filet, dans l'encre du texte et à distance de la
+         * ligne de base : c'est l'affordance, pas une correction.
+         */
+        HStack(spacing: 4) {
+            Text(text)
+                .font(.system(size: size, weight: .semibold))
+                .foregroundStyle(Florin.text)
+                .lineLimit(1)
+            Image(systemName: "chevron.down")
+                .font(.system(size: size * 0.42, weight: .semibold))
+                .foregroundStyle(Florin.text3)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 2)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Florin.text.opacity(0.07))
+        )
     }
 }
 
@@ -1055,5 +1134,39 @@ struct EdWordPicker<Value: Hashable>: View {
             .presentationCompactAdaptation(.popover)
             .presentationBackground(Florin.bg)
         }
+    }
+}
+
+/*
+ * On tourne le mois comme on tourne une page.
+ *
+ * `simultaneousGesture` et non `gesture` : la vue dessous garde ses propres
+ * gestes — le défilement vertical de la page, le tap d'une case. Le drapeau
+ * partagé `EdGesture.scrubbing` prévient le balayage d'onglets que ce doigt
+ * est déjà pris.
+ */
+struct EdMonthSwipe: ViewModifier {
+    let step: (Int) -> Void
+
+    func body(content: Content) -> some View {
+        content.simultaneousGesture(
+            DragGesture(minimumDistance: 24)
+                .onChanged { move in
+                    guard abs(move.translation.width) > abs(move.translation.height) else {
+                        return
+                    }
+                    EdGesture.shared.scrubbing = true
+                }
+                .onEnded { move in
+                    defer {
+                        DispatchQueue.main.async { EdGesture.shared.scrubbing = false }
+                    }
+                    let dx = move.translation.width
+                    guard abs(dx) > 50, abs(dx) > abs(move.translation.height) * 1.5
+                    else { return }
+                    UISelectionFeedbackGenerator().selectionChanged()
+                    step(dx < 0 ? 1 : -1)
+                }
+        )
     }
 }

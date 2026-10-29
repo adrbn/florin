@@ -154,8 +154,22 @@ struct EditorialHome: View {
                             )
                         }
                     )
-                    // Exactement la hauteur de la fenêtre.
-                    .containerRelativeFrame(.vertical)
+                    /*
+                     * La fenêtre, moins ce qu'on a déjà rendu.
+                     *
+                     * `containerRelativeFrame(.vertical)` FIXE la hauteur :
+                     * rogner la marge intérieure ne refermait donc rien, elle
+                     * rendait juste sa place à la pile, qui s'étirait d'autant.
+                     * Le bloc lui-même doit raccourcir, sinon ce qui le suit
+                     * ne remonte pas.
+                     *
+                     * Les deux ensemble tiennent la pile à hauteur constante :
+                     * le cadre perd `lift`, la marge perd `lift`, la pile
+                     * garde `fenêtre − 104`.
+                     */
+                    .containerRelativeFrame(.vertical, alignment: .top) { height, _ in
+                        height - lift
+                    }
 
                     // MARK: Ce qui se lit en descendant
 
@@ -263,20 +277,23 @@ struct EditorialHome: View {
     /// menu se lisait comme une partie de l'encoche.
     private var header: some View {
         EdHeader {
-            EdIconButton(
-                symbol: "line.3.horizontal",
-                label: t("v2.settings.title", "Réglages"),
-                action: onOpenSettings
-            )
+            EmptyView()
         } trailing: {
-            EdIconButton(
-                symbol: "arrow.trianglehead.2.clockwise",
-                label: t("v2.common.refresh", "Actualiser"),
-                spinning: model.syncing
-            ) {
-                Task { await model.sync(confirmCurrent: false) }
+            HStack(spacing: 0) {
+                EdIconButton(
+                    symbol: "arrow.trianglehead.2.clockwise",
+                    label: t("v2.common.refresh", "Actualiser"),
+                    spinning: model.syncing
+                ) {
+                    Task { await model.sync(confirmCurrent: false) }
+                }
+                .disabled(model.syncing || !(model.overview?.bankSyncConfigured ?? false))
+                EdIconButton(
+                    symbol: Ed.settingsSymbol,
+                    label: t("v2.settings.title", "Réglages"),
+                    action: onOpenSettings
+                )
             }
-            .disabled(model.syncing || !(model.overview?.bankSyncConfigured ?? false))
             .padding(.trailing, -10)
         }
         .padding(.top, 18)
@@ -745,25 +762,39 @@ struct EditorialHome: View {
                     .font(.system(size: 15))
                     .lineLimit(1)
                 Spacer(minLength: 8)
-                PrivateText(Money.string(
-                    account.displayValue, locale: data.localeTag, currency: data.currency,
-                    decimals: false
-                ))
-                .font(.system(size: 15, weight: .semibold))
-                .monospacedDigit()
+                // Sur la carte ouverte, le montant est écrit en grand juste
+                // dessous : l'écrire deux fois sur la même carte ne dit rien
+                // de plus et pousse le nom contre le bord.
+                if !open {
+                    PrivateText(Money.string(
+                        account.displayValue, locale: data.localeTag,
+                        currency: data.currency, decimals: false
+                    ))
+                    .font(.system(size: 15, weight: .semibold))
+                    .monospacedDigit()
+                }
             }
             .frame(height: max(18, band - 14), alignment: .center)
 
             VStack(alignment: .leading, spacing: 10) {
-                if lead {
-                    PrivateText(Money.string(
-                        data.allocation.cash, locale: data.localeTag,
-                        currency: data.currency, decimals: false
-                    ))
-                    .font(.system(size: 26, weight: .medium))
-                    .monospacedDigit()
-                }
                 Spacer(minLength: 0)
+                /*
+                 * LE MONTANT DE CE COMPTE, pas celui d'un autre.
+                 *
+                 * Il écrivait `data.allocation.cash` — l'épargne liquide de
+                 * tout le patrimoine. Donc les six cartes affichaient le même
+                 * grand nombre, et celui-ci ne correspondait à aucune d'elles.
+                 *
+                 * Il est aussi descendu contre sa barre : en haut de la carte,
+                 * il laissait entre lui et elle un trou qui grandissait avec
+                 * la carte.
+                 */
+                PrivateText(Money.string(
+                    account.displayValue, locale: data.localeTag,
+                    currency: data.currency, decimals: false
+                ))
+                .font(.system(size: 26, weight: .medium))
+                .monospacedDigit()
                 EdShare(share: share, ink: ink)
                 HStack(spacing: 8) {
                     Text("\(share)%")

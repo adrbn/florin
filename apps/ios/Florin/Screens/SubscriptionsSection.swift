@@ -23,6 +23,42 @@ struct SubscriptionsSection: View {
 
     @State private var naming: NamedMerchant?
 
+    /*
+     * Un loyer se prélève tous les mois, ce n'est pas un abonnement.
+     *
+     * Le radar cherche une régularité, et une régularité est exactement ce
+     * qu'un loyer a : même bénéficiaire, même montant, tous les mois. Aucun
+     * réglage de seuil ne distinguera jamais Joivy de Netflix, parce que la
+     * différence n'est pas dans les chiffres — elle est dans ce que le
+     * lecteur appelle un abonnement. Donc il le dit, par catégorie, et on
+     * s'en souvient.
+     */
+    @AppStorage("subs.excludedCategories") private var excludedRaw = ""
+
+    private var excluded: Set<String> {
+        Set(excludedRaw.split(separator: "\n").map(String.init))
+    }
+
+    private func toggle(_ category: String) {
+        UISelectionFeedbackGenerator().selectionChanged()
+        var next = excluded
+        if next.contains(category) { next.remove(category) } else { next.insert(category) }
+        excludedRaw = next.sorted().joined(separator: "\n")
+    }
+
+    private var editorial: Bool { FlorinPalette.selected == .editorial }
+
+    /// Les catégories présentes parmi les séries détectées, les plus chères
+    /// d'abord — c'est la liste des cases à cocher.
+    private var presentCategories: [String] {
+        var seen: [String: Double] = [:]
+        for sub in subscriptions {
+            let name = sub.categoryName ?? t("v2.plan.uncategorized", "Sans catégorie")
+            seen[name, default: 0] += sub.annualCost
+        }
+        return seen.sorted { $0.value > $1.value }.map(\.key)
+    }
+
     /// The merchant sheet's inputs, carried together so `sheet(item:)` has
     /// something to key on.
     private struct NamedMerchant: Identifiable {
@@ -32,13 +68,17 @@ struct SubscriptionsSection: View {
     }
 
     private var sorted: [SubscriptionMatch] {
-        subscriptions.sorted { $0.annualCost > $1.annualCost }
+        subscriptions
+            .filter { !excluded.contains($0.categoryName ?? t("v2.plan.uncategorized", "Sans catégorie")) }
+            .sorted { $0.annualCost > $1.annualCost }
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 30) {
-            if sorted.isEmpty {
+            if subscriptions.isEmpty {
                 empty
+            } else if editorial {
+                edList
             } else {
                 list
             }
@@ -81,7 +121,104 @@ struct SubscriptionsSection: View {
         }
     }
 
+
+    // MARK: - L'éditorial
+
+    /*
+     * Ce que ça coûte à l'année d'abord, les lignes ensuite.
+     *
+     * Un abonnement se décide au prix annuel : 13,49 € par mois ne fait
+     * jamais réfléchir, 161,88 € par an si. La carte inverse porte donc
+     * l'année, et le mois passe en second — c'est l'inverse de la liste
+     * d'Obsidienne, qui mettait le mensuel en gros et l'annuel en gris.
+     */
+    private var edList: some View {
+        let yearly = sorted.reduce(0) { $0 + $1.annualCost }
+        return VStack(alignment: .leading, spacing: 18) {
+            EdSection(text: t("v2.analysis.tab.subs", "Abonnements"))
+                .padding(.horizontal, Florin.gutter)
+
+            EdInverse {
+                VStack(alignment: .leading, spacing: 6) {
+                    EdInk(
+                        text: Money.string(
+                            yearly, locale: locale, currency: currency, decimals: false
+                        ),
+                        size: 40, weight: .medium, money: true
+                    )
+                    EdInk(
+                        text: t("v2.analysis.subsPerYear", "par an, sur {count} abonnements",
+                                ["count": sorted.count]),
+                        size: 13, dim: true
+                    )
+                    EdInk(
+                        text: Money.string(
+                            yearly / 12, locale: locale, currency: currency, decimals: false
+                        ) + " " + t("v2.analysis.perMonthShort", "par mois"),
+                        size: 13, dim: true, money: true
+                    )
+                }
+            }
+            .padding(.horizontal, Florin.gutter)
+
+            VStack(spacing: 0) {
+                ForEach(Array(sorted.enumerated()), id: \.element.id) { index, sub in
+                    if index > 0 { EdRule() }
+                    EdSubscriptionRow(
+                        sub: sub, locale: locale, currency: currency, t: t,
+                        cadence: cadence(sub), when: when(sub),
+                        open: { naming = merchant(sub) }
+                    )
+                }
+            }
+            .padding(.horizontal, Florin.gutter)
+
+            counts
+        }
+    }
+
+    /// Les catégories, et celles qu'on ne compte pas. Une pastille pleine
+    /// compte, une pastille au filet ne compte pas.
+    private var counts: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(t("v2.analysis.subsCounts", "Ce qui compte comme abonnement"))
+                .font(.system(size: 13))
+                .foregroundStyle(Florin.text3)
+            EdFlow {
+                ForEach(presentCategories, id: \.self) { category in
+                    Button { toggle(category) } label: {
+                        EdPill(text: category, filled: !excluded.contains(category))
+                            .contentShape(Capsule())
+                    }
+                    .buttonStyle(.edPress)
+                }
+            }
+            Text(t("v2.analysis.subsRenameHint",
+                   "Touchez un abonnement pour lui donner son nom et son logo."))
+                .font(.system(size: 12))
+                .foregroundStyle(Florin.text3)
+        }
+        .padding(.horizontal, Florin.gutter)
+        .padding(.top, 8)
+    }
+
+    @ViewBuilder
     private var empty: some View {
+        if editorial {
+            VStack(alignment: .leading, spacing: 6) {
+                EdSection(text: t("v2.analysis.subsEmpty", "Aucun abonnement détecté"))
+                Text(t("v2.analysis.subsEmptyShort",
+                       "Un même bénéficiaire, au même montant, au moins trois fois."))
+                    .font(.system(size: 13))
+                    .foregroundStyle(Florin.text2)
+            }
+            .padding(.horizontal, Florin.gutter)
+        } else {
+            obsidianEmpty
+        }
+    }
+
+    private var obsidianEmpty: some View {
         FlorinCard {
             VStack(alignment: .leading, spacing: 6) {
                 Text(t("v2.analysis.subsEmpty", "Aucun abonnement détecté"))
@@ -208,5 +345,71 @@ private struct SubscriptionRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+/*
+ * Une ligne d'abonnement en éditorial.
+ *
+ * La bulle grise à pictogramme « repeat », répétée sept fois, ne distinguait
+ * rien — elle dessinait l'idée d'abonnement à côté de chaque abonnement. Le
+ * logo d'une marque, lui, est son identité : il reste quand il existe, et
+ * quand il n'existe pas c'est le nom qui porte la ligne, comme partout
+ * ailleurs dans l'éditorial.
+ */
+private struct EdSubscriptionRow: View {
+    let sub: SubscriptionMatch
+    let locale: String
+    let currency: String
+    let t: Strings
+    let cadence: String
+    let when: String
+    let open: () -> Void
+
+    @ObservedObject private var names = MerchantNames.shared
+    @ObservedObject private var logos = MerchantLogos.shared
+
+    var body: some View {
+        let key = MerchantNames.key(sub.payee)
+        let series = MerchantNames.seriesKey(sub.payee, amount: sub.amount)
+        let given = names.name(forKey: series)
+        let face = logos.face(forKey: series) ?? logos.face(forKey: key)
+        Button(action: open) {
+            HStack(spacing: 12) {
+                if let logo = face?.logo {
+                    Bubble(label: given ?? sub.payee, size: 34, logo: logo)
+                }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(given ?? PayeeText.merchant(sub.payee))
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Florin.text)
+                        .lineLimit(1)
+                    Text(when.isEmpty ? cadence : cadence + ", " + when)
+                        .font(.system(size: 12))
+                        .foregroundStyle(Florin.text3)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                VStack(alignment: .trailing, spacing: 4) {
+                    EdAmountPill(
+                        text: Money.string(
+                            -abs(sub.amount), locale: locale, currency: currency
+                        ),
+                        tone: EdMoney.minus
+                    )
+                    PrivateText(
+                        Money.string(
+                            sub.annualCost, locale: locale, currency: currency, decimals: false
+                        ) + "/" + t("v2.common.year", "an")
+                    )
+                    .font(.system(size: 11))
+                    .monospacedDigit()
+                    .foregroundStyle(Florin.text3)
+                }
+            }
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.edPress)
     }
 }

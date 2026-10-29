@@ -153,7 +153,7 @@ struct EditorialAccounts: View {
                 }
                 .disabled(model.syncing || !(model.overview?.bankSyncConfigured ?? false))
                 EdIconButton(
-                    symbol: "line.3.horizontal",
+                    symbol: Ed.settingsSymbol,
                     label: t("v2.settings.title", "Réglages"),
                     action: onOpenSettings
                 )

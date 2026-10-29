@@ -259,18 +259,20 @@ struct ScreenSection<Content: View>: View {
     @ViewBuilder var content: Content
 
     /*
-     * En éditorial, une section entre et sort en se fondant.
+     * En éditorial, une section entre et sort en se fondant — son TITRE.
      *
-     * C'est `edEnter` — le même mouvement que sur les quatre écrans réécrits.
-     * Posé ici plutôt que sur chaque section d'Analyse : il n'y a qu'une
-     * définition de « section », donc un seul endroit où le dire.
+     * `edEnter` est une `scrollTransition` : elle n'est à pleine opacité que
+     * quand la vue qui la porte est entièrement dans le cadre. Posée sur la
+     * section complète, elle demandait l'impossible — huit lignes de
+     * catégories font 700 pt, le cadre en fait 600 : la section n'était
+     * JAMAIS entière, donc jamais noire. « Ce qui bouge » s'affichait gris
+     * et translucide en permanence.
+     *
+     * Le titre, lui, fait 20 pt : il entre d'un coup, il se fond, et le
+     * contenu derrière reste de l'encre franche.
      */
     var body: some View {
-        if FlorinPalette.selected == .editorial {
-            stack.edEnter()
-        } else {
-            stack
-        }
+        stack
     }
 
     private var stack: some View {
@@ -291,6 +293,7 @@ struct ScreenSection<Content: View>: View {
                 }
             }
             .padding(.horizontal, Florin.gutter)
+            .edEnterIfEditorial()
             content
         }
     }
