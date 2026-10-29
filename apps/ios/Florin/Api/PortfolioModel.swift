@@ -32,6 +32,9 @@ struct Holding: Codable, Sendable, Identifiable {
     let plusValuePct: Double?
     let lastPrice: Double?
     let isStale: Bool
+    /// Le symbole boursier, quand la ligne en a un : c'est lui qui donne accès
+    /// à la courbe gardée. Absent sur le serveur, qui ne la sert pas.
+    var quoteSymbol: String?
 }
 
 struct PortfolioPayload: Codable, Sendable {

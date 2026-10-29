@@ -508,7 +508,8 @@ enum LocalQueries {
 
         let holdings = try db.query(
             """
-            SELECT id, label, quantity, cost_basis, last_price, last_price_at
+            SELECT id, label, quantity, cost_basis, last_price, last_price_at,
+                   quote_symbol
             FROM holdings WHERE account_id = ? ORDER BY created_at
             """,
             [.text(accountId)]
@@ -530,7 +531,8 @@ enum LocalQueries {
                 plusValue: round2(gain),
                 plusValuePct: basis > 0 ? gain / basis * 100 : nil,
                 lastPrice: price,
-                isStale: pricedAt.map { Date().timeIntervalSince($0) > 48 * 3600 } ?? false
+                isStale: pricedAt.map { Date().timeIntervalSince($0) > 48 * 3600 } ?? false,
+                quoteSymbol: row.string("quote_symbol")
             )
         }
 

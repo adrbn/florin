@@ -13,7 +13,7 @@ import Foundation
 enum LocalSchema {
     /// Bumped whenever the statements below change, so a future migration can
     /// tell what shape it is upgrading from.
-    static let version = 3
+    static let version = 4
 
     static let ddl = """
         CREATE TABLE IF NOT EXISTS users (
@@ -218,6 +218,24 @@ enum LocalSchema {
               updated_at TEXT NOT NULL DEFAULT (datetime('now'))
             );
         CREATE INDEX IF NOT EXISTS holdings_account_idx ON holdings(account_id);
+        /*
+         * Le cours d'hier, et celui d'avant.
+         *
+         * Un titre n'avait qu'un prix : le dernier. De quoi dire ce qu'il vaut,
+         * jamais ce qu'il a fait — et c'est la forme de la courbe qui dit si on
+         * garde ou si on vend. La même requête qui rend le prix rend la série
+         * entière, à un paramètre près ; ne pas la garder était du gaspillage.
+         *
+         * Rangé par symbole et non par ligne de portefeuille : deux lignes du
+         * même tracker suivent le même cours, et le demander deux fois n'y
+         * changerait rien.
+         */
+        CREATE TABLE IF NOT EXISTS quote_history (
+              symbol TEXT NOT NULL,
+              day TEXT NOT NULL,
+              close REAL NOT NULL,
+              PRIMARY KEY (symbol, day)
+            );
         CREATE INDEX IF NOT EXISTS transactions_status_idx ON transactions(status, occurred_at) WHERE deleted_at IS NULL;
         CREATE INDEX IF NOT EXISTS transactions_recurring_rule_idx ON transactions(recurring_rule_id) WHERE recurring_rule_id IS NOT NULL;
         CREATE UNIQUE INDEX IF NOT EXISTS transactions_recurrence_key_unique ON transactions(recurrence_key, account_id) WHERE recurrence_key IS NOT NULL;

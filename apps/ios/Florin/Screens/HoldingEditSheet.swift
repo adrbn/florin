@@ -29,6 +29,10 @@ struct HoldingEditSheet: View {
     @State private var price: String
     @State private var basis: String
     @State private var removing = false
+    /// Le symbole du fournisseur de cours, celui qui décide si cette ligne
+    /// suivra le marché ou restera au prix du jour où on l'a créée.
+    @State private var symbol: String
+    @State private var searching = false
 
     init(
         holding: Holding, locale: String, currency: String, t: Strings,
@@ -43,6 +47,7 @@ struct HoldingEditSheet: View {
         _quantity = State(initialValue: Self.plain(holding.quantity, digits: 4))
         _price = State(initialValue: holding.lastPrice.map { Self.plain($0, digits: 4) } ?? "")
         _basis = State(initialValue: Self.plain(holding.costBasis, digits: 2))
+        _symbol = State(initialValue: holding.quoteSymbol ?? "")
     }
 
     /// Les zéros de queue en moins : « 12,5 » et non « 12,5000 ».
@@ -67,13 +72,15 @@ struct HoldingEditSheet: View {
                         .multilineTextAlignment(.center)
                         .padding(.top, 10)
 
+                    quoteLink
+
                     field(t("v2.buy.quantity", "Quantité"), $quantity)
                     field(t("v2.buy.unitPrice", "Prix unitaire"), $price)
                     field(t("v2.tools.contributed", "Versé"), $basis)
 
                     Text(t(
                         "v2.holding.editHint",
-                        "La quantité et le cours disent ce que tu détiens. Le versé est l'argent réellement sorti du compte : le corriger ne déplace aucune liquidité."
+                        "Le versé est l'argent réellement sorti du compte : le corriger ne déplace aucune liquidité. Sans titre associé, le cours reste figé."
                     ))
                     .font(.system(size: 11.5))
                     .foregroundStyle(Florin.text3)
@@ -125,6 +132,64 @@ struct HoldingEditSheet: View {
         .presentationDragIndicator(.visible)
     }
 
+    /*
+     * Le lien avec le marché, ou son absence.
+     *
+     * Une ligne sans symbole n'est jamais recotée : elle garde le prix du jour
+     * où elle a été saisie et le présente comme s'il était d'aujourd'hui. Rien
+     * ne le disait, et c'était le défaut le plus coûteux de cet écran — d'où
+     * l'avertissement plutôt qu'un champ vide de plus.
+     */
+    private var quoteLink: some View {
+        Button { searching = true } label: {
+            HStack(spacing: 9) {
+                Image(systemName: symbol.isEmpty ? "exclamationmark.triangle.fill" : "chart.xyaxis.line")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(symbol.isEmpty ? Florin.warn : Florin.accent)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(
+                        symbol.isEmpty
+                            ? t("v2.holding.noQuote", "Aucun titre associé")
+                            : symbol
+                    )
+                    .font(.system(size: 14, weight: .medium))
+                    .monospaced(!symbol.isEmpty)
+                    .foregroundStyle(Florin.text)
+                    Text(
+                        symbol.isEmpty
+                            ? t("v2.holding.noQuoteHint", "Le cours ne se mettra pas à jour")
+                            : t("v2.holding.quoteHint", "Cours suivi automatiquement")
+                    )
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(Florin.text3)
+                }
+                Spacer(minLength: 6)
+                Text(
+                    symbol.isEmpty
+                        ? t("v2.asset.link", "Associer")
+                        : t("v2.common.edit", "Modifier")
+                )
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Florin.accent)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(Florin.surface2, in: RoundedRectangle(cornerRadius: 12))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, Florin.gutter)
+        .sheet(isPresented: $searching) {
+            AssetSearchSheet(t: t) { match in
+                symbol = match.symbol
+                // Le nom du fournisseur est plus complet que « CW8 » tapé à la
+                // main, mais on ne l'impose pas : un libellé déjà choisi est un
+                // choix, pas un manque.
+                if trimmed.isEmpty { label = match.name }
+            }
+        }
+    }
+
     private func field(_ title: String, _ text: Binding<String>) -> some View {
         VStack(spacing: 4) {
             Eyebrow(text: title)
@@ -144,8 +209,14 @@ struct HoldingEditSheet: View {
             unitPrice: OnboardingFlow.parse(price),
             costBasis: OnboardingFlow.parse(basis)
         )
+        try? LocalHoldings.setQuoteSymbol(
+            store: store, holdingId: holding.id,
+            symbol: symbol.trimmingCharacters(in: .whitespacesAndNewlines)
+        )
+        // Recoté tout de suite : attendre le prochain réveil laisserait voir
+        // un titre fraîchement associé qui affiche encore l'ancien prix.
+        Task { await LocalPricing.refresh(store: store); await onSaved() }
         UINotificationFeedbackGenerator().notificationOccurred(.success)
-        Task { await onSaved() }
         dismiss()
     }
 

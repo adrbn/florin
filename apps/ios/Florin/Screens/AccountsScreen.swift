@@ -462,6 +462,9 @@ struct AccountDetailScreen: View {
     @State private var cashOut: LocalHoldings.CashOut?
     /// La ligne de titres qu'on corrige — une saisie se reprend.
     @State private var editingHolding: Holding?
+    /// Six mois de cours par ligne de portefeuille, lus une fois. Les relire à
+    /// chaque évaluation du corps ferait cent trente lectures SQLite par image.
+    @State private var curves: [String: [LocalPricing.Point]] = [:]
     @State private var pairing: LocalHoldings.CashOut?
 
     init(model: OverviewModel, route: ActivityRoute) {
@@ -509,6 +512,13 @@ struct AccountDetailScreen: View {
             guard let account, account.kind.hasPrefix("broker"), let id = route.accountId else { return }
             await portfolio.load(accountId: id)
             loadPurchases()
+            loadCurves()
+        }
+        // Les cours arrivent après le portefeuille : la première ouverture les
+        // montre sans courbe, la suivante avec. Rechargées quand les lignes
+        // changent plutôt qu'à chaque passage, un achat les renouvelant.
+        .onChange(of: portfolio.payload?.holdings.map(\.id) ?? []) { _, _ in
+            loadCurves()
         }
         .sheet(isPresented: $editingLoan) {
             if let account {
@@ -949,7 +959,39 @@ struct AccountDetailScreen: View {
     }
 
     /// One position: what it is, how much of it there is, and what it is worth.
+    /// Les courbes gardées, relues d'un coup. Une ligne sans symbole n'en a
+    /// pas : elle garde son chiffre et perd seulement son dessin.
+    private func loadCurves() {
+        guard let store = LocalStore.shared,
+              let holdings = portfolio.payload?.holdings
+        else { return }
+        var out: [String: [LocalPricing.Point]] = [:]
+        for holding in holdings {
+            guard let symbol = holding.quoteSymbol, !symbol.isEmpty else { continue }
+            let points = LocalPricing.history(store: store, symbol: symbol)
+            if points.count >= 2 { out[holding.id] = points }
+        }
+        curves = out
+    }
+
     private func holdingRow(_ holding: Holding, locale: String, currency: String) -> some View {
+        VStack(spacing: 7) {
+            holdingFigures(holding, locale: locale, currency: currency)
+            if let curve = curves[holding.id], curve.count >= 2 {
+                Sparkline(
+                    points: curve,
+                    // Le prix de revient unitaire : c'est lui que la courbe
+                    // doit franchir pour que la ligne gagne quelque chose.
+                    reference: holding.quantity > 0
+                        ? holding.costBasis / holding.quantity : nil
+                )
+            }
+        }
+    }
+
+    private func holdingFigures(
+        _ holding: Holding, locale: String, currency: String
+    ) -> some View {
         HStack(alignment: .top, spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(holding.label)

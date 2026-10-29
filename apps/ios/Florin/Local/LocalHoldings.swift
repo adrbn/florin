@@ -482,6 +482,27 @@ enum LocalHoldings {
         }
     }
 
+    /*
+     * Le symbole, à part du reste.
+     *
+     * `update` recote la ligne au prix saisi à la main ; écrire le symbole dans
+     * la même requête ferait écraser ce prix une fraction de seconde avant que
+     * le fournisseur ne rende le vrai. Séparé, l'ordre est clair : on enregistre
+     * ce qui a été tapé, puis on demande le cours, qui remplace le tout.
+     *
+     * Une chaîne vide détache la ligne du marché au lieu d'y poser un symbole
+     * vide, que `LocalPricing` irait interroger pour rien.
+     */
+    static func setQuoteSymbol(store: LocalStore, holdingId: String, symbol: String) throws {
+        try store.database.run(
+            """
+            UPDATE holdings SET quote_symbol = ?, updated_at = datetime('now')
+            WHERE id = ?
+            """,
+            [symbol.isEmpty ? .null : .text(symbol), .text(holdingId)]
+        )
+    }
+
     /// La ligne disparaît et le versé retourne aux liquidités, avec les achats
     /// qui s'y rattachaient : il n'y a plus rien à leur défaire.
     static func remove(store: LocalStore, holdingId: String) throws {
