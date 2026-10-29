@@ -578,6 +578,18 @@ struct MainTabs: View {
 
                 Group {
                     if editorial {
+                        EditorialPlan(
+                            overview: model, route: route, onOpenSettings: openSettings
+                        )
+                    } else {
+                        PlanScreen(overview: model, route: route, onOpenSettings: openSettings)
+                    }
+                }
+                .hideSystemTabBar()
+                .tag(TabRoute.plan)
+
+                Group {
+                    if editorial {
                         EditorialActivity(
                             overview: model,
                             onOpenSettings: openSettings,
@@ -595,18 +607,6 @@ struct MainTabs: View {
                 .id(paths[.activity] ?? TabRoute.activity.rootPath)
                 .hideSystemTabBar()
                 .tag(TabRoute.activity)
-
-                Group {
-                    if editorial {
-                        EditorialPlan(
-                            overview: model, route: route, onOpenSettings: openSettings
-                        )
-                    } else {
-                        PlanScreen(overview: model, route: route, onOpenSettings: openSettings)
-                    }
-                }
-                .hideSystemTabBar()
-                .tag(TabRoute.plan)
 
                 AnalysisScreen(overview: model, route: route, onOpenSettings: openSettings)
                     .hideSystemTabBar()

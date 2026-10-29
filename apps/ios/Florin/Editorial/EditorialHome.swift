@@ -39,11 +39,6 @@ struct EditorialHome: View {
     @State private var dragging: String?
     /// La carte sous le doigt. Elle se soulève, les autres s'effacent.
     @State private var touched: String?
-    /// Ce que mesurent les deux lecteurs de géométrie : la hauteur de tout ce
-    /// qui précède la pile, et celle de la fenêtre. La pile prend la
-    /// différence — c'est ce qui garantit qu'il n'y a jamais à défiler.
-    @State private var chromeHeight: CGFloat = 0
-    @State private var viewport: CGSize = .zero
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage(Greeting.key) private var firstName = ""
 
@@ -54,28 +49,37 @@ struct EditorialHome: View {
         ScrollView {
             if let data = model.overview {
                 VStack(alignment: .leading, spacing: 0) {
-                    VStack(alignment: .leading, spacing: 0) {
-                        header
-                        EdHero(text: Greeting.line(t, name: firstName), oneLine: true)
-                            .padding(.top, 14)
-                        netWorth(data)
-                        curve(data)
-                        accountsHeading(data)
+                    header
+                    EdHero(text: Greeting.line(t, name: firstName), oneLine: true)
+                        .padding(.top, 14)
+                    netWorth(data)
+                    curve(data)
+                    accountsHeading(data)
+                    /*
+                     * La pile prend ce qui reste, et elle le LIT.
+                     *
+                     * Elle le calculait : fenêtre moins le haut, moins la
+                     * capsule, moins les tranches. Trois mesures à tenir
+                     * d'accord, et la dernière carte passait sous la barre
+                     * dès que l'une bougeait d'un point. Ici le `GeometryReader`
+                     * reçoit l'espace que la disposition lui a laissé — il n'y
+                     * a plus de somme à faire juste, donc plus de somme à
+                     * faire fausse.
+                     */
+                    GeometryReader { room in
+                        stack(data, room: room.size)
                     }
-                    .background(
-                        GeometryReader { chrome in
-                            Color.clear.preference(
-                                key: EdChromeHeight.self, value: chrome.size.height
-                            )
-                        }
-                    )
-                    stack(data)
+                    .frame(maxHeight: .infinity)
                 }
                 .padding(.horizontal, Ed.gutter)
                 // La capsule flotte à 28 pt du bas sur 60 pt de haut : le
                 // contenu s'arrête au-dessus, sans quoi la dernière carte
                 // passe dessous.
                 .padding(.bottom, 104)
+                // Le contenu fait exactement la hauteur de la fenêtre : rien
+                // à faire défiler, et le rebond — donc le tirer-pour-
+                // rafraîchir — reste entier.
+                .containerRelativeFrame(.vertical)
             } else {
                 ProgressView()
                     .controlSize(.large)
@@ -89,16 +93,17 @@ struct EditorialHome: View {
         // qui ne rebondit pas n'offre pas de tirer-pour-rafraîchir : sans ça le
         // geste n'existe que les jours où l'on a beaucoup de comptes.
         .scrollBounceBehavior(.always, axes: .vertical)
-        .refreshable { await model.load(showSpinner: false) }
-        // Le fond mesure la fenêtre : l'arrière-plan d'un `ScrollView` a la
-        // taille de ce qu'on en voit, jamais celle de son contenu.
-        .background(
-            GeometryReader { window in
-                Florin.bg.preference(key: EdViewport.self, value: window.size)
-            }
-        )
-        .onPreferenceChange(EdChromeHeight.self) { chromeHeight = $0 }
-        .onPreferenceChange(EdViewport.self) { viewport = $0 }
+        /*
+         * Tirer demande à la banque, et le chiffre tourne en attendant.
+         *
+         * Ici on relisait la base locale : rien ne changeait, rien ne
+         * bougeait, et le geste n'avait l'air de rien faire. Obsidienne
+         * appelle `refresh()`, qui lance une vraie synchro sans l'attendre —
+         * le ressort revient tout de suite et c'est le patrimoine qui porte
+         * l'attente, ses chiffres roulant jusqu'à la réponse.
+         */
+        .refreshable { model.refresh() }
+        .background(Florin.bg)
         /*
          * C'est l'écran qui demande les chiffres, pas le modèle qui s'éveille.
          *
@@ -166,16 +171,20 @@ struct EditorialHome: View {
                     ?? (showNet
                         ? t("v2.overview.netWorth", "Patrimoine")
                         : t("v2.overview.gross", "Brut")))
-                EdAmount(
-                    text: Money.string(
-                        live, locale: data.localeTag, currency: data.currency
-                    ),
-                    // Pas de chiffres qui roulent sous le doigt : la date
-                    // change soixante fois par seconde et l'animation,
-                    // relancée à chaque fois, ne finit jamais — c'est elle
-                    // qu'on voit tourner au lieu du montant.
-                    value: scrubbed == nil ? live : nil
-                )
+                // Les bobines tournent pendant la synchro et se posent une à
+                // une — le même mécanisme qu'Obsidienne, dans la typographie
+                // d'ici. Jamais sous le doigt : la date change soixante fois
+                // par seconde et l'animation, relancée sans cesse, ne finit
+                // jamais — c'est elle qu'on verrait tourner, pas le montant.
+                SlotReels(
+                    value: live, spinning: model.syncing && scrubbed == nil
+                ) { rolling in
+                    EdAmount(
+                        text: Money.string(
+                            rolling, locale: data.localeTag, currency: data.currency
+                        )
+                    )
+                }
                 delta(data)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -391,55 +400,46 @@ struct EditorialHome: View {
     private static let shownAtMost = 4
 
     @ViewBuilder
-    private func stack(_ data: Overview) -> some View {
+    private func stack(_ data: Overview, room: CGSize) -> some View {
         let all = cards(data)
         let shown = Array(all.prefix(Self.shownAtMost))
         let rest = all.count - shown.count
-        let height = cardHeight(stacked: shown.count, rest: rest > 0)
+        let height = cardHeight(room: room, stacked: shown.count, rest: rest > 0)
         if !shown.isEmpty {
-            // La carte menée est la dernière : posée le plus bas, donc tout en
-            // haut de l'ordre d'empilement. L'ordre du `ZStack` le dit déjà,
-            // sauf pour celle qu'on tient, qui doit passer devant toutes.
-            ZStack(alignment: .top) {
-                ForEach(Array(shown.enumerated()), id: \.element.id) { index, account in
-                    card(
-                        account, data,
-                        rank: index, lead: index == shown.count - 1, height: height
-                    )
-                    .offset(y: CGFloat(index) * Self.step)
-                    .zIndex(dragging == account.id ? 1000 : Double(index))
+            VStack(alignment: .leading, spacing: 0) {
+                // La carte menée est la dernière : posée le plus bas, donc
+                // tout en haut de l'ordre d'empilement. L'ordre du `ZStack` le
+                // dit déjà, sauf pour celle qu'on tient, qui passe devant.
+                ZStack(alignment: .top) {
+                    ForEach(Array(shown.enumerated()), id: \.element.id) { index, account in
+                        card(
+                            account, data,
+                            rank: index, lead: index == shown.count - 1, height: height
+                        )
+                        .offset(y: CGFloat(index) * Self.step)
+                        .zIndex(dragging == account.id ? 1000 : Double(index))
+                    }
                 }
-            }
-            .frame(
-                height: height + CGFloat(shown.count - 1) * Self.step,
-                alignment: .top
-            )
-            .animation(EdMotion.spring, value: shown.map(\.id))
+                .frame(
+                    height: height + CGFloat(shown.count - 1) * Self.step,
+                    alignment: .top
+                )
+                .animation(EdMotion.spring, value: shown.map(\.id))
 
-            if rest > 0 { more(rest) }
+                if rest > 0 { more(rest) }
+            }
         }
     }
 
-    /*
-     * La hauteur d'une carte, qui est le seul réglage de toute la page.
-     *
-     * Au format d'une carte bancaire (1,6) quand la place le permet, et sinon
-     * exactement ce qui reste : fenêtre moins le haut, moins les tranches des
-     * cartes repliées, moins la place de la capsule. Tant qu'une mesure
-     * manque on prend l'idéal — un écran de plus ou de moins pendant la
-     * première passe de calcul, puis plus jamais.
-     */
-    private func cardHeight(stacked: Int, rest: Bool) -> CGFloat {
-        let width = (viewport.width > 0 ? viewport.width : 393) - 2 * Ed.gutter
-        let ideal = width / 1.6
-        guard viewport.height > 0, chromeHeight > 0 else { return ideal }
-        let free = viewport.height
-            - chromeHeight
-            - CGFloat(stacked - 1) * Self.step
-            - (rest ? 44 : 0)
-            - 104
-        // Jamais moins que ce qu'il faut pour écrire un nom et un montant.
-        return max(150, min(ideal, free))
+    /// Au format d'une carte bancaire quand la place le permet, et sinon
+    /// exactement ce qui reste. Jamais moins que ce qu'il faut pour écrire un
+    /// nom et un montant : sous ce plancher, mieux vaut que la page déborde
+    /// d'un cheveu qu'une carte illisible.
+    private func cardHeight(room: CGSize, stacked: Int, rest: Bool) -> CGFloat {
+        let ideal = (room.width > 0 ? room.width : 361) / 1.6
+        guard room.height > 0 else { return ideal }
+        let slices = CGFloat(stacked - 1) * Self.step + (rest ? 44 : 0)
+        return max(150, min(ideal, room.height - slices))
     }
 
     @ViewBuilder
@@ -669,23 +669,6 @@ private struct EdReorder: ViewModifier {
         next.insert(id, at: to)
         UISelectionFeedbackGenerator().selectionChanged()
         order = next
-    }
-}
-
-/// La hauteur de tout ce qui précède la pile, et celle de la fenêtre. Deux
-/// mesures, deux clés : la pile prend ce que l'une laisse à l'autre.
-private struct EdChromeHeight: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = max(value, nextValue())
-    }
-}
-
-private struct EdViewport: PreferenceKey {
-    static let defaultValue: CGSize = .zero
-    static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
-        let next = nextValue()
-        if next != .zero { value = next }
     }
 }
 

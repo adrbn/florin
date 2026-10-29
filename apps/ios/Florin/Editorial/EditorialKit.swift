@@ -248,6 +248,7 @@ private var edTabs: [TabRoute] { edTabOrder }
 /// une maison, une horloge, une liste. Trois traits, aucune couleur.
 private func edSymbol(_ tab: TabRoute) -> String {
     switch tab {
+    case .accounts: return "rectangle.stack"
     case .plan: return "clock"
     case .activity: return "list.bullet"
     default: return "house"
@@ -279,7 +280,7 @@ struct EdTabBar: View {
                 item(symbol: edSymbol(tab),
                      label: t(tab.titleKey.0, tab.titleKey.1),
                      active: tab == selection) {
-                    withAnimation(EdMotion.spring) { selection = tab }
+                    jump(to: tab)
                 }
             }
             item(symbol: "plus", label: t("v2.nav.add", "Ajouter"), active: false,
@@ -288,6 +289,29 @@ struct EdTabBar: View {
         .padding(.horizontal, 8)
         .frame(height: 60)
         .background(Capsule().fill(Florin.text))
+    }
+
+    /*
+     * Un onglet voisin glisse, un onglet lointain saute.
+     *
+     * En style page, changer de sélection fait défiler jusque-là — et donc
+     * traverser ce qu'il y a entre : d'Accueil à Activité on voyait passer
+     * Comptes et Plan en un clin d'œil, ce qui ressemble à un bug plutôt qu'à
+     * un trajet. Un pas de côté garde son glissement, parce qu'il dit la même
+     * chose qu'un balayage ; au-delà, la barre se comporte comme une barre
+     * d'onglets, qui n'a jamais rien fait défiler.
+     */
+    private func jump(to tab: TabRoute) {
+        let from = edTabOrder.firstIndex(of: selection) ?? 0
+        let to = edTabOrder.firstIndex(of: tab) ?? 0
+        if abs(to - from) == 1 {
+            withAnimation(EdMotion.spring) { selection = tab }
+        } else {
+            // `Transaction` tout court, ici, c'est une opération bancaire.
+            var instant = SwiftUI.Transaction()
+            instant.disablesAnimations = true
+            withTransaction(instant) { selection = tab }
+        }
     }
 
     private func item(
@@ -595,7 +619,20 @@ extension View {
 /// L'ordre des onglets de la barre éditoriale, pour que le swipe et la barre
 /// soient d'accord sur « le suivant » — une seule liste, pas deux à tenir
 /// synchronisées.
-let edTabOrder: [TabRoute] = [.overview, .plan, .activity]
+/*
+ * L'ordre de la capsule EST l'ordre des pages.
+ *
+ * Ce sont deux listes différentes dans le code — celle-ci et l'ordre de
+ * déclaration du `TabView` — et tant qu'elles divergeaient, un onglet posé à
+ * droite dans la capsule entrait par la gauche : Activité → Plan glissait à
+ * l'envers parce que Plan était deuxième ici et quatrième là-bas.
+ *
+ * Comptes reprend sa place. Il était poussé depuis les cartes de l'accueil,
+ * et restait pourtant une page du défilement : on le voyait passer en allant
+ * ailleurs, sans jamais pouvoir y aller. Une page qu'on traverse est une page
+ * qui mérite son onglet.
+ */
+let edTabOrder: [TabRoute] = [.overview, .accounts, .plan, .activity]
 
 /*
  * Le doigt est pris ailleurs.

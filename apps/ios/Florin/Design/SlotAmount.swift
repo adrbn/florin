@@ -20,16 +20,32 @@ struct SlotAmount: View {
     let currency: String
     var size: CGFloat = 52
 
+    var body: some View {
+        SlotReels(value: value, spinning: spinning) { rolling in
+            HeroAmount(value: rolling, locale: locale, currency: currency, size: size)
+        }
+    }
+}
+
+/*
+ * Les bobines sans le visage.
+ *
+ * Le même mécanisme sert deux typographies : le héros d'Obsidienne et le
+ * chiffre éditorial. Ce qui tourne n'est pas une mise en forme, c'est une
+ * valeur — alors elle est passée à qui veut bien la dessiner.
+ */
+struct SlotReels<Face: View>: View {
+    let value: Double
+    let spinning: Bool
+    @ViewBuilder let face: (Double) -> Face
+
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var reels: Double?
     @State private var spinStart: Date?
 
-    private static let tick: Duration = .milliseconds(90)
-    private static let lockTick: Duration = .milliseconds(110)
-    private static let minimumSpin: TimeInterval = 0.9
 
     var body: some View {
-        HeroAmount(value: reels ?? value, locale: locale, currency: currency, size: size)
+        face(reels ?? value)
             .contentTransition(.numericText())
             .opacity(reduceMotion && spinning ? 0.5 : 1)
             .task(id: spinning) {
@@ -38,7 +54,7 @@ struct SlotAmount: View {
                     spinStart = Date()
                     while !Task.isCancelled {
                         roll(locked: 0)
-                        try? await Task.sleep(for: Self.tick)
+                        try? await Task.sleep(for: Reel.tick)
                     }
                 } else if let start = spinStart {
                     spinStart = nil
@@ -53,15 +69,15 @@ struct SlotAmount: View {
 
     /// Keeps spinning to the minimum, then stops each reel in turn.
     private func settle(since start: Date) async {
-        while Date().timeIntervalSince(start) < Self.minimumSpin {
+        while Date().timeIntervalSince(start) < Reel.minimumSpin {
             roll(locked: 0)
-            try? await Task.sleep(for: Self.tick)
+            try? await Task.sleep(for: Reel.tick)
             if Task.isCancelled { return }
         }
-        let count = Self.digits(of: value).count
+        let count = Reel.digits(of: value).count
         for locked in 1...max(count, 1) {
             roll(locked: locked)
-            try? await Task.sleep(for: Self.lockTick)
+            try? await Task.sleep(for: Reel.lockTick)
             if Task.isCancelled { return }
         }
         withAnimation(.snappy(duration: 0.2)) { reels = nil }
@@ -69,7 +85,7 @@ struct SlotAmount: View {
 
     /// The real figure's first `locked` digits, random ones after them.
     private func roll(locked: Int) {
-        let real = Self.digits(of: value)
+        let real = Reel.digits(of: value)
         var out = ""
         for (i, digit) in real.enumerated() {
             if i < locked {
@@ -85,8 +101,17 @@ struct SlotAmount: View {
         }
     }
 
+}
+
+/// Les cadences des bobines. Hors de la vue : un type générique ne peut pas
+/// porter de propriété statique stockée.
+private enum Reel {
+    static let tick: Duration = .milliseconds(90)
+    static let lockTick: Duration = .milliseconds(110)
+    static let minimumSpin: TimeInterval = 0.9
+
     /// The figure in cents, as digits: 8 718,18 → "871818".
-    private static func digits(of value: Double) -> [Character] {
+    static func digits(of value: Double) -> [Character] {
         Array(String(Int((abs(value) * 100).rounded())))
     }
 }
