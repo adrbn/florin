@@ -926,63 +926,28 @@ extension View {
 
 
 /*
- * L'effet de bord du système est éteint. Les deux bords, pour deux raisons.
+ * Les bords, on les laisse tranquilles.
  *
- * EN HAUT : il fondait correctement jusqu'à la build 548. Sous le pagineur,
- * chaque onglet est hébergé dans son propre pagineur et le système ne trouve
- * plus le défilement qu'il regardait — il se rend alors en BLOC OPAQUE devant
- * le contenu, sous l'îlot dynamique. Rien ne le remplace : `edEnter` éteint
- * déjà chaque élément selon sa place dans le défilement, et c'est ce qui
- * faisait le travail en 548. Un dégradé maison par-dessus a été essayé et
- * refusé — il éteignait une ligne qui n'avait encore rien à traverser.
+ * C'est la build 515 qui a tranché, en la reposant sur le téléphone : ce
+ * qu'il faut aux deux bords est l'effet de bord d'iOS 26 TEL QUEL — celui
+ * que le SDK 27 allume tout seul — par-dessus `edEnter`, qui décale et
+ * éteint chaque élément selon sa place dans le défilement. Les deux
+ * ensemble font qu'une ligne s'en va au lieu d'être coupée, en haut comme
+ * en bas, jusqu'au bord de l'écran.
  *
- * EN BAS : il n'a aucune barre à quoi fondre, la capsule flotte et n'est pas
- * une barre du système. Il coupait net une ligne à mi-hauteur derrière elle.
- * Le bas est donc refait ici. Ce qui avait échoué avant ne
- * s'applique pas : pas de matériau (il éclaircit ce qu'il couvre et vire au
- * gris sur du noir), pas de masque sur tout le défilement (il compte la zone
- * sûre deux fois). Et c'est exact plutôt qu'approché : un fond éditorial est
- * une couleur PLATE, donc un dégradé de cette même couleur vers sa
- * transparence est indiscernable d'un vrai fondu. C'est ce qui ne marchait
- * pas sur les thèmes à dégradé, et c'est ce qui marche ici.
+ * Tout ce qui a été ajouté par-dessus était de trop, et la liste vaut d'être
+ * gardée : un matériau flouté, qui éclaircit ce qu'il couvre et vire au gris
+ * sur du noir ; un dégradé du fond, qui éteint un titre encore en plein
+ * milieu ; un masque sur tout le défilement, qui laisse un vide en haut dès
+ * que la zone sûre est comptée deux fois. Et l'erreur suivante a été de
+ * faire taire l'effet du système en même temps : il ne restait plus rien.
+ *
+ * Donc ce modificateur ne fait RIEN. Il reste parce qu'il est posé sur les
+ * cinq écrans éditoriaux et qu'il nomme la décision : ici, on ne touche pas
+ * aux bords.
  */
 struct EdPlainEdges: ViewModifier {
-    /// De quoi qu'une ligne s'éteigne AVANT la capsule, qui flotte à 28 pt du
-    /// bord sur 60 pt de haut.
-    private static let bottom: CGFloat = 112
-
-    /// Ce que l'îlot dynamique prend en haut, lu sur la fenêtre : le pagineur
-    /// ignore la zone sûre pour que le contenu passe dessous, donc plus
-    /// personne ici ne peut la demander à sa géométrie.
-    private static var statusInset: CGFloat {
-        (UIApplication.shared.connectedScenes.first as? UIWindowScene)?
-            .keyWindow?.safeAreaInsets.top ?? 59
-    }
-
-    func body(content: Content) -> some View {
-        system(content)
-            // La page commence sous l'îlot et passe dessous en montant : une
-            // marge de contenu, pas une marge de vue.
-            .contentMargins(.top, Self.statusInset, for: .scrollContent)
-            .overlay(alignment: .bottom) {
-                LinearGradient(
-                    colors: [Florin.bg, Florin.bg.opacity(0)],
-                    startPoint: .bottom, endPoint: .top
-                )
-                .frame(height: Self.bottom)
-                .allowsHitTesting(false)
-                .ignoresSafeArea(edges: .bottom)
-            }
-    }
-
-    /// Les deux bords : sous le pagineur, le système barre au lieu de fondre.
-    @ViewBuilder private func system(_ content: Content) -> some View {
-        if #available(iOS 26.0, *) {
-            content.scrollEdgeEffectHidden(true, for: .all)
-        } else {
-            content
-        }
-    }
+    func body(content: Content) -> some View { content }
 }
 
 extension View {

@@ -591,163 +591,147 @@ struct MainTabs: View {
         )
     }
 
-    /*
-     * Les cinq pages, et le pagineur qui les porte.
-     *
-     * Sorties du `body` parce que le style s'applique au `TabView` lui-même :
-     * il faut pouvoir le poser sur une branche et pas sur l'autre sans écrire
-     * les pages deux fois.
-     */
-    @ViewBuilder private var pager: some View {
-        if editorial {
-            plainEdged(tabs.tabViewStyle(.page(indexDisplayMode: .never)))
-                /*
-                 * La page va jusqu'au bord, comme avant le pagineur.
-                 *
-                 * Le pagineur borne chaque onglet à la zone sûre : le
-                 * défilement s'arrête au bas de l'îlot dynamique, et ce qui
-                 * monte y est TRANCHÉ au lieu de continuer dessous. C'est la
-                 * bande blanche. On lui rend la hauteur entière ; chaque
-                 * écran se redonne sa marge de départ (`EdPlainEdges`), parce
-                 * qu'un contenu qui ignore la zone sûre commence dessous au
-                 * lieu de passer dessous.
-                 */
-                .ignoresSafeArea(.container, edges: .top)
-        } else {
-            tabs
-        }
-    }
-
-    /*
-     * Le bloc blanc est au PAGINEUR, pas à la page.
-     *
-     * Éteindre l'effet de bord sur le défilement de chaque écran n'y changeait
-     * rien, et c'est logique : en style page, le défilement que le système
-     * regarde n'est plus celui de la page, c'est celui du pagineur. C'est donc
-     * LUI qui pose la barre opaque sous l'îlot dynamique, et lui qu'il faut
-     * faire taire. Les pages gardent leur propre extinction (`EdPlainEdges`) :
-     * une de trop ne coûte rien, une qui manque se voit.
-     */
-    @ViewBuilder private func plainEdged(_ view: some View) -> some View {
-        if #available(iOS 26.0, *) {
-            view.scrollEdgeEffectHidden(true, for: .all)
-        } else {
-            view
-        }
-    }
-
-    @ViewBuilder private var tabs: some View {
-        /*
-         * Le pagineur du système, et non un décalage posé à la main.
-         *
-         * Trois essais avant celui-ci, tous du même genre : décaler la
-         * page qui arrive, puis la faire suivre le doigt. Aucun ne pouvait
-         * marcher — hors style page, `TabView` ne garde QU'UNE page dans
-         * l'arbre, donc il n'y a jamais deux vues à faire glisser côte à
-         * côte. Ce qu'on obtenait était un rebond sur la page courante,
-         * suivi de l'apparition de l'autre. C'est ce qu'il a vu, et il
-         * avait raison de le refuser.
-         *
-         * Donc le style page, qui fait ça pour de vrai : les deux pages se
-         * déplacent ensemble sous le doigt. Le marché accepté en échange
-         * est celui que la build 515 avait refusé — chaque onglet est
-         * hébergé dans son propre pagineur, et l'effet de bord d'iOS 26
-         * peut ne plus trouver le défilement qu'il regarde. Les bords
-         * d'abord était MON arbitrage ; le balayage d'abord est le sien.
-         *
-         * Le style ne change pas à chaud (le changer reconstruit les cinq
-         * pages, c'était l'à-coup d'avant) : il est posé une fois selon le
-         * thème. Pendant qu'un relevé est posé par-dessus, la sélection
-         * refuse de bouger et le pagineur revient de lui-même à sa page.
-         */
-        TabView(selection: Binding(
-            get: { selection },
-            set: { next in
-                guard !chrome.detailOpen else { return }
-                selection = next
-                // Les pages restent montées sous le pagineur : arriver sur
-                // l'une d'elles est le moment de relire le compteur.
-                LedgerStamp.touch()
-            }
-        )) {
-            Group {
-                if editorial {
-                    EditorialHome(
-                        model: model,
-                        onOpenSettings: openSettings,
-                        onOpenAccounts: { route(to: .accounts, path: TabRoute.accounts.rootPath) },
-                        chrome: chrome
-                    )
-                } else {
-                    OverviewScreen(
-                        model: model, chrome: chrome, route: route, onSearch: focusSearch
-                    )
-                }
-            }
-            .hideSystemTabBar()
-            .tag(TabRoute.overview)
-
-            Group {
-                if editorial {
-                    EditorialAccounts(
-                        model: model,
-                        onOpenSettings: openSettings,
-                        chrome: chrome
-                    )
-                } else {
-                    classicAccounts
-                }
-            }
-            .hideSystemTabBar()
-            .tag(TabRoute.accounts)
-
-            Group {
-                if editorial {
-                    EditorialPlan(
-                        overview: model, route: route,
-                        onOpenSettings: openSettings, chrome: chrome
-                    )
-                } else {
-                    PlanScreen(overview: model, route: route, onOpenSettings: openSettings)
-                }
-            }
-            .hideSystemTabBar()
-            .tag(TabRoute.plan)
-
-            Group {
-                if editorial {
-                    EditorialActivity(
-                        overview: model,
-                        onOpenSettings: openSettings,
-                        startNeedsReview: paths[.activity]?.contains("needsReview") == true,
-                        chrome: chrome
-                    )
-                } else {
-                    ActivityScreen(
-                        overview: model,
-                        route: route,
-                        onOpenSettings: openSettings,
-                        startNeedsReview: paths[.activity]?.contains("needsReview") == true
-                    )
-                }
-            }
-            .id(paths[.activity] ?? TabRoute.activity.rootPath)
-            .hideSystemTabBar()
-            .tag(TabRoute.activity)
-
-            AnalysisScreen(overview: model, route: route, onOpenSettings: openSettings)
-                .hideSystemTabBar()
-                .tag(TabRoute.analysis)
-        }
-        // The system bar is replaced, not decorated: it cannot be centred
-        // when minimised and it has no long-press. TabView still owns tab
-        // state and lazy loading.
-        .ignoresSafeArea(.keyboard)
-    }
-
     var body: some View {
         ZStack(alignment: .bottom) {
-            pager
+            /*
+             * Un balayage dépile avant de changer d'onglet.
+             *
+             * Deux fausses pistes avant celle-ci. `scrollDisabled` ne touche
+             * pas le balayage d'un `TabView` en style page. Et lui retirer le
+             * style quand un relevé s'ouvre marchait — mais changer un
+             * `tabViewStyle` à chaud reconstruit le `TabView` entier, donc
+             * les cinq pages : c'était l'à-coup qu'on sentait au balayage.
+             *
+             * Le style ne bouge plus. C'est la sélection qui refuse de
+             * changer tant qu'un relevé est posé par-dessus : le balayage
+             * part, ne trouve pas d'onglet où aller, et rend la main au
+             * retour arrière de la pile.
+             */
+            TabView(selection: Binding(
+                get: { selection },
+                set: { next in
+                    guard !chrome.detailOpen else { return }
+                    selection = next
+                }
+            )) {
+                Group {
+                    if editorial {
+                        EditorialHome(
+                            model: model,
+                            onOpenSettings: openSettings,
+                            onOpenAccounts: { route(to: .accounts, path: TabRoute.accounts.rootPath) },
+                            chrome: chrome
+                        )
+                    } else {
+                        OverviewScreen(
+                            model: model, chrome: chrome, route: route, onSearch: focusSearch
+                        )
+                    }
+                }
+                .hideSystemTabBar()
+                .tag(TabRoute.overview)
+
+                Group {
+                    if editorial {
+                        EditorialAccounts(
+                            model: model,
+                            onOpenSettings: openSettings,
+                            chrome: chrome
+                        )
+                    } else {
+                        classicAccounts
+                    }
+                }
+                .hideSystemTabBar()
+                .tag(TabRoute.accounts)
+
+                Group {
+                    if editorial {
+                        EditorialPlan(
+                            overview: model, route: route,
+                            onOpenSettings: openSettings, chrome: chrome
+                        )
+                    } else {
+                        PlanScreen(overview: model, route: route, onOpenSettings: openSettings)
+                    }
+                }
+                .hideSystemTabBar()
+                .tag(TabRoute.plan)
+
+                Group {
+                    if editorial {
+                        EditorialActivity(
+                            overview: model,
+                            onOpenSettings: openSettings,
+                            startNeedsReview: paths[.activity]?.contains("needsReview") == true,
+                            chrome: chrome
+                        )
+                    } else {
+                        ActivityScreen(
+                            overview: model,
+                            route: route,
+                            onOpenSettings: openSettings,
+                            startNeedsReview: paths[.activity]?.contains("needsReview") == true
+                        )
+                    }
+                }
+                .id(paths[.activity] ?? TabRoute.activity.rootPath)
+                .hideSystemTabBar()
+                .tag(TabRoute.activity)
+
+                AnalysisScreen(overview: model, route: route, onOpenSettings: openSettings)
+                    .hideSystemTabBar()
+                    .tag(TabRoute.analysis)
+            }
+            // The system bar is replaced, not decorated: it cannot be centred
+            // when minimised and it has no long-press. TabView still owns tab
+            // state and lazy loading.
+            .ignoresSafeArea(.keyboard)
+            /*
+             * Le balayage change d'onglet, mais pas le style page.
+             *
+             * `.page` faisait suivre le contenu sous le doigt, et c'était le
+             * meilleur des deux. Seulement il héberge chaque onglet dans son
+             * propre pagineur : le `ScrollView` de la page n'est plus celui
+             * que l'effet de bord d'iOS 26 regarde, donc les deux bords
+             * cessaient de fondre et il ne restait que le fond coupé net —
+             * la bande claire en haut comme en bas.
+             *
+             * Le geste revient sans lui : `edSwipe` lit le balayage et pose
+             * la sélection. Le contenu ne suit plus le doigt, il arrive à la
+             * fin du geste — c'est le prix des bords, et les bords valent
+             * plus cher. Il se tait quand un écran est poussé par-dessus :
+             * un balayage dépile d'abord ce qui est posé dessus.
+             */
+            /*
+             * Le balayage change d'onglet ; le contenu ne suit pas le doigt.
+             *
+             * Deux façons de le faire suivre, essayées et rendues. Le style
+             * page le fait pour de vrai, mais il héberge chaque onglet dans
+             * son propre pagineur : le défilement de la page n'est plus celui
+             * que le système regarde, et il BORNE la page à la zone sûre — ce
+             * qui monte est tranché au bas de l'îlot dynamique au lieu de
+             * passer dessous. Les bords sont sur tous les écrans en
+             * permanence, le balayage est un geste : les bords gagnent.
+             *
+             * Et un décalage posé à la main ne peut pas le remplacer : hors
+             * style page, `TabView` ne garde QU'UNE page dans l'arbre, donc
+             * il n'y a jamais deux vues à faire glisser côte à côte. Ce qu'on
+             * obtient est un rebond sur la page courante suivi de
+             * l'apparition de l'autre.
+             *
+             * Reste le geste, sans le mouvement : il lit le balayage et pose
+             * la sélection. Il se tait quand un relevé est posé par-dessus —
+             * un balayage dépile d'abord ce qui est dessus.
+             */
+            .edSwipe(edTabOrder, selection: Binding(
+                get: { selection },
+                set: { next in
+                    guard !chrome.detailOpen else { return }
+                    selection = next
+                    LedgerStamp.touch()
+                }
+            ), enabled: editorial && !chrome.detailOpen)
 
             // Content dissolves into the bottom of the screen rather than
             // running on under the bar and out through the home indicator.

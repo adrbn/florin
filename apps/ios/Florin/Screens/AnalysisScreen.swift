@@ -113,17 +113,7 @@ struct AnalysisScreen: View {
              * d'onglet. Le calendrier garde donc ses chips, qui sont juste
              * au-dessus.
              */
-            /*
-             * Pas de balayage de pastilles sous le pagineur éditorial.
-             *
-             * Les deux lisent le même geste : on faisait glisser les
-             * sous-onglets ET la page en même temps. Hors éditorial il n'y a
-             * pas de pagineur, le geste reste.
-             */
-            content.edSwipe(
-                chips.map(\.value), selection: tabBinding,
-                enabled: tab != .calendar && FlorinPalette.selected != .editorial
-            )
+            content.edSwipe(chips.map(\.value), selection: tabBinding, enabled: tab != .calendar)
         }
         .fullScreenCover(item: $drill) { target in
             AccountDetailScreen(model: overview, route: target)
