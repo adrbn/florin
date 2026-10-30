@@ -292,27 +292,18 @@ struct EditorialHome: View {
             // seule, le salut devenait illisible et le prénom s'effaçait en
             // trois points — c'est le prénom qu'on lit, pas la formule.
             /*
-             * Cinquante-deux : la taille de la référence, pas celle qui
-             * restait après avoir tout payé.
+             * Trente-huit, et pas plus.
              *
-             * Trente-huit était un compromis tenu par le mauvais bout — on
-             * s'arrêtait là où la pile cessait de tenir cinq cartes avec ses
-             * anciennes mesures. Or l'accordéon est fait pour ça : c'est la
-             * TRANCHE qui se serre, et trente-quatre points n'étaient pas son
-             * minimum, juste sa valeur d'alors. À vingt-huit, une bande
-             * montre encore un nom et un montant de quinze points avec cinq
-             * points d'air de chaque côté.
-             *
-             * Le compte, à 222 points de place restante : plancher de la
-             * carte de tête (116) plus quatre tranches de 26 fait 220. Cinq
-             * cartes, comme avant, avec un salut de VINGT-DEUX points plus
-             * grand. La carte de tête descend de douze points et c'est tout
-             * ce qu'elle cède : elle garde de quoi montrer son montant en
-             * vingt-six et sa barre.
+             * Essayé à 52 puis à 60, avec la pile resserrée pour compenser :
+             * reposé sur le téléphone, c'est moins bien. Un salut qui prend
+             * le tiers du premier écran écrase le chiffre qu'on vient lire.
+             * Trente-huit tient sur la ligne des deux boutons et laisse à la
+             * pile de quoi tenir cinq cartes — plancher d'une carte de tête
+             * (128) plus quatre tranches serrées (34) fait 264.
              */
             Text(Greeting.line(t, name: firstName))
-                .font(.system(size: 60, weight: .medium))
-                .kerning(Ed.tracking(60, 0.04))
+                .font(.system(size: 38, weight: .medium))
+                .kerning(Ed.tracking(38, 0.04))
                 .foregroundStyle(Florin.text)
                 .lineLimit(2)
                 .minimumScaleFactor(0.8)
@@ -622,7 +613,7 @@ struct EditorialHome: View {
     /// 12 pt à du texte de 15 : à six cartes, les noms se touchaient. Le
     /// plancher est ce qu'il faut au bandeau, pas ce qui fait entrer une carte
     /// de plus.
-    private static let tightStep: CGFloat = 26
+    private static let tightStep: CGFloat = 34
     private static let shownAtMost = 8
     /*
      * Ce qu'il faut à la carte menée, compté ligne par ligne.
@@ -635,7 +626,7 @@ struct EditorialHome: View {
      * barre. Le plancher dit maintenant la vérité, et c'est la place AU-DESSUS
      * qui a été rendue pour qu'il tienne.
      */
-    private static let minCard: CGFloat = 116
+    private static let minCard: CGFloat = 128
 
     /*
      * Combien de cartes tiennent, et pas une de plus.
