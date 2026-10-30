@@ -76,6 +76,7 @@ struct SplashView: View {
             // launch screen reads as broken rather than fast.
             withAnimation(.easeOut(duration: 0.3)) { dropped = true }
             try? await Task.sleep(for: .milliseconds(450))
+            await LocalStore.settled()
             withAnimation(.easeIn(duration: 0.25)) { leaving = true }
             onFinish()
             return
@@ -83,6 +84,16 @@ struct SplashView: View {
 
         withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) { dropped = true }
         try? await Task.sleep(for: .seconds(Self.total - 0.25))
+        /*
+         * La pièce attend que le grand livre soit rangé.
+         *
+         * Elle partait sur un compte à rebours, et ce qu'elle découvrait
+         * derrière elle était l'écran vide d'une base encore ouverte. Posée,
+         * face en l'air, elle tient le temps qu'il faut : l'app arrive quand
+         * elle a quelque chose à montrer. Une passe déjà finie rend la main
+         * tout de suite — voir `LocalStore.settled()`.
+         */
+        await LocalStore.settled()
         // Leaves toward the viewer rather than fading in place: the app arrives
         // *through* the mark instead of after it.
         withAnimation(.easeIn(duration: 0.25)) { leaving = true }

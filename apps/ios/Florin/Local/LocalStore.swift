@@ -70,6 +70,25 @@ final class LocalStore {
         try migrate()
     }
 
+    /*
+     * Une seule connexion ouverte au lancement, pas deux.
+     *
+     * MESURÉ : la passe de lancement ouvrait la sienne par `LocalStore()` et
+     * l'écran ouvrait la sienne par `shared` — ouverture plus migration deux
+     * fois, environ 1,25 s chacune, et la seconde en concurrence d'écriture
+     * avec la première. La passe publie donc la sienne : tout le monde lit la
+     * même, et `shared` la trouve déjà faite.
+     */
+    static func adopt() throws -> LocalStore {
+        lock.lock()
+        defer { lock.unlock() }
+        if let opened { return opened }
+        let store = try LocalStore()
+        opened = store
+        lastFailure = nil
+        return store
+    }
+
     /// Application Support, not Documents.
     ///
     /// Documents is user-visible in Files and gets backed up as documents; a
@@ -613,7 +632,7 @@ extension LocalStore {
     private static func probeAtLaunch() {
         do {
             probeBankingKey()
-            let store = try LocalStore()
+            let store = try Self.adopt()
             // A fresh install gets the same starting categories the other
             // surfaces create, so the first screen is a budget and not a form.
             let seeded = try LocalBootstrap.run(

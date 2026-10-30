@@ -285,9 +285,18 @@ struct EditorialHome: View {
             // boutons, le prénom passe dessous. Réduit pour tenir sur une
             // seule, le salut devenait illisible et le prénom s'effaçait en
             // trois points — c'est le prénom qu'on lit, pas la formule.
+            /*
+             * Trente-huit, et pas plus.
+             *
+             * Le salut grandit, la suite descend, et c'est la pile qui paie :
+             * dix-huit points de moins pour elle. À 275 points il lui en
+             * reste de quoi tenir cinq cartes — le plancher d'une carte de
+             * tête (128) plus quatre tranches serrées (34) fait 264. Au-delà
+             * de trente-huit, une carte disparaît de l'écran d'accueil.
+             */
             Text(Greeting.line(t, name: firstName))
-                .font(.system(size: 30, weight: .medium))
-                .kerning(Ed.tracking(30, 0.04))
+                .font(.system(size: 38, weight: .medium))
+                .kerning(Ed.tracking(38, 0.04))
                 .foregroundStyle(Florin.text)
                 .lineLimit(2)
                 .minimumScaleFactor(0.8)
@@ -722,6 +731,19 @@ struct EditorialHome: View {
             )
             .edEnter()
             .animation(EdMotion.spring, value: shown.map(\.id))
+            /*
+             * Le bas de la pile ne descend jamais.
+             *
+             * Tout ce qui est au-dessus — le salut, le chiffre, la courbe —
+             * peut grandir : ça réduit la place laissée ici, et `layout`
+             * resserre les tranches pour la remplir exactement. Mais quand il
+             * y a du mou (peu de comptes, carte à sa hauteur idéale), la pile
+             * était posée en HAUT de ce qui restait, donc sa dernière carte
+             * suivait le salut vers le bas. Calée en bas, la ligne du bas du
+             * premier écran est la même quelle que soit la taille du titre :
+             * l'accordéon se plie par le haut.
+             */
+            .frame(maxHeight: .infinity, alignment: .bottom)
         }
     }
 

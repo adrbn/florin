@@ -51,6 +51,10 @@ enum Ed {
 
     /// Le resserrement des grandes tailles, en points plutôt qu'en pourcents.
     static func tracking(_ size: CGFloat, _ ratio: CGFloat) -> CGFloat { -size * ratio }
+
+    /// L'espace fine que tout titre resserré porte en queue, pour que l'encre
+    /// du dernier glyphe tienne dans sa propre ligne — voir `EdHero`.
+    static let inkRoom = "\u{2009}" 
 }
 
 // MARK: - La pastille de contexte
@@ -108,20 +112,25 @@ struct EdHero: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Ed.heroLeading(size)) {
             ForEach(Array(text.split(separator: "\n").enumerated()), id: \.offset) { _, line in
-                Text(String(line))
+                Text(String(line) + Ed.inkRoom)
                     .font(.system(size: size, weight: .medium))
                     /*
-                     * `kerning`, et surtout pas `tracking`.
+                     * Une espace fine finale, et rien d'autre ne marche.
                      *
-                     * Les deux resserrent, mais `tracking` ajoute aussi son
-                     * cran APRÈS le dernier caractère — négatif, il le retire.
-                     * La largeur annoncée perdait donc un cran que l'encre du
-                     * dernier glyphe occupait encore, et le « y » de « Today »
-                     * passait sous le bord. `kerning` n'agit qu'ENTRE deux
-                     * caractères : la largeur reste juste, et il n'y a plus de
-                     * marge à rendre pour compenser — une marge qui, posée en
-                     * `trailing`, rognait de toute façon la place proposée au
-                     * texte au lieu de la lui rendre.
+                     * MESURÉ, après quatre corrections manquées : à 64 pt,
+                     * `kerning(-3,2)` ramène l'avance de « Today » de 175,7 à
+                     * 151,6 pt alors que le tracé du « y » va jusqu'à 154,0 —
+                     * l'encre dépasse de 2,44 pt, et c'est le bras droit du
+                     * « y » qu'on voit coupé net à la verticale.
+                     *
+                     * Ce qui coupe est la LIGNE de texte, pas le cadre : ni
+                     * un cadre élargi à toute la colonne, ni une marge
+                     * `trailing` de la valeur du cran rendu, n'y ont rien
+                     * changé — ils agrandissent la vue autour, pas la ligne
+                     * qui rend les glyphes. Une espace fine, elle, entre dans
+                     * la ligne : l'avance passe à 155,1 pt et l'encre rentre
+                     * (−1,06). Une espace d'écart serait du vide visible,
+                     * une espace ultra-fine ne suffit pas (+2,18).
                      */
                     .kerning(Ed.tracking(size, 0.05))
                     .lineLimit(oneLine ? 1 : nil)
@@ -204,10 +213,11 @@ struct EdSection: View {
 
     var body: some View {
         HStack(alignment: .lastTextBaseline) {
-            Text(text)
+            Text(text + Ed.inkRoom)
                 .font(.system(size: 34, weight: .medium))
-                // Voir `EdHero` : `kerning` ne resserre qu'entre deux
-                // caractères, donc la largeur annoncée reste juste.
+                // Voir `EdHero` : le cran retiré après le dernier caractère
+                // est rendu en marge, sinon l'encre du « y » passe sous le
+                // bord du calque de composition.
                 .kerning(Ed.tracking(34, 0.045))
                 .foregroundStyle(Florin.text)
             if let trailing {
@@ -570,6 +580,21 @@ extension EnvironmentValues {
 
 struct EdEnter: ViewModifier {
     @Environment(\.edEnterApplied) private var applied
+    /*
+     * Rien ne fond tant que la page n'a pas sa géométrie.
+     *
+     * `scrollTransition` demande sa phase avant que le défilement ait mesuré
+     * ses bornes : au premier rendu d'un onglet, tout ce qui est pourtant à
+     * l'écran se voit attribuer la phase d'entrée — douze points plus bas,
+     * transparent — puis saute à sa place au passage suivant. C'est le
+     * sursaut qu'on voit deux dixièmes après avoir changé d'onglet, et le
+     * sens le prouve : ça REMONTE de douze points, exactement l'offset
+     * d'entrée.
+     *
+     * Armé après coup, l'effet ne vaut plus que pour ce qui arrive vraiment
+     * par le bord, ce qui est tout son objet.
+     */
+    @State private var armed = false
 
     @ViewBuilder
     func body(content: Content) -> some View {
@@ -579,10 +604,14 @@ struct EdEnter: ViewModifier {
             content
                 .scrollTransition(axis: .vertical) { view, phase in
                     view
-                        .opacity(phase.isIdentity ? 1 : 0)
-                        .offset(y: phase.isIdentity ? 0 : 12)
+                        .opacity(!armed || phase.isIdentity ? 1 : 0)
+                        .offset(y: !armed || phase.isIdentity ? 0 : 12)
                 }
                 .environment(\.edEnterApplied, true)
+                .task {
+                    try? await Task.sleep(for: .milliseconds(150))
+                    armed = true
+                }
         }
     }
 }
@@ -753,24 +782,45 @@ extension EdSymbols {
  * onglet fait perdre où l'on est.
  */
 extension View {
+    /*
+     * `track` suit le doigt, s'il y a quelqu'un pour l'écouter.
+     *
+     * Sans lui, rien ne bougeait AVANT que le doigt ne se lève : on poussait
+     * dans le vide, l'écran changeait au relevé, et ce délai se lit comme un
+     * effort de l'app — « il n'y a rien de natif ». Un pagineur, lui, répond
+     * au premier point parcouru.
+     *
+     * Le bloc reçoit le déplacement horizontal tant que le geste est franc,
+     * puis `nil` quand le doigt est reparti sans rien demander : à l'appelant
+     * de ramener sa page au centre. Une valeur de 0 en vol ne veut pas dire
+     * lâché, d'où le `nil`.
+     */
     func edSwipe<Value: Hashable>(
-        _ order: [Value], selection: Binding<Value>, enabled: Bool = true
+        _ order: [Value], selection: Binding<Value>, enabled: Bool = true,
+        track: ((CGFloat?) -> Void)? = nil
     ) -> some View {
         simultaneousGesture(
             // Quarante points, pas vingt-quatre : en dessous, un défilement
             // vertical un peu oblique rentrait dans la fourchette et l'écran
             // partait de côté à la fin du geste.
             DragGesture(minimumDistance: 40)
+                .onChanged { move in
+                    guard let track, enabled, !EdGesture.shared.scrubbing else { return }
+                    let dx = move.translation.width
+                    // Même fourchette qu'au relevé : un défilement oblique ne
+                    // doit pas faire frémir la page de côté.
+                    track(abs(dx) > abs(move.translation.height) * 2 ? dx : 0)
+                }
                 .onEnded { move in
                     // Le doigt qui suit la courbe ne demande pas de page.
-                    guard enabled, !EdGesture.shared.scrubbing else { return }
+                    guard enabled, !EdGesture.shared.scrubbing else { track?(nil); return }
                     let dx = move.translation.width
                     let dy = move.translation.height
                     guard abs(dx) > 60, abs(dx) > abs(dy) * 2,
                           let here = order.firstIndex(of: selection.wrappedValue)
-                    else { return }
+                    else { track?(nil); return }
                     let next = dx < 0 ? here + 1 : here - 1
-                    guard order.indices.contains(next) else { return }
+                    guard order.indices.contains(next) else { track?(nil); return }
                     UISelectionFeedbackGenerator().selectionChanged()
                     withAnimation(EdMotion.spring) { selection.wrappedValue = order[next] }
                 }

@@ -97,8 +97,21 @@ struct FlorinApp: App {
              * démarrage à froid, c'est-à-dire un jour au hasard. Le fichier
              * est presque toujours vide, et le lire ne coûte rien.
              */
-            if phase == .active, let store = LocalStore.shared {
-                WalletInbox.drain(store: store)
+            /*
+             * Et surtout pas sur le fil principal au lancement.
+             *
+             * `LocalStore.shared` OUVRE la base la première fois. Appelé ici,
+             * au passage en premier plan qui suit immédiatement le lancement,
+             * il le faisait sur le fil principal pendant que la passe de
+             * lancement écrivait : la pièce se figeait en plein tour, parce
+             * que c'est le fil qui la dessine. La passe rend la main, et
+             * seulement après on vide la boîte.
+             */
+            if phase == .active {
+                Task {
+                    await LocalStore.settled()
+                    if let store = LocalStore.shared { WalletInbox.drain(store: store) }
+                }
             }
             // Leaving the foreground is the moment a backup is most likely to
             // run, and the moment the ledger is guaranteed to be idle. Folding
@@ -176,6 +189,20 @@ struct RootView: View {
     /// lands back in settings rather than on the dashboard.
     @State private var switchedSource = false
     @State private var showingSettings = false
+    /*
+     * Rien ne touche la base avant que la pièce ne tourne.
+     *
+     * MESURÉ sur le téléphone : `root-body` à 63 ms, `onboarding-read` à
+     * 2694 ms. Le compte des comptes est une ligne ; ce qui dure, c'est
+     * l'ouverture du fichier pendant que la passe de lancement y écrit ses
+     * douze réparations. Et comme ce test est DANS le corps de la vue, le
+     * premier rendu l'attendait : deux secondes et demie d'écran noir avant
+     * même l'écran de lancement.
+     *
+     * Le corps rend donc du vide tant que la passe n'a pas rendu la main, et
+     * l'écran de lancement, lui, est déjà là pour le couvrir.
+     */
+    @State private var ledgerReady = false
 
     /// Whichever ledger is on screen, for the screens presented above it.
     private var currentBase: URL {
@@ -215,9 +242,12 @@ struct RootView: View {
     }
 
     var body: some View {
-        ZStack {
+        return ZStack {
             Group {
-                if source == .server, let url = server.resolvedURL {
+                if !ledgerReady {
+                    // Le temps que la base se range : voir `ledgerReady`.
+                    Color.clear
+                } else if source == .server, let url = server.resolvedURL {
                     MainTabs(
                         base: url,
                         initialTab: landingTab,
@@ -292,6 +322,10 @@ struct RootView: View {
         }
         .tint(Florin.control)
         .preferredColorScheme(appearance.colorScheme)
+        .task {
+            await LocalStore.settled()
+            ledgerReady = true
+        }
         .onAppear {
             // The path monitor takes a moment to report; started at launch it
             // has an answer by the time the first fetch asks for one.
@@ -429,6 +463,20 @@ struct MainTabs: View {
     @State private var selection: TabRoute
     @State private var paths: [TabRoute: String] = [:]
     @State private var adding = false
+    /*
+     * De combien la page qui ARRIVE est encore décalée.
+     *
+     * Posé sur le `TabView` entier, le décalage valait aussi pour la page qui
+     * s'en va : elle sautait de cent points du côté opposé au doigt, d'un
+     * coup, et c'est ce saut qu'on lisait — le balayage avait l'air de partir
+     * à l'envers. Une page qui s'en va ne bouge pas : elle s'efface. Seule
+     * celle qui entre vient du bord.
+     */
+    @State private var slide: CGFloat = 0
+
+    /// Le décalage du moment — le doigt qui pousse, ou la page qui arrive —
+    /// et pour la page affichée seulement.
+    private func entering(_ tab: TabRoute) -> CGFloat { tab == selection ? slide : 0 }
 
     /*
      * Le thème choisit aussi la mise en page.
@@ -595,6 +643,7 @@ struct MainTabs: View {
                     }
                 }
                 .hideSystemTabBar()
+                .offset(x: entering(.overview))
                 .tag(TabRoute.overview)
 
                 Group {
@@ -609,6 +658,7 @@ struct MainTabs: View {
                     }
                 }
                 .hideSystemTabBar()
+                .offset(x: entering(.accounts))
                 .tag(TabRoute.accounts)
 
                 Group {
@@ -622,6 +672,7 @@ struct MainTabs: View {
                     }
                 }
                 .hideSystemTabBar()
+                .offset(x: entering(.plan))
                 .tag(TabRoute.plan)
 
                 Group {
@@ -643,10 +694,12 @@ struct MainTabs: View {
                 }
                 .id(paths[.activity] ?? TabRoute.activity.rootPath)
                 .hideSystemTabBar()
+                .offset(x: entering(.activity))
                 .tag(TabRoute.activity)
 
                 AnalysisScreen(overview: model, route: route, onOpenSettings: openSettings)
                     .hideSystemTabBar()
+                    .offset(x: entering(.analysis))
                     .tag(TabRoute.analysis)
             }
             // The system bar is replaced, not decorated: it cannot be centred
@@ -669,9 +722,67 @@ struct MainTabs: View {
              * plus cher. Il se tait quand un écran est poussé par-dessus :
              * un balayage dépile d'abord ce qui est posé dessus.
              */
+            /*
+             * La page suit le doigt, puis l'autre arrive par le même côté.
+             *
+             * Sans le style page, `TabView` fond d'un onglet à l'autre : le
+             * balayage se termine et l'écran change sur place. Et tant que
+             * rien ne bougeait avant le relevé du doigt, le geste n'avait pas
+             * de réponse — c'est ce silence qu'on prenait pour de la lenteur.
+             *
+             * Donc les deux moitiés que le style page nous refuse, à la main :
+             * la page courante se décale sous le doigt (`track`, amorti au
+             * tiers — un pouce de doigt n'est pas un pouce d'écran, et un
+             * pagineur freine pareil), et au relevé la nouvelle entre du côté
+             * d'où le doigt venait. Au bout de la liste, la résistance monte
+             * sans céder : la page frémit et revient.
+             */
             .edSwipe(
-                edTabOrder, selection: $selection,
-                enabled: editorial && !chrome.detailOpen
+                edTabOrder, selection: Binding(
+                    get: { selection },
+                    set: { next in
+                        guard !chrome.detailOpen else { return }
+                        let here = edTabOrder.firstIndex(of: selection) ?? 0
+                        let there = edTabOrder.firstIndex(of: next) ?? 0
+                        /*
+                         * Le décalage est POSÉ sans animation, et rendu
+                         * ensuite.
+                         *
+                         * `edSwipe` appelle ce bloc à l'intérieur de son
+                         * propre `withAnimation` : poser 64 puis demander 0
+                         * dans la même transaction, c'est demander une
+                         * animation de 0 à 0 — SwiftUI n'a jamais affiché le
+                         * 64, et rien ne bougeait. Il faut une image rendue à
+                         * 64 avant de rappeler la page au centre.
+                         */
+                        // `Transaction` tout court est l'opération du grand
+                        // livre : ici c'est bien celle de SwiftUI.
+                        var instant = SwiftUI.Transaction(animation: nil)
+                        instant.disablesAnimations = true
+                        withTransaction(instant) {
+                            slide = there > here ? 72 : -72
+                            selection = next
+                        }
+                        DispatchQueue.main.async {
+                            withAnimation(EdMotion.spring) { slide = 0 }
+                        }
+                    }
+                ),
+                enabled: editorial && !chrome.detailOpen,
+                track: { dx in
+                    guard let dx else {
+                        withAnimation(EdMotion.spring) { slide = 0 }
+                        return
+                    }
+                    // Un bout de liste ne cède pas : un dixième du geste, pour
+                    // dire qu'il n'y a rien derrière.
+                    let here = edTabOrder.firstIndex(of: selection) ?? 0
+                    let wall = dx < 0 ? here == edTabOrder.count - 1 : here == 0
+                    let pull = min(abs(dx), 260) * (wall ? 0.1 : 0.34)
+                    var instant = SwiftUI.Transaction(animation: nil)
+                    instant.disablesAnimations = true
+                    withTransaction(instant) { slide = dx < 0 ? -pull : pull }
+                }
             )
 
             // Content dissolves into the bottom of the screen rather than
