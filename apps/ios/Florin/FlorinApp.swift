@@ -463,20 +463,6 @@ struct MainTabs: View {
     @State private var selection: TabRoute
     @State private var paths: [TabRoute: String] = [:]
     @State private var adding = false
-    /*
-     * De combien la page qui ARRIVE est encore décalée.
-     *
-     * Posé sur le `TabView` entier, le décalage valait aussi pour la page qui
-     * s'en va : elle sautait de cent points du côté opposé au doigt, d'un
-     * coup, et c'est ce saut qu'on lisait — le balayage avait l'air de partir
-     * à l'envers. Une page qui s'en va ne bouge pas : elle s'efface. Seule
-     * celle qui entre vient du bord.
-     */
-    @State private var slide: CGFloat = 0
-
-    /// Le décalage du moment — le doigt qui pousse, ou la page qui arrive —
-    /// et pour la page affichée seulement.
-    private func entering(_ tab: TabRoute) -> CGFloat { tab == selection ? slide : 0 }
 
     /*
      * Le thème choisit aussi la mise en page.
@@ -605,185 +591,133 @@ struct MainTabs: View {
         )
     }
 
+    /*
+     * Les cinq pages, et le pagineur qui les porte.
+     *
+     * Sorties du `body` parce que le style s'applique au `TabView` lui-même :
+     * il faut pouvoir le poser sur une branche et pas sur l'autre sans écrire
+     * les pages deux fois.
+     */
+    @ViewBuilder private var pager: some View {
+        if editorial {
+            tabs.tabViewStyle(.page(indexDisplayMode: .never))
+        } else {
+            tabs
+        }
+    }
+
+    @ViewBuilder private var tabs: some View {
+        /*
+         * Le pagineur du système, et non un décalage posé à la main.
+         *
+         * Trois essais avant celui-ci, tous du même genre : décaler la
+         * page qui arrive, puis la faire suivre le doigt. Aucun ne pouvait
+         * marcher — hors style page, `TabView` ne garde QU'UNE page dans
+         * l'arbre, donc il n'y a jamais deux vues à faire glisser côte à
+         * côte. Ce qu'on obtenait était un rebond sur la page courante,
+         * suivi de l'apparition de l'autre. C'est ce qu'il a vu, et il
+         * avait raison de le refuser.
+         *
+         * Donc le style page, qui fait ça pour de vrai : les deux pages se
+         * déplacent ensemble sous le doigt. Le marché accepté en échange
+         * est celui que la build 515 avait refusé — chaque onglet est
+         * hébergé dans son propre pagineur, et l'effet de bord d'iOS 26
+         * peut ne plus trouver le défilement qu'il regarde. Les bords
+         * d'abord était MON arbitrage ; le balayage d'abord est le sien.
+         *
+         * Le style ne change pas à chaud (le changer reconstruit les cinq
+         * pages, c'était l'à-coup d'avant) : il est posé une fois selon le
+         * thème. Pendant qu'un relevé est posé par-dessus, la sélection
+         * refuse de bouger et le pagineur revient de lui-même à sa page.
+         */
+        TabView(selection: Binding(
+            get: { selection },
+            set: { next in
+                guard !chrome.detailOpen else { return }
+                selection = next
+                // Les pages restent montées sous le pagineur : arriver sur
+                // l'une d'elles est le moment de relire le compteur.
+                LedgerStamp.touch()
+            }
+        )) {
+            Group {
+                if editorial {
+                    EditorialHome(
+                        model: model,
+                        onOpenSettings: openSettings,
+                        onOpenAccounts: { route(to: .accounts, path: TabRoute.accounts.rootPath) },
+                        chrome: chrome
+                    )
+                } else {
+                    OverviewScreen(
+                        model: model, chrome: chrome, route: route, onSearch: focusSearch
+                    )
+                }
+            }
+            .hideSystemTabBar()
+            .tag(TabRoute.overview)
+
+            Group {
+                if editorial {
+                    EditorialAccounts(
+                        model: model,
+                        onOpenSettings: openSettings,
+                        chrome: chrome
+                    )
+                } else {
+                    classicAccounts
+                }
+            }
+            .hideSystemTabBar()
+            .tag(TabRoute.accounts)
+
+            Group {
+                if editorial {
+                    EditorialPlan(
+                        overview: model, route: route,
+                        onOpenSettings: openSettings, chrome: chrome
+                    )
+                } else {
+                    PlanScreen(overview: model, route: route, onOpenSettings: openSettings)
+                }
+            }
+            .hideSystemTabBar()
+            .tag(TabRoute.plan)
+
+            Group {
+                if editorial {
+                    EditorialActivity(
+                        overview: model,
+                        onOpenSettings: openSettings,
+                        startNeedsReview: paths[.activity]?.contains("needsReview") == true,
+                        chrome: chrome
+                    )
+                } else {
+                    ActivityScreen(
+                        overview: model,
+                        route: route,
+                        onOpenSettings: openSettings,
+                        startNeedsReview: paths[.activity]?.contains("needsReview") == true
+                    )
+                }
+            }
+            .id(paths[.activity] ?? TabRoute.activity.rootPath)
+            .hideSystemTabBar()
+            .tag(TabRoute.activity)
+
+            AnalysisScreen(overview: model, route: route, onOpenSettings: openSettings)
+                .hideSystemTabBar()
+                .tag(TabRoute.analysis)
+        }
+        // The system bar is replaced, not decorated: it cannot be centred
+        // when minimised and it has no long-press. TabView still owns tab
+        // state and lazy loading.
+        .ignoresSafeArea(.keyboard)
+    }
+
     var body: some View {
         ZStack(alignment: .bottom) {
-            /*
-             * Un balayage dépile avant de changer d'onglet.
-             *
-             * Deux fausses pistes avant celle-ci. `scrollDisabled` ne touche
-             * pas le balayage d'un `TabView` en style page. Et lui retirer le
-             * style quand un relevé s'ouvre marchait — mais changer un
-             * `tabViewStyle` à chaud reconstruit le `TabView` entier, donc
-             * les cinq pages : c'était l'à-coup qu'on sentait au balayage.
-             *
-             * Le style ne bouge plus. C'est la sélection qui refuse de
-             * changer tant qu'un relevé est posé par-dessus : le balayage
-             * part, ne trouve pas d'onglet où aller, et rend la main au
-             * retour arrière de la pile.
-             */
-            TabView(selection: Binding(
-                get: { selection },
-                set: { next in
-                    guard !chrome.detailOpen else { return }
-                    selection = next
-                }
-            )) {
-                Group {
-                    if editorial {
-                        EditorialHome(
-                            model: model,
-                            onOpenSettings: openSettings,
-                            onOpenAccounts: { route(to: .accounts, path: TabRoute.accounts.rootPath) },
-                            chrome: chrome
-                        )
-                    } else {
-                        OverviewScreen(
-                            model: model, chrome: chrome, route: route, onSearch: focusSearch
-                        )
-                    }
-                }
-                .hideSystemTabBar()
-                .offset(x: entering(.overview))
-                .tag(TabRoute.overview)
-
-                Group {
-                    if editorial {
-                        EditorialAccounts(
-                            model: model,
-                            onOpenSettings: openSettings,
-                            chrome: chrome
-                        )
-                    } else {
-                        classicAccounts
-                    }
-                }
-                .hideSystemTabBar()
-                .offset(x: entering(.accounts))
-                .tag(TabRoute.accounts)
-
-                Group {
-                    if editorial {
-                        EditorialPlan(
-                            overview: model, route: route,
-                            onOpenSettings: openSettings, chrome: chrome
-                        )
-                    } else {
-                        PlanScreen(overview: model, route: route, onOpenSettings: openSettings)
-                    }
-                }
-                .hideSystemTabBar()
-                .offset(x: entering(.plan))
-                .tag(TabRoute.plan)
-
-                Group {
-                    if editorial {
-                        EditorialActivity(
-                            overview: model,
-                            onOpenSettings: openSettings,
-                            startNeedsReview: paths[.activity]?.contains("needsReview") == true,
-                            chrome: chrome
-                        )
-                    } else {
-                        ActivityScreen(
-                            overview: model,
-                            route: route,
-                            onOpenSettings: openSettings,
-                            startNeedsReview: paths[.activity]?.contains("needsReview") == true
-                        )
-                    }
-                }
-                .id(paths[.activity] ?? TabRoute.activity.rootPath)
-                .hideSystemTabBar()
-                .offset(x: entering(.activity))
-                .tag(TabRoute.activity)
-
-                AnalysisScreen(overview: model, route: route, onOpenSettings: openSettings)
-                    .hideSystemTabBar()
-                    .offset(x: entering(.analysis))
-                    .tag(TabRoute.analysis)
-            }
-            // The system bar is replaced, not decorated: it cannot be centred
-            // when minimised and it has no long-press. TabView still owns tab
-            // state and lazy loading.
-            .ignoresSafeArea(.keyboard)
-            /*
-             * Le balayage change d'onglet, mais pas le style page.
-             *
-             * `.page` faisait suivre le contenu sous le doigt, et c'était le
-             * meilleur des deux. Seulement il héberge chaque onglet dans son
-             * propre pagineur : le `ScrollView` de la page n'est plus celui
-             * que l'effet de bord d'iOS 26 regarde, donc les deux bords
-             * cessaient de fondre et il ne restait que le fond coupé net —
-             * la bande claire en haut comme en bas.
-             *
-             * Le geste revient sans lui : `edSwipe` lit le balayage et pose
-             * la sélection. Le contenu ne suit plus le doigt, il arrive à la
-             * fin du geste — c'est le prix des bords, et les bords valent
-             * plus cher. Il se tait quand un écran est poussé par-dessus :
-             * un balayage dépile d'abord ce qui est posé dessus.
-             */
-            /*
-             * La page suit le doigt, puis l'autre arrive par le même côté.
-             *
-             * Sans le style page, `TabView` fond d'un onglet à l'autre : le
-             * balayage se termine et l'écran change sur place. Et tant que
-             * rien ne bougeait avant le relevé du doigt, le geste n'avait pas
-             * de réponse — c'est ce silence qu'on prenait pour de la lenteur.
-             *
-             * Donc les deux moitiés que le style page nous refuse, à la main :
-             * la page courante se décale sous le doigt (`track`, amorti au
-             * tiers — un pouce de doigt n'est pas un pouce d'écran, et un
-             * pagineur freine pareil), et au relevé la nouvelle entre du côté
-             * d'où le doigt venait. Au bout de la liste, la résistance monte
-             * sans céder : la page frémit et revient.
-             */
-            .edSwipe(
-                edTabOrder, selection: Binding(
-                    get: { selection },
-                    set: { next in
-                        guard !chrome.detailOpen else { return }
-                        let here = edTabOrder.firstIndex(of: selection) ?? 0
-                        let there = edTabOrder.firstIndex(of: next) ?? 0
-                        /*
-                         * Le décalage est POSÉ sans animation, et rendu
-                         * ensuite.
-                         *
-                         * `edSwipe` appelle ce bloc à l'intérieur de son
-                         * propre `withAnimation` : poser 64 puis demander 0
-                         * dans la même transaction, c'est demander une
-                         * animation de 0 à 0 — SwiftUI n'a jamais affiché le
-                         * 64, et rien ne bougeait. Il faut une image rendue à
-                         * 64 avant de rappeler la page au centre.
-                         */
-                        // `Transaction` tout court est l'opération du grand
-                        // livre : ici c'est bien celle de SwiftUI.
-                        var instant = SwiftUI.Transaction(animation: nil)
-                        instant.disablesAnimations = true
-                        withTransaction(instant) {
-                            slide = there > here ? 72 : -72
-                            selection = next
-                        }
-                        DispatchQueue.main.async {
-                            withAnimation(EdMotion.spring) { slide = 0 }
-                        }
-                    }
-                ),
-                enabled: editorial && !chrome.detailOpen,
-                track: { dx in
-                    guard let dx else {
-                        withAnimation(EdMotion.spring) { slide = 0 }
-                        return
-                    }
-                    // Un bout de liste ne cède pas : un dixième du geste, pour
-                    // dire qu'il n'y a rien derrière.
-                    let here = edTabOrder.firstIndex(of: selection) ?? 0
-                    let wall = dx < 0 ? here == edTabOrder.count - 1 : here == 0
-                    let pull = min(abs(dx), 260) * (wall ? 0.1 : 0.34)
-                    var instant = SwiftUI.Transaction(animation: nil)
-                    instant.disablesAnimations = true
-                    withTransaction(instant) { slide = dx < 0 ? -pull : pull }
-                }
-            )
+            pager
 
             // Content dissolves into the bottom of the screen rather than
             // running on under the bar and out through the home indicator.

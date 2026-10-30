@@ -59,6 +59,9 @@ struct EditorialHome: View {
     /// Ce que le premier écran a déjà rendu de sa marge du bas. Voir
     /// `EdFirstScreenTop`.
     @State private var lift: CGFloat = 0
+    /// Où le haut du premier écran se trouve au repos — l'origine dont `lift`
+    /// est la distance.
+    @State private var top0: CGFloat?
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage(Greeting.key) private var firstName = ""
 
@@ -176,7 +179,9 @@ struct EditorialHome: View {
                         onSync: { Task { await model.sync(confirmCurrent: false) } },
                         onAccounts: onOpenAccounts
                     )
-                    .edEnter()
+                    // Pas d'`edEnter` sur cette rangée : elle se rapproche des
+                    // cartes au fil du défilement (voir `lift`), et un bloc
+                    // qui apparaît en fondu cache le mouvement qu'il fait.
                     .padding(.bottom, 44)
 
                     EdMonthSplit(data: data)
@@ -205,12 +210,28 @@ struct EditorialHome: View {
             }
         }
         .coordinateSpace(name: Self.space)
-        // Par pas de douze points : de quoi suivre le doigt sans refaire la
-        // page à chaque image.
+        /*
+         * L'écart se referme point par point, depuis là où il commence.
+         *
+         * `y` était pris pour la distance parcourue, alors que c'est une
+         * position : selon ce que la zone sûre ajoute au-dessus, elle ne part
+         * pas de zéro, et il fallait défiler soixante points pour rien avant
+         * que l'écart ne commence à bouger — on ne voyait donc PAS la rangée
+         * se rapprocher des cartes. La première valeur lue devient l'origine,
+         * et le reste est un déplacement.
+         *
+         * Par pas de six points : assez fin pour qu'on le lise comme un
+         * mouvement, assez gros pour ne pas refaire la page à chaque image.
+         */
         .onPreferenceChange(EdFirstScreenTop.self) { y in
-            let next = min(Self.maxLift, max(0, (y / 12).rounded() * 12))
+            let origin = top0 ?? y
+            if top0 == nil { top0 = y }
+            let next = min(Self.maxLift, max(0, ((y - origin) / 6).rounded() * 6))
             if next != lift { lift = next }
         }
+        // Une opération notée depuis l'accueil doit se voir dans le
+        // patrimoine et les cartes, pas seulement dans Activité.
+        .reloadsOnLedgerChange { await model.load(showSpinner: false) }
         .edRewind(.overview, chrome: chrome)
         .scrollIndicators(.hidden)
         .edPlainEdges()
@@ -286,17 +307,26 @@ struct EditorialHome: View {
             // seule, le salut devenait illisible et le prénom s'effaçait en
             // trois points — c'est le prénom qu'on lit, pas la formule.
             /*
-             * Trente-huit, et pas plus.
+             * Cinquante-deux : la taille de la référence, pas celle qui
+             * restait après avoir tout payé.
              *
-             * Le salut grandit, la suite descend, et c'est la pile qui paie :
-             * dix-huit points de moins pour elle. À 275 points il lui en
-             * reste de quoi tenir cinq cartes — le plancher d'une carte de
-             * tête (128) plus quatre tranches serrées (34) fait 264. Au-delà
-             * de trente-huit, une carte disparaît de l'écran d'accueil.
+             * Trente-huit était un compromis tenu par le mauvais bout — on
+             * s'arrêtait là où la pile cessait de tenir cinq cartes avec ses
+             * anciennes mesures. Or l'accordéon est fait pour ça : c'est la
+             * TRANCHE qui se serre, et trente-quatre points n'étaient pas son
+             * minimum, juste sa valeur d'alors. À vingt-huit, une bande
+             * montre encore un nom et un montant de quinze points avec cinq
+             * points d'air de chaque côté.
+             *
+             * Le compte, à 241 points de place restante : plancher de la
+             * carte de tête (128) plus quatre tranches de 28 fait 240. Cinq
+             * cartes, comme avant, avec un salut de quatorze points plus
+             * grand. La carte de tête, elle, ne cède rien : c'est la seule
+             * qu'on lit en entier.
              */
             Text(Greeting.line(t, name: firstName))
-                .font(.system(size: 38, weight: .medium))
-                .kerning(Ed.tracking(38, 0.04))
+                .font(.system(size: 52, weight: .medium))
+                .kerning(Ed.tracking(52, 0.04))
                 .foregroundStyle(Florin.text)
                 .lineLimit(2)
                 .minimumScaleFactor(0.8)
@@ -607,7 +637,7 @@ struct EditorialHome: View {
     /// 12 pt à du texte de 15 : à six cartes, les noms se touchaient. Le
     /// plancher est ce qu'il faut au bandeau, pas ce qui fait entrer une carte
     /// de plus.
-    private static let tightStep: CGFloat = 34
+    private static let tightStep: CGFloat = 28
     private static let shownAtMost = 8
     /*
      * Ce qu'il faut à la carte menée, compté ligne par ligne.
@@ -729,7 +759,16 @@ struct EditorialHome: View {
                 height: height + CGFloat(shown.count - 1) * step,
                 alignment: .top
             )
-            .edEnter()
+            /*
+             * La pile ne s'efface pas en descendant.
+             *
+             * `edEnter` éteint ce qui sort du défilement, et c'est juste pour
+             * un titre ou un chiffre : une ligne s'en va au lieu d'être
+             * coupée. Sur des cartes de couleur, la même règle donne une pile
+             * de plus en plus transparente dès les premiers points de
+             * défilement — on croit l'app en train de se perdre. Les bords du
+             * système suffisent ici : la pile s'en va, elle ne se dissout pas.
+             */
             .animation(EdMotion.spring, value: shown.map(\.id))
             /*
              * Le bas de la pile ne descend jamais.

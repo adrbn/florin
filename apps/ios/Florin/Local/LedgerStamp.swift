@@ -17,6 +17,26 @@ import SwiftUI
  */
 enum LedgerStamp {
     static var current: Int { LocalStore.shared?.database.changes ?? 0 }
+
+    /*
+     * « Va revoir ton compteur. »
+     *
+     * Le compteur suffisait tant qu'un onglet était RECONSTRUIT en y
+     * revenant : `task` repartait, le compteur était relu. Le pagineur du
+     * système garde les cinq pages montées — une page lue une fois ne
+     * repasse plus jamais par `task`, donc une opération saisie à l'instant
+     * n'apparaissait qu'après avoir tiré la liste à la main.
+     *
+     * D'où ce signal : il ne dit pas ce qui a changé, seulement qu'il est
+     * temps de relire le compteur. C'est lui qui décide ensuite s'il y a
+     * vraiment de quoi recharger — un signal pour rien ne coûte qu'une
+     * comparaison d'entiers.
+     */
+    static let recheck = Notification.Name("florin.ledgerRecheck")
+
+    static func touch() {
+        NotificationCenter.default.post(name: recheck, object: nil)
+    }
 }
 
 extension View {
@@ -30,13 +50,26 @@ extension View {
 private struct LedgerChangeReload: ViewModifier {
     let reload: () async -> Void
     @State private var seen = LedgerStamp.current
+    @Environment(\.scenePhase) private var scenePhase
 
     func body(content: Content) -> some View {
-        content.task {
-            let now = LedgerStamp.current
-            guard now != seen else { return }
-            seen = now
-            await reload()
-        }
+        content
+            .task { await settle() }
+            // Un signal, et le retour d'arrière-plan : le widget et les
+            // intentions écrivent sans que l'app soit à l'écran.
+            .onReceive(NotificationCenter.default.publisher(for: LedgerStamp.recheck)) { _ in
+                Task { await settle() }
+            }
+            .onChange(of: scenePhase) { _, phase in
+                guard phase == .active else { return }
+                Task { await settle() }
+            }
+    }
+
+    private func settle() async {
+        let now = LedgerStamp.current
+        guard now != seen else { return }
+        seen = now
+        await reload()
     }
 }

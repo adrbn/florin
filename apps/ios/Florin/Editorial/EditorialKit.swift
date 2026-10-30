@@ -782,45 +782,24 @@ extension EdSymbols {
  * onglet fait perdre où l'on est.
  */
 extension View {
-    /*
-     * `track` suit le doigt, s'il y a quelqu'un pour l'écouter.
-     *
-     * Sans lui, rien ne bougeait AVANT que le doigt ne se lève : on poussait
-     * dans le vide, l'écran changeait au relevé, et ce délai se lit comme un
-     * effort de l'app — « il n'y a rien de natif ». Un pagineur, lui, répond
-     * au premier point parcouru.
-     *
-     * Le bloc reçoit le déplacement horizontal tant que le geste est franc,
-     * puis `nil` quand le doigt est reparti sans rien demander : à l'appelant
-     * de ramener sa page au centre. Une valeur de 0 en vol ne veut pas dire
-     * lâché, d'où le `nil`.
-     */
     func edSwipe<Value: Hashable>(
-        _ order: [Value], selection: Binding<Value>, enabled: Bool = true,
-        track: ((CGFloat?) -> Void)? = nil
+        _ order: [Value], selection: Binding<Value>, enabled: Bool = true
     ) -> some View {
         simultaneousGesture(
             // Quarante points, pas vingt-quatre : en dessous, un défilement
             // vertical un peu oblique rentrait dans la fourchette et l'écran
             // partait de côté à la fin du geste.
             DragGesture(minimumDistance: 40)
-                .onChanged { move in
-                    guard let track, enabled, !EdGesture.shared.scrubbing else { return }
-                    let dx = move.translation.width
-                    // Même fourchette qu'au relevé : un défilement oblique ne
-                    // doit pas faire frémir la page de côté.
-                    track(abs(dx) > abs(move.translation.height) * 2 ? dx : 0)
-                }
                 .onEnded { move in
                     // Le doigt qui suit la courbe ne demande pas de page.
-                    guard enabled, !EdGesture.shared.scrubbing else { track?(nil); return }
+                    guard enabled, !EdGesture.shared.scrubbing else { return }
                     let dx = move.translation.width
                     let dy = move.translation.height
                     guard abs(dx) > 60, abs(dx) > abs(dy) * 2,
                           let here = order.firstIndex(of: selection.wrappedValue)
-                    else { track?(nil); return }
+                    else { return }
                     let next = dx < 0 ? here + 1 : here - 1
-                    guard order.indices.contains(next) else { track?(nil); return }
+                    guard order.indices.contains(next) else { return }
                     UISelectionFeedbackGenerator().selectionChanged()
                     withAnimation(EdMotion.spring) { selection.wrappedValue = order[next] }
                 }

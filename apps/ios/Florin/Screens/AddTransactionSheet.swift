@@ -446,6 +446,14 @@ struct AddTransactionSheet: View {
     private func plumbed(_ content: some View) -> some View {
         content
         .presentationBackground(.clear)
+        /*
+         * En partant, elle prévient.
+         *
+         * Plutôt qu'à chacune des quatre sorties de `save()` — opération,
+         * virement, échéancier, modification : une feuille qui se ferme a pu
+         * écrire, et c'est au compteur de dire si elle l'a fait.
+         */
+        .onDisappear { LedgerStamp.touch() }
         .onAppear {
             if accountId.isEmpty {
                 /*
