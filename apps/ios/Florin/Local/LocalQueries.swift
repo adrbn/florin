@@ -110,7 +110,7 @@ enum LocalQueries {
             """
             SELECT a.id, a.name, a.kind, a.institution, a.current_balance, a.market_value,
                    a.opening_balance, a.is_included_in_net_worth, a.is_archived,
-                   a.display_icon, a.sync_provider,
+                   a.display_icon, a.display_color, a.sync_provider,
                    a.loan_original_principal, a.loan_interest_rate, a.loan_term_months,
                    a.loan_monthly_payment,
                    /*
@@ -171,6 +171,7 @@ enum LocalQueries {
                 isIncludedInNetWorth: row.bool("is_included_in_net_worth"),
                 isArchived: row.bool("is_archived"),
                 displayIcon: row.string("display_icon"),
+                displayColor: row.string("display_color"),
                 isSynced: row.string("sync_provider") == "enable_banking"
             )
         }

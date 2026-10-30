@@ -721,28 +721,59 @@ struct AnalysisScreen: View {
                     title: t("v2.analysis.movers", "Ce qui bouge"),
                     trailing: t("v2.analysis.vsAverage", "vs moyenne")
                 ) {
-                    VStack(spacing: 10) {
-                        ForEach(ranked.prefix(8)) { mover in
-                            trendRow(
-                                mover.row, months: months, delta: mover.delta,
-                                categoryIds: data.categoryIds
-                            )
-                        }
-                    }
-                    .padding(.horizontal, Florin.gutter)
+                    trendList(
+                        ranked.prefix(8).map { (row: $0.row, delta: Double?.some($0.delta)) },
+                        months: months, categoryIds: data.categoryIds
+                    )
                 }
             }
 
             if !others.isEmpty {
                 ScreenSection(title: t("v2.analysis.stable", "Stable")) {
-                    VStack(spacing: 10) {
-                        ForEach(others.prefix(6)) { row in
-                            trendRow(row, months: months, delta: nil, categoryIds: data.categoryIds)
-                        }
-                    }
-                    .padding(.horizontal, Florin.gutter)
+                    trendList(
+                        others.prefix(6).map { (row: $0, delta: Double?.none) },
+                        months: months, categoryIds: data.categoryIds
+                    )
                 }
             }
+        }
+    }
+
+    /*
+     * En éditorial, une liste est RÉGLÉE — jamais une boîte par ligne.
+     *
+     * `florinSurface` donne en éditorial un filet à 18 pt de rayon, et c'est
+     * la bonne définition pour UNE carte posée seule. Huit à la file font huit
+     * cadres vides empilés : du mobilier, là où la page ne demande qu'un trait
+     * entre deux lignes. Les portes des Réglages tiennent déjà de cette
+     * façon, et c'est la même liste.
+     *
+     * Obsidienne garde ses cartes : c'est son vocabulaire, pas un oubli.
+     */
+    @ViewBuilder
+    private func trendList(
+        _ rows: [(row: CategorySeries.Row, delta: Double?)],
+        months: [String], categoryIds: [String: String]
+    ) -> some View {
+        if editorial {
+            VStack(spacing: 0) {
+                ForEach(Array(rows.enumerated()), id: \.element.row.id) { index, entry in
+                    if index > 0 { EdRule() }
+                    trendRow(
+                        entry.row, months: months, delta: entry.delta, categoryIds: categoryIds
+                    )
+                }
+            }
+            .padding(.horizontal, Ed.gutter)
+        } else {
+            VStack(spacing: 10) {
+                ForEach(Array(rows.enumerated()), id: \.element.row.id) { _, entry in
+                    trendRow(
+                        entry.row, months: months, delta: entry.delta, categoryIds: categoryIds
+                    )
+                }
+            }
+            .padding(.horizontal, Florin.gutter)
         }
     }
 
@@ -758,7 +789,16 @@ struct AnalysisScreen: View {
         categoryIds: [String: String]
     ) -> some View {
         let open = expanded == row.id
-        let tint = Florin.seriesColor(for: row.categoryName)
+        /*
+         * En éditorial, les barres sont de l'encre.
+         *
+         * `RankBar` tranche déjà la question deux sections plus haut : douze
+         * teintes empilées ne disent rien, aucune ne veut dire quelque chose,
+         * et le regard les prend pour un classement. Les deux graphes de
+         * Tendances étaient restés en dehors — le seul coloré d'une page à
+         * l'encre, et c'est lui qu'on remarquait au lieu de sa forme.
+         */
+        let tint = editorial ? Florin.text : Florin.seriesColor(for: row.categoryName)
 
         /*
          * Stacked, not strung out.
@@ -788,7 +828,19 @@ struct AnalysisScreen: View {
                             .lineLimit(1)
                             .minimumScaleFactor(0.85)
                         Spacer(minLength: 6)
-                        DeltaChip(delta: delta)
+                        if editorial {
+                            // La pastille de la maquette, celle du reste de
+                            // l'éditorial : un filet qui suit l'encre, pas un
+                            // fond teinté de dix points de haut.
+                            if let delta, abs(delta) >= 5 {
+                                EdAmountPill(
+                                    text: "\(delta > 0 ? "+" : "−")\(Int(abs(delta).rounded()))\u{202F}%",
+                                    tone: delta > 0 ? EdMoney.minus : EdMoney.plus
+                                )
+                            }
+                        } else {
+                            DeltaChip(delta: delta)
+                        }
                         Image(systemName: open ? "chevron.up" : "chevron.down")
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(Florin.text3)
@@ -823,8 +875,8 @@ struct AnalysisScreen: View {
                             .frame(height: 30)
                     }
                 }
-                .padding(.horizontal, Florin.gutter)
-                .padding(.vertical, 13)
+                .padding(.horizontal, editorial ? 0 : Florin.gutter)
+                .padding(.vertical, editorial ? 17 : 13)
             }
             .buttonStyle(.plain)
 
@@ -839,22 +891,42 @@ struct AnalysisScreen: View {
                     Button {
                         drill = ActivityRoute(categoryId: row.categoryId, title: row.categoryName)
                     } label: {
-                        Text(t("v2.analysis.openCategory", "Voir les opérations"))
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(Florin.accent)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 11)
-                            .background(Florin.accent.opacity(0.12),
-                                        in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        if editorial {
+                            /*
+                             * Un lien, pas un bouton teinté.
+                             *
+                             * Un pavé lavé d'accent sur douze points de haut
+                             * est le vocabulaire d'Obsidienne. Ici la page
+                             * n'a qu'une encre : une phrase et un chevron
+                             * disent « ça continue par là » sans rien peindre.
+                             */
+                            HStack(spacing: 6) {
+                                Text(t("v2.analysis.openCategory", "Voir les opérations"))
+                                    .font(.system(size: 15, weight: .medium))
+                                Image(systemName: "arrow.up.right")
+                                    .font(.system(size: 11, weight: .semibold))
+                                Spacer(minLength: 0)
+                            }
+                            .foregroundStyle(Florin.text2)
+                            .padding(.vertical, 2)
+                        } else {
+                            Text(t("v2.analysis.openCategory", "Voir les opérations"))
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(Florin.accent)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 11)
+                                .background(Florin.accent.opacity(0.12),
+                                            in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        }
                     }
                     .buttonStyle(.plain)
                 }
-                .padding(.horizontal, Florin.gutter)
-                .padding(.bottom, 14)
+                .padding(.horizontal, editorial ? 0 : Florin.gutter)
+                .padding(.bottom, editorial ? 18 : 14)
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .florinSurface()
+        .modifier(TrendRowSkin(editorial: editorial))
     }
 
     /*
@@ -2017,6 +2089,16 @@ struct EdFlowChart: View {
 }
 
 /// One category's twelve months, at full width with labels.
+/// Ce qu'une ligne de tendance porte autour d'elle : rien en éditorial, où le
+/// trait entre deux lignes suffit — une carte ailleurs.
+private struct TrendRowSkin: ViewModifier {
+    let editorial: Bool
+
+    func body(content: Content) -> some View {
+        if editorial { content } else { content.florinSurface() }
+    }
+}
+
 struct CategoryYearChart: View {
     let months: [String]
     let values: [Double]
@@ -2024,8 +2106,32 @@ struct CategoryYearChart: View {
     let locale: String
     let currency: String
 
+    private var editorial: Bool { FlorinPalette.selected == .editorial }
+
     private var points: [(month: String, value: Double)] {
         zip(months, values).map { ($0, $1) }
+    }
+
+    /*
+     * Une étiquette sur trois, plus la dernière.
+     *
+     * Douze mois nommés sur 345 pt laissent 28 pt par étiquette : à 8,5 pt
+     * elles tenaient, illisibles, et à une taille lisible Swift Charts en
+     * jette — celles qu'il veut, donc l'axe perdait « janv. » un mois et
+     * « mars » le suivant. Choisir lesquelles rester est la seule façon
+     * d'avoir un axe stable.
+     *
+     * La dernière est gardée en propre : c'est le mois en cours, celui que la
+     * barre la plus à droite représente, et un axe qui s'arrête trois mois
+     * avant la fin ne dit plus de quand on parle.
+     */
+    private var shownLabels: Set<String> {
+        let labels = points.map { MonthLabel.short($0.month, locale: locale) }
+        guard editorial else { return Set(labels) }
+        var keep: Set<String> = []
+        for (index, label) in labels.enumerated()
+        where index % 3 == 0 || index == labels.count - 1 { keep.insert(label) }
+        return keep
     }
 
     var body: some View {
@@ -2035,15 +2141,18 @@ struct CategoryYearChart: View {
                 y: .value("Montant", point.value)
             )
             .foregroundStyle(tint)
-            .cornerRadius(4)
+            // Un rayon qui dépasse la moitié de la largeur de la barre en fait
+            // un ovale, et c'est un mois bas qui en souffre le premier — le
+            // même piège que `SparkBars` documente et évite.
+            .cornerRadius(editorial ? 2 : 4)
         }
         .chartYAxis {
-            AxisMarks(position: .leading, values: .automatic(desiredCount: 3)) { value in
+            AxisMarks(position: .leading, values: .automatic(desiredCount: editorial ? 2 : 3)) { value in
                 AxisGridLine().foregroundStyle(Florin.text.opacity(0.06))
                 AxisValueLabel {
                     if let amount = value.as(Double.self) {
                         Text(Money.compact(amount, locale: locale, currency: currency))
-                            .font(.system(size: 9))
+                            .font(.system(size: editorial ? 11 : 9))
                             .foregroundStyle(Florin.text3)
                             .hiddenWhenPrivate()
                     }
@@ -2053,8 +2162,10 @@ struct CategoryYearChart: View {
         .chartXAxis {
             AxisMarks { value in
                 AxisValueLabel {
-                    if let label = value.as(String.self) {
-                        Text(label).font(.system(size: 8.5)).foregroundStyle(Florin.text3)
+                    if let label = value.as(String.self), shownLabels.contains(label) {
+                        Text(label)
+                            .font(.system(size: editorial ? 11 : 8.5))
+                            .foregroundStyle(Florin.text3)
                     }
                 }
             }

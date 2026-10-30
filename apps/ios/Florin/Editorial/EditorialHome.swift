@@ -26,7 +26,9 @@ struct EditorialHome: View {
     let onOpenAccounts: () -> Void
     @ObservedObject var chrome: ChromeState
 
-    @State private var addingAccount = false
+    /// Quelles cartes, dans quel ordre, de quelle couleur. Voir
+    /// `HomeCardsSheet` — et la place qu'elle a prise.
+    @State private var arrangingCards = false
     /// Noter une opération depuis les quatre gestes. `income` dit laquelle
     /// des deux : la feuille s'ouvre sur « reçu » ou sur « dépense ».
     @State private var addingTx = false
@@ -258,9 +260,15 @@ struct EditorialHome: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await model.onForeground() } }
         }
-        .sheet(isPresented: $addingAccount) {
-            AddAccountSheet(t: t, onSaved: { Task { await model.load() } })
+        .sheet(isPresented: $arrangingCards) {
+            if let data = model.overview {
+                HomeCardsSheet(
+                    accounts: data.accounts.filter { !$0.isArchived },
+                    t: t,
+                    onChange: { Task { await model.load(showSpinner: false) } }
+                )
                 .edSheet()
+            }
         }
         .sheet(isPresented: $addingTx) {
             if let data = model.overview {
@@ -538,10 +546,11 @@ struct EditorialHome: View {
     /// Tous les comptes vivants, dans l'ordre de la base.
     ///
     /// `display_order` est ce que la base trie déjà. Réagencer la pile au
-    /// doigt a été retiré : une carte de pile fait la hauteur d'une carte
+    /// doigt A ÉTÉ RETIRÉ : une carte de pile fait la hauteur d'une carte
     /// entière et n'en montre qu'un bandeau, donc la déplacer sortait son
     /// corps de sa cachette — il n'y avait pas de façon de le dessiner qui
-    /// reste lisible. L'ordre se change dans Comptes.
+    /// reste lisible. L'ordre se change dans la feuille du titre, où une
+    /// ligne de liste n'a rien à cacher, ou dans Comptes.
     private func cards(_ data: Overview) -> [Account] {
         let hidden = HomeCards.hidden(hiddenCards)
         return data.accounts.filter {
@@ -554,7 +563,7 @@ struct EditorialHome: View {
      *
      * La pastille et le titre disaient la même chose l'un sous l'autre, à deux
      * corps différents, et mangeaient soixante points pour le répéter. Reste la
-     * pastille, qui porte le compte, et le bouton qui ajoute.
+     * pastille, qui porte le compte, et le bouton qui choisit lesquelles.
      */
     private func accountsHeading(_ data: Overview) -> some View {
         let live = data.accounts.filter { !$0.isArchived }.count
@@ -567,23 +576,20 @@ struct EditorialHome: View {
             }
             .buttonStyle(.edPress)
             Spacer(minLength: 8)
-            Button { addingAccount = true } label: {
-                HStack(spacing: 6) {
-                    Text(t("v2.nav.add", "Ajouter"))
-                        .font(.system(size: 13))
-                        .foregroundStyle(Florin.text)
-                    Image(systemName: "plus")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(Florin.onAccent)
-                        .frame(width: 20, height: 20)
-                        .background(Circle().fill(Florin.accent))
-                }
-                .padding(.leading, 12)
-                .padding(.trailing, 6)
-                .frame(height: 32)
-                .overlay(Capsule().strokeBorder(Florin.text.opacity(0.28), lineWidth: 1))
-            }
-            .buttonStyle(.edPress)
+            /*
+             * Pas « ajouter », mais « lesquels ».
+             *
+             * Un compte naît d'une synchro bancaire ou de l'écran Comptes, qui
+             * porte déjà son « + » : ce bouton-là était une troisième porte
+             * vers la même feuille, posée à l'endroit où la question n'est
+             * jamais « en ouvrir un » — on en ouvre un par an — mais
+             * « lesquels je regarde, dans quel ordre ».
+             */
+            EdIconButton(
+                symbol: "slider.horizontal.3",
+                label: t("v2.ed.cards.open", "Choisir les cartes")
+            ) { arrangingCards = true }
+            .padding(.trailing, -10)
         }
         .padding(.top, 10)
         .padding(.bottom, 10)
@@ -664,36 +670,9 @@ struct EditorialHome: View {
         return Array(all.prefix(count))
     }
 
-    /*
-     * Une couleur par compte, et jamais deux fois la même.
-     *
-     * `seriesColor` hache l'identifiant sur huit teintes : à six comptes, deux
-     * tombent sur la même plus d'une fois sur deux — PEA et LEP étaient tous
-     * les deux jaunes, l'un sur l'autre, et la pile n'avait plus que cinq
-     * cartes à l'œil. Le hachage reste le premier choix, parce que c'est lui
-     * qui rend la couleur stable et la même que sur le web ; un compte qui
-     * trouve sa place prise passe au rang suivant.
-     *
-     * Décidée sur l'ordre de la BASE, pas sur l'ordre affiché : mettre une
-     * carte en avant réordonne la pile, et une couleur qui suivrait cet ordre
-     * changerait à chaque appui.
-     */
-    private func palette(_ all: [Account]) -> [String: Color] {
-        let count = Florin.series.count
-        var taken = Set<Int>()
-        var out: [String: Color] = [:]
-        for account in all {
-            var rank = Florin.seriesIndex(for: account.id)
-            var tries = 0
-            while taken.contains(rank), tries < count {
-                rank = (rank + 1) % count
-                tries += 1
-            }
-            taken.insert(rank)
-            out[account.id] = Florin.series[rank]
-        }
-        return out
-    }
+    /// Voir `HomeCards.palette` : la feuille des cartes montre les mêmes
+    /// teintes, donc la règle n'existe qu'une fois.
+    private func palette(_ all: [Account]) -> [String: Color] { HomeCards.palette(all) }
 
     /// Sous dix euros, les centimes font la phrase : 1,50 € arrondi à 2 € se
     /// lit comme un tiers de plus qu'il n'y a, et la part en pourcentage suit.

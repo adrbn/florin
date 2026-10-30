@@ -915,7 +915,12 @@
     "v2.settings.sourceServer": "Server",
     "v2.analysis.quietDay": "{count} day without spending",
     "v2.analysis.subsDrop": "Not a subscription",
-    "v2.analysis.subsDropHint": "Press and hold a line to stop counting it. Tap it to give it a name and a logo."
+    "v2.analysis.subsDropHint": "Press and hold a line to stop counting it. Tap it to give it a name and a logo.",
+    "v2.ed.cards.open": "Choose cards",
+    "v2.ed.cards.title": "Cards",
+    "v2.ed.cards.hint": "The ones switched on stack on the home screen. Press and hold a row to reorder.",
+    "v2.ed.cards.auto": "Automatic",
+    "v2.ed.cards.color": "Colour"
   },
   "fr": {
     "v2.a11y.back": "Retour",
@@ -1833,7 +1838,12 @@
     "v2.settings.sourceServer": "Serveur",
     "v2.analysis.quietDay": "{count} jour sans dépense",
     "v2.analysis.subsDrop": "Pas un abonnement",
-    "v2.analysis.subsDropHint": "Appui long sur une ligne pour ne plus la compter. Touchez-la pour lui donner son nom et son logo."
+    "v2.analysis.subsDropHint": "Appui long sur une ligne pour ne plus la compter. Touchez-la pour lui donner son nom et son logo.",
+    "v2.ed.cards.open": "Choisir les cartes",
+    "v2.ed.cards.title": "Cartes",
+    "v2.ed.cards.hint": "Celles qui sont allumées s'empilent sur l'accueil. Appui long sur une ligne pour changer l'ordre.",
+    "v2.ed.cards.auto": "Automatique",
+    "v2.ed.cards.color": "Couleur"
   },
   "nl": {
     "v2.a11y.back": "Terug",
@@ -2751,7 +2761,12 @@
     "v2.settings.sourceServer": "Server",
     "v2.analysis.quietDay": "{count} dag zonder uitgaven",
     "v2.analysis.subsDrop": "Geen abonnement",
-    "v2.analysis.subsDropHint": "Houd een regel ingedrukt om die niet meer mee te tellen. Tik erop voor een naam en logo."
+    "v2.analysis.subsDropHint": "Houd een regel ingedrukt om die niet meer mee te tellen. Tik erop voor een naam en logo.",
+    "v2.ed.cards.open": "Kaarten kiezen",
+    "v2.ed.cards.title": "Kaarten",
+    "v2.ed.cards.hint": "De aangezette kaarten stapelen op het startscherm. Houd een rij ingedrukt om de volgorde te wijzigen.",
+    "v2.ed.cards.auto": "Automatisch",
+    "v2.ed.cards.color": "Kleur"
   },
   "it": {
     "v2.a11y.back": "Indietro",
@@ -3669,7 +3684,12 @@
     "v2.settings.sourceServer": "Server",
     "v2.analysis.quietDay": "{count} giorno senza spese",
     "v2.analysis.subsDrop": "Non è un abbonamento",
-    "v2.analysis.subsDropHint": "Tieni premuta una riga per non contarla più. Toccala per darle nome e logo."
+    "v2.analysis.subsDropHint": "Tieni premuta una riga per non contarla più. Toccala per darle nome e logo.",
+    "v2.ed.cards.open": "Scegli le carte",
+    "v2.ed.cards.title": "Carte",
+    "v2.ed.cards.hint": "Quelle accese si impilano nella schermata principale. Tieni premuta una riga per riordinare.",
+    "v2.ed.cards.auto": "Automatico",
+    "v2.ed.cards.color": "Colore"
   },
   "es": {
     "v2.a11y.back": "Atrás",
@@ -4587,7 +4607,12 @@
     "v2.settings.sourceServer": "Servidor",
     "v2.analysis.quietDay": "{count} día sin gastos",
     "v2.analysis.subsDrop": "No es una suscripción",
-    "v2.analysis.subsDropHint": "Mantén pulsada una línea para dejar de contarla. Tócala para darle nombre y logo."
+    "v2.analysis.subsDropHint": "Mantén pulsada una línea para dejar de contarla. Tócala para darle nombre y logo.",
+    "v2.ed.cards.open": "Elegir las tarjetas",
+    "v2.ed.cards.title": "Tarjetas",
+    "v2.ed.cards.hint": "Las activadas se apilan en la pantalla de inicio. Mantén pulsada una fila para reordenar.",
+    "v2.ed.cards.auto": "Automático",
+    "v2.ed.cards.color": "Color"
   },
   "ca": {
     "v2.a11y.back": "Enrere",
@@ -5505,7 +5530,12 @@
     "v2.settings.sourceServer": "Servidor",
     "v2.analysis.quietDay": "{count} dia sense despeses",
     "v2.analysis.subsDrop": "No és una subscripció",
-    "v2.analysis.subsDropHint": "Mantén premuda una línia per deixar de comptar-la. Toca-la per donar-li nom i logo."
+    "v2.analysis.subsDropHint": "Mantén premuda una línia per deixar de comptar-la. Toca-la per donar-li nom i logo.",
+    "v2.ed.cards.open": "Triar les targetes",
+    "v2.ed.cards.title": "Targetes",
+    "v2.ed.cards.hint": "Les enceses s'apilen a la pantalla d'inici. Mantén premuda una fila per canviar l'ordre.",
+    "v2.ed.cards.auto": "Automàtic",
+    "v2.ed.cards.color": "Color"
   },
   "de": {
     "v2.a11y.back": "Zurück",
@@ -6423,7 +6453,12 @@
     "v2.settings.sourceServer": "Server",
     "v2.analysis.quietDay": "{count} Tag ohne Ausgaben",
     "v2.analysis.subsDrop": "Kein Abo",
-    "v2.analysis.subsDropHint": "Eine Zeile lange drücken, um sie nicht mehr zu zählen. Antippen für Name und Logo."
+    "v2.analysis.subsDropHint": "Eine Zeile lange drücken, um sie nicht mehr zu zählen. Antippen für Name und Logo.",
+    "v2.ed.cards.open": "Karten auswählen",
+    "v2.ed.cards.title": "Karten",
+    "v2.ed.cards.hint": "Die eingeschalteten stapeln sich auf dem Startbildschirm. Zeile lange drücken, um die Reihenfolge zu ändern.",
+    "v2.ed.cards.auto": "Automatisch",
+    "v2.ed.cards.color": "Farbe"
   },
   "pt": {
     "v2.a11y.back": "Voltar",
@@ -7341,7 +7376,12 @@
     "v2.settings.sourceServer": "Servidor",
     "v2.analysis.quietDay": "{count} dia sem despesas",
     "v2.analysis.subsDrop": "Não é uma subscrição",
-    "v2.analysis.subsDropHint": "Toque longo numa linha para deixar de a contar. Toque para lhe dar nome e logótipo."
+    "v2.analysis.subsDropHint": "Toque longo numa linha para deixar de a contar. Toque para lhe dar nome e logótipo.",
+    "v2.ed.cards.open": "Escolher os cartões",
+    "v2.ed.cards.title": "Cartões",
+    "v2.ed.cards.hint": "Os ativados empilham-se no ecrã inicial. Toque e mantenha numa linha para mudar a ordem.",
+    "v2.ed.cards.auto": "Automático",
+    "v2.ed.cards.color": "Cor"
   },
   "tr": {
     "v2.a11y.back": "Geri",
@@ -8259,6 +8299,11 @@
     "v2.settings.sourceServer": "Sunucu",
     "v2.analysis.quietDay": "{count} gün harcamasız",
     "v2.analysis.subsDrop": "Abonelik değil",
-    "v2.analysis.subsDropHint": "Bir satırı saymayı bırakmak için basılı tutun. Ad ve logo vermek için dokunun."
+    "v2.analysis.subsDropHint": "Bir satırı saymayı bırakmak için basılı tutun. Ad ve logo vermek için dokunun.",
+    "v2.ed.cards.open": "Kartları seç",
+    "v2.ed.cards.title": "Kartlar",
+    "v2.ed.cards.hint": "Açık olanlar ana ekranda üst üste dizilir. Sırayı değiştirmek için bir satıra basılı tutun.",
+    "v2.ed.cards.auto": "Otomatik",
+    "v2.ed.cards.color": "Renk"
   }
 }

@@ -156,6 +156,19 @@ struct Account: Decodable, Sendable, Identifiable {
     let isIncludedInNetWorth: Bool
     let isArchived: Bool
     let displayIcon: String?
+    /*
+     * La teinte choisie à la main, ou rien.
+     *
+     * Un RANG dans `Florin.series`, écrit « series-3 », et non un code
+     * hexadécimal : les huit teintes sont définies par le thème ET par le
+     * mode clair ou sombre, donc une couleur figée en dur serait juste dans
+     * Obsidienne sombre et fausse partout ailleurs. Le rang est le choix, le
+     * thème le rend.
+     *
+     * `var` avec une valeur par défaut : le flux du serveur ne l'envoie pas,
+     * et les autres constructeurs n'ont pas à la connaître.
+     */
+    var displayColor: String?
     /// Whether a bank keeps this one up to date. Optional because the server
     /// feed does not send it, and absent is not the same as false.
     let isSynced: Bool?

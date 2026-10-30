@@ -93,6 +93,21 @@ enum AccountsLogic {
         }
     }
 
+    /*
+     * La teinte d'un compte, ou son retour à l'automatique.
+     *
+     * `nil` efface la colonne plutôt que d'y écrire un rang : la pile sait
+     * déjà choisir toute seule, et un rang écrit « au hasard » empêcherait sa
+     * mécanique d'écarter deux comptes tombés sur la même teinte.
+     */
+    static func setColor(_ accountId: String, slot: Int?) {
+        guard let store = LocalStore.shared else { return }
+        try? store.database.run(
+            "UPDATE accounts SET display_color = ?, updated_at = datetime('now') WHERE id = ?",
+            [slot.map { .text("series-\($0)") } ?? .null, .text(accountId)]
+        )
+    }
+
     static func commitEdit(_ account: Account, name: String, icon: String, balance: Double?) {
         guard let store = LocalStore.shared, !name.isEmpty else { return }
         try? store.database.run(

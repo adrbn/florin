@@ -31,6 +31,60 @@ enum HomeCards {
         Set(raw.split(separator: "\n").map(String.init))
     }
 
+    /// Le rang de `Florin.series` écrit dans `display_color`, s'il y en a un.
+    /// Voir `Account.displayColor` pour pourquoi c'est un rang.
+    static func colorSlot(_ raw: String?) -> Int? {
+        guard let raw, raw.hasPrefix("series-") else { return nil }
+        return Int(raw.dropFirst(7))
+    }
+
+    static func slotName(_ slot: Int) -> String { "series-\(slot)" }
+
+    /*
+     * Une couleur par compte, et jamais deux fois la même.
+     *
+     * `seriesColor` hache l'identifiant sur huit teintes : à six comptes, deux
+     * tombent sur la même plus d'une fois sur deux — PEA et LEP étaient tous
+     * les deux jaunes, l'un sur l'autre, et la pile n'avait plus que cinq
+     * cartes à l'œil. Le hachage reste le premier choix, parce que c'est lui
+     * qui rend la couleur stable et la même que sur le web ; un compte qui
+     * trouve sa place prise passe au rang suivant.
+     *
+     * Décidée sur l'ordre de la BASE, pas sur l'ordre affiché : mettre une
+     * carte en avant réordonne la pile, et une couleur qui suivrait cet ordre
+     * changerait à chaque appui.
+     */
+    static func palette(_ all: [Account]) -> [String: Color] {
+        let count = Florin.series.count
+        var taken = Set<Int>()
+        var out: [String: Color] = [:]
+        /*
+         * Les teintes choisies à la main passent devant.
+         *
+         * Elles réservent leur rang, et ce sont les automatiques qui
+         * s'écartent ensuite. Dans l'autre sens, un compte au hasard pouvait
+         * occuper la teinte demandée et pousser le choix explicite ailleurs —
+         * c'est-à-dire ne pas le tenir.
+         */
+        for account in all {
+            if let slot = HomeCards.colorSlot(account.displayColor), slot >= 0, slot < count {
+                taken.insert(slot)
+                out[account.id] = Florin.series[slot]
+            }
+        }
+        for account in all where out[account.id] == nil {
+            var rank = Florin.seriesIndex(for: account.id)
+            var tries = 0
+            while taken.contains(rank), tries < count {
+                rank = (rank + 1) % count
+                tries += 1
+            }
+            taken.insert(rank)
+            out[account.id] = Florin.series[rank]
+        }
+        return out
+    }
+
     static func write(_ id: String, shown: Bool, in raw: String) -> String {
         var set = hidden(raw)
         if shown { set.remove(id) } else { set.insert(id) }
