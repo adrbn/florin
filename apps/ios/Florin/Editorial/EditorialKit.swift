@@ -926,16 +926,19 @@ extension View {
 
 
 /*
- * En haut le système, en bas nous.
+ * L'effet de bord du système est éteint. Les deux bords, pour deux raisons.
  *
- * Les deux bords n'ont pas le même problème. EN HAUT, l'effet d'iOS 26 fait
- * exactement ce qu'il faut et le faisait déjà avant le pagineur : on n'y
- * touche pas — toute version maison essayée ici a été refusée, et c'est la
- * build 548 qui sert de référence. EN BAS, il n'a aucune barre à quoi fondre
- * (la capsule flotte, elle n'est pas une barre du système), donc il coupait
- * net une ligne à mi-hauteur derrière elle.
+ * EN HAUT : il fondait correctement jusqu'à la build 548. Sous le pagineur,
+ * chaque onglet est hébergé dans son propre pagineur et le système ne trouve
+ * plus le défilement qu'il regardait — il se rend alors en BLOC OPAQUE devant
+ * le contenu, sous l'îlot dynamique. Rien ne le remplace : `edEnter` éteint
+ * déjà chaque élément selon sa place dans le défilement, et c'est ce qui
+ * faisait le travail en 548. Un dégradé maison par-dessus a été essayé et
+ * refusé — il éteignait une ligne qui n'avait encore rien à traverser.
  *
- * Le bas est donc éteint et refait ici. Ce qui avait échoué avant ne
+ * EN BAS : il n'a aucune barre à quoi fondre, la capsule flotte et n'est pas
+ * une barre du système. Il coupait net une ligne à mi-hauteur derrière elle.
+ * Le bas est donc refait ici. Ce qui avait échoué avant ne
  * s'applique pas : pas de matériau (il éclaircit ce qu'il couvre et vire au
  * gris sur du noir), pas de masque sur tout le défilement (il compte la zone
  * sûre deux fois). Et c'est exact plutôt qu'approché : un fond éditorial est
@@ -961,10 +964,10 @@ struct EdPlainEdges: ViewModifier {
             }
     }
 
-    /// En bas seulement : le haut reste au système.
+    /// Les deux bords : sous le pagineur, le système barre au lieu de fondre.
     @ViewBuilder private func system(_ content: Content) -> some View {
         if #available(iOS 26.0, *) {
-            content.scrollEdgeEffectHidden(true, for: .bottom)
+            content.scrollEdgeEffectHidden(true, for: .all)
         } else {
             content
         }
