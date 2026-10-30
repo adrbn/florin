@@ -785,25 +785,65 @@ extension View {
     func edSwipe<Value: Hashable>(
         _ order: [Value], selection: Binding<Value>, enabled: Bool = true
     ) -> some View {
-        simultaneousGesture(
-            // Quarante points, pas vingt-quatre : en dessous, un défilement
-            // vertical un peu oblique rentrait dans la fourchette et l'écran
-            // partait de côté à la fin du geste.
-            DragGesture(minimumDistance: 40)
-                .onEnded { move in
-                    // Le doigt qui suit la courbe ne demande pas de page.
-                    guard enabled, !EdGesture.shared.scrubbing else { return }
-                    let dx = move.translation.width
-                    let dy = move.translation.height
-                    guard abs(dx) > 60, abs(dx) > abs(dy) * 2,
-                          let here = order.firstIndex(of: selection.wrappedValue)
-                    else { return }
-                    let next = dx < 0 ? here + 1 : here - 1
-                    guard order.indices.contains(next) else { return }
-                    UISelectionFeedbackGenerator().selectionChanged()
-                    withAnimation(EdMotion.spring) { selection.wrappedValue = order[next] }
-                }
-        )
+        modifier(EdSwipe(order: order, selection: selection, enabled: enabled))
+    }
+}
+
+/*
+ * Un geste à la fois : horizontal OU vertical, jamais les deux.
+ *
+ * Les deux reconnaisseurs partent ensemble par construction, et un balayage
+ * n'est jamais parfaitement droit : un degré d'obliquité suffisait pour que la
+ * page change ET que l'écran défile sous le doigt en même temps. Les deux
+ * gestes étaient « réussis », et le résultat était illisible.
+ *
+ * D'où le verrou d'axe, qui est ce que fait un pagineur : dès que le geste est
+ * franchement horizontal — quatorze points, et deux fois plus en largeur qu'en
+ * hauteur, la même proportion qui décidera du changement de page — le
+ * défilement vertical rend la main pour la durée du geste. La décision
+ * elle-même ne bouge pas : soixante points à la fin, même proportion.
+ *
+ * Le verrou se pose sur une proportion stricte, pas sur la distance seule : un
+ * défilement vertical oblique ne le déclenche pas, et ne se retrouve donc
+ * jamais figé.
+ */
+private struct EdSwipe<Value: Hashable>: ViewModifier {
+    let order: [Value]
+    @Binding var selection: Value
+    let enabled: Bool
+
+    @State private var locked = false
+
+    func body(content: Content) -> some View {
+        content
+            .scrollDisabled(locked)
+            .simultaneousGesture(
+                // Quatorze points pour OBSERVER, soixante pour décider : le
+                // reconnaisseur doit démarrer tôt pour avoir le temps de poser
+                // le verrou, sinon le défilement a déjà quarante points
+                // d'avance quand on s'aperçoit que le geste est horizontal.
+                DragGesture(minimumDistance: 14)
+                    .onChanged { move in
+                        guard enabled, !EdGesture.shared.scrubbing, !locked else { return }
+                        let dx = move.translation.width
+                        let dy = move.translation.height
+                        if abs(dx) > 14, abs(dx) > abs(dy) * 2 { locked = true }
+                    }
+                    .onEnded { move in
+                        defer { locked = false }
+                        // Le doigt qui suit la courbe ne demande pas de page.
+                        guard enabled, !EdGesture.shared.scrubbing else { return }
+                        let dx = move.translation.width
+                        let dy = move.translation.height
+                        guard abs(dx) > 60, abs(dx) > abs(dy) * 2,
+                              let here = order.firstIndex(of: selection)
+                        else { return }
+                        let next = dx < 0 ? here + 1 : here - 1
+                        guard order.indices.contains(next) else { return }
+                        UISelectionFeedbackGenerator().selectionChanged()
+                        withAnimation(EdMotion.spring) { selection = order[next] }
+                    }
+            )
     }
 }
 

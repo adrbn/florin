@@ -348,8 +348,19 @@ struct SettingsScreen: View {
                  * défile rien.
                  */
                 .contentShape(Rectangle())
+                /*
+                 * Coordonnées GLOBALES, et c'est tout le correctif.
+                 *
+                 * Le geste déplace la vue à laquelle il est attaché. En repère
+                 * local il mesure donc dans un repère qu'il fait bouger : le
+                 * doigt descend de dix points, la vue descend de dix points,
+                 * le doigt est revenu à sa place dans le repère, la
+                 * translation retombe à zéro, la vue remonte — et ça repart.
+                 * La vue tremblait à la fréquence d'affichage. Le repère de
+                 * l'écran, lui, ne bouge pas.
+                 */
                 .gesture(
-                    DragGesture()
+                    DragGesture(coordinateSpace: .global)
                         .onChanged { move in pull = max(0, move.translation.height) }
                         .onEnded { move in
                             let far = move.translation.height > 110

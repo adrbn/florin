@@ -663,7 +663,10 @@ struct OnboardingFlow: View {
      * and decisions are taken with a deliberate press.
      */
     private var swipe: some Gesture {
-        DragGesture(minimumDistance: 14)
+        // Repère global : le geste déplace la page à laquelle il est
+        // attaché, et en repère local il mesurerait dans un repère qu'il
+        // fait bouger — la page suivrait le doigt à moitié, en tremblant.
+        DragGesture(minimumDistance: 14, coordinateSpace: .global)
             .onChanged { value in
                 let dx = value.translation.width
                 let free = dx < 0 ? canSwipeForward : canSwipeBack

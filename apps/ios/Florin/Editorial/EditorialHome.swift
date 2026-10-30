@@ -152,9 +152,19 @@ struct EditorialHome: View {
                      * marge ne rendrait la place qu'à la pile) et la marge perd
                      * `lift` aussi, pour que la pile garde sa hauteur.
                      */
-                    .padding(.bottom, Self.breathe - lift)
+                    .padding(.bottom, Self.breathe + Self.homeStrip - lift)
+                    /*
+                     * Le premier écran va jusqu'au bord de L'ÉCRAN.
+                     *
+                     * Il s'arrêtait au bas de la zone sûre, donc les quatre
+                     * gestes commençaient pile là — et la bande de l'indicateur
+                     * d'accueil est de l'écran visible : on voyait dépasser le
+                     * haut de quatre tuiles sous la capsule. Le cadre ET la
+                     * marge prennent la même bande en plus, donc la pile garde
+                     * exactement sa place et seules les tuiles descendent.
+                     */
                     .containerRelativeFrame(.vertical, alignment: .top) { height, _ in
-                        height - lift
+                        height + Self.homeStrip - lift
                     }
 
                     // MARK: Ce qui se lit en descendant
@@ -601,10 +611,16 @@ struct EditorialHome: View {
     /// 28 pt du bas sur 60 pt de haut, et les quatre gestes restent cachés
     /// derrière elle tant qu'on n'a pas descendu.
     private static let breathe: CGFloat = 104
+    /// La bande de l'indicateur d'accueil, sous la zone sûre. Lue sur la
+    /// fenêtre : c'est une mesure de l'écran, pas de cette vue.
+    private static var homeStrip: CGFloat {
+        (UIApplication.shared.connectedScenes.first as? UIWindowScene)?
+            .keyWindow?.safeAreaInsets.bottom ?? 34
+    }
     /// Jusqu'où cet écart se referme : `breathe` moins les 44 pt que les
     /// quatre gestes gardent sous eux, pour qu'il y en ait autant des deux
     /// côtés une fois la page descendue.
-    private static let maxLift: CGFloat = breathe - 44
+    private static var maxLift: CGFloat { breathe + homeStrip - 44 }
     private static let step: CGFloat = 44
     /// Le pas serré. En dessous, le nom et le montant n'ont plus de ligne
     /// lisible où tenir — c'est un plancher, pas une préférence.

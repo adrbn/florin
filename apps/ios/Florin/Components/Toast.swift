@@ -92,8 +92,19 @@ private struct ToastOverlay: ViewModifier {
                 .florinGlass(in: Capsule())
                 .padding(.horizontal, 24)
                 .offset(y: min(0, dragOffset))
+                /*
+                 * Coordonnées GLOBALES, et c'est tout le correctif.
+                 *
+                 * Le geste déplace la vue à laquelle il est attaché. En repère
+                 * local il mesure donc dans un repère qu'il fait bouger : le
+                 * doigt descend de dix points, la vue descend de dix points,
+                 * le doigt est revenu à sa place dans le repère, la
+                 * translation retombe à zéro, la vue remonte — et ça repart.
+                 * La vue tremblait à la fréquence d'affichage. Le repère de
+                 * l'écran, lui, ne bouge pas.
+                 */
                 .gesture(
-                    DragGesture()
+                    DragGesture(coordinateSpace: .global)
                         .onChanged { dragOffset = $0.translation.height }
                         .onEnded { drag in
                             if drag.translation.height < -12 {
