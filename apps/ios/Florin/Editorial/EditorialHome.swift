@@ -57,11 +57,8 @@ struct EditorialHome: View {
     /// l'onglet Comptes, c'est-à-dire la liste de tous.
     @State private var drill: ActivityRoute?
     /// Ce que le premier écran a déjà rendu de sa marge du bas. Voir
-    /// `EdFirstScreenTop`.
+    /// `EdHomeLift`.
     @State private var lift: CGFloat = 0
-    /// Où le haut du premier écran se trouve au repos — l'origine dont `lift`
-    /// est la distance.
-    @State private var top0: CGFloat?
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage(Greeting.key) private var firstName = ""
 
@@ -156,14 +153,6 @@ struct EditorialHome: View {
                      * `lift` aussi, pour que la pile garde sa hauteur.
                      */
                     .padding(.bottom, Self.breathe - lift)
-                    .background(
-                        GeometryReader { g in
-                            Color.clear.preference(
-                                key: EdFirstScreenTop.self,
-                                value: -g.frame(in: .named(Self.space)).minY
-                            )
-                        }
-                    )
                     .containerRelativeFrame(.vertical, alignment: .top) { height, _ in
                         height - lift
                     }
@@ -209,26 +198,22 @@ struct EditorialHome: View {
                     .padding(.top, 120)
             }
         }
-        .coordinateSpace(name: Self.space)
         /*
-         * L'écart se referme point par point, depuis là où il commence.
+         * L'écart se referme au fil du défilement — lu, pas déduit.
          *
-         * `y` était pris pour la distance parcourue, alors que c'est une
-         * position : selon ce que la zone sûre ajoute au-dessus, elle ne part
-         * pas de zéro, et il fallait défiler soixante points pour rien avant
-         * que l'écart ne commence à bouger — on ne voyait donc PAS la rangée
-         * se rapprocher des cartes. La première valeur lue devient l'origine,
-         * et le reste est un déplacement.
+         * Deux versions ont échoué sur la même erreur : fabriquer le
+         * défilement à partir d'un `GeometryReader` posé dans le contenu, via
+         * une préférence. Une position prise pour une distance d'abord, puis
+         * une origine pour la corriger — et la rangée ne bougeait toujours
+         * pas d'un point. `onScrollGeometryChange` donne le chiffre que la
+         * vue connaît déjà, au lieu de le reconstruire : zéro au repos, et ce
+         * qu'on a parcouru ensuite.
          *
          * Par pas de six points : assez fin pour qu'on le lise comme un
          * mouvement, assez gros pour ne pas refaire la page à chaque image.
          */
-        .onPreferenceChange(EdFirstScreenTop.self) { y in
-            let origin = top0 ?? y
-            if top0 == nil { top0 = y }
-            let next = min(Self.maxLift, max(0, ((y - origin) / 6).rounded() * 6))
-            if next != lift { lift = next }
-        }
+        .modifier(EdHomeLift(lift: $lift, maxLift: Self.maxLift))
+
         // Une opération notée depuis l'accueil doit se voir dans le
         // patrimoine et les cartes, pas seulement dans Activité.
         .reloadsOnLedgerChange { await model.load(showSpinner: false) }
@@ -318,15 +303,16 @@ struct EditorialHome: View {
              * montre encore un nom et un montant de quinze points avec cinq
              * points d'air de chaque côté.
              *
-             * Le compte, à 241 points de place restante : plancher de la
-             * carte de tête (128) plus quatre tranches de 28 fait 240. Cinq
-             * cartes, comme avant, avec un salut de quatorze points plus
-             * grand. La carte de tête, elle, ne cède rien : c'est la seule
-             * qu'on lit en entier.
+             * Le compte, à 222 points de place restante : plancher de la
+             * carte de tête (116) plus quatre tranches de 26 fait 220. Cinq
+             * cartes, comme avant, avec un salut de VINGT-DEUX points plus
+             * grand. La carte de tête descend de douze points et c'est tout
+             * ce qu'elle cède : elle garde de quoi montrer son montant en
+             * vingt-six et sa barre.
              */
             Text(Greeting.line(t, name: firstName))
-                .font(.system(size: 52, weight: .medium))
-                .kerning(Ed.tracking(52, 0.04))
+                .font(.system(size: 60, weight: .medium))
+                .kerning(Ed.tracking(60, 0.04))
                 .foregroundStyle(Florin.text)
                 .lineLimit(2)
                 .minimumScaleFactor(0.8)
@@ -628,7 +614,6 @@ struct EditorialHome: View {
     /// quatre gestes gardent sous eux, pour qu'il y en ait autant des deux
     /// côtés une fois la page descendue.
     private static let maxLift: CGFloat = breathe - 44
-    private static let space = "edHome"
     private static let step: CGFloat = 44
     /// Le pas serré. En dessous, le nom et le montant n'ont plus de ligne
     /// lisible où tenir — c'est un plancher, pas une préférence.
@@ -637,7 +622,7 @@ struct EditorialHome: View {
     /// 12 pt à du texte de 15 : à six cartes, les noms se touchaient. Le
     /// plancher est ce qu'il faut au bandeau, pas ce qui fait entrer une carte
     /// de plus.
-    private static let tightStep: CGFloat = 28
+    private static let tightStep: CGFloat = 26
     private static let shownAtMost = 8
     /*
      * Ce qu'il faut à la carte menée, compté ligne par ligne.
@@ -650,7 +635,7 @@ struct EditorialHome: View {
      * barre. Le plancher dit maintenant la vérité, et c'est la place AU-DESSUS
      * qui a été rendue pour qu'il tienne.
      */
-    private static let minCard: CGFloat = 128
+    private static let minCard: CGFloat = 116
 
     /*
      * Combien de cartes tiennent, et pas une de plus.
@@ -996,9 +981,24 @@ private struct EdShare: View {
 }
 
 /// De combien le premier écran est sorti par le haut.
-private struct EdFirstScreenTop: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
+/// Ce que le premier écran rend de sa marge du bas, au fil du défilement.
+///
+/// Un modificateur et non deux lignes dans la page : `onScrollGeometryChange`
+/// est d'iOS 18, et le plancher de l'app est 17.4.
+private struct EdHomeLift: ViewModifier {
+    @Binding var lift: CGFloat
+    let maxLift: CGFloat
+
+    func body(content: Content) -> some View {
+        if #available(iOS 18.0, *) {
+            content.onScrollGeometryChange(for: CGFloat.self) { geometry in
+                geometry.contentOffset.y + geometry.contentInsets.top
+            } action: { _, scrolled in
+                let next = min(maxLift, max(0, (scrolled / 6).rounded() * 6))
+                if next != lift { lift = next }
+            }
+        } else {
+            content
+        }
     }
 }
