@@ -745,15 +745,16 @@ struct EditorialHome: View {
                 alignment: .top
             )
             /*
-             * La pile ne s'efface pas en descendant.
+             * La pile s'éteint en passant sous le haut de l'écran.
              *
-             * `edEnter` éteint ce qui sort du défilement, et c'est juste pour
-             * un titre ou un chiffre : une ligne s'en va au lieu d'être
-             * coupée. Sur des cartes de couleur, la même règle donne une pile
-             * de plus en plus transparente dès les premiers points de
-             * défilement — on croit l'app en train de se perdre. Les bords du
-             * système suffisent ici : la pile s'en va, elle ne se dissout pas.
+             * Retiré une fois, au vu d'une pile qui devenait transparente en
+             * défilant — et c'était le mauvais coupable. Ce fondu est la
+             * SEULE chose qui fait qu'une carte s'en va au lieu d'être
+             * tranchée net par le bandeau du haut : sans lui, la carte entre
+             * dessous entière et disparaît d'un coup. Ce qu'il fallait
+             * corriger était l'écart qui ne se refermait pas, pas lui.
              */
+            .edEnter()
             .animation(EdMotion.spring, value: shown.map(\.id))
             /*
              * Le bas de la pile ne descend jamais.
