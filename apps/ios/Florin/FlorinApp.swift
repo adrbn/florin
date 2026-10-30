@@ -600,9 +600,39 @@ struct MainTabs: View {
      */
     @ViewBuilder private var pager: some View {
         if editorial {
-            tabs.tabViewStyle(.page(indexDisplayMode: .never))
+            plainEdged(tabs.tabViewStyle(.page(indexDisplayMode: .never)))
+                /*
+                 * La page va jusqu'au bord, comme avant le pagineur.
+                 *
+                 * Le pagineur borne chaque onglet à la zone sûre : le
+                 * défilement s'arrête au bas de l'îlot dynamique, et ce qui
+                 * monte y est TRANCHÉ au lieu de continuer dessous. C'est la
+                 * bande blanche. On lui rend la hauteur entière ; chaque
+                 * écran se redonne sa marge de départ (`EdPlainEdges`), parce
+                 * qu'un contenu qui ignore la zone sûre commence dessous au
+                 * lieu de passer dessous.
+                 */
+                .ignoresSafeArea(.container, edges: .top)
         } else {
             tabs
+        }
+    }
+
+    /*
+     * Le bloc blanc est au PAGINEUR, pas à la page.
+     *
+     * Éteindre l'effet de bord sur le défilement de chaque écran n'y changeait
+     * rien, et c'est logique : en style page, le défilement que le système
+     * regarde n'est plus celui de la page, c'est celui du pagineur. C'est donc
+     * LUI qui pose la barre opaque sous l'îlot dynamique, et lui qu'il faut
+     * faire taire. Les pages gardent leur propre extinction (`EdPlainEdges`) :
+     * une de trop ne coûte rien, une qui manque se voit.
+     */
+    @ViewBuilder private func plainEdged(_ view: some View) -> some View {
+        if #available(iOS 26.0, *) {
+            view.scrollEdgeEffectHidden(true, for: .all)
+        } else {
+            view
         }
     }
 

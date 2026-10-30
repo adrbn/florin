@@ -951,8 +951,19 @@ struct EdPlainEdges: ViewModifier {
     /// bord sur 60 pt de haut.
     private static let bottom: CGFloat = 112
 
+    /// Ce que l'îlot dynamique prend en haut, lu sur la fenêtre : le pagineur
+    /// ignore la zone sûre pour que le contenu passe dessous, donc plus
+    /// personne ici ne peut la demander à sa géométrie.
+    private static var statusInset: CGFloat {
+        (UIApplication.shared.connectedScenes.first as? UIWindowScene)?
+            .keyWindow?.safeAreaInsets.top ?? 59
+    }
+
     func body(content: Content) -> some View {
         system(content)
+            // La page commence sous l'îlot et passe dessous en montant : une
+            // marge de contenu, pas une marge de vue.
+            .contentMargins(.top, Self.statusInset, for: .scrollContent)
             .overlay(alignment: .bottom) {
                 LinearGradient(
                     colors: [Florin.bg, Florin.bg.opacity(0)],
