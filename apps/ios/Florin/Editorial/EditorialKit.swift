@@ -926,61 +926,48 @@ extension View {
 
 
 /*
- * Les bords, dessinés ici, parce que le système ne peut plus les faire.
+ * En haut le système, en bas nous.
  *
- * La build 515 avait tranché l'inverse : l'effet d'iOS 26 TEL QUEL, et rien
- * par-dessus. Il a tenu tant que chaque page était un défilement que le
- * système reconnaissait. Sous le pagineur, chaque onglet est hébergé dans son
- * propre pagineur : le système ne trouve plus le défilement qu'il regardait,
- * il pose une barre opaque au lieu d'un fondu, et ce qui dépasse est coupé
- * net. On l'éteint donc, et on fait le fondu nous-mêmes.
+ * Les deux bords n'ont pas le même problème. EN HAUT, l'effet d'iOS 26 fait
+ * exactement ce qu'il faut et le faisait déjà avant le pagineur : on n'y
+ * touche pas — toute version maison essayée ici a été refusée, et c'est la
+ * build 548 qui sert de référence. EN BAS, il n'a aucune barre à quoi fondre
+ * (la capsule flotte, elle n'est pas une barre du système), donc il coupait
+ * net une ligne à mi-hauteur derrière elle.
  *
- * Ce qui avait échoué ici avant, et pourquoi ça ne s'applique pas :
- * - un MATÉRIAU flouté : il éclaircit ce qu'il couvre et vire au gris sur du
- *   noir. Ici ce n'est pas un matériau, c'est la couleur du fond.
- * - un masque sur TOUT le défilement : il laissait un vide en haut dès que la
- *   zone sûre était comptée deux fois. Ici deux bandes posées en
- *   surimpression, qui ne touchent pas à la disposition.
- * - un dégradé TROP HAUT, qui éteignait un titre encore en plein milieu. D'où
- *   quarante-quatre points en haut — la hauteur d'une ligne, pas d'un bloc.
- *
- * Et c'est exact plutôt qu'approché : un fond éditorial est une couleur PLATE
- * (blanc pur, noir pur), donc un dégradé de cette même couleur vers sa
+ * Le bas est donc éteint et refait ici. Ce qui avait échoué avant ne
+ * s'applique pas : pas de matériau (il éclaircit ce qu'il couvre et vire au
+ * gris sur du noir), pas de masque sur tout le défilement (il compte la zone
+ * sûre deux fois). Et c'est exact plutôt qu'approché : un fond éditorial est
+ * une couleur PLATE, donc un dégradé de cette même couleur vers sa
  * transparence est indiscernable d'un vrai fondu. C'est ce qui ne marchait
  * pas sur les thèmes à dégradé, et c'est ce qui marche ici.
  */
 struct EdPlainEdges: ViewModifier {
-    /// En haut : la hauteur d'une ligne, pas plus.
-    private static let top: CGFloat = 44
-    /// En bas : de quoi qu'une ligne s'éteigne AVANT la capsule, qui flotte
-    /// à 28 pt du bord sur 60 pt de haut.
+    /// De quoi qu'une ligne s'éteigne AVANT la capsule, qui flotte à 28 pt du
+    /// bord sur 60 pt de haut.
     private static let bottom: CGFloat = 112
 
     func body(content: Content) -> some View {
         system(content)
-            .overlay(alignment: .top) { fade(.top, Self.top) }
-            .overlay(alignment: .bottom) { fade(.bottom, Self.bottom) }
+            .overlay(alignment: .bottom) {
+                LinearGradient(
+                    colors: [Florin.bg, Florin.bg.opacity(0)],
+                    startPoint: .bottom, endPoint: .top
+                )
+                .frame(height: Self.bottom)
+                .allowsHitTesting(false)
+                .ignoresSafeArea(edges: .bottom)
+            }
     }
 
-    /// L'effet du système, éteint : sous le pagineur il ne sait plus fondre,
-    /// il barre.
+    /// En bas seulement : le haut reste au système.
     @ViewBuilder private func system(_ content: Content) -> some View {
         if #available(iOS 26.0, *) {
-            content.scrollEdgeEffectHidden(true, for: .all)
+            content.scrollEdgeEffectHidden(true, for: .bottom)
         } else {
             content
         }
-    }
-
-    private func fade(_ edge: Edge, _ height: CGFloat) -> some View {
-        LinearGradient(
-            colors: [Florin.bg, Florin.bg.opacity(0)],
-            startPoint: edge == .top ? .top : .bottom,
-            endPoint: edge == .top ? .bottom : .top
-        )
-        .frame(height: height)
-        .allowsHitTesting(false)
-        .ignoresSafeArea(edges: edge == .top ? .top : .bottom)
     }
 }
 
