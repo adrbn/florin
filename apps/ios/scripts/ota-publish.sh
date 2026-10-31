@@ -17,6 +17,7 @@ HOST="${FLORIN_OTA_HOST:?renseigne FLORIN_OTA_HOST dans scripts/ota.env}"
 TARGET="${FLORIN_OTA_SSH:?renseigne FLORIN_OTA_SSH dans scripts/ota.env}"
 DIR="${FLORIN_OTA_DIR:-/opt/florin-ota}"
 BASE="https://$HOST/florin"
+TS="${FLORIN_TAILSCALE:-/Applications/Tailscale.app/Contents/MacOS/Tailscale}"
 
 ARCHIVE="${TMPDIR:-/tmp}/Florin.xcarchive"
 EXPORT="${TMPDIR:-/tmp}/florin-export"
@@ -81,11 +82,22 @@ cat > "$STAGE/index.html" <<HTML
 </html>
 HTML
 
-echo "→ envoi vers $TARGET:$DIR"
-ssh -o ConnectTimeout=20 "$TARGET" "mkdir -p '$DIR'"
-scp -q "$STAGE"/Florin.ipa "$STAGE"/manifest.plist "$STAGE"/icon-512.png \
-       "$STAGE"/icon-57.png "$STAGE"/index.html "$TARGET:$DIR/"
-ssh "$TARGET" "tailscale serve --bg --set-path /florin '$DIR'" >/dev/null
+# FLORIN_OTA_SSH=local : c'est ce Mac qui sert. Le serveur du tailnet peut
+# être éteint, et le téléphone n'a pas besoin de lui — n'importe quel pair du
+# tailnet avec un nom .ts.net a un certificat, donc peut servir l'OTA.
+if [ "$TARGET" = local ]; then
+  echo "→ publication locale dans $DIR"
+  mkdir -p "$DIR"
+  cp "$STAGE"/Florin.ipa "$STAGE"/manifest.plist "$STAGE"/icon-512.png \
+     "$STAGE"/icon-57.png "$STAGE"/index.html "$DIR/"
+  "$TS" serve --bg --set-path /florin "$DIR" >/dev/null
+else
+  echo "→ envoi vers $TARGET:$DIR"
+  ssh -o ConnectTimeout=20 "$TARGET" "mkdir -p '$DIR'"
+  scp -q "$STAGE"/Florin.ipa "$STAGE"/manifest.plist "$STAGE"/icon-512.png \
+         "$STAGE"/icon-57.png "$STAGE"/index.html "$TARGET:$DIR/"
+  ssh "$TARGET" "tailscale serve --bg --set-path /florin '$DIR'" >/dev/null
+fi
 
 code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "$BASE/manifest.plist")
 [ "$code" = 200 ] || { echo "ÉCHEC : le manifeste répond $code" >&2; exit 1; }
