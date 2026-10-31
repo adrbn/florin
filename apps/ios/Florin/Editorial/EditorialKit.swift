@@ -261,6 +261,61 @@ struct EdAmountPill: View {
     }
 }
 
+/*
+ * Un volet d'attente : ce qui n'est pas encore passé, replié.
+ *
+ * Deux usages, le même volet : l'onglet Activité et la fiche d'un compte
+ * posent tous les deux « 3 à venir » et « 2 en plusieurs fois ». La fiche
+ * portait les volets d'Obsidienne — un pictogramme dans un rond, une carte
+ * grise, une légende à 11 pt — sous la typo éditoriale, parce que la liste
+ * d'opérations est un composant partagé qui ne connaissait pas la maquette.
+ *
+ * Le second est en NÉGATIF. Deux volets au même filet, l'un sous l'autre, se
+ * lisent comme un seul bloc coupé en deux ; l'encre pleine dit que c'est une
+ * autre question — voir `EdFoldSkin`, qui tient les deux visages.
+ */
+struct EdFold<Content: View>: View {
+    let title: String
+    let total: Double
+    let locale: String
+    let currency: String
+    @Binding var open: Bool
+    let inverse: Bool
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                withAnimation(EdMotion.spring) { open.toggle() }
+            } label: {
+                HStack(spacing: 10) {
+                    EdInk(text: title, size: 15)
+                    Spacer(minLength: 8)
+                    EdInk(
+                        text: Money.string(
+                            total, locale: locale, currency: currency,
+                            decimals: false, signed: true
+                        ),
+                        size: 17, weight: .medium, money: true
+                    )
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(inverse ? Florin.bg.opacity(0.7) : Florin.text2)
+                        .rotationEffect(.degrees(open ? 180 : 0))
+                }
+                .frame(minHeight: 28)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.edPress)
+            .modifier(EdFoldSkin(inverse: inverse))
+
+            if open {
+                content.transition(.opacity)
+            }
+        }
+    }
+}
+
 /// Le filet qui sépare deux lignes. Jamais une carte par ligne.
 struct EdRule: View {
     var body: some View {

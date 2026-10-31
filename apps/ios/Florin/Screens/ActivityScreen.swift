@@ -131,6 +131,10 @@ struct TransactionList<Banner: View>: View {
     /// L'échéancier dont on regarde le détail.
     @State private var openPlan: LocalInstalments.Schedule?
     @FocusState private var searchFocused: Bool
+    /// En éditorial, la recherche est une loupe qui s'ouvre — voir `bar`.
+    @State private var searching = false
+
+    private var editorial: Bool { FlorinPalette.selected == .editorial }
     /// Les marchands que le grand livre connaît, lus une fois : voir
     /// `LocalQueries.knownPayees`.
     @State private var knownPayees: [(name: String, key: String)] = []
@@ -514,14 +518,51 @@ struct TransactionList<Banner: View>: View {
     private var header: some View {
         VStack(spacing: 0) {
             bar
+            if editorial, searching {
+                searchField
+                    .padding(.horizontal, Ed.gutter)
+                    .padding(.top, 8)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
             searchHints
         }
-        .padding(.bottom, heroValue == nil ? 14 : 24)
+        /*
+         * L'écart sous le bandeau, moins celui que la colonne ajoute.
+         *
+         * `TabScaffold` espace ses blocs de 30 pt : le bandeau rendait 24 de
+         * plus, donc cinquante-quatre points de blanc entre les pictogrammes
+         * et la pastille du compte. C'est le haut de la page, l'endroit le
+         * plus cher de l'écran, et il ne portait rien. Le négatif reprend ce
+         * que la pile ajoute — ce n'est pas élégant, mais l'écart appartient à
+         * la colonne et se corrige donc là où on le voit.
+         */
+        .padding(.bottom, editorial ? -16 : (heroValue == nil ? 14 : 24))
     }
 
     private var bar: some View {
         TopBar(onProfile: { showsBack ? dismiss() : onProfile() }, back: showsBack) {
-            searchField
+            /*
+             * Une loupe, pas un champ posé en travers du bandeau.
+             *
+             * Le champ permanent est juste sur l'onglet Activité d'Obsidienne,
+             * où chercher EST la page. En éditorial l'onglet s'ouvre sur une
+             * loupe et déroule le champ sous le bandeau ; la fiche d'un compte
+             * gardait le champ, donc trois pictogrammes différents pour les
+             * deux mêmes gestes selon l'écran où l'on se trouvait.
+             */
+            if editorial {
+                EdIconButton(
+                    symbol: "magnifyingglass",
+                    label: t("v2.common.search", "Rechercher")
+                ) {
+                    withAnimation(EdMotion.spring) { searching.toggle() }
+                    searchFocused = searching
+                    if !searching, !draft.isEmpty { draft = ""; commitSearch("") }
+                }
+                .padding(.leading, -10)
+            } else {
+                searchField
+            }
         } trailing: {
             /*
              * The corner is the filters, and stays the filters.
@@ -538,9 +579,17 @@ struct TransactionList<Banner: View>: View {
                     withAnimation(.snappy(duration: 0.2)) { selection = nil }
                 }
             } else {
-                HStack(spacing: 8) {
-                    if let extraActions { extraActions }
-                    filterButton
+                HStack(spacing: editorial ? 0 : 8) {
+                    // L'ordre d'Activité : le filtre, puis ce que l'écran
+                    // ajoute. Le filtre est le même bouton au même endroit sur
+                    // les deux pages, et c'est à ça qu'on le reconnaît.
+                    if editorial {
+                        filterButton
+                        if let extraActions { extraActions }
+                    } else {
+                        if let extraActions { extraActions }
+                        filterButton
+                    }
                 }
             }
         }
@@ -625,8 +674,20 @@ struct TransactionList<Banner: View>: View {
 
     private var filterButton: some View {
         ZStack(alignment: .topTrailing) {
-            CircleButton(symbol: "line.3.horizontal.decrease", size: 44) { filtering = true }
-            if model.filter.activeCount > 0 {
+            if editorial {
+                // Le point sur la loupe des filtres dit qu'une liste est
+                // tronquée sans qu'on ait à ouvrir la feuille. Même paire de
+                // symboles que l'onglet Activité.
+                EdIconButton(
+                    symbol: model.filter.activeCount > 0
+                        ? "line.3.horizontal.decrease.circle.fill"
+                        : "line.3.horizontal.decrease",
+                    label: t("v2.filters.title", "Filtres")
+                ) { filtering = true }
+            } else {
+                CircleButton(symbol: "line.3.horizontal.decrease", size: 44) { filtering = true }
+            }
+            if model.filter.activeCount > 0, !editorial {
                 Text("\(model.filter.activeCount)")
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(.white)
@@ -791,16 +852,33 @@ struct TransactionList<Banner: View>: View {
                  * read as two sections of the screen rather than as two lines
                  * of the same waiting room.
                  */
-                VStack(spacing: 12) {
+                VStack(spacing: editorial ? 14 : 12) {
                     if !upcoming.isEmpty {
-                        UpcomingGroup(
-                            transactions: upcoming,
-                            locale: locale,
-                            currency: currency,
-                            t: t,
-                            expanded: $upcomingExpanded
-                        ) { tx in
-                            row(tx, folded: true)
+                        if editorial {
+                            EdFold(
+                                title: t(
+                                    "v2.activity.upcomingCount", "{count} à venir",
+                                    ["count": upcoming.count]
+                                ),
+                                total: upcoming.reduce(0) { $0 + $1.amount },
+                                locale: locale, currency: currency,
+                                open: $upcomingExpanded, inverse: false
+                            ) {
+                                ForEach(Array(upcoming.enumerated()), id: \.element.id) { index, tx in
+                                    if index > 0 { EdRule() }
+                                    row(tx, folded: true)
+                                }
+                            }
+                        } else {
+                            UpcomingGroup(
+                                transactions: upcoming,
+                                locale: locale,
+                                currency: currency,
+                                t: t,
+                                expanded: $upcomingExpanded
+                            ) { tx in
+                                row(tx, folded: true)
+                            }
                         }
                     }
 
@@ -819,29 +897,56 @@ struct TransactionList<Banner: View>: View {
                      * échéancier.
                      */
                     if !schedules.isEmpty {
-                        UpcomingGroup(
-                            items: schedules,
-                            total: -schedules.reduce(0) { $0 + $1.remaining },
-                            locale: locale,
-                            currency: currency,
-                            t: t,
-                            symbol: "calendar",
-                            caption: t(
-                                "v2.activity.instalmentPlanCount",
-                                "{count} paiements en plusieurs fois",
-                                ["count": schedules.count]
-                            ),
-                            expanded: $instalmentsExpanded
-                        ) { plan in
-                            Button {
-                                UISelectionFeedbackGenerator().selectionChanged()
-                                openPlan = plan
-                            } label: {
-                                InstalmentPlanRow(
-                                    plan: plan, locale: locale, currency: currency, t: t
-                                )
+                        if editorial {
+                            EdFold(
+                                title: t(
+                                    "v2.activity.instalmentPlanCount",
+                                    "{count} en plusieurs fois",
+                                    ["count": schedules.count]
+                                ),
+                                total: -schedules.reduce(0) { $0 + $1.remaining },
+                                locale: locale, currency: currency,
+                                open: $instalmentsExpanded, inverse: true
+                            ) {
+                                ForEach(Array(schedules.enumerated()), id: \.element.id) { index, plan in
+                                    if index > 0 { EdRule() }
+                                    Button {
+                                        UISelectionFeedbackGenerator().selectionChanged()
+                                        openPlan = plan
+                                    } label: {
+                                        InstalmentPlanRow(
+                                            plan: plan, locale: locale,
+                                            currency: currency, t: t
+                                        )
+                                    }
+                                    .buttonStyle(.edPress)
+                                }
                             }
-                            .buttonStyle(.plain)
+                        } else {
+                            UpcomingGroup(
+                                items: schedules,
+                                total: -schedules.reduce(0) { $0 + $1.remaining },
+                                locale: locale,
+                                currency: currency,
+                                t: t,
+                                symbol: "calendar",
+                                caption: t(
+                                    "v2.activity.instalmentPlanCount",
+                                    "{count} paiements en plusieurs fois",
+                                    ["count": schedules.count]
+                                ),
+                                expanded: $instalmentsExpanded
+                            ) { plan in
+                                Button {
+                                    UISelectionFeedbackGenerator().selectionChanged()
+                                    openPlan = plan
+                                } label: {
+                                    InstalmentPlanRow(
+                                        plan: plan, locale: locale, currency: currency, t: t
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                            }
                         }
                     }
 
@@ -877,7 +982,7 @@ struct TransactionList<Banner: View>: View {
                         }
                     }
                 }
-                .padding(.horizontal, Florin.gutter)
+                .padding(.horizontal, editorial ? Ed.gutter : Florin.gutter)
 
                 ForEach(days, id: \.key) { day in
                     VStack(alignment: .leading, spacing: 10) {
@@ -890,15 +995,16 @@ struct TransactionList<Banner: View>: View {
                                 weight: .semibold
                             )
                         }
-                        .padding(.horizontal, Florin.gutter)
+                        .padding(.horizontal, editorial ? Ed.gutter : Florin.gutter)
+                        .edEnterIfEditorial()
 
                         RowGroup {
                             ForEach(Array(day.rows.enumerated()), id: \.element.id) { index, tx in
                                 if index > 0 { Hairline() }
-                                row(tx)
+                                row(tx).edEnterIfEditorial()
                             }
                         }
-                        .padding(.horizontal, Florin.gutter)
+                        .padding(.horizontal, editorial ? Ed.gutter : Florin.gutter)
                     }
                 }
 

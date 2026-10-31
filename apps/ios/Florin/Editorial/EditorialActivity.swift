@@ -392,8 +392,10 @@ struct EditorialActivity: View {
                         open: $upcomingOpen,
                         inverse: false
                     ) {
-                        ForEach(upcoming) { tx in
-                            EdRule()
+                        ForEach(Array(upcoming.enumerated()), id: \.element.id) { index, tx in
+                            // Pas de filet sous l'en-tête : il déborde de la
+                            // pastille des deux côtés et la trahit.
+                            if index > 0 { EdRule() }
                             Button { detail = tx } label: { row(tx) }
                                 .buttonStyle(.edPress)
                                 .transactionMenu(
@@ -415,8 +417,8 @@ struct EditorialActivity: View {
                         open: $instalmentsOpen,
                         inverse: true
                     ) {
-                        ForEach(schedules) { plan in
-                            EdRule()
+                        ForEach(Array(schedules.enumerated()), id: \.element.id) { index, plan in
+                            if index > 0 { EdRule() }
                             Button {
                                 UISelectionFeedbackGenerator().selectionChanged()
                                 openPlan = plan
@@ -440,39 +442,16 @@ struct EditorialActivity: View {
         }
     }
 
+    /// Voir `EdFold`. La fiche d'un compte porte les deux mêmes volets, et
+    /// c'est le même volet — pas un second dessiné pareil.
     private func fold<Content: View>(
         title: String, total: Double, open: Binding<Bool>, inverse: Bool,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Button {
-                withAnimation(EdMotion.spring) { open.wrappedValue.toggle() }
-            } label: {
-                HStack(spacing: 10) {
-                    EdInk(text: title, size: 15)
-                    Spacer(minLength: 8)
-                    EdInk(
-                        text: Money.string(
-                            total, locale: locale, currency: currency,
-                            decimals: false, signed: true
-                        ),
-                        size: 17, weight: .medium, money: true
-                    )
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(inverse ? Florin.bg.opacity(0.7) : Florin.text2)
-                        .rotationEffect(.degrees(open.wrappedValue ? 180 : 0))
-                }
-                .frame(minHeight: 28)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.edPress)
-            .modifier(EdFoldSkin(inverse: inverse))
-
-            if open.wrappedValue {
-                content().transition(.opacity)
-            }
-        }
+        EdFold(
+            title: title, total: total, locale: locale, currency: currency,
+            open: open, inverse: inverse, content: content
+        )
     }
 
     /*
@@ -503,7 +482,7 @@ struct EditorialActivity: View {
                     .lineLimit(1)
             }
             Spacer(minLength: 8)
-            VStack(alignment: .trailing, spacing: 6) {
+            VStack(alignment: .trailing, spacing: 5) {
                 EdAmountPill(
                     text: Money.string(
                         -plan.remaining, locale: locale, currency: currency, signed: true

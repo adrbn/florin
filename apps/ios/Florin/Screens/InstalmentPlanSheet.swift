@@ -88,8 +88,32 @@ struct InstalmentProgress: View {
         return min(1, max(0, Double(paid) / Double(count)))
     }
 
+    private var editorial: Bool { FlorinPalette.selected == .editorial }
+
     var body: some View {
-        if count <= 6 {
+        /*
+         * En éditorial, un seul filet, et il fait la largeur du montant.
+         *
+         * Les pastilles sont justes dans Obsidienne, où l'accent violet est
+         * une couleur de l'écran. Ici elles étaient la seule chose colorée de
+         * la colonne, et leurs 54 points pendaient sous une pastille de
+         * montant deux fois plus large — un trait qui ne s'aligne sur rien se
+         * lit comme un défaut, pas comme une mesure. La ligne « 2 sur 4
+         * payées » dit déjà le compte ; le filet n'a qu'à en donner la part,
+         * et il la donne mieux aligné sous le chiffre qu'il commente.
+         */
+        if editorial {
+            ZStack(alignment: .leading) {
+                GeometryReader { geo in
+                    Capsule().fill(Florin.text.opacity(0.12))
+                    Capsule()
+                        .fill(Florin.text)
+                        .frame(width: geo.size.width * fraction)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 2)
+        } else if count <= 6 {
             HStack(spacing: 3) {
                 ForEach(0..<max(1, count), id: \.self) { index in
                     Capsule()
