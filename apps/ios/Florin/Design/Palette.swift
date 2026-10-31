@@ -109,9 +109,20 @@ enum FlorinPalette: String, CaseIterable, Identifiable {
         UserDefaults(suiteName: suite)?.set(choice.rawValue, forKey: key)
     }
 
-    /// Le thème choisi, par son nom — pour le réglage qui le coche.
+    /*
+     * Le thème choisi, par son nom — pour le réglage qui le coche, et pour
+     * tout dessin qui ne vaut que sous Éditorial.
+     *
+     * Le bidon partagé D'ABORD, dans le même ordre que `resolved`. Lu depuis
+     * la vignette, `UserDefaults.standard` est celui de l'EXTENSION, où rien
+     * n'a jamais été écrit : la couleur suivait bien le thème (elle passe par
+     * `resolved`) pendant que la mise en page répondait « obsidian » et
+     * dessinait l'ancienne.
+     */
     static var selected: FlorinPalette {
-        FlorinPalette(rawValue: UserDefaults.standard.string(forKey: key) ?? "") ?? .obsidian
+        let stored = UserDefaults(suiteName: suite)?.string(forKey: key)
+            ?? UserDefaults.standard.string(forKey: key)
+        return FlorinPalette(rawValue: stored ?? "") ?? .obsidian
     }
 }
 

@@ -119,17 +119,23 @@ struct LeftToSpendView: View {
             .buttonStyle(.plain)
     }
 
+    /// Éditorial redessine la tuile. Les quatre autres thèmes gardent la
+    /// leur au pixel : c'est une cinquième maquette, pas un remplacement.
+    private var editorial: Bool { FlorinPalette.selected == .editorial }
+
     @ViewBuilder
     private var face: some View {
         switch (snapshot, WidgetFace.current) {
-        case let (.some(snapshot), .netWorth):
-            netWorth(snapshot)
         case let (.some(snapshot), .leftToSpend) where snapshot.leftToSpend != nil:
-            leftToSpend(snapshot, left: snapshot.leftToSpend ?? 0)
+            if editorial {
+                edLeftToSpend(snapshot, left: snapshot.leftToSpend ?? 0)
+            } else {
+                leftToSpend(snapshot, left: snapshot.leftToSpend ?? 0)
+            }
         case let (.some(snapshot), _):
             // No month to budget yet, but a net worth all the same — better the
             // figure it does have than the padlock.
-            netWorth(snapshot)
+            if editorial { edNetWorth(snapshot) } else { netWorth(snapshot) }
         case (.none, _):
             locked
         }
@@ -273,6 +279,195 @@ struct LeftToSpendView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }
+    }
+
+    // MARK: - La même tuile, dessinée par la maquette
+
+    /*
+     * Sous Éditorial il n'y a plus de fond coloré pour porter la hiérarchie —
+     * `WidgetGround` l'éteint par son poids — donc elle vient de la typo,
+     * comme dans l'app : une pastille à filet qui dit de quoi il s'agit, un
+     * chiffre resserré, un filet d'encre au lieu d'une barre en couleur.
+     */
+    private func edNetWorth(_ snapshot: WidgetSnapshot) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            edPill(t("v2.widget.netWorth", "Patrimoine"))
+
+            edFigure(
+                money(snapshot.netWorth, snapshot, decimals: false),
+                family == .systemSmall ? 30 : 38, Florin.text
+            )
+            .padding(.top, 7)
+
+            if let before = snapshot.netMonthAgo {
+                let delta = snapshot.netWorth - before
+                Text(t("v2.widget.overMonth", "{amount} sur un mois",
+                       ["amount": money(delta, snapshot, decimals: false, signed: true)]))
+                    .font(.system(size: 12))
+                    .foregroundStyle(delta < 0 ? Florin.negative : Florin.positive)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .padding(.top, 2)
+            }
+
+            Spacer(minLength: 6)
+
+            if family != .systemSmall, let gross = snapshot.gross, gross > 0 {
+                edSplit(snapshot, gross: gross)
+            }
+
+            if stale { edStale(snapshot) }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func edLeftToSpend(_ snapshot: WidgetSnapshot, left: Double) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            edPill(t("v2.widget.leftToSpend", "Reste à vivre"))
+
+            edFigure(
+                money(left, snapshot, decimals: false),
+                family == .systemSmall ? 30 : 38,
+                left < 0 ? Florin.negative : Florin.text
+            )
+            .padding(.top, 7)
+
+            if let days = snapshot.daysRemaining, days > 0 {
+                Text(t("v2.widget.daysLeft", "{count} jours restants", ["count": days]))
+                    .font(.system(size: 12))
+                    .foregroundStyle(Florin.text2)
+                    .padding(.top, 2)
+            }
+
+            Spacer(minLength: 6)
+
+            edPace(snapshot)
+
+            if stale { edStale(snapshot) }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /*
+     * Un filet, pas deux couleurs — et c'est l'ENCRE qui est le possédé.
+     *
+     * La version colorée remplissait la part DUE, ce qui se lit comme une
+     * progression : plus la barre avance, mieux ça va, alors que c'est
+     * l'inverse. Ici le plein est ce qui est à soi et le creux ce qui est dû,
+     * chaque légende sous sa part. Et pas de rouge : une mensualité qui tombe
+     * est le contraire d'un incident.
+     */
+    private func edSplit(_ snapshot: WidgetSnapshot, gross: Double) -> some View {
+        let owed = max(snapshot.liability ?? 0, 0)
+        let mine = max(0, min(1 - owed / gross, 1))
+        return VStack(alignment: .leading, spacing: 7) {
+            GeometryReader { proxy in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Florin.text.opacity(0.14))
+                    Capsule().fill(Florin.text).frame(width: proxy.size.width * mine)
+                }
+            }
+            .frame(height: 2)
+
+            HStack(spacing: 0) {
+                edLegend(t("v2.widget.owned", "Possédé"),
+                         money(gross, snapshot, decimals: false))
+                Spacer(minLength: 8)
+                edLegend(t("v2.widget.owed", "Dû"),
+                         money(owed, snapshot, decimals: false), trailing: true)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func edPace(_ snapshot: WidgetSnapshot) -> some View {
+        if let budget = snapshot.dailyBudget, budget > 0 {
+            let spent = snapshot.dailySpent ?? 0
+            let over = spent > budget
+            VStack(alignment: .leading, spacing: 5) {
+                if family != .systemSmall, spent > 0 {
+                    // Le rouge reste : dépasser le rythme, lui, est bien
+                    // l'alerte que la tuile est là pour donner.
+                    GeometryReader { proxy in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(Florin.text.opacity(0.14))
+                            Capsule()
+                                .fill(over ? Florin.negative : Florin.text)
+                                .frame(width: proxy.size.width * min(spent / budget, 1))
+                        }
+                    }
+                    .frame(height: 2)
+                }
+
+                Text(t("v2.widget.perDay", "{amount} par jour",
+                       ["amount": money(budget, snapshot, decimals: false)]))
+                    .font(.system(size: 12.5, weight: .medium))
+                    .foregroundStyle(Florin.text)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+
+                if spent > 0 {
+                    Text(t("v2.widget.youSpend", "vous dépensez {amount}",
+                           ["amount": money(spent, snapshot, decimals: false)]))
+                        .font(.system(size: 11))
+                        .foregroundStyle(over ? Florin.negative : Florin.text2)
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+            }
+        }
+    }
+
+    /// La pastille de contexte de la maquette : un filet, jamais un fond — un
+    /// fond en ferait une étiquette, et une étiquette attire plus que le
+    /// chiffre qu'elle annonce.
+    private func edPill(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 10, weight: .medium))
+            .foregroundStyle(Florin.text2)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 3.5)
+            .overlay(Capsule().stroke(Florin.text.opacity(0.22), lineWidth: 1))
+    }
+
+    /// Voir `Ed.tracking` et `Ed.inkRoom` : le chiffre éditorial est resserré,
+    /// et l'espace fine finale garde l'encre du « € » dans sa propre ligne.
+    /// Les deux valeurs sont recopiées parce qu'`EditorialKit` ne compile pas
+    /// dans une extension — il touche à l'app.
+    private func edFigure(_ text: String, _ size: CGFloat, _ tone: Color) -> some View {
+        Text(text + "\u{2009}")
+            .font(.system(size: size, weight: .medium))
+            .kerning(-size * 0.045)
+            .foregroundStyle(tone)
+            .monospacedDigit()
+            .minimumScaleFactor(0.5)
+            .lineLimit(1)
+    }
+
+    private func edLegend(
+        _ label: String, _ value: String, trailing: Bool = false
+    ) -> some View {
+        VStack(alignment: trailing ? .trailing : .leading, spacing: 1) {
+            Text(label)
+                .font(.system(size: 10))
+                .foregroundStyle(Florin.text3)
+            Text(value)
+                .font(.system(size: 12.5, weight: .medium))
+                .foregroundStyle(Florin.text)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+    }
+
+    private func edStale(_ snapshot: WidgetSnapshot) -> some View {
+        Text(t("v2.widget.asOf", "Chiffres du {date}", ["date": day(snapshot.updatedAt)]))
+            .font(.system(size: 10))
+            .foregroundStyle(Florin.text3)
+            .padding(.top, 3)
     }
 
     // MARK: - Nothing to show

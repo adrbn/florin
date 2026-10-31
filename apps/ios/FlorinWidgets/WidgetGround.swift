@@ -13,22 +13,34 @@ import SwiftUI
 /// rather than on a flat band. Two stops instead of six, because a 155-point
 /// tile has no middle for a dip to land in.
 struct WidgetGround: View {
+    /*
+     * Le poids du fond, et c'est ce qui manquait.
+     *
+     * `Backdrop` multiplie chacune de ses opacités par `Palette.ground` :
+     * c'est par ce POIDS que Papier et Éditorial éteignent le fond coloré,
+     * pas en nommant du gris. La vignette, elle, avait les opacités écrites
+     * en dur — alors sous Éditorial, dont la teinte de fond EST l'encre à
+     * poids 0, elle peignait du noir à 55 % sur du papier blanc et rendait
+     * une tuile gris métal à côté d'une app blanche.
+     */
+    private var weight: Double { Palette.current.ground }
+
     var body: some View {
         ZStack {
             Florin.bg
 
             LinearGradient(
                 stops: [
-                    .init(color: Florin.overviewTint.opacity(0.55), location: 0.00),
-                    .init(color: Florin.overviewTint.opacity(0.18), location: 0.45),
-                    .init(color: Florin.overviewTint.opacity(0.10), location: 1.00),
+                    .init(color: Florin.overviewTint.opacity(0.55 * weight), location: 0.00),
+                    .init(color: Florin.overviewTint.opacity(0.18 * weight), location: 0.45),
+                    .init(color: Florin.overviewTint.opacity(0.10 * weight), location: 1.00),
                 ],
                 startPoint: .top,
                 endPoint: .bottom
             )
 
             RadialGradient(
-                colors: [Florin.overviewTint.opacity(0.28), .clear],
+                colors: [Florin.overviewTint.opacity(0.28 * weight), .clear],
                 center: UnitPoint(x: 0.5, y: 0.05),
                 startRadius: 0,
                 endRadius: 190

@@ -18,6 +18,7 @@ TARGET="${FLORIN_OTA_SSH:?renseigne FLORIN_OTA_SSH dans scripts/ota.env}"
 DIR="${FLORIN_OTA_DIR:-/opt/florin-ota}"
 BASE="https://$HOST/florin"
 TS="${FLORIN_TAILSCALE:-/Applications/Tailscale.app/Contents/MacOS/Tailscale}"
+PORT="${FLORIN_OTA_PORT:-8099}"
 
 ARCHIVE="${TMPDIR:-/tmp}/Florin.xcarchive"
 EXPORT="${TMPDIR:-/tmp}/florin-export"
@@ -90,7 +91,14 @@ if [ "$TARGET" = local ]; then
   mkdir -p "$DIR"
   cp "$STAGE"/Florin.ipa "$STAGE"/manifest.plist "$STAGE"/icon-512.png \
      "$STAGE"/icon-57.png "$STAGE"/index.html "$DIR/"
-  "$TS" serve --bg --set-path /florin "$DIR" >/dev/null
+  # Un port, pas un répertoire : le Tailscale de l'App Store ne sert pas de
+  # fichiers (bac à sable), mais il relaie un port local — et c'est lui qui
+  # porte le certificat dont l'OTA a besoin.
+  pgrep -f "http.server $PORT" >/dev/null || (
+    cd "$DIR" && nohup python3 -m http.server "$PORT" --bind 127.0.0.1 \
+      >"${TMPDIR:-/tmp}/florin-ota-http.log" 2>&1 &
+  )
+  "$TS" serve --bg --set-path /florin "$PORT" >/dev/null
 else
   echo "→ envoi vers $TARGET:$DIR"
   ssh -o ConnectTimeout=20 "$TARGET" "mkdir -p '$DIR'"
