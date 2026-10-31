@@ -205,7 +205,18 @@ struct EdMonthSplit: View {
                     .init(value: fixed, tone: Florin.text.opacity(0.38)),
                 ],
                 total: total,
-                mark: pace > 0 && pace < 1 ? pace : nil
+                /*
+                 * Le repère ne se cache pas quand il sort de la barre.
+                 *
+                 * Il disait « où un mois ordinaire en serait aujourd'hui » et
+                 * disparaissait dès que ce point dépassait les revenus du
+                 * mois — c'est-à-dire exactement quand la barre a besoin
+                 * d'être lue. Sans lui, 95 % d'encre sous un titre qui parle
+                 * de jours se lit comme un mois écoulé à 95 %. Collé au bord,
+                 * il dit ce qu'il a à dire : la dépense habituelle avait déjà
+                 * tout pris, et celle-ci s'arrête juste avant.
+                 */
+                mark: pace > 0 ? min(pace, 0.985) : nil
             )
             /*
              * Les deux premiers chiffres sont ce qui est SORTI — du rouge le
@@ -309,8 +320,24 @@ struct EdMonthEnd: View {
                             + data.t("v2.common.perDay", "/jour") + " · "
                             + data.t("v2.overview.daysLeft", "{count} j restants",
                                      ["count": lts.daysRemaining])
-                    } ?? data.t(
-                        "v2.overview.leftToSpendNone", "Aucun salaire détecté sur 90 jours"
+                    } ?? (
+                        /*
+                         * Un `nil` pour deux raisons, et la légende devinait.
+                         *
+                         * `dailyBudgetRemaining` est nul quand aucun salaire
+                         * n'a été repéré, MAIS AUSSI le dernier jour du mois,
+                         * où il ne reste aucun jour à diviser. Le 31 octobre,
+                         * avec 3 044 € de revenus bien comptés dans le
+                         * plafond juste au-dessus, la ligne annonçait
+                         * « aucun salaire détecté sur 90 jours ». Le motif se
+                         * lit dans la donnée qui le porte, pas dans l'absence
+                         * de la donnée qui en découle.
+                         */
+                        lts.salaryCategoryName == nil
+                            ? data.t("v2.overview.leftToSpendNone",
+                                     "Aucun salaire détecté sur 90 jours")
+                            : data.t("v2.overview.daysLeft", "{count} j restants",
+                                     ["count": lts.daysRemaining])
                     )
                 )
             }

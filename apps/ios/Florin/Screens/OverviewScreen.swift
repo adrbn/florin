@@ -847,7 +847,15 @@ struct OverviewScreen: View {
                             let days = data.t("v2.overview.daysLeft", "{count} j restants",
                                               ["count": lts.daysRemaining])
                             return amount + data.t("v2.common.perDay", "/jour") + " · " + days
-                        } ?? data.t("v2.overview.leftToSpendNone", "Aucun salaire détecté sur 90 jours")
+                        } ?? (
+                            // Voir `EditorialMonth` : nul faute de salaire, ou
+                            // nul parce que c'est le dernier jour du mois.
+                            lts.salaryCategoryName == nil
+                                ? data.t("v2.overview.leftToSpendNone",
+                                         "Aucun salaire détecté sur 90 jours")
+                                : data.t("v2.overview.daysLeft", "{count} j restants",
+                                         ["count": lts.daysRemaining])
+                        )
                     )
                     .font(.system(size: 11.5))
                     .foregroundStyle(Florin.text3)
