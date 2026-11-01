@@ -134,35 +134,83 @@ enum FlorinPalette: String, CaseIterable, Identifiable {
  * sélecteur ne le garantit pas. Les noms sont ceux de la matière, pas ceux
  * d'une teinte — on choisit un ton, pas un hexadécimal.
  */
+/*
+ * Dix-huit encres, rangées comme une roue.
+ *
+ * L'ordre n'est pas décoratif : les cases défilent dans l'ordre de
+ * déclaration, et une grille de pastilles rangée par famille se parcourt du
+ * regard, alors qu'une grille rangée par ordre d'ajout se fouille. Chaudes,
+ * puis vertes, puis bleues, puis violettes, puis les terres et les gris.
+ *
+ * Chaque ton clair tient au moins 4,1:1 sur blanc — le plancher du jeu
+ * d'origine, mesuré sur l'ocre — et son ton sombre est le même assombri d'un
+ * huitième, comme les six premiers. Vérifié par `scripts/check-accents.py`.
+ */
 enum EdAccent: String, CaseIterable, Identifiable {
+    case cerise
     case terracotta
-    case encre
-    case foret
-    case prune
+    case cuivre
     case ocre
+    case olive
+    case foret
+    case canard
+    case azur
+    case encre
+    case marine
+    case iris
+    case prune
+    case framboise
+    case bordeaux
+    case aubergine
+    case chocolat
     case ardoise
+    case graphite
 
     var id: String { rawValue }
 
     var name: String {
         switch self {
+        case .cerise: return "Cerise"
         case .terracotta: return "Terracotta"
-        case .encre: return "Encre"
-        case .foret: return "Forêt"
-        case .prune: return "Prune"
+        case .cuivre: return "Cuivre"
         case .ocre: return "Ocre"
+        case .olive: return "Olive"
+        case .foret: return "Forêt"
+        case .canard: return "Canard"
+        case .azur: return "Azur"
+        case .encre: return "Encre"
+        case .marine: return "Marine"
+        case .iris: return "Iris"
+        case .prune: return "Prune"
+        case .framboise: return "Framboise"
+        case .bordeaux: return "Bordeaux"
+        case .aubergine: return "Aubergine"
+        case .chocolat: return "Chocolat"
         case .ardoise: return "Ardoise"
+        case .graphite: return "Graphite"
         }
     }
 
     var tone: Tone {
         switch self {
+        case .cerise: return Tone(light: 0xB3261E, dark: 0x9D211A)
         case .terracotta: return Tone(light: 0xD9481F, dark: 0xC93D17)
-        case .encre: return Tone(light: 0x2F4DBF, dark: 0x2A44AD)
-        case .foret: return Tone(light: 0x1C6B4A, dark: 0x185C3F)
-        case .prune: return Tone(light: 0x8C2F6B, dark: 0x7A295D)
+        case .cuivre: return Tone(light: 0xA4542A, dark: 0x904924)
         case .ocre: return Tone(light: 0xA4740C, dark: 0x8F640A)
+        case .olive: return Tone(light: 0x5E6B1C, dark: 0x525E18)
+        case .foret: return Tone(light: 0x1C6B4A, dark: 0x185C3F)
+        case .canard: return Tone(light: 0x0E6B73, dark: 0x0C5E65)
+        case .azur: return Tone(light: 0x1F6FB2, dark: 0x1B619C)
+        case .encre: return Tone(light: 0x2F4DBF, dark: 0x2A44AD)
+        case .marine: return Tone(light: 0x1F3A5F, dark: 0x1B3353)
+        case .iris: return Tone(light: 0x5B3FA8, dark: 0x503793)
+        case .prune: return Tone(light: 0x8C2F6B, dark: 0x7A295D)
+        case .framboise: return Tone(light: 0xAE2A5E, dark: 0x992452)
+        case .bordeaux: return Tone(light: 0x7C1F33, dark: 0x6D1B2C)
+        case .aubergine: return Tone(light: 0x4A2545, dark: 0x41203C)
+        case .chocolat: return Tone(light: 0x5A3B2A, dark: 0x4F3324)
         case .ardoise: return Tone(light: 0x3F4C5A, dark: 0x36424E)
+        case .graphite: return Tone(light: 0x35383D, dark: 0x2E3135)
         }
     }
 

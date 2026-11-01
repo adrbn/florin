@@ -784,13 +784,26 @@ struct SettingsScreen: View {
                     .foregroundStyle(Florin.text2)
                     .padding(.leading, 33)
                     .padding(.top, 4)
-                HStack(spacing: 10) {
+                /*
+                 * Une grille, parce qu'une rangée ne tient plus.
+                 *
+                 * Six pastilles tenaient sur une ligne ; dix-huit, non — et
+                 * les faire défiler horizontalement cacherait la moitié du
+                 * choix derrière un geste que rien n'annonce. La grille les
+                 * montre toutes d'un coup, ce qui est le seul intérêt d'en
+                 * proposer autant.
+                 */
+                LazyVGrid(
+                    columns: [GridItem(.adaptive(minimum: 40), spacing: 10)],
+                    alignment: .leading, spacing: 12
+                ) {
                     ForEach(EdAccent.allCases) { choice in
                         accentSwatch(choice)
                     }
-                    Spacer(minLength: 0)
                 }
                 .padding(.leading, 33)
+                .padding(.trailing, 6)
+                .padding(.top, 2)
             }
         }
         .padding(.horizontal, 16)
