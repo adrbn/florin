@@ -922,7 +922,10 @@
     "v2.ed.cards.title": "Cards",
     "v2.ed.cards.hint": "The ones switched on stack on the home screen. Press and hold a row to reorder.",
     "v2.ed.cards.auto": "Automatic",
-    "v2.ed.cards.color": "Colour"
+    "v2.ed.cards.color": "Colour",
+    "v2.settings.inks": "Inks",
+    "v2.settings.inks.palette": "Palette",
+    "v2.settings.inks.gradient": "Gradient"
   },
   "fr": {
     "v2.a11y.back": "Retour",
@@ -1847,7 +1850,10 @@
     "v2.ed.cards.title": "Cartes",
     "v2.ed.cards.hint": "Celles qui sont allumées s'empilent sur l'accueil. Appui long sur une ligne pour changer l'ordre.",
     "v2.ed.cards.auto": "Automatique",
-    "v2.ed.cards.color": "Couleur"
+    "v2.ed.cards.color": "Couleur",
+    "v2.settings.inks": "Encres",
+    "v2.settings.inks.palette": "Palette",
+    "v2.settings.inks.gradient": "Dégradé"
   },
   "nl": {
     "v2.a11y.back": "Terug",
@@ -2772,7 +2778,10 @@
     "v2.ed.cards.title": "Kaarten",
     "v2.ed.cards.hint": "De aangezette kaarten stapelen op het startscherm. Houd een rij ingedrukt om de volgorde te wijzigen.",
     "v2.ed.cards.auto": "Automatisch",
-    "v2.ed.cards.color": "Kleur"
+    "v2.ed.cards.color": "Kleur",
+    "v2.settings.inks": "Inkten",
+    "v2.settings.inks.palette": "Palet",
+    "v2.settings.inks.gradient": "Verloop"
   },
   "it": {
     "v2.a11y.back": "Indietro",
@@ -3697,7 +3706,10 @@
     "v2.ed.cards.title": "Carte",
     "v2.ed.cards.hint": "Quelle accese si impilano nella schermata principale. Tieni premuta una riga per riordinare.",
     "v2.ed.cards.auto": "Automatico",
-    "v2.ed.cards.color": "Colore"
+    "v2.ed.cards.color": "Colore",
+    "v2.settings.inks": "Inchiostri",
+    "v2.settings.inks.palette": "Tavolozza",
+    "v2.settings.inks.gradient": "Sfumatura"
   },
   "es": {
     "v2.a11y.back": "Atrás",
@@ -4622,7 +4634,10 @@
     "v2.ed.cards.title": "Tarjetas",
     "v2.ed.cards.hint": "Las activadas se apilan en la pantalla de inicio. Mantén pulsada una fila para reordenar.",
     "v2.ed.cards.auto": "Automático",
-    "v2.ed.cards.color": "Color"
+    "v2.ed.cards.color": "Color",
+    "v2.settings.inks": "Tintas",
+    "v2.settings.inks.palette": "Paleta",
+    "v2.settings.inks.gradient": "Degradado"
   },
   "ca": {
     "v2.a11y.back": "Enrere",
@@ -5547,7 +5562,10 @@
     "v2.ed.cards.title": "Targetes",
     "v2.ed.cards.hint": "Les enceses s'apilen a la pantalla d'inici. Mantén premuda una fila per canviar l'ordre.",
     "v2.ed.cards.auto": "Automàtic",
-    "v2.ed.cards.color": "Color"
+    "v2.ed.cards.color": "Color",
+    "v2.settings.inks": "Tintes",
+    "v2.settings.inks.palette": "Paleta",
+    "v2.settings.inks.gradient": "Degradat"
   },
   "de": {
     "v2.a11y.back": "Zurück",
@@ -6472,7 +6490,10 @@
     "v2.ed.cards.title": "Karten",
     "v2.ed.cards.hint": "Die eingeschalteten stapeln sich auf dem Startbildschirm. Zeile lange drücken, um die Reihenfolge zu ändern.",
     "v2.ed.cards.auto": "Automatisch",
-    "v2.ed.cards.color": "Farbe"
+    "v2.ed.cards.color": "Farbe",
+    "v2.settings.inks": "Farben",
+    "v2.settings.inks.palette": "Palette",
+    "v2.settings.inks.gradient": "Verlauf"
   },
   "pt": {
     "v2.a11y.back": "Voltar",
@@ -7397,7 +7418,10 @@
     "v2.ed.cards.title": "Cartões",
     "v2.ed.cards.hint": "Os ativados empilham-se no ecrã inicial. Toque e mantenha numa linha para mudar a ordem.",
     "v2.ed.cards.auto": "Automático",
-    "v2.ed.cards.color": "Cor"
+    "v2.ed.cards.color": "Cor",
+    "v2.settings.inks": "Tintas",
+    "v2.settings.inks.palette": "Paleta",
+    "v2.settings.inks.gradient": "Gradiente"
   },
   "tr": {
     "v2.a11y.back": "Geri",
@@ -8322,6 +8346,9 @@
     "v2.ed.cards.title": "Kartlar",
     "v2.ed.cards.hint": "Açık olanlar ana ekranda üst üste dizilir. Sırayı değiştirmek için bir satıra basılı tutun.",
     "v2.ed.cards.auto": "Otomatik",
-    "v2.ed.cards.color": "Renk"
+    "v2.ed.cards.color": "Renk",
+    "v2.settings.inks": "Mürekkepler",
+    "v2.settings.inks.palette": "Palet",
+    "v2.settings.inks.gradient": "Geçiş"
   }
 }

@@ -181,6 +181,7 @@ struct RootView: View {
     /// Lu ici pour la même raison que la palette : c'est ce qui fait
     /// reconstruire l'arbre quand l'accent change.
     @AppStorage(EdAccent.key) private var accentRaw = EdAccent.terracotta.rawValue
+    @AppStorage(EdInks.key) private var inksRaw = EdInks.palette.rawValue
     @State private var showingSetup = false
     @State private var splashing = true
     @State private var wantsServerForm = false
@@ -315,7 +316,7 @@ struct RootView: View {
               * palette dans sa propre clé, et l'accueil porte la sienne sous
               * son état.
               */
-            .id("\(onboarded)-\(accentRaw)")
+            .id("\(onboarded)-\(accentRaw)-\(inksRaw)")
             .onChange(of: sourceRaw) { _, _ in switchedSource = true }
             .onChange(of: paletteRaw) { _, chosen in
                 // Le réglage écrit déjà la palette ; ceci rattrape le cas où
@@ -325,6 +326,10 @@ struct RootView: View {
             }
             .onChange(of: accentRaw) { _, chosen in
                 EdAccent.use(EdAccent(rawValue: chosen) ?? .terracotta)
+                WidgetCenter.shared.reloadAllTimelines()
+            }
+            .onChange(of: inksRaw) { _, chosen in
+                EdInks.use(EdInks(rawValue: chosen) ?? .palette)
                 WidgetCenter.shared.reloadAllTimelines()
             }
 

@@ -3,9 +3,17 @@ import SwiftUI
 /// Les jetons de dessin, lus dans le thème actif.
 ///
 /// Les valeurs vivent dans `Palette.swift`, une palette par thème ; ici il ne
-/// reste que les noms. Chaque jeton est une couleur dynamique dont la fonction
-/// de résolution relit `Palette.current` au moment du rendu : changer de thème
-/// n'a donc qu'à forcer un nouveau rendu, pas à reconstruire la palette.
+/// reste que les noms.
+///
+/// Chaque jeton est CALCULÉ, et ce n'est pas un détail de style : un
+/// `UIColor(dynamicProvider:)` garde la couleur qu'il a résolue pour un jeu de
+/// traits donné. Tant que les jetons étaient des `static let`, une seule
+/// instance servait tout le process — changer de thème ou d'accent ne
+/// changeait plus rien à l'écran tant qu'on n'avait pas quitté et relancé
+/// l'app, et forcer un rendu n'y pouvait rien puisque la couleur rendue était
+/// la même instance déjà résolue. Une instance neuve par lecture n'a rien à
+/// garder. Le coût est une allocation par couleur lue, ce que SwiftUI fait de
+/// toute façon à chaque image.
 ///
 /// Le jeu de noms reste celui de `packages/core/src/components/v2/theme/v2.css`
 /// — une dérive entre le web et le natif se voit comme un téléphone qui ne
@@ -20,18 +28,18 @@ enum Florin {
     static let readableWidth: CGFloat = 620
 
     // MARK: Surfaces
-    static let bg = token(\.bg)
-    static let surface = token(\.surface)
-    static let surface2 = token(\.surface2)
-    static let surface3 = token(\.surface3)
+    static var bg: Color { token(\.bg) }
+    static var surface: Color { token(\.surface) }
+    static var surface2: Color { token(\.surface2) }
+    static var surface3: Color { token(\.surface3) }
 
     // MARK: Text
-    static let text = token(\.text)
-    static let text2 = token(\.text2)
-    static let text3 = token(\.text3)
+    static var text: Color { token(\.text) }
+    static var text2: Color { token(\.text2) }
+    static var text3: Color { token(\.text3) }
 
     // MARK: Accent and semantics
-    static let accent = token(\.accent)
+    static var accent: Color { token(\.accent) }
 
     /*
      * La teinte des contrôles du système — bascules, sélecteurs, curseurs.
@@ -54,25 +62,25 @@ enum Florin {
      * du mode clair. Un jeton plutôt qu'un littéral, et les deux cas tombent
      * juste.
      */
-    static let onAccent = token(\.onAccent)
-    static let positive = token(\.positive)
-    static let negative = token(\.negative)
+    static var onAccent: Color { token(\.onAccent) }
+    static var positive: Color { token(\.positive) }
+    static var negative: Color { token(\.negative) }
     /// Needs a decision — not an error. Red already means "money left", so a
     /// review flag drawn in it reads as a loss rather than as a question.
-    static let warn = token(\.warn)
+    static var warn: Color { token(\.warn) }
 
     /// Categorical series — never the semantic green or red, so a spending bar
     /// can't read as a gain.
     ///
-    /// Huit, dans tous les thèmes : la taille est fixe pour que les couleurs
-    /// restent des `let` liés à leur rang plutôt que reconstruits à chaque
-    /// lecture.
-    static let series: [Color] = (0 ..< 8).map { rank in
+    /// Huit, dans tous les thèmes. Le rang vaut la même chose partout.
+    static let seriesCount = 8
+
+    static var series: [Color] { (0 ..< seriesCount).map { rank in
         Color(UIColor { traits in
             let tone = Palette.current.series[rank]
             return UIColor(hex: traits.userInterfaceStyle == .dark ? tone.dark : tone.light)
         })
-    }
+    } }
 
     /// The Overview tab's ground, and the widget's.
     ///
@@ -80,7 +88,7 @@ enum Florin {
     /// the widget target needs it and cannot take `TabRoute` with it. One
     /// definition, two consumers: a widget that drifts from the screen it
     /// mirrors is the kind of thing nobody notices until it looks cheap.
-    static let overviewTint = ground(.overview)
+    static var overviewTint: Color { ground(.overview) }
 
     static let cardRadius: CGFloat = 26
     static let rowRadius: CGFloat = 14
@@ -103,7 +111,7 @@ enum Florin {
             hash ^= UInt32(unit)
             hash = hash &* 0x0100_0193
         }
-        return Int(hash % UInt32(series.count))
+        return Int(hash % UInt32(seriesCount))
     }
 
     /// Noir ou blanc, selon ce qui se lit sur cette teinte.

@@ -32,6 +32,7 @@ struct SettingsScreen: View {
     @AppStorage("florin.appearance") private var appearanceRaw = Appearance.dark.rawValue
     @AppStorage(FlorinPalette.key) private var paletteRaw = FlorinPalette.obsidian.rawValue
     @AppStorage(EdAccent.key) private var accentRaw = EdAccent.terracotta.rawValue
+    @AppStorage(EdInks.key) private var inksRaw = EdInks.palette.rawValue
     @State private var editingServer = false
     @State private var draftServer = ""
     @State private var draftToken = ""
@@ -816,10 +817,15 @@ struct SettingsScreen: View {
                 .padding(.trailing, 6)
                 .padding(.top, 2)
 
+                inksRow
+                    .padding(.leading, 33)
+                    .padding(.trailing, 6)
+                    .padding(.top, 12)
+
                 accentPreview
                     .padding(.leading, 33)
                     .padding(.trailing, 6)
-                    .padding(.top, 10)
+                    .padding(.top, 8)
             }
         }
         .padding(.horizontal, 16)
@@ -827,7 +833,46 @@ struct SettingsScreen: View {
     }
 
     /*
-     * Le dégradé, montré là où on le choisit.
+     * Palette ou dégradé — deux gestes, pas une amélioration de l'autre.
+     *
+     * Huit teintes franches disent huit catégories ; une encre diluée huit
+     * fois dit un thème. Le premier se lit mieux d'un coup d'œil, le second
+     * se tient mieux. On ne tranche pas pour quelqu'un d'autre.
+     */
+    private var inksRow: some View {
+        HStack(spacing: 6) {
+            ForEach(EdInks.allCases) { choice in
+                let chosen = choice.rawValue == inksRaw
+                Button {
+                    guard !chosen else { return }
+                    UISelectionFeedbackGenerator().selectionChanged()
+                    EdInks.use(choice)
+                    inksRaw = choice.rawValue
+                } label: {
+                    Text(inkName(choice))
+                        .font(.system(size: 13, weight: chosen ? .semibold : .regular))
+                        .foregroundStyle(chosen ? Florin.bg : Florin.text2)
+                        .padding(.horizontal, 14)
+                        .frame(height: 30)
+                        .background(
+                            Capsule().fill(chosen ? Florin.text : Florin.surface2)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func inkName(_ choice: EdInks) -> String {
+        switch choice {
+        case .palette: return t("v2.settings.inks.palette", "Palette")
+        case .gradient: return t("v2.settings.inks.gradient", "Dégradé")
+        }
+    }
+
+    /*
+     * L'aperçu, montré là où on choisit.
      *
      * Choisir une couleur et devoir fermer les réglages pour savoir à quoi
      * elle ressemble, c'est un aller-retour par pastille — trente pastilles,

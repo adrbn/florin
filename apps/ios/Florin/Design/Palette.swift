@@ -380,6 +380,39 @@ enum EdAccent: String, CaseIterable, Identifiable {
     }
 }
 
+/*
+ * Comment Éditorial tire ses huit encres catégorielles.
+ *
+ * Deux gestes différents, et aucun ne remplace l'autre. La PALETTE est le
+ * jeu d'origine : huit teintes franches et sans parenté, qui disent huit
+ * catégories. Le DÉGRADÉ n'est qu'une encre, diluée huit fois, qui dit un
+ * thème. L'un se lit mieux, l'autre se tient mieux — c'est un goût, donc un
+ * réglage.
+ *
+ * Seul Éditorial le propose : les quatre autres thèmes ont leur propre jeu
+ * de huit, dessiné avec eux.
+ */
+enum EdInks: String, CaseIterable, Identifiable {
+    case palette
+    case gradient
+
+    var id: String { rawValue }
+
+    static let key = "florin.editorialInks"
+
+    static var selected: EdInks {
+        let stored = UserDefaults(suiteName: FlorinPalette.suite)?.string(forKey: key)
+            ?? UserDefaults.standard.string(forKey: key)
+        return EdInks(rawValue: stored ?? "") ?? .palette
+    }
+
+    static func use(_ choice: EdInks) {
+        UserDefaults.standard.set(choice.rawValue, forKey: key)
+        UserDefaults(suiteName: FlorinPalette.suite)?.set(choice.rawValue, forKey: key)
+        FlorinPalette.forget()
+    }
+}
+
 // MARK: - Les palettes
 
 extension Palette {
@@ -580,7 +613,7 @@ extension Palette {
         base.surface3 = base.surface3.mixed(with: ink, light: 0.24, dark: 0.26)
 
         /*
-         * Et surtout : les huit encres catégorielles en descendent.
+         * Et, si on l'a demandé, les huit encres catégorielles en descendent.
          *
          * C'était le vrai manque. Le papier teinté se voit à peine, mais ce
          * qui FAIT la couleur d'un écran de Florin, ce sont les cartes de
@@ -600,7 +633,9 @@ extension Palette {
          * répartition) prend les rangs 0, 2 et 4, écartés de 72° et de deux
          * crans de clarté.
          */
-        base.series = editorialSeries(from: ink)
+        if EdInks.selected == .gradient {
+            base.series = editorialSeries(from: ink)
+        }
         return base
     }
 
