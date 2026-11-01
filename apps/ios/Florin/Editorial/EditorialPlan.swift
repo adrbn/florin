@@ -321,7 +321,7 @@ struct EditorialPlan: View {
         return VStack(alignment: .leading, spacing: 14) {
             EdPill(text: t("v2.plan.thisMonth", "Ce mois"))
             Button {
-                route(.analysis, TabRoute.analysis.rootPath)
+                edOpen { route(.analysis, TabRoute.analysis.rootPath) }
             } label: {
                 HStack(alignment: .lastTextBaseline) {
                     EdSection(text: t("v2.plan.spent", "Dépensé"))
@@ -399,7 +399,7 @@ struct EditorialPlan: View {
 
                 ForEach(group.categories) { category in
                     EdRule()
-                    Button { dest = .assign(category) } label: { row(category) }
+                    Button { edOpen { dest = .assign(category) } } label: { row(category) }
                         .buttonStyle(.edPress)
                         .edEnter()
                         .contextMenu {

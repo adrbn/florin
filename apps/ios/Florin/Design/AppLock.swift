@@ -76,7 +76,20 @@ final class AppLock: ObservableObject {
         shielded = true
     }
 
-    func uncover() { shielded = false }
+    /*
+     * Le retour au premier plan demande le visage, tout seul.
+     *
+     * `LockScreen` a bien un `.task` qui le demande — mais il part UNE fois,
+     * à l'apparition du rideau, et le rideau apparaît au moment où l'app
+     * s'en va : il n'y a personne devant l'écran pour répondre, et au retour
+     * la vue existe déjà, donc rien ne repart. Il restait un bouton à
+     * appuyer pour rien. C'est la reprise elle-même qui doit redemander.
+     */
+    func uncover() {
+        shielded = false
+        guard locked else { return }
+        Task { await unlock() }
+    }
 
     /// L'app est partie en arrière-plan. Là, on verrouille.
     func leaveForeground() {
@@ -85,8 +98,14 @@ final class AppLock: ObservableObject {
         locked = true
     }
 
+    /// Une invite à la fois : `LockScreen` en demande une à l'apparition, la
+    /// reprise au premier plan une autre, et les deux peuvent tomber ensemble.
+    private var prompting = false
+
     func unlock() async {
-        guard locked else { return }
+        guard locked, !prompting else { return }
+        prompting = true
+        defer { prompting = false }
         let context = LAContext()
         context.localizedFallbackTitle = ""
         do {

@@ -396,7 +396,7 @@ struct EditorialActivity: View {
                             // Pas de filet sous l'en-tête : il déborde de la
                             // pastille des deux côtés et la trahit.
                             if index > 0 { EdRule() }
-                            Button { detail = tx } label: { row(tx) }
+                            Button { edOpen { detail = tx } } label: { row(tx) }
                                 .buttonStyle(.edPress)
                                 .transactionMenu(
                                     tx, t: t, locale: locale, currency: currency,
@@ -420,8 +420,10 @@ struct EditorialActivity: View {
                         ForEach(Array(schedules.enumerated()), id: \.element.id) { index, plan in
                             if index > 0 { EdRule() }
                             Button {
-                                UISelectionFeedbackGenerator().selectionChanged()
-                                openPlan = plan
+                                edOpen {
+                                    UISelectionFeedbackGenerator().selectionChanged()
+                                    openPlan = plan
+                                }
                             } label: { planRow(plan) }
                                 .buttonStyle(.edPress)
                         }
@@ -511,7 +513,7 @@ struct EditorialActivity: View {
     private func rows(_ list: [Transaction]) -> some View {
         ForEach(list) { tx in
             EdRule()
-            Button { detail = tx } label: { row(tx) }
+            Button { edOpen { detail = tx } } label: { row(tx) }
                 .buttonStyle(.edPress)
                 .transactionMenu(
                     tx, t: t, locale: locale, currency: currency,

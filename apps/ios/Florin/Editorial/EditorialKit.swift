@@ -478,8 +478,10 @@ struct EdTabBar: View {
         symbol: String, label: String, active: Bool, action: @escaping () -> Void
     ) -> some View {
         Button {
-            UISelectionFeedbackGenerator().selectionChanged()
-            action()
+            edOpen {
+                UISelectionFeedbackGenerator().selectionChanged()
+                action()
+            }
         } label: {
             Image(systemName: symbol)
                 .font(.system(size: 18, weight: .medium))
@@ -540,8 +542,10 @@ struct EdIconButton: View {
 
     var body: some View {
         Button {
-            UISelectionFeedbackGenerator().selectionChanged()
-            action()
+            edOpen {
+                UISelectionFeedbackGenerator().selectionChanged()
+                action()
+            }
         } label: {
             Image(systemName: symbol)
                 .font(.system(size: 18, weight: .medium))
@@ -888,12 +892,28 @@ private struct EdSwipe<Value: Hashable>: ViewModifier {
                         guard enabled, !EdGesture.shared.scrubbing, !locked else { return }
                         let dx = move.translation.width
                         let dy = move.translation.height
-                        if abs(dx) > 14, abs(dx) > abs(dy) * 2 { locked = true }
+                        if abs(dx) > 14, abs(dx) > abs(dy) * 2 {
+                            locked = true
+                            // Le verrou d'axe est l'instant où ce doigt cesse
+                            // d'être un appui : les rangées sous lui doivent
+                            // le savoir avant qu'il se lève. Voir `edOpen`.
+                            EdGesture.shared.swiping = true
+                        }
                     }
                     .onEnded { move in
-                        defer { locked = false }
-                        // Le doigt qui suit la courbe ne demande pas de page.
-                        guard enabled, !EdGesture.shared.scrubbing else { return }
+                        let mine = locked
+                        locked = false
+                        if mine {
+                            // Levé un peu après : l'action de la rangée part
+                            // au lever du doigt, pas avant.
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                                EdGesture.shared.swiping = false
+                            }
+                        }
+                        // Le doigt qui suit la courbe ne demande pas de page :
+                        // sans verrou, le geste appartenait à quelqu'un
+                        // d'autre — on ne l'a pas pris, on ne le lit pas.
+                        guard enabled, mine else { return }
                         let dx = move.translation.width
                         let dy = move.translation.height
                         guard abs(dx) > 60, abs(dx) > abs(dy) * 2,
@@ -938,6 +958,33 @@ let edTabOrder: [TabRoute] = [.overview, .accounts, .plan, .activity, .analysis]
 final class EdGesture: ObservableObject {
     static let shared = EdGesture()
     @Published var scrubbing = false
+
+    /*
+     * Deux drapeaux, parce qu'ils ne sont pas lus par les mêmes.
+     *
+     * `scrubbing` arbitre entre GESTES : celui qui l'a posé garde le doigt,
+     * les autres reconnaisseurs horizontaux renoncent. Le changement d'onglet
+     * ne peut donc pas le poser — il y a un `edSwipe` à l'intérieur d'un
+     * autre sur Analyse, et celui des deux qui aurait posé le drapeau le
+     * premier aurait fait taire l'autre.
+     *
+     * `swiping` ne dit qu'une chose, à l'ACTION d'une rangée : un doigt est en
+     * train de balayer, ce toucher n'est pas un appui. Aucun geste ne le lit,
+     * donc en poser un de plus n'arbitre rien et ne casse rien.
+     */
+    var swiping = false
+}
+
+/// Ouvre, sauf si le doigt était en train de balayer.
+///
+/// Un `ButtonStyle` ne peut pas refuser : l'action appartient au `Button` et
+/// part au lever du doigt, glissement ou pas. Un `PrimitiveButtonStyle` le
+/// pourrait, mais son `DragGesture` maison prend le pas sur le défilement des
+/// listes. Le refus se lit donc là où il coûte zéro — dans l'action.
+@MainActor
+func edOpen(_ body: () -> Void) {
+    guard !EdGesture.shared.swiping, !EdGesture.shared.scrubbing else { return }
+    body()
 }
 
 extension View {
@@ -1116,7 +1163,13 @@ extension View {
     /// cette app le balayage horizontal veut dire « onglet suivant »
     /// n'importe où sur l'écran, et tant qu'un relevé est posé par-dessus,
     /// l'onglet ne bouge pas : le balayage tombait dans le vide. Il dépile
-    /// maintenant, dans un sens comme dans l'autre.
+    /// donc depuis n'importe où — mais VERS LA DROITE, et seulement.
+    ///
+    /// Les deux sens ont été essayés, pour que le geste ne tombe jamais dans
+    /// le vide, et c'est pire : un retour qui part vers la gauche est un
+    /// retour à l'envers, le contraire de ce que tout le reste du téléphone
+    /// fait. Un balayage vers la gauche sur un écran posé ne fait donc rien,
+    /// et c'est la bonne réponse.
     ///
     /// Le seuil est double — soixante-dix points, et deux fois plus
     /// horizontal que vertical — pour qu'un défilement un peu de travers ne
@@ -1138,15 +1191,19 @@ extension View {
                     .onChanged { value in
                         guard abs(value.translation.width)
                             > abs(value.translation.height) else { return }
-                        if !EdGesture.shared.scrubbing { EdGesture.shared.scrubbing = true }
+                        if !EdGesture.shared.scrubbing {
+                            EdGesture.shared.scrubbing = true
+                            EdGesture.shared.swiping = true
+                        }
                     }
                     .onEnded { value in
                         // Levé un peu après : l'ordre des `onEnded` de deux
                         // reconnaisseurs n'est pas garanti.
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
                             EdGesture.shared.scrubbing = false
+                            EdGesture.shared.swiping = false
                         }
-                        let side = abs(value.translation.width)
+                        let side = value.translation.width
                         guard side > 70, side > abs(value.translation.height) * 2
                         else { return }
                         pop()

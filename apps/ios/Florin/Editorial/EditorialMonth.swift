@@ -130,8 +130,10 @@ struct EdActions: View {
         action: @escaping () -> Void
     ) -> some View {
         Button {
-            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-            action()
+            edOpen {
+                UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                action()
+            }
         } label: {
             VStack(spacing: 8) {
                 Image(systemName: symbol)

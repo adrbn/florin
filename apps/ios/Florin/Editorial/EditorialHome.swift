@@ -815,6 +815,7 @@ struct EditorialHome: View {
             .clipShape(RoundedRectangle(cornerRadius: Ed.smallCard, style: .continuous))
             .contentShape(RoundedRectangle(cornerRadius: Ed.smallCard, style: .continuous))
             .onTapGesture {
+                guard !EdGesture.shared.swiping, !EdGesture.shared.scrubbing else { return }
                 // Devant, on ouvre. Derrière, on vient devant.
                 guard lead else {
                     UIImpactFeedbackGenerator(style: .soft).impactOccurred()

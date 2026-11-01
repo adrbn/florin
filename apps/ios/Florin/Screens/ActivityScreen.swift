@@ -911,6 +911,8 @@ struct TransactionList<Banner: View>: View {
                                 ForEach(Array(schedules.enumerated()), id: \.element.id) { index, plan in
                                     if index > 0 { EdRule() }
                                     Button {
+                                        guard !EdGesture.shared.swiping,
+                                              !EdGesture.shared.scrubbing else { return }
                                         UISelectionFeedbackGenerator().selectionChanged()
                                         openPlan = plan
                                     } label: {
@@ -938,6 +940,8 @@ struct TransactionList<Banner: View>: View {
                                 expanded: $instalmentsExpanded
                             ) { plan in
                                 Button {
+                                    guard !EdGesture.shared.swiping,
+                                          !EdGesture.shared.scrubbing else { return }
                                     UISelectionFeedbackGenerator().selectionChanged()
                                     openPlan = plan
                                 } label: {
@@ -1081,7 +1085,7 @@ struct TransactionList<Banner: View>: View {
          * le baisse qu'un quart de seconde après la fin du geste, soit bien
          * après ce relâcher.
          */
-        guard !EdGesture.shared.scrubbing else { return }
+        guard !EdGesture.shared.swiping, !EdGesture.shared.scrubbing else { return }
         if tx.isPairedTransfer { movement = tx } else { detail = tx }
     }
 

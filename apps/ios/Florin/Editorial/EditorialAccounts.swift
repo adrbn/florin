@@ -357,7 +357,7 @@ struct EditorialAccounts: View {
         _ account: Account, _ data: Overview, scale: Double, ink: Color
     ) -> some View {
         Button {
-            drill = ActivityRoute(accountId: account.id, title: account.name)
+            edOpen { drill = ActivityRoute(accountId: account.id, title: account.name) }
         } label: {
             VStack(alignment: .leading, spacing: 9) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
