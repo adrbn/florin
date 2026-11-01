@@ -341,15 +341,26 @@ extension Palette {
      *
      * L'orange de la maquette reste le défaut ; c'est le seul endroit coloré
      * d'un écran par ailleurs noir et blanc, donc c'est le seul qu'on ait
-     * envie de choisir. Il repeint du même coup l'alerte et le négatif, qui
-     * sont la même encre dans ce thème — un accent orange avec un négatif
-     * rouge tiré d'ailleurs ferait deux rouges voisins sans raison.
+     * envie de choisir. Il repeint du même coup l'alerte, qui est la même
+     * encre dans ce thème.
+     *
+     * Mais PAS le négatif, et c'était un bug déguisé en règle. Le motif
+     * écrit ici — « un accent orange avec un négatif rouge ferait deux
+     * rouges voisins » — n'est vrai que de l'orange par défaut. Avec un
+     * accent prune, toutes les dépenses de l'app sortaient en prune : la
+     * couleur d'une perte suivait un réglage décoratif au lieu de dire une
+     * perte, et le commentaire d'`editorialBase` juste en dessous affirmait
+     * exactement le contraire sans jamais s'appliquer.
+     *
+     * Ce qu'on paie : avec l'accent orange, l'alerte et le négatif sont deux
+     * rouges voisins. C'est le moindre des deux maux — un montant dont la
+     * couleur ment se lit tous les jours, deux rouges proches se remarquent
+     * une fois.
      */
     static var editorial: Palette {
         var base = editorialBase
         let ink = EdAccent.selected.tone
         base.accent = ink
-        base.negative = ink
         base.warn = ink
         return base
     }
