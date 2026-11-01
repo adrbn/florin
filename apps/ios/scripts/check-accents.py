@@ -71,9 +71,11 @@ def paper_floor(light: int, dark: int) -> float:
 
 
 # L'éventail d'`editorialSeries`, recopié de Palette.swift.
-FAN = [(0, 1.00, 0.00), (19, 0.78, 0.70), (-19, 0.90, -0.60), (10, 0.64, 1.00),
-       (-10, 0.96, -0.95), (24, 0.82, 0.32), (-24, 0.70, -0.28), (-11, 0.58, 0.92)]
-SHAPE_FLOOR = 3.0
+# La rampe d'`editorialSeries` : saturation, luminance claire, luminance sombre.
+RAMP = [(1.00, 0.040, 0.100), (0.97, 0.065, 0.145), (0.94, 0.100, 0.200),
+        (0.90, 0.145, 0.265), (0.84, 0.200, 0.340), (0.77, 0.265, 0.420),
+        (0.69, 0.335, 0.510), (0.60, 0.410, 0.600)]
+SHAPE_FLOOR = 1.5
 
 
 def hsl(value: int) -> tuple[float, float, float]:
@@ -106,10 +108,9 @@ def pack(hue: float, sat: float, light: float) -> int:
     return out
 
 
-def spin(value: int, turn: float, scale: float, target: float) -> int:
-    """Même dichotomie que `Tone.spin` : la luminance visée, pas la clarté."""
+def dilute(value: int, scale: float, target: float) -> int:
+    """Même dichotomie que `Tone.dilute` : la luminance visée, pas la clarté."""
     hue, sat, _ = hsl(value)
-    hue = (hue + turn) % 360
     sat = min(max(sat, 0.30), 0.55) * scale
     low, high, packed = 0.0, 1.0, 0
     for _ in range(14):
@@ -123,14 +124,18 @@ def spin(value: int, turn: float, scale: float, target: float) -> int:
 
 
 def series_floor(light: int, dark: int) -> float:
-    """Le pire contraste d'une encre catégorielle sur son propre papier."""
+    """Le contraste de l'encre la plus pâle sur son propre papier.
+
+    Un dégradé finit forcément près du papier : c'est le bout clair qui
+    décide, et c'est lui qu'on surveille. En dessous de 1,5:1 la carte la
+    plus pâle se confondrait avec la feuille.
+    """
     worst = 99.0
     for face, ink in ((0, light), (1, dark)):
         base = light if face == 0 else dark
         paper = blend(PAPER["bg"][face], base, MIX["bg"][face])
-        for turn, scale, shift in FAN:
-            nominal, amplitude = (0.135, 0.60) if face == 0 else (0.44, 0.26)
-            tone = spin(ink, turn, scale, nominal * (1 + shift * amplitude))
+        for scale, pale, deep in RAMP:
+            tone = dilute(ink, scale, pale if face == 0 else deep)
             worst = min(worst, ratio(tone, paper))
     return worst
 
@@ -151,7 +156,7 @@ def main() -> int:
         flag = "  " if worst >= FLOOR and inks >= SHAPE_FLOOR else "←"
         print(f"{flag} {name:11} clair/blanc {on_white:5.2f}"
               f"   blanc/sombre {white_on_dark:5.2f}   texte/papier {paper:5.2f}"
-              f"   encres/papier {inks:5.2f}")
+              f"   lavis/papier {inks:5.2f}")
         if worst < FLOOR or inks < SHAPE_FLOOR:
             failures.append(name)
 

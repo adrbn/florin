@@ -41,7 +41,7 @@ struct Tone {
         return (channel(16) << 16) | (channel(8) << 8) | channel(0)
     }
 
-    /// Ce ton, tourné sur la roue des teintes et reposé à une LUMINANCE imposée.
+    /// Ce ton, dilué : la même teinte, reposée à une LUMINANCE imposée.
     ///
     /// La luminance, pas la clarté HSL, et c'est tout l'intérêt : à clarté
     /// égale un cyan est deux fois plus lumineux qu'un violet. Un premier jet
@@ -53,9 +53,8 @@ struct Tone {
     ///
     /// Une par face, parce qu'une encre catégorielle est claire sur du noir
     /// et foncée sur du blanc.
-    func spun(hue offset: Double, saturation scale: Double, light l: Double, dark d: Double) -> Tone {
-        Tone(light: Tone.spin(light, offset, scale, l),
-             dark: Tone.spin(dark, offset, scale, d))
+    func diluted(saturation scale: Double, light l: Double, dark d: Double) -> Tone {
+        Tone(light: Tone.dilute(light, scale, l), dark: Tone.dilute(dark, scale, d))
     }
 
     /// La fenêtre de saturation d'une encre catégorielle.
@@ -71,10 +70,8 @@ struct Tone {
     private static let seriesFloor = 0.30
     private static let seriesCeiling = 0.55
 
-    private static func spin(_ rgb: UInt32, _ offset: Double, _ scale: Double, _ target: Double) -> UInt32 {
+    private static func dilute(_ rgb: UInt32, _ scale: Double, _ target: Double) -> UInt32 {
         let (hue, saturation, _) = hsl(rgb)
-        var turned = (hue + offset).truncatingRemainder(dividingBy: 360)
-        if turned < 0 { turned += 360 }
         let ink = min(max(saturation, seriesFloor), seriesCeiling) * scale
 
         // La luminance croît avec la clarté à teinte et saturation fixes :
@@ -84,7 +81,7 @@ struct Tone {
         var packed: UInt32 = 0
         for _ in 0 ..< 14 {
             let middle = (low + high) / 2
-            packed = pack(hue: turned, saturation: ink, lightness: middle)
+            packed = pack(hue: hue, saturation: ink, lightness: middle)
             if luminance(packed) < target { low = middle } else { high = middle }
         }
         return packed
@@ -614,34 +611,39 @@ extension Palette {
     /// du blanc sur du papier, et assez claire pour se détacher du noir.
     private static func editorialSeries(from ink: Tone) -> [Tone] {
         /*
-         * Angle, saturation, luminance — et c'est la luminance qui porte.
+         * Une seule teinte, huit dilutions — du presque-noir au lavis.
          *
-         * Un premier éventail ouvrait à ±64° à pleine saturation : huit
-         * teintes franches et lointaines, un olive contre un magenta, un
-         * vert pomme contre une brique. Ça ne faisait pas une famille, ça
-         * faisait une boîte de crayons.
+         * Deux tentatives ont fait tourner la teinte autour de l'accent,
+         * d'abord de ±64° puis de ±24°, pour garder huit couleurs
+         * distinguables comme le faisait la roue fixe. Les deux ont donné
+         * la même chose en plus ou moins fort : des couleurs voisines mais
+         * différentes, donc un assortiment. Ce n'est pas ce qu'on veut.
          *
-         * Donc l'inverse : ±24° au plus, et c'est la VALEUR qui sépare les
-         * rangs — luminance de 0,054 à 0,216 en clair, un rapport de quatre
-         * entre l'encre la plus profonde et la plus douce. Deux cartes
-         * voisines se lisent comme deux dilutions de la même encre, ce qui
-         * est exactement le geste du thème.
+         * Ce qu'on veut, c'est UNE encre. Rouge vers blanc, bleu vers
+         * blanc : la teinte ne bouge pas d'un degré, seule la dilution
+         * change — la luminance d'abord, de 0,04 à 0,41 en clair, soit un
+         * rapport de dix, et la saturation avec elle, parce qu'une encre
+         * diluée perd sa chroma en même temps que sa densité.
+         *
+         * Ce qu'on paie : deux rangs voisins sont plus proches qu'avec huit
+         * teintes distinctes. C'est le prix d'un dégradé, et il est juste —
+         * chaque carte porte son nom, et la barre de répartition prend les
+         * rangs 0, 2 et 4, soit trois crans sur huit.
          */
-        let fan: [(turn: Double, ink: Double, lift: Double)] = [
-            (0, 1.00, 0.00),
-            (19, 0.78, 0.70),
-            (-19, 0.90, -0.60),
-            (10, 0.64, 1.00),
-            (-10, 0.96, -0.95),
-            (24, 0.82, 0.32),
-            (-24, 0.70, -0.28),
-            (-11, 0.58, 0.92),
+        // Saturation, luminance en clair, luminance en sombre. La teinte,
+        // elle, ne bouge pas d'un degré.
+        let ramp: [(ink: Double, light: Double, dark: Double)] = [
+            (1.00, 0.040, 0.100),
+            (0.97, 0.065, 0.145),
+            (0.94, 0.100, 0.200),
+            (0.90, 0.145, 0.265),
+            (0.84, 0.200, 0.340),
+            (0.77, 0.265, 0.420),
+            (0.69, 0.335, 0.510),
+            (0.60, 0.410, 0.600),
         ]
-        return fan.map { step in
-            ink.spun(hue: step.turn,
-                     saturation: step.ink,
-                     light: 0.135 * (1 + step.lift * 0.60),
-                     dark: 0.44 * (1 + step.lift * 0.26))
+        return ramp.map { step in
+            ink.diluted(saturation: step.ink, light: step.light, dark: step.dark)
         }
     }
 

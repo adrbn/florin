@@ -815,11 +815,59 @@ struct SettingsScreen: View {
                 .padding(.leading, 33)
                 .padding(.trailing, 6)
                 .padding(.top, 2)
+
+                accentPreview
+                    .padding(.leading, 33)
+                    .padding(.trailing, 6)
+                    .padding(.top, 10)
             }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 13)
     }
+
+    /*
+     * Le dégradé, montré là où on le choisit.
+     *
+     * Choisir une couleur et devoir fermer les réglages pour savoir à quoi
+     * elle ressemble, c'est un aller-retour par pastille — trente pastilles,
+     * trente allers-retours. Quatre bandes suffisent à dire ce que l'accent
+     * fait : la plus dense, la plus pâle, et deux crans entre.
+     *
+     * Rien à brancher pour que ça suive : les jetons de `Florin.series`
+     * relisent la palette au rendu, et la racine de l'app porte déjà
+     * `.id(accentRaw)`. Appuyer sur une pastille reconstruit l'arbre, donc
+     * l'aperçu avec.
+     */
+    private var accentPreview: some View {
+        VStack(spacing: 0) {
+            ForEach(Array([0, 2, 4, 6].enumerated()), id: \.element) { index, rank in
+                let tone = Florin.series[rank]
+                HStack(spacing: 0) {
+                    Circle()
+                        .fill(Florin.readable(on: tone).opacity(0.55))
+                        .frame(width: 5, height: 5)
+                    Spacer(minLength: 0)
+                    Text(Money.compact(
+                        Self.sample[index],
+                        locale: model.overview?.localeTag ?? "fr-FR",
+                        currency: model.overview?.currency ?? "EUR"
+                    ))
+                        .font(.system(size: 12, weight: .medium))
+                        .monospacedDigit()
+                }
+                .foregroundStyle(Florin.readable(on: tone))
+                .padding(.horizontal, 12)
+                .frame(height: 32)
+                .frame(maxWidth: .infinity)
+                .background(tone)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    /// Des montants inventés : l'aperçu montre une couleur, pas un solde.
+    private static let sample: [Double] = [2140, 860, 415, 95]
 
     private func accentSwatch(_ choice: EdAccent) -> some View {
         let chosen = choice.rawValue == accentRaw
