@@ -376,9 +376,20 @@ struct SettingsScreen: View {
                 EdRule()
                 edDoor(.naming, "tag", t("v2.settings.naming", "Catégories et marchands"), nil)
                 EdRule()
+                /*
+                 * La porte dit ce qu'il y a derrière, pas son rayon.
+                 *
+                 * « Apparence · Éditorial » se lit comme le sombre/clair et
+                 * rien d'autre : le choix de la couleur d'accent, qui est le
+                 * réglage le plus amusant de l'app, était invisible depuis
+                 * l'accueil des réglages. Le nom de l'accent dans le
+                 * sous-titre suffit à dire qu'il se choisit quelque part.
+                 */
                 edDoor(
                     .look, "paintbrush", t("v2.settings.appearance", "Apparence"),
-                    FlorinPalette.selected.name
+                    paletteRaw == FlorinPalette.editorial.rawValue
+                        ? "\(FlorinPalette.selected.name) · \(EdAccent.selected.name)"
+                        : FlorinPalette.selected.name
                 )
                 EdRule()
                 edDoor(

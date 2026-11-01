@@ -23,6 +23,23 @@ struct Tone {
     /// s'inverse pas.
     init(_ both: UInt32) { light = both; dark = both }
     init(light: UInt32, dark: UInt32) { self.light = light; self.dark = dark }
+
+    /// Ce ton, tiré vers un autre — chaque face avec sa propre proportion,
+    /// parce qu'une teinte posée sur du blanc et la même posée sur du noir ne
+    /// se voient pas à la même dose.
+    func mixed(with other: Tone, light l: Double, dark d: Double) -> Tone {
+        Tone(light: Tone.blend(light, other.light, l),
+             dark: Tone.blend(dark, other.dark, d))
+    }
+
+    private static func blend(_ a: UInt32, _ b: UInt32, _ amount: Double) -> UInt32 {
+        func channel(_ shift: UInt32) -> UInt32 {
+            let from = Double((a >> shift) & 0xFF)
+            let to = Double((b >> shift) & 0xFF)
+            return UInt32((from + (to - from) * amount).rounded())
+        }
+        return (channel(16) << 16) | (channel(8) << 8) | channel(0)
+    }
 }
 
 struct Palette {
@@ -410,6 +427,28 @@ extension Palette {
         let ink = EdAccent.selected.tone
         base.accent = ink
         base.warn = ink
+
+        /*
+         * L'accent teinte le PAPIER, sinon il ne se voit nulle part.
+         *
+         * Éditorial dessine ses cartes en blanc sur blanc, séparées par des
+         * filets : il n'y a pas de fond de carte à repeindre. Tant que
+         * `negative` suivait l'accent, en changer repeignait tous les
+         * montants de l'app et donnait l'illusion d'un thème ; une fois une
+         * perte redevenue rouge — ce qu'elle doit être — il ne restait que le
+         * bouton « Ajouter » et deux pastilles. Choisir une couleur ne
+         * changeait plus rien de visible, ce qui est une façon de mentir.
+         *
+         * Donc la feuille prend la teinte, très peu : cinq pour cent sur le
+         * fond, un peu plus sur les surfaces et les filets, qui sont les
+         * seuls endroits où une carte existe dans ce thème. Le contraste du
+         * texte ne bouge pas — à ces proportions le blanc reste du blanc —
+         * et `scripts/check-accents.py` le vérifie accent par accent.
+         */
+        base.bg = base.bg.mixed(with: ink, light: 0.05, dark: 0.07)
+        base.surface = base.surface.mixed(with: ink, light: 0.11, dark: 0.13)
+        base.surface2 = base.surface2.mixed(with: ink, light: 0.13, dark: 0.15)
+        base.surface3 = base.surface3.mixed(with: ink, light: 0.20, dark: 0.22)
         return base
     }
 
