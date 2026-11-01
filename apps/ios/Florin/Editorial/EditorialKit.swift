@@ -699,13 +699,17 @@ struct EdPress: PrimitiveButtonStyle {
     /// Ce qu'on tolère de glissement pour que ce soit encore un toucher.
     static let slop: CGFloat = 10
 
+    /// 1 pour une rangée qui ne s'enfonce pas — le refus, lui, est le même.
+    var scale: CGFloat = 0.98
+
     func makeBody(configuration: Configuration) -> some View {
-        EdPressBody(configuration: configuration)
+        EdPressBody(configuration: configuration, scale: scale)
     }
 }
 
 private struct EdPressBody: View {
     let configuration: PrimitiveButtonStyleConfiguration
+    let scale: CGFloat
     /// `@GestureState` se relève tout seul quand le geste est ANNULÉ — ce que
     /// fait le défilement en emportant le doigt. Un `@State` resterait
     /// enfoncé.
@@ -718,7 +722,7 @@ private struct EdPressBody: View {
 
     var body: some View {
         configuration.label
-            .scaleEffect(pressed ? 0.98 : 1)
+            .scaleEffect(pressed ? scale : 1)
             .animation(EdMotion.spring, value: pressed)
             // Un `Button` rend toute sa boîte touchable ; en reprenant le
             // geste à la main il faut le redire, sinon les blancs d'une
@@ -742,6 +746,17 @@ private struct EdPressBody: View {
 
 extension PrimitiveButtonStyle where Self == EdPress {
     static var edPress: EdPress { EdPress() }
+
+    /*
+     * Le même refus, sans l'enfoncement.
+     *
+     * Pour les rangées partagées par les cinq thèmes, qui étaient en `.plain`
+     * — visuellement rien, et c'est voulu : une ligne d'opération porte déjà
+     * sa surbrillance de liste. Mais `.plain` reste un `ButtonStyle`, donc
+     * l'action part au relâcher quoi qu'il arrive, et un retour balayé le
+     * doigt posé sur une opération l'ouvrait par-dessus l'écran d'après.
+     */
+    static var edTap: EdPress { EdPress(scale: 1) }
 }
 
 // MARK: - La présentation des feuilles

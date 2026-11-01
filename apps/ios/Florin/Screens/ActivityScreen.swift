@@ -1105,7 +1105,8 @@ struct TransactionList<Banner: View>: View {
                     }
                 }
         }
-        .buttonStyle(.plain)
+        // Voir `edTap` : un doigt qui glisse sur cette ligne ne l'ouvre pas.
+        .buttonStyle(.edTap)
         .transactionMenu(
             tx, t: t, locale: locale, currency: currency,
             canTransfer: !tx.isTransfer && tx.amount < 0 && model.accounts.count > 1,
