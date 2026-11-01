@@ -680,15 +680,67 @@ struct EdEnter: ViewModifier {
  * s'effacer. Deux pour cent de retrait disent la même chose sans trahir ce
  * qu'il y a derrière.
  */
-struct EdPress: ButtonStyle {
+/*
+ * Ce qu'on touche s'enfonce — et un doigt qui GLISSE ne touche rien.
+ *
+ * C'était un `ButtonStyle`, qui sait dessiner l'enfoncement mais pas refuser
+ * l'action : elle appartient au `Button`, et le `Button` la déclenche dès que
+ * le doigt se lève sur lui. Or les balayages de cette app sont des
+ * `simultaneousGesture` — « que les deux gagnent », par définition. Un retour
+ * balayé depuis la fiche d'un compte dépilait donc l'écran ET ouvrait
+ * l'opération qui se trouvait sous le doigt au relâcher, sur l'écran d'après.
+ *
+ * Un `PrimitiveButtonStyle` tient `trigger()`, donc le droit de ne pas
+ * l'appeler. Dix points de tolérance : au-delà, ce doigt était en train
+ * d'aller ailleurs. Rien n'est volé au défilement — le reconnaisseur reste
+ * simultané, il se contente de regarder.
+ */
+struct EdPress: PrimitiveButtonStyle {
+    /// Ce qu'on tolère de glissement pour que ce soit encore un toucher.
+    static let slop: CGFloat = 10
+
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.98 : 1)
-            .animation(EdMotion.spring, value: configuration.isPressed)
+        EdPressBody(configuration: configuration)
     }
 }
 
-extension ButtonStyle where Self == EdPress {
+private struct EdPressBody: View {
+    let configuration: PrimitiveButtonStyleConfiguration
+    /// `@GestureState` se relève tout seul quand le geste est ANNULÉ — ce que
+    /// fait le défilement en emportant le doigt. Un `@State` resterait
+    /// enfoncé.
+    @GestureState private var pressed = false
+
+    private static func still(_ value: DragGesture.Value) -> Bool {
+        abs(value.translation.width) <= EdPress.slop
+            && abs(value.translation.height) <= EdPress.slop
+    }
+
+    var body: some View {
+        configuration.label
+            .scaleEffect(pressed ? 0.98 : 1)
+            .animation(EdMotion.spring, value: pressed)
+            // Un `Button` rend toute sa boîte touchable ; en reprenant le
+            // geste à la main il faut le redire, sinon les blancs d'une
+            // rangée cessent de répondre.
+            .contentShape(Rectangle())
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 0)
+                    .updating($pressed) { value, state, _ in
+                        state = EdPressBody.still(value)
+                    }
+                    .onEnded { value in
+                        guard EdPressBody.still(value) else { return }
+                        configuration.trigger()
+                    }
+            )
+            // Le rôle et l'activation ne viennent plus du `Button`.
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { configuration.trigger() }
+    }
+}
+
+extension PrimitiveButtonStyle where Self == EdPress {
     static var edPress: EdPress { EdPress() }
 }
 
@@ -1119,7 +1171,27 @@ extension View {
         background(EdSwipeBack().frame(width: 0, height: 0))
             .simultaneousGesture(
                 DragGesture(minimumDistance: 30, coordinateSpace: .global)
+                    /*
+                     * Ce doigt-là est pris — voir `edHoldsSwipe`.
+                     *
+                     * Dépiler et changer d'onglet sont deux
+                     * `simultaneousGesture` qu'un même balayage vers la
+                     * droite satisfait : on revenait de la fiche d'un compte
+                     * à la liste, et l'onglet glissait vers l'accueil dans la
+                     * foulée. Le drapeau partagé est exactement ce qui sert à
+                     * se le dire.
+                     */
+                    .onChanged { value in
+                        guard abs(value.translation.width)
+                            > abs(value.translation.height) else { return }
+                        if !EdGesture.shared.scrubbing { EdGesture.shared.scrubbing = true }
+                    }
                     .onEnded { value in
+                        // Levé un peu après : l'ordre des `onEnded` de deux
+                        // reconnaisseurs n'est pas garanti.
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                            EdGesture.shared.scrubbing = false
+                        }
                         let side = abs(value.translation.width)
                         guard side > 70, side > abs(value.translation.height) * 2
                         else { return }
