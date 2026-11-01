@@ -910,10 +910,22 @@ private struct EdSwipe<Value: Hashable>: ViewModifier {
                                 EdGesture.shared.swiping = false
                             }
                         }
-                        // Le doigt qui suit la courbe ne demande pas de page :
-                        // sans verrou, le geste appartenait à quelqu'un
-                        // d'autre — on ne l'a pas pris, on ne le lit pas.
-                        guard enabled, mine else { return }
+                        /*
+                         * Deux refus, et il faut les deux.
+                         *
+                         * `mine` dit qu'on a bien pris ce doigt : sans
+                         * verrou, le geste appartenait à quelqu'un d'autre
+                         * dès le départ.
+                         *
+                         * Le drapeau se relit à la FIN, et c'est ce qui
+                         * manquait. On verrouille à quatorze points ; le
+                         * balayage du mois ne démarre qu'à vingt-quatre, et
+                         * ne pose son drapeau qu'après. À ne décider qu'au
+                         * verrou, on changeait d'onglet sous un geste qui
+                         * demandait le mois suivant.
+                         */
+                        guard enabled, mine, !EdGesture.shared.scrubbing
+                        else { return }
                         let dx = move.translation.width
                         let dy = move.translation.height
                         guard abs(dx) > 60, abs(dx) > abs(dy) * 2,
