@@ -22,6 +22,18 @@ struct OnboardingFlow: View {
     let onNeedsBank: () -> Void
 
     @State private var step = 0
+    /*
+     * Le thème, choisi ici, et c'est le seul écran qui le fait de l'intérieur.
+     *
+     * Changer de thème reconstruit la racine — c'est par l'identité de
+     * l'arbre que les jetons, qui sont des `static let`, relisent la palette.
+     * L'accueil était dedans : chaque essai de thème le ramenait à sa
+     * première page. La racine ne compte donc plus la palette dans sa clé, et
+     * l'accueil se redessine lui-même ici, SOUS l'état de la page — `step`,
+     * `path` et ce qui est déjà tapé vivent sur la vue, pas dans le sous-arbre
+     * refait.
+     */
+    @AppStorage(FlorinPalette.key) private var paletteRaw = FlorinPalette.obsidian.rawValue
     @State private var path: StartPath?
     @State private var name = ""
     @State private var kind = AccountKind.checking
@@ -81,15 +93,16 @@ struct OnboardingFlow: View {
      * page was inserted. Deriving the page once, here, is why splitting the
      * account form in two touched one function instead of six.
      */
-    private enum Page { case welcome, fork, identity, balance, notify, ready }
+    private enum Page { case welcome, style, fork, identity, balance, notify, ready }
 
     private var page: Page {
         let form = path == .manual || path == .importFile
         switch step {
         case 0: return .welcome
-        case 1: return .fork
-        case 2: return form ? .identity : .notify
-        case 3: return form ? .balance : .ready
+        case 1: return .style
+        case 2: return .fork
+        case 3: return form ? .identity : .notify
+        case 4: return form ? .balance : .ready
         default: return .ready
         }
     }
@@ -99,7 +112,7 @@ struct OnboardingFlow: View {
     /// rather than identical pages.
     private var tint: Color {
         switch page {
-        case .welcome: TabRoute.overview.tint
+        case .welcome, .style: TabRoute.overview.tint
         case .fork, .identity, .balance, .notify: TabRoute.accounts.tint
         case .ready: TabRoute.plan.tint
         }
@@ -127,11 +140,11 @@ struct OnboardingFlow: View {
      */
     private var lastStep: Int {
         switch path {
-        case .manual: 4
-        case .restore: 1
+        case .manual: 5
+        case .restore: 2
         // The account the statement lands in, and then the file.
-        case .importFile: 3
-        default: 2
+        case .importFile: 4
+        default: 3
         }
     }
 
@@ -158,6 +171,7 @@ struct OnboardingFlow: View {
                     Group {
                         switch page {
                         case .welcome: welcome
+                        case .style: style
                         case .fork: fork
                         case .identity: identity
                         case .balance: balance
@@ -190,6 +204,10 @@ struct OnboardingFlow: View {
                     .padding(.bottom, 10)
             }
         }
+        // Le sous-arbre se refait quand le thème change, pas la vue : c'est
+        // ainsi que les jetons relisent la palette sans que la page revienne
+        // au début. Voir `paletteRaw`.
+        .id(paletteRaw)
         .sheet(isPresented: $importing, onDismiss: { onFinish() }) {
             ImportSheet(
                 t: .device,
@@ -291,6 +309,54 @@ struct OnboardingFlow: View {
             }
             .foregroundStyle(Florin.text3)
             .padding(.top, 4)
+        }
+    }
+
+    /*
+     * Le style, deuxième question, avant même « comment commencer ».
+     *
+     * Il vit déjà dans les réglages, où personne ne va le premier jour : une
+     * app qu'on ouvre en noir alors qu'on la voudrait sur papier se referme
+     * avant d'avoir montré ce qu'elle sait faire. Le choix se fait donc là où
+     * il coûte un seul geste, et il se voit tout de suite — c'est la page
+     * elle-même qui change de couleur sous le doigt, pas une vignette.
+     *
+     * Trois par rangée : cinq de front tiennent sur la largeur d'un téléphone
+     * en écrasant les noms, et un nom de thème illisible ne choisit rien.
+     */
+    private var style: some View {
+        VStack(spacing: 18) {
+            Text(Strings.device("v2.onboard.styleTitle", "Choisissez un style"))
+                .font(.system(size: 25, weight: .semibold))
+                .foregroundStyle(Florin.text)
+                .multilineTextAlignment(.center)
+
+            Text(Strings.device(
+                "v2.onboard.styleHint",
+                "Touchez pour essayer. Vous pourrez en changer quand vous voulez."
+            ))
+                .font(.system(size: 14.5))
+                .foregroundStyle(Florin.text2)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 30)
+
+            LazyVGrid(
+                columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3),
+                spacing: 14
+            ) {
+                ForEach(FlorinPalette.allCases) { choice in
+                    ThemeSwatch(
+                        choice: choice,
+                        chosen: choice.rawValue == paletteRaw,
+                        height: 58
+                    ) {
+                        FlorinPalette.use(choice)
+                        paletteRaw = choice.rawValue
+                    }
+                }
+            }
+            .padding(.horizontal, Florin.gutter)
+            .padding(.top, 2)
         }
     }
 
@@ -733,7 +799,7 @@ struct OnboardingFlow: View {
                 Text(
                     path == .importFile && step == lastStep
                         ? Strings.device("v2.onboard.importPick", "Choisir le relevé")
-                        : path == .restore && step == 1
+                        : path == .restore && step == 2
                         ? Strings.device("v2.onboard.restorePick", "Choisir le fichier")
 
                         : isNotifyStep
@@ -759,7 +825,7 @@ struct OnboardingFlow: View {
     /// Nothing to continue to until the fork has been answered — advancing
     /// with no path chosen used to land on the closing page having skipped
     /// the only question that decides what the app does next.
-    private var canAdvance: Bool { step != 1 || path != nil }
+    private var canAdvance: Bool { step != 2 || path != nil }
 
     /*
      * A way back, which there was not.

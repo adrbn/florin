@@ -262,9 +262,9 @@ struct RootView: View {
                         initialTab: landingTab,
                         onRequestSettings: { showingSettings = true }
                     )
-                    .id("\(server.reloadToken)-\(landingTab.rawValue)")
+                    .id("\(server.reloadToken)-\(landingTab.rawValue)-\(paletteRaw)")
                 } else if source == .server {
-                    SetupView(isFirstRun: true)
+                    SetupView(isFirstRun: true).id(paletteRaw)
                 } else if LocalOnboarding.isComplete {
                     // Same tabs, same screens — reading the phone instead of a
                     // server. See `FlorinClient.localBase`.
@@ -273,7 +273,7 @@ struct RootView: View {
                         initialTab: landingTab,
                         onRequestSettings: { showingSettings = true }
                     )
-                    .id("\(onboarded)-\(landingTab.rawValue)")
+                    .id("\(onboarded)-\(landingTab.rawValue)-\(paletteRaw)")
                 } else if LocalStore.shared == nil {
                     /*
                      * Pas de comptes *et* pas de base : ce n'est pas un
@@ -282,7 +282,7 @@ struct RootView: View {
                      * et l'onboarding tombait donc par-dessus un grand livre
                      * entier. Celui-ci ne propose rien d'autre que réessayer.
                      */
-                    LedgerUnavailable(onRetry: { onboarded = UUID() })
+                    LedgerUnavailable(onRetry: { onboarded = UUID() }).id(paletteRaw)
                 } else if wantsServerForm {
                     /*
                      * The form, for people who came looking for it.
@@ -295,6 +295,7 @@ struct RootView: View {
                      * you get back to once onboarding is behind you.
                      */
                     SetupView(isFirstRun: true, onUseDevice: { wantsServerForm = false })
+                        .id(paletteRaw)
                 } else {
                     OnboardingFlow(
                         onFinish: { onboarded = UUID() },
@@ -303,7 +304,18 @@ struct RootView: View {
                     )
                 }
             }
-            .id("\(onboarded)-\(paletteRaw)-\(accentRaw)")
+            /*
+              * La palette n'est plus dans la clé de la racine.
+              *
+              * Elle y était pour que les jetons — des `static let` dont le
+              * fournisseur relit la palette au rendu — soient redessinés. Mais
+              * l'accueil est le seul écran d'où l'on CHOISIT un thème tout en
+              * étant dedans, et il était refait avec le reste : chaque essai
+              * le renvoyait à sa première page. Chaque branche porte donc la
+              * palette dans sa propre clé, et l'accueil porte la sienne sous
+              * son état.
+              */
+            .id("\(onboarded)-\(accentRaw)")
             .onChange(of: sourceRaw) { _, _ in switchedSource = true }
             .onChange(of: paletteRaw) { _, chosen in
                 // Le réglage écrit déjà la palette ; ceci rattrape le cas où

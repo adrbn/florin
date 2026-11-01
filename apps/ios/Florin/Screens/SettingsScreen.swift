@@ -821,47 +821,10 @@ struct SettingsScreen: View {
     }
 
     private func themeSwatch(_ choice: FlorinPalette) -> some View {
-        let palette = choice.palette
-        let chosen = choice.rawValue == paletteRaw
-        return Button {
-            guard !chosen else { return }
-            UISelectionFeedbackGenerator().selectionChanged()
+        ThemeSwatch(choice: choice, chosen: choice.rawValue == paletteRaw) {
             FlorinPalette.use(choice)
             paletteRaw = choice.rawValue
-        } label: {
-            VStack(spacing: 6) {
-                ZStack {
-                    palette.bg.color
-                    VStack(spacing: 4) {
-                        RoundedRectangle(cornerRadius: 2, style: .continuous)
-                            .fill(palette.text.color)
-                            .frame(width: 24, height: 3)
-                        RoundedRectangle(cornerRadius: 2, style: .continuous)
-                            .fill(palette.text3.color)
-                            .frame(width: 16, height: 3)
-                        Circle()
-                            .fill(palette.accent.color)
-                            .frame(width: 9, height: 9)
-                            .padding(.top, 1)
-                    }
-                }
-                .frame(height: 44)
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .strokeBorder(
-                            chosen ? Florin.accent : Florin.text.opacity(0.12),
-                            lineWidth: chosen ? 2 : 0.5
-                        )
-                )
-                Text(choice.name)
-                    .font(.system(size: 11, weight: chosen ? .semibold : .regular))
-                    .foregroundStyle(chosen ? Florin.text : Florin.text3)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-            }
         }
-        .buttonStyle(.plain)
     }
 
     /*
