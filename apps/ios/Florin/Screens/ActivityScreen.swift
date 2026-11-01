@@ -965,6 +965,41 @@ struct TransactionList<Banner: View>: View {
                      * so the two read as the same thing seen twice.
                      */
                     if !pending.isEmpty, !model.filter.needsReview {
+                        if editorial {
+                            /*
+                             * Le troisième volet, et le seul qui attend une
+                             * décision.
+                             *
+                             * Il était resté en Obsidienne sous les deux
+                             * autres : une carte cerclée, un rond
+                             * d'interrogation, des pastilles prune et deux
+                             * liens de douze points — quatre façons de dire
+                             * « à vérifier » sur un écran qui n'en a qu'une.
+                             * C'est le même pli que « à venir », parce que
+                             * c'est la même chose : un groupe qu'on déplie.
+                             *
+                             * En clair, pas en négatif : le noir plein est
+                             * réservé au chiffre-clé de l'écran, et trois
+                             * cartes noires empilées n'en désignent plus
+                             * aucune.
+                             */
+                            EdFold(
+                                title: t(
+                                    "v2.review.toCheckCount", "{count} à vérifier",
+                                    ["count": max(model.reviewCount, pending.count)]
+                                ),
+                                total: pending.reduce(0) { $0 + $1.amount },
+                                locale: locale, currency: currency,
+                                open: $reviewExpanded, inverse: false
+                            ) {
+                                ForEach(Array(pending.enumerated()), id: \.element.id) { index, tx in
+                                    if index > 0 { EdRule() }
+                                    row(tx)
+                                }
+                                EdRule()
+                                edQueueActions
+                            }
+                        } else {
                         UpcomingGroup(
                             transactions: pending,
                             locale: locale,
@@ -983,6 +1018,7 @@ struct TransactionList<Banner: View>: View {
                             expanded: $reviewExpanded
                         ) { tx in
                             row(tx)
+                        }
                         }
                     }
                 }
@@ -1020,6 +1056,48 @@ struct TransactionList<Banner: View>: View {
                 }
             }
         }
+    }
+
+    /*
+     * Les deux mêmes gestes, sans couleur.
+     *
+     * En éditorial un lien est un mot souligné — c'est ce que fait déjà
+     * « Dépensé » sur le Plan. L'accent y sert d'alarme, pas de bouton, et
+     * deux liens prune au bas d'une liste en noir et blanc tiraient l'œil
+     * plus fort que les cinq opérations qu'ils servent.
+     */
+    private var edQueueActions: some View {
+        HStack(spacing: 10) {
+            Spacer()
+            Button {
+                edOpen {
+                    UISelectionFeedbackGenerator().selectionChanged()
+                    withAnimation(.snappy(duration: 0.2)) {
+                        selection = selection == nil ? [] : nil
+                    }
+                }
+            } label: {
+                Text(
+                    selection == nil
+                        ? t("v2.review.selectMany", "Sélectionner")
+                        : t("v2.review.selectDone", "Désélectionner")
+                )
+                .underline()
+            }
+            .buttonStyle(.edPress)
+
+            Text("·").foregroundStyle(Florin.text3)
+
+            Button {
+                edOpen { scope.wrappedValue = .review }
+            } label: {
+                Text(t("v2.common.seeAll", "Tout voir")).underline()
+            }
+            .buttonStyle(.edPress)
+        }
+        .font(.system(size: 13, weight: .medium))
+        .foregroundStyle(Florin.text)
+        .padding(.top, 14)
     }
 
     /// Select several, or open the tab that holds them all.

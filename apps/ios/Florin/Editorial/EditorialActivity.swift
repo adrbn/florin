@@ -22,6 +22,7 @@ struct EditorialActivity: View {
     @State private var filtering = false
     @State private var upcomingOpen = false
     @State private var instalmentsOpen = false
+    @State private var reviewOpen = false
     @State private var searching = false
     /// L'échéancier dont on regarde le détail — comme sur Obsidienne.
     @State private var openPlan: LocalInstalments.Schedule?
@@ -89,6 +90,22 @@ struct EditorialActivity: View {
         model.schedules.filter { !$0.isOver && $0.matches(model.filter) }
     }
 
+    /*
+     * La file d'attente n'existait que sur la fiche d'un compte.
+     *
+     * L'onglet qui porte le compteur dans la barre était le seul écran à ne
+     * pas dire ce qu'il compte : les lignes à vérifier étaient bien là, mais
+     * dispersées dans leurs journées, reconnaissables à un mot sous le nom du
+     * marchand. Il fallait donc parcourir trois mois pour en trouver cinq.
+     *
+     * Même pli que les deux autres, et comme sur la fiche elles sortent de
+     * leur journée : les voir ici ET là ferait croire à deux opérations.
+     */
+    private var pending: [Transaction] {
+        model.filter.needsReview
+            ? [] : model.rows.filter { $0.needsReview && !$0.isUpcoming }
+    }
+
     /// Les lignes regroupées par jour, dans l'ordre où elles arrivent — le
     /// serveur les rend déjà triées, donc ce découpage n'a rien à retrier.
     ///
@@ -98,6 +115,7 @@ struct EditorialActivity: View {
     private var days: [(day: Date, rows: [Transaction])] {
         let announced = Set(upcoming.filter(\.isToCome).map(\.id))
             .union(instalments.map(\.id))
+            .union(pending.map(\.id))
         var out: [(day: Date, rows: [Transaction])] = []
         for row in model.rows where !announced.contains(row.id) {
             let day = Calendar.current.startOfDay(for: row.day)
@@ -382,7 +400,7 @@ struct EditorialActivity: View {
      */
     @ViewBuilder
     private var waiting: some View {
-        if !upcoming.isEmpty || !schedules.isEmpty {
+        if !upcoming.isEmpty || !schedules.isEmpty || !pending.isEmpty {
             VStack(spacing: 14) {
                 if !upcoming.isEmpty {
                     fold(
@@ -427,6 +445,48 @@ struct EditorialActivity: View {
                             } label: { planRow(plan) }
                                 .buttonStyle(.edPress)
                         }
+                    }
+                }
+                if !pending.isEmpty {
+                    fold(
+                        title: t("v2.review.toCheckCount", "{count} à vérifier",
+                                 // Le compte du registre, pas celui de la
+                                 // page : ils diffèrent tant que tout n'est
+                                 // pas chargé, et le plus petit ment.
+                                 ["count": max(model.reviewCount, pending.count)]),
+                        total: pending.reduce(0) { $0 + $1.amount },
+                        open: $reviewOpen,
+                        inverse: false
+                    ) {
+                        ForEach(Array(pending.enumerated()), id: \.element.id) { index, tx in
+                            if index > 0 { EdRule() }
+                            Button { edOpen { detail = tx } } label: { row(tx) }
+                                .buttonStyle(.edPress)
+                                .transactionMenu(
+                                    tx, t: t, locale: locale, currency: currency,
+                                    canTransfer: !tx.isTransfer && tx.amount < 0
+                                        && model.accounts.count > 1,
+                                    request: $menuRequest,
+                                    isLocalLedger: model.isLocalLedger
+                                )
+                        }
+                        EdRule()
+                        HStack {
+                            Spacer()
+                            Button {
+                                edOpen {
+                                    UISelectionFeedbackGenerator().selectionChanged()
+                                    model.filter.needsReview = true
+                                }
+                            } label: {
+                                Text(t("v2.common.seeAll", "Tout voir"))
+                                    .underline()
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundStyle(Florin.text)
+                            }
+                            .buttonStyle(.edPress)
+                        }
+                        .padding(.top, 14)
                     }
                 }
             }
