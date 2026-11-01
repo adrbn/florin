@@ -53,23 +53,29 @@ struct Tone {
     ///
     /// Une par face, parce qu'une encre catégorielle est claire sur du noir
     /// et foncée sur du blanc.
-    func spun(hue offset: Double, light l: Double, dark d: Double) -> Tone {
-        Tone(light: Tone.spin(light, offset, l), dark: Tone.spin(dark, offset, d))
+    func spun(hue offset: Double, saturation scale: Double, light l: Double, dark d: Double) -> Tone {
+        Tone(light: Tone.spin(light, offset, scale, l),
+             dark: Tone.spin(dark, offset, scale, d))
     }
 
-    /// La saturation plancher d'une encre catégorielle.
+    /// La fenêtre de saturation d'une encre catégorielle.
     ///
-    /// Sans elle, un accent presque gris (Graphite, Ardoise) rendrait huit
-    /// gris : une légende où aucune pastille ne se reconnaît. L'accent garde
-    /// sa sobriété partout ailleurs ; seules les encres de graphique sont
-    /// remontées.
-    private static let seriesFloor = 0.38
+    /// Le plancher : sans lui, un accent presque gris (Graphite, Ardoise)
+    /// rendrait huit gris, une légende où aucune pastille ne se reconnaît.
+    ///
+    /// Le plafond, c'est l'autre moitié et il a coûté un build : à pleine
+    /// saturation, huit aplats pleine largeur sur une feuille blanche font
+    /// une boîte de crayons. Éditorial est un thème noir et blanc où la
+    /// couleur est une ponctuation — elle doit rester une encre, pas un
+    /// surligneur.
+    private static let seriesFloor = 0.30
+    private static let seriesCeiling = 0.55
 
-    private static func spin(_ rgb: UInt32, _ offset: Double, _ target: Double) -> UInt32 {
+    private static func spin(_ rgb: UInt32, _ offset: Double, _ scale: Double, _ target: Double) -> UInt32 {
         let (hue, saturation, _) = hsl(rgb)
         var turned = (hue + offset).truncatingRemainder(dividingBy: 360)
         if turned < 0 { turned += 360 }
-        let ink = max(saturation, seriesFloor)
+        let ink = min(max(saturation, seriesFloor), seriesCeiling) * scale
 
         // La luminance croît avec la clarté à teinte et saturation fixes :
         // quatorze pas de dichotomie suffisent à tomber sous le demi-ton.
@@ -255,20 +261,32 @@ enum FlorinPalette: String, CaseIterable, Identifiable {
  */
 enum EdAccent: String, CaseIterable, Identifiable {
     case cerise
+    case brique
     case terracotta
     case cuivre
+    case safran
     case ocre
+    case moutarde
     case olive
+    case fougere
+    case sauge
     case foret
+    case jade
     case canard
+    case lagon
     case azur
-    case encre
+    case denim
     case marine
+    case outremer
+    case encre
     case iris
+    case lavande
+    case mauve
+    case aubergine
     case prune
     case framboise
+    case rosebois
     case bordeaux
-    case aubergine
     case chocolat
     case ardoise
     case graphite
@@ -278,20 +296,32 @@ enum EdAccent: String, CaseIterable, Identifiable {
     var name: String {
         switch self {
         case .cerise: return "Cerise"
+        case .brique: return "Brique"
         case .terracotta: return "Terracotta"
         case .cuivre: return "Cuivre"
+        case .safran: return "Safran"
         case .ocre: return "Ocre"
+        case .moutarde: return "Moutarde"
         case .olive: return "Olive"
+        case .fougere: return "Fougère"
+        case .sauge: return "Sauge"
         case .foret: return "Forêt"
+        case .jade: return "Jade"
         case .canard: return "Canard"
+        case .lagon: return "Lagon"
         case .azur: return "Azur"
-        case .encre: return "Encre"
+        case .denim: return "Denim"
         case .marine: return "Marine"
+        case .outremer: return "Outremer"
+        case .encre: return "Encre"
         case .iris: return "Iris"
+        case .lavande: return "Lavande"
+        case .mauve: return "Mauve"
+        case .aubergine: return "Aubergine"
         case .prune: return "Prune"
         case .framboise: return "Framboise"
+        case .rosebois: return "Bois de rose"
         case .bordeaux: return "Bordeaux"
-        case .aubergine: return "Aubergine"
         case .chocolat: return "Chocolat"
         case .ardoise: return "Ardoise"
         case .graphite: return "Graphite"
@@ -301,20 +331,32 @@ enum EdAccent: String, CaseIterable, Identifiable {
     var tone: Tone {
         switch self {
         case .cerise: return Tone(light: 0xB3261E, dark: 0x9D211A)
+        case .brique: return Tone(light: 0x983724, dark: 0x8E3421)
         case .terracotta: return Tone(light: 0xD9481F, dark: 0xC93D17)
         case .cuivre: return Tone(light: 0xA4542A, dark: 0x904924)
+        case .safran: return Tone(light: 0x995E17, dark: 0x8F5915)
         case .ocre: return Tone(light: 0xA4740C, dark: 0x8F640A)
+        case .moutarde: return Tone(light: 0x7E700E, dark: 0x77690D)
         case .olive: return Tone(light: 0x5E6B1C, dark: 0x525E18)
+        case .fougere: return Tone(light: 0x406A1C, dark: 0x3D641A)
+        case .sauge: return Tone(light: 0x356C3D, dark: 0x326539)
         case .foret: return Tone(light: 0x1C6B4A, dark: 0x185C3F)
+        case .jade: return Tone(light: 0x12705D, dark: 0x116957)
         case .canard: return Tone(light: 0x0E6B73, dark: 0x0C5E65)
+        case .lagon: return Tone(light: 0x126A81, dark: 0x106378)
         case .azur: return Tone(light: 0x1F6FB2, dark: 0x1B619C)
-        case .encre: return Tone(light: 0x2F4DBF, dark: 0x2A44AD)
+        case .denim: return Tone(light: 0x3A568D, dark: 0x365185)
         case .marine: return Tone(light: 0x1F3A5F, dark: 0x1B3353)
+        case .outremer: return Tone(light: 0x423CA3, dark: 0x3D3899)
+        case .encre: return Tone(light: 0x2F4DBF, dark: 0x2A44AD)
         case .iris: return Tone(light: 0x5B3FA8, dark: 0x503793)
+        case .lavande: return Tone(light: 0x77489F, dark: 0x6F4396)
+        case .mauve: return Tone(light: 0x8D3793, dark: 0x85338A)
+        case .aubergine: return Tone(light: 0x4A2545, dark: 0x41203C)
         case .prune: return Tone(light: 0x8C2F6B, dark: 0x7A295D)
         case .framboise: return Tone(light: 0xAE2A5E, dark: 0x992452)
+        case .rosebois: return Tone(light: 0xA44656, dark: 0x9A4250)
         case .bordeaux: return Tone(light: 0x7C1F33, dark: 0x6D1B2C)
-        case .aubergine: return Tone(light: 0x4A2545, dark: 0x41203C)
         case .chocolat: return Tone(light: 0x5A3B2A, dark: 0x4F3324)
         case .ardoise: return Tone(light: 0x3F4C5A, dark: 0x36424E)
         case .graphite: return Tone(light: 0x35383D, dark: 0x2E3135)
@@ -572,29 +614,34 @@ extension Palette {
     /// du blanc sur du papier, et assez claire pour se détacher du noir.
     private static func editorialSeries(from ink: Tone) -> [Tone] {
         /*
-         * Angle depuis l'accent, puis écart de luminance — borné.
+         * Angle, saturation, luminance — et c'est la luminance qui porte.
          *
-         * `lift` est sans unité, entre -1 et 1 ; les luminances nominales
-         * (0,155 en clair, 0,46 en sombre) et leurs amplitudes sont mesurées
-         * sur la roue fixe qu'on remplace, donc une encre générée se détache
-         * exactement autant que celle qu'elle remplace. La fenêtre est
-         * étroite : une encre catégorielle doit à la fois se voir sur la
-         * feuille et porter du blanc.
+         * Un premier éventail ouvrait à ±64° à pleine saturation : huit
+         * teintes franches et lointaines, un olive contre un magenta, un
+         * vert pomme contre une brique. Ça ne faisait pas une famille, ça
+         * faisait une boîte de crayons.
+         *
+         * Donc l'inverse : ±24° au plus, et c'est la VALEUR qui sépare les
+         * rangs — luminance de 0,054 à 0,216 en clair, un rapport de quatre
+         * entre l'encre la plus profonde et la plus douce. Deux cartes
+         * voisines se lisent comme deux dilutions de la même encre, ce qui
+         * est exactement le geste du thème.
          */
-        let fan: [(turn: Double, lift: Double)] = [
-            (0, 0),
-            (26, 0.8),
-            (-26, -0.9),
-            (46, 1.0),
-            (-46, 0.4),
-            (13, -1.0),
-            (64, 0.6),
-            (-64, -0.5),
+        let fan: [(turn: Double, ink: Double, lift: Double)] = [
+            (0, 1.00, 0.00),
+            (19, 0.78, 0.70),
+            (-19, 0.90, -0.60),
+            (10, 0.64, 1.00),
+            (-10, 0.96, -0.95),
+            (24, 0.82, 0.32),
+            (-24, 0.70, -0.28),
+            (-11, 0.58, 0.92),
         ]
         return fan.map { step in
             ink.spun(hue: step.turn,
-                     light: 0.155 * (1 + step.lift * 0.35),
-                     dark: 0.46 * (1 + step.lift * 0.18))
+                     saturation: step.ink,
+                     light: 0.135 * (1 + step.lift * 0.60),
+                     dark: 0.44 * (1 + step.lift * 0.26))
         }
     }
 

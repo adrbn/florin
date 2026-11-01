@@ -71,8 +71,8 @@ def paper_floor(light: int, dark: int) -> float:
 
 
 # L'éventail d'`editorialSeries`, recopié de Palette.swift.
-FAN = [(0, 0), (26, 0.8), (-26, -0.9), (46, 1.0),
-       (-46, 0.4), (13, -1.0), (64, 0.6), (-64, -0.5)]
+FAN = [(0, 1.00, 0.00), (19, 0.78, 0.70), (-19, 0.90, -0.60), (10, 0.64, 1.00),
+       (-10, 0.96, -0.95), (24, 0.82, 0.32), (-24, 0.70, -0.28), (-11, 0.58, 0.92)]
 SHAPE_FLOOR = 3.0
 
 
@@ -106,11 +106,11 @@ def pack(hue: float, sat: float, light: float) -> int:
     return out
 
 
-def spin(value: int, turn: float, target: float) -> int:
+def spin(value: int, turn: float, scale: float, target: float) -> int:
     """Même dichotomie que `Tone.spin` : la luminance visée, pas la clarté."""
     hue, sat, _ = hsl(value)
     hue = (hue + turn) % 360
-    sat = max(sat, 0.38)
+    sat = min(max(sat, 0.30), 0.55) * scale
     low, high, packed = 0.0, 1.0, 0
     for _ in range(14):
         middle = (low + high) / 2
@@ -128,9 +128,9 @@ def series_floor(light: int, dark: int) -> float:
     for face, ink in ((0, light), (1, dark)):
         base = light if face == 0 else dark
         paper = blend(PAPER["bg"][face], base, MIX["bg"][face])
-        for turn, shift in FAN:
-            nominal, amplitude = (0.155, 0.35) if face == 0 else (0.46, 0.18)
-            tone = spin(ink, turn, nominal * (1 + shift * amplitude))
+        for turn, scale, shift in FAN:
+            nominal, amplitude = (0.135, 0.60) if face == 0 else (0.44, 0.26)
+            tone = spin(ink, turn, scale, nominal * (1 + shift * amplitude))
             worst = min(worst, ratio(tone, paper))
     return worst
 
