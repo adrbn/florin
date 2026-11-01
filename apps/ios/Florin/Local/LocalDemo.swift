@@ -12,6 +12,14 @@ import Foundation
 /// The figures are the ones the App Store screenshots were made from
 /// (`AppStore/seed-demo-ledger.py`), generated from a fixed seed so every run
 /// shows the same month. Nothing here is anyone's real money.
+///
+/// Et rien ici ne doit RESSEMBLER à l'argent de quelqu'un. La première
+/// version partageait trois noms de compte et son fonds principal avec le
+/// grand livre de l'auteur : à l'écran on ne savait plus laquelle des deux
+/// bases était ouverte, et le dépôt est public, donc la démonstration
+/// publiait la forme d'un portefeuille réel. Les noms, les montants et les
+/// titres d'ici sont choisis pour n'en recouper aucun — un ménage inventé,
+/// pas un ménage anonymisé.
 enum LocalDemo {
     /// Set in `settings` while the ledger on screen is this one.
     static let marker = "demo_ledger"
@@ -128,8 +136,8 @@ enum LocalDemo {
                 rows.append(Row(account: checking, day: date, amount: amount, payee: payee, role: role, review: false))
             }
 
-            add(27, 2740 + Double(13 - back) * 12, "VIREMENT SALAIRE", .wages)
-            add(3, -880, "LOYER RÉSIDENCE", .rent)
+            add(27, 2186 + Double(13 - back) * 15, "VIREMENT SALAIRE", .wages)
+            add(3, -715, "LOYER RÉSIDENCE", .rent)
             add(5, -34.90, "ABONNEMENT MOBILE", .subscriptions)
             add(5, -12.99, "STREAMING", .subscriptions)
             add(8, -41.20, "ASSURANCE HABITATION", .insurance)
@@ -141,10 +149,10 @@ enum LocalDemo {
              */
             if let date = on(lastDay) {
                 let pair = UUID().uuidString
-                rows.append(Row(account: checking, day: date, amount: -141.20,
-                                payee: "PRÉLÈVEMENT PRÊT ÉTUDIANT", role: nil, review: false, pair: pair))
-                rows.append(Row(account: loan, day: date, amount: 141.20,
-                                payee: "PRÉLÈVEMENT PRÊT ÉTUDIANT", role: nil, review: false, pair: pair))
+                rows.append(Row(account: checking, day: date, amount: -176.40,
+                                payee: "PRÉLÈVEMENT CRÉDIT AUTO", role: nil, review: false, pair: pair))
+                rows.append(Row(account: loan, day: date, amount: 176.40,
+                                payee: "PRÉLÈVEMENT CRÉDIT AUTO", role: nil, review: false, pair: pair))
                 firstInstalment = date
             }
 
@@ -171,10 +179,10 @@ enum LocalDemo {
 
         try db.transaction {
             let accounts: [(String, String, String, String, Double, Int)] = [
-                (checking, "Compte courant", "checking", "Banque", 2418.63, 0),
-                (savings, "Livret A", "savings", "Banque", 7650.00, 1),
-                (broker, "PEA", "broker_portfolio", "Courtier", 25.95, 2),
-                (loan, "Prêt étudiant", "loan", "Banque", -6420.18, 3),
+                (checking, "Compte du quotidien", "checking", "Banque Verdier", 1874.42, 0),
+                (savings, "Réserve", "savings", "Banque Verdier", 5120.00, 1),
+                (broker, "Portefeuille titres", "broker_portfolio", "Courtier Maline", 18.40, 2),
+                (loan, "Crédit auto", "loan", "Banque Verdier", -4930.55, 3),
             ]
             for (id, name, kind, institution, balance, order) in accounts {
                 try db.run(
@@ -189,8 +197,8 @@ enum LocalDemo {
             }
             try db.run(
                 """
-                UPDATE accounts SET loan_original_principal = 12000, loan_interest_rate = 0.031,
-                    loan_start_date = ?, loan_term_months = 96, loan_monthly_payment = 141.20
+                UPDATE accounts SET loan_original_principal = 9800, loan_interest_rate = 0.029,
+                    loan_start_date = ?, loan_term_months = 60, loan_monthly_payment = 176.40
                 WHERE id = ?
                 """,
                 [.text(String(iso(loanStart).prefix(10))), .text(loan)]
@@ -226,7 +234,7 @@ enum LocalDemo {
 
             let parts = calendar.dateComponents([.year, .month], from: today)
             let plan: [(Role, Double)] = [
-                (.rent, 880), (.subscriptions, 50), (.insurance, 45), (.groceries, 400),
+                (.rent, 715), (.subscriptions, 50), (.insurance, 45), (.groceries, 400),
                 (.transport, 90), (.diningOut, 180), (.savings, 450), (.clothes, 60),
                 (.travel, 150), (.gifts, 40),
             ]
@@ -238,17 +246,26 @@ enum LocalDemo {
                 )
             }
 
-            for (label, symbol, quantity, cost, price) in [
-                ("MSCI World", "CW8", 32.0, 8588.80, 312.55),
-                ("S&P 500", "ESE", 9.0, 1063.80, 134.80),
+            /*
+              * Des fonds inventés, et sans code de cotation.
+              *
+              * Un vrai mnémonique ferait deux choses de travers : il nommerait
+              * un titre que quelqu'un détient pour de bon, et il partirait
+              * chercher un cours sur le réseau pour une base qui n'existe que
+              * le temps d'une démonstration. Sans `quote_symbol` la ligne
+              * n'est jamais recotée et garde le prix écrit ici.
+              */
+            for (label, quantity, cost, price) in [
+                ("Fonds Horizon 2040", 24.0, 5208.00, 241.70),
+                ("Fonds Obligations Europe", 11.0, 1023.00, 96.15),
             ] {
                 try db.run(
                     """
-                    INSERT INTO holdings (id, account_id, label, quote_symbol, quantity,
+                    INSERT INTO holdings (id, account_id, label, quantity,
                         cost_basis, last_price, currency)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, 'EUR')
+                    VALUES (?, ?, ?, ?, ?, ?, 'EUR')
                     """,
-                    [.text(UUID().uuidString), .text(broker), .text(label), .text(symbol),
+                    [.text(UUID().uuidString), .text(broker), .text(label),
                      .real(quantity), .real(cost), .real(price)]
                 )
             }

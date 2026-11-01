@@ -422,17 +422,25 @@ struct EdTabBar: View {
     /// suivant, ce qui dit le changement mieux qu'un clignotement.
     @Namespace private var pill
 
+    /*
+     * « Ajouter » au milieu, pas au bout.
+     *
+     * Ce n'est pas un onglet : il n'a pas de pastille, il ne se sélectionne
+     * pas, et les balayages gauche-droite l'ignorent déjà puisqu'ils
+     * parcourent `edTabOrder`, qui ne le contient pas. Au bout de la rangée il
+     * se lisait pourtant comme le sixième onglet, et c'était le geste le plus
+     * fréquent de l'app rangé au coin le plus loin du pouce. Il s'intercale
+     * après Plan : ce qu'on prévoit à gauche, ce qu'on a dépensé à droite, et
+     * le trait d'union entre les deux au milieu.
+     */
+    private static let plusAfter = 3
+
     var body: some View {
         HStack(spacing: 4) {
-            ForEach(edTabs) { tab in
-                item(symbol: edSymbol(tab),
-                     label: t(tab.titleKey.0, tab.titleKey.1),
-                     active: tab == selection) {
-                    jump(to: tab)
-                }
-            }
+            ForEach(edTabs.prefix(Self.plusAfter)) { tab in tabItem(tab) }
             item(symbol: "plus", label: t("v2.nav.add", "Ajouter"), active: false,
                  action: onAdd)
+            ForEach(edTabs.dropFirst(Self.plusAfter)) { tab in tabItem(tab) }
         }
         .padding(.horizontal, 8)
         .frame(height: 60)
@@ -471,6 +479,14 @@ struct EdTabBar: View {
             var instant = SwiftUI.Transaction()
             instant.disablesAnimations = true
             withTransaction(instant) { selection = tab }
+        }
+    }
+
+    private func tabItem(_ tab: TabRoute) -> some View {
+        item(symbol: edSymbol(tab),
+             label: t(tab.titleKey.0, tab.titleKey.1),
+             active: tab == selection) {
+            jump(to: tab)
         }
     }
 

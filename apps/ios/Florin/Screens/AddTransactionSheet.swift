@@ -391,23 +391,42 @@ struct AddTransactionSheet: View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
             Text(kind == .income ? "+" : "−")
                 .font(.system(size: 40, weight: .medium))
-                .foregroundStyle(magnitude > 0 ? Florin.text2 : Florin.text3)
+                .foregroundStyle(figureTint.opacity(magnitude > 0 ? 1 : 0.35))
             TextField("0", text: $amount)
                 .keyboardType(.decimalPad)
                 .focused($amountFocused)
                 .font(.system(size: figureSize, weight: .medium))
                 .monospacedDigit()
                 .kerning(Ed.tracking(figureSize, 0.045))
-                .foregroundStyle(Florin.text)
+                .foregroundStyle(figureTint)
                 .fixedSize()
             Text(Money.currencySymbol(locale: localeTag, currency: currency))
                 .font(.system(size: 40, weight: .medium))
-                .foregroundStyle(Florin.text3)
+                .foregroundStyle(figureTint.opacity(0.4))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, Ed.gutter)
         .padding(.top, 14)
         .padding(.bottom, 4)
+    }
+
+    /*
+     * Le montant prend la couleur de son sens.
+     *
+     * Le signe le disait déjà, mais il fait quatre points de large à côté
+     * d'un chiffre de quatre-vingts : on le lit après, pas avant. La teinte
+     * se voit du premier coup d'œil, et c'est la même que celle des montants
+     * partout ailleurs dans l'app — on ne crée pas un code de plus.
+     *
+     * Un virement ne gagne ni ne perd : il reste à l'encre en éditorial, où
+     * l'accent est réservé au héros, et prend l'accent ailleurs.
+     */
+    private var figureTint: Color {
+        switch kind {
+        case .income: return Florin.positive
+        case .expense: return Florin.negative
+        case .transfer: return editorial ? Florin.text : Florin.accent
+        }
     }
 
     /// Le chiffre descend quand il s'allonge : « 123 456,78 » à 80 points
@@ -575,10 +594,7 @@ struct AddTransactionSheet: View {
         HStack(alignment: .firstTextBaseline, spacing: 4) {
             Text(kind == .income ? "+" : "−")
                 .font(.system(size: 34, weight: .light))
-                .foregroundStyle(
-                    kind == .income ? Florin.positive
-                        : kind == .transfer ? Florin.accent : Florin.negative
-                )
+                .foregroundStyle(figureTint)
                 .opacity(magnitude > 0 ? 1 : 0.25)
             TextField("0", text: $amount)
                 .keyboardType(.decimalPad)
@@ -586,11 +602,11 @@ struct AddTransactionSheet: View {
                 .multilineTextAlignment(.center)
                 .font(.system(size: 52, weight: .light))
                 .monospacedDigit()
-                .foregroundStyle(Florin.text)
+                .foregroundStyle(figureTint)
                 .fixedSize()
             Text(Money.currencySymbol(locale: localeTag, currency: currency))
                 .font(.system(size: 22, weight: .light))
-                .foregroundStyle(Florin.text3)
+                .foregroundStyle(figureTint.opacity(0.45))
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
@@ -909,13 +925,28 @@ struct AddTransactionSheet: View {
     }
 
     private var matchingPayees: [(name: String, key: String)] {
-        guard kind != .transfer, payeeFocused, !known.isEmpty else { return [] }
+        guard kind != .transfer, !known.isEmpty else { return [] }
         let typed = MerchantNames.key(payee)
+        let exact = known.filter { $0.key == typed && !typed.isEmpty }
+
+        /*
+         * Hors focus il reste la confirmation, pas la liste.
+         *
+         * Taper un nom en entier laissait la pastille cochée en place ; la
+         * CHOISIR dans la liste la faisait disparaître avec tout le reste,
+         * parce que la poignée range le clavier (`payeeFocused = false`) et
+         * que la rangée entière était conditionnée au focus. Le même marchand
+         * reconnu s'affichait donc coché ou pas selon la façon dont on l'avait
+         * écrit, ce qui ne veut rien dire.
+         *
+         * Les propositions n'ont de sens qu'en train d'écrire ; la coche, qui
+         * dit « c'est bien celui-là que tu connais », n'en dépend pas.
+         */
+        guard payeeFocused else { return Array(exact.prefix(1)) }
+
         let hits = known.filter { typed.isEmpty || $0.key.contains(typed) }
-        // Le marchand exactement écrit passe devant et reste : la pastille
-        // cochée dit « c'est bien lui que tu connais ». Elle s'effaçait au
-        // moment précis où elle avait quelque chose à confirmer.
-        return Array((hits.filter { $0.key == typed } + hits.filter { $0.key != typed }).prefix(5))
+        // Le marchand exactement écrit passe devant et reste.
+        return Array((exact + hits.filter { $0.key != typed }).prefix(5))
     }
 
     /*
