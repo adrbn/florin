@@ -119,10 +119,19 @@ struct FlorinApp: App {
             // database in backups safe — see LocalStore.checkpoint.
             if phase != .active {
                 LocalStore.checkpoint()
-                // Locked before the snapshot iOS takes for the app switcher,
-                // not when someone comes back — otherwise the ledger is
-                // legible in the switcher to anyone holding the phone.
-                AppLock.shared.willResignActive()
+            }
+            /*
+             * Un voile sur `.inactive`, le verrou sur `.background`.
+             *
+             * Verrouiller dès que l'app cesse d'être active réclamait Face ID
+             * pour une capture d'écran, un centre de contrôle tiré, une
+             * bannière : personne n'avait quitté l'app. Le voile couvre
+             * l'image que iOS prend pour le sélecteur, et se lève tout seul.
+             */
+            switch phase {
+            case .inactive: AppLock.shared.cover()
+            case .background: AppLock.shared.leaveForeground()
+            default: AppLock.shared.uncover()
             }
         }
     }
@@ -394,6 +403,9 @@ struct RootView: View {
             if lock.locked {
                 LockScreen()
                     .transition(.opacity)
+            } else if lock.shielded {
+                // Le voile : il cache, il ne demande rien.
+                Florin.bg.ignoresSafeArea()
             }
         }
         .animation(.easeOut(duration: 0.18), value: lock.locked)

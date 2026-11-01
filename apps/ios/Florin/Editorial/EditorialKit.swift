@@ -680,83 +680,22 @@ struct EdEnter: ViewModifier {
  * s'effacer. Deux pour cent de retrait disent la même chose sans trahir ce
  * qu'il y a derrière.
  */
-/*
- * Ce qu'on touche s'enfonce — et un doigt qui GLISSE ne touche rien.
- *
- * C'était un `ButtonStyle`, qui sait dessiner l'enfoncement mais pas refuser
- * l'action : elle appartient au `Button`, et le `Button` la déclenche dès que
- * le doigt se lève sur lui. Or les balayages de cette app sont des
- * `simultaneousGesture` — « que les deux gagnent », par définition. Un retour
- * balayé depuis la fiche d'un compte dépilait donc l'écran ET ouvrait
- * l'opération qui se trouvait sous le doigt au relâcher, sur l'écran d'après.
- *
- * Un `PrimitiveButtonStyle` tient `trigger()`, donc le droit de ne pas
- * l'appeler. Dix points de tolérance : au-delà, ce doigt était en train
- * d'aller ailleurs. Rien n'est volé au défilement — le reconnaisseur reste
- * simultané, il se contente de regarder.
- */
-struct EdPress: PrimitiveButtonStyle {
-    /// Ce qu'on tolère de glissement pour que ce soit encore un toucher.
-    static let slop: CGFloat = 10
-
-    /// 1 pour une rangée qui ne s'enfonce pas — le refus, lui, est le même.
-    var scale: CGFloat = 0.98
-
+/// Ce qu'on touche s'enfonce d'un pour cent.
+///
+/// Rien de plus : un `DragGesture` maison sur chaque bouton pour refuser les
+/// glissements avait pris le pas sur le défilement des listes. Le refus se
+/// fait là où il coûte zéro — dans l'action, qui lit le drapeau partagé que
+/// `edSwipeBack` lève déjà. Voir `EdGesture`.
+struct EdPress: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        EdPressBody(configuration: configuration, scale: scale)
-    }
-}
-
-private struct EdPressBody: View {
-    let configuration: PrimitiveButtonStyleConfiguration
-    let scale: CGFloat
-    /// `@GestureState` se relève tout seul quand le geste est ANNULÉ — ce que
-    /// fait le défilement en emportant le doigt. Un `@State` resterait
-    /// enfoncé.
-    @GestureState private var pressed = false
-
-    private static func still(_ value: DragGesture.Value) -> Bool {
-        abs(value.translation.width) <= EdPress.slop
-            && abs(value.translation.height) <= EdPress.slop
-    }
-
-    var body: some View {
         configuration.label
-            .scaleEffect(pressed ? scale : 1)
-            .animation(EdMotion.spring, value: pressed)
-            // Un `Button` rend toute sa boîte touchable ; en reprenant le
-            // geste à la main il faut le redire, sinon les blancs d'une
-            // rangée cessent de répondre.
-            .contentShape(Rectangle())
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 0)
-                    .updating($pressed) { value, state, _ in
-                        state = EdPressBody.still(value)
-                    }
-                    .onEnded { value in
-                        guard EdPressBody.still(value) else { return }
-                        configuration.trigger()
-                    }
-            )
-            // Le rôle et l'activation ne viennent plus du `Button`.
-            .accessibilityAddTraits(.isButton)
-            .accessibilityAction { configuration.trigger() }
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .animation(EdMotion.spring, value: configuration.isPressed)
     }
 }
 
-extension PrimitiveButtonStyle where Self == EdPress {
+extension ButtonStyle where Self == EdPress {
     static var edPress: EdPress { EdPress() }
-
-    /*
-     * Le même refus, sans l'enfoncement.
-     *
-     * Pour les rangées partagées par les cinq thèmes, qui étaient en `.plain`
-     * — visuellement rien, et c'est voulu : une ligne d'opération porte déjà
-     * sa surbrillance de liste. Mais `.plain` reste un `ButtonStyle`, donc
-     * l'action part au relâcher quoi qu'il arrive, et un retour balayé le
-     * doigt posé sur une opération l'ouvrait par-dessus l'écran d'après.
-     */
-    static var edTap: EdPress { EdPress(scale: 1) }
 }
 
 // MARK: - La présentation des feuilles

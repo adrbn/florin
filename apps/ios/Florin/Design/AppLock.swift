@@ -19,6 +19,9 @@ final class AppLock: ObservableObject {
 
     /// Whether the ledger is currently hidden behind the lock.
     @Published private(set) var locked: Bool
+    /// Le voile du sélecteur d'apps : opaque, muet, sans Face ID. Voir
+    /// `cover()`.
+    @Published private(set) var shielded = false
     /// Set when a prompt fails or is dismissed, so the screen can offer another
     /// go rather than sit there blank.
     @Published private(set) var failure: String?
@@ -56,11 +59,29 @@ final class AppLock: ObservableObject {
         if !on { locked = false }
     }
 
-    /// Called when the app leaves the foreground. Locks ahead of time so the
-    /// ledger is already hidden in the app switcher, not just once someone
-    /// returns to it.
-    func willResignActive() {
+    /*
+     * Un voile, puis un verrou — et ce ne sont pas le même moment.
+     *
+     * Verrouiller dès que l'app n'est plus « active » revenait à réclamer
+     * Face ID pour une capture d'écran, un centre de contrôle tiré, une
+     * bannière de notification : tout cela passe par `.inactive` sans que
+     * personne n'ait quitté l'app. Ce qu'il faut protéger à cet instant,
+     * c'est l'image que iOS prend pour le sélecteur d'apps — un voile opaque
+     * y suffit, et il se lève tout seul au retour.
+     *
+     * Le verrou, lui, attend un vrai départ : `.background`.
+     */
+    func cover() {
+        guard enabled, !locked else { return }
+        shielded = true
+    }
+
+    func uncover() { shielded = false }
+
+    /// L'app est partie en arrière-plan. Là, on verrouille.
+    func leaveForeground() {
         guard enabled else { return }
+        shielded = false
         locked = true
     }
 

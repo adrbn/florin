@@ -1066,6 +1066,22 @@ struct TransactionList<Banner: View>: View {
      * filtrée par compte — n'en ont pas, et gardent leur feuille d'opération.
      */
     private func open(_ tx: Transaction) {
+        /*
+         * Un doigt qui revenait en arrière n'a rien ouvert.
+         *
+         * Les balayages de cette app sont des `simultaneousGesture` — « que
+         * les deux gagnent » — et rien n'annule un bouton sous le doigt : un
+         * retour balayé depuis la fiche d'un compte dépilait l'écran ET
+         * ouvrait l'opération, par-dessus l'écran d'après.
+         *
+         * Le refus se lit ici, pas dans le style. Un `PrimitiveButtonStyle`
+         * avec son propre `DragGesture` saurait dire non, mais à zéro point
+         * de seuil il prend le pas sur le défilement des listes, et plus
+         * aucun onglet ne défilait. `edSwipeBack` lève déjà le drapeau et ne
+         * le baisse qu'un quart de seconde après la fin du geste, soit bien
+         * après ce relâcher.
+         */
+        guard !EdGesture.shared.scrubbing else { return }
         if tx.isPairedTransfer { movement = tx } else { detail = tx }
     }
 
@@ -1105,8 +1121,7 @@ struct TransactionList<Banner: View>: View {
                     }
                 }
         }
-        // Voir `edTap` : un doigt qui glisse sur cette ligne ne l'ouvre pas.
-        .buttonStyle(.edTap)
+        .buttonStyle(.plain)
         .transactionMenu(
             tx, t: t, locale: locale, currency: currency,
             canTransfer: !tx.isTransfer && tx.amount < 0 && model.accounts.count > 1,
