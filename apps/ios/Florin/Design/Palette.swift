@@ -40,6 +40,96 @@ struct Tone {
         }
         return (channel(16) << 16) | (channel(8) << 8) | channel(0)
     }
+
+    /// Ce ton, tourné sur la roue des teintes et reposé à une LUMINANCE imposée.
+    ///
+    /// La luminance, pas la clarté HSL, et c'est tout l'intérêt : à clarté
+    /// égale un cyan est deux fois plus lumineux qu'un violet. Un premier jet
+    /// imposait la clarté, et les rangs tombant dans les verts-bleus
+    /// sortaient à 1,3:1 sur le papier — une barre de répartition invisible,
+    /// pour un accent sur deux. Viser la luminance rend l'éventail
+    /// indifférent à l'angle : chaque rang se détache autant, quel que soit
+    /// l'accent choisi.
+    ///
+    /// Une par face, parce qu'une encre catégorielle est claire sur du noir
+    /// et foncée sur du blanc.
+    func spun(hue offset: Double, light l: Double, dark d: Double) -> Tone {
+        Tone(light: Tone.spin(light, offset, l), dark: Tone.spin(dark, offset, d))
+    }
+
+    /// La saturation plancher d'une encre catégorielle.
+    ///
+    /// Sans elle, un accent presque gris (Graphite, Ardoise) rendrait huit
+    /// gris : une légende où aucune pastille ne se reconnaît. L'accent garde
+    /// sa sobriété partout ailleurs ; seules les encres de graphique sont
+    /// remontées.
+    private static let seriesFloor = 0.38
+
+    private static func spin(_ rgb: UInt32, _ offset: Double, _ target: Double) -> UInt32 {
+        let (hue, saturation, _) = hsl(rgb)
+        var turned = (hue + offset).truncatingRemainder(dividingBy: 360)
+        if turned < 0 { turned += 360 }
+        let ink = max(saturation, seriesFloor)
+
+        // La luminance croît avec la clarté à teinte et saturation fixes :
+        // quatorze pas de dichotomie suffisent à tomber sous le demi-ton.
+        var low = 0.0
+        var high = 1.0
+        var packed: UInt32 = 0
+        for _ in 0 ..< 14 {
+            let middle = (low + high) / 2
+            packed = pack(hue: turned, saturation: ink, lightness: middle)
+            if luminance(packed) < target { low = middle } else { high = middle }
+        }
+        return packed
+    }
+
+    private static func luminance(_ rgb: UInt32) -> Double {
+        func channel(_ shift: UInt32) -> Double {
+            let value = Double((rgb >> shift) & 0xFF) / 255
+            return value <= 0.03928 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4)
+        }
+        return 0.2126 * channel(16) + 0.7152 * channel(8) + 0.0722 * channel(0)
+    }
+
+    private static func hsl(_ rgb: UInt32) -> (hue: Double, saturation: Double, lightness: Double) {
+        let red = Double((rgb >> 16) & 0xFF) / 255
+        let green = Double((rgb >> 8) & 0xFF) / 255
+        let blue = Double(rgb & 0xFF) / 255
+        let high = max(red, green, blue)
+        let low = min(red, green, blue)
+        let lightness = (high + low) / 2
+        guard high > low else { return (0, 0, lightness) }
+        let span = high - low
+        let saturation = lightness > 0.5 ? span / (2 - high - low) : span / (high + low)
+        var hue: Double
+        switch high {
+        case red: hue = (green - blue) / span + (green < blue ? 6 : 0)
+        case green: hue = (blue - red) / span + 2
+        default: hue = (red - green) / span + 4
+        }
+        return (hue * 60, saturation, lightness)
+    }
+
+    private static func pack(hue: Double, saturation: Double, lightness: Double) -> UInt32 {
+        let chroma = (1 - abs(2 * lightness - 1)) * saturation
+        let sector = hue / 60
+        let second = chroma * (1 - abs(sector.truncatingRemainder(dividingBy: 2) - 1))
+        let lift = lightness - chroma / 2
+        let (red, green, blue): (Double, Double, Double)
+        switch Int(sector) % 6 {
+        case 0: (red, green, blue) = (chroma, second, 0)
+        case 1: (red, green, blue) = (second, chroma, 0)
+        case 2: (red, green, blue) = (0, chroma, second)
+        case 3: (red, green, blue) = (0, second, chroma)
+        case 4: (red, green, blue) = (second, 0, chroma)
+        default: (red, green, blue) = (chroma, 0, second)
+        }
+        func byte(_ value: Double) -> UInt32 {
+            UInt32((min(max(value + lift, 0), 1) * 255).rounded())
+        }
+        return (byte(red) << 16) | (byte(green) << 8) | byte(blue)
+    }
 }
 
 struct Palette {
@@ -445,11 +535,67 @@ extension Palette {
          * texte ne bouge pas — à ces proportions le blanc reste du blanc —
          * et `scripts/check-accents.py` le vérifie accent par accent.
          */
-        base.bg = base.bg.mixed(with: ink, light: 0.05, dark: 0.07)
-        base.surface = base.surface.mixed(with: ink, light: 0.11, dark: 0.13)
-        base.surface2 = base.surface2.mixed(with: ink, light: 0.13, dark: 0.15)
-        base.surface3 = base.surface3.mixed(with: ink, light: 0.20, dark: 0.22)
+        base.bg = base.bg.mixed(with: ink, light: 0.09, dark: 0.10)
+        base.surface = base.surface.mixed(with: ink, light: 0.14, dark: 0.16)
+        base.surface2 = base.surface2.mixed(with: ink, light: 0.16, dark: 0.18)
+        base.surface3 = base.surface3.mixed(with: ink, light: 0.24, dark: 0.26)
+
+        /*
+         * Et surtout : les huit encres catégorielles en descendent.
+         *
+         * C'était le vrai manque. Le papier teinté se voit à peine, mais ce
+         * qui FAIT la couleur d'un écran de Florin, ce sont les cartes de
+         * comptes, les barres de répartition et les pastilles de légende —
+         * toutes tirées de `series`. Tant que `series` restait la roue fixe
+         * de huit teintes, choisir « Forêt » laissait un accueil orange,
+         * magenta et ocre : le réglage n'avait aucun effet sur ce que l'œil
+         * appelle la couleur de l'app.
+         *
+         * Donc l'éventail, pas la roue. Huit encres dans un arc de ±64°
+         * autour de l'accent, chacune à une clarté propre : un vert choisi
+         * donne huit verts-à-sarcelle-à-olive, un prune donne huit prunes.
+         * On perd la séparabilité d'une roue complète — deux rangs voisins
+         * sont plus proches qu'avant — et on l'accepte : dans ce thème la
+         * couleur est décorative, chaque pastille est étiquetée, et le seul
+         * endroit où trois encres se touchent sans texte (la barre de
+         * répartition) prend les rangs 0, 2 et 4, écartés de 72° et de deux
+         * crans de clarté.
+         */
+        base.series = editorialSeries(from: ink)
         return base
+    }
+
+    /// Les huit encres catégorielles d'Éditorial, déduites de l'accent.
+    ///
+    /// Les clartés de base (0,41 en clair, 0,68 en sombre) sont celles que la
+    /// roue fixe portait avant : une encre doit rester assez foncée pour tenir
+    /// du blanc sur du papier, et assez claire pour se détacher du noir.
+    private static func editorialSeries(from ink: Tone) -> [Tone] {
+        /*
+         * Angle depuis l'accent, puis écart de luminance — borné.
+         *
+         * `lift` est sans unité, entre -1 et 1 ; les luminances nominales
+         * (0,155 en clair, 0,46 en sombre) et leurs amplitudes sont mesurées
+         * sur la roue fixe qu'on remplace, donc une encre générée se détache
+         * exactement autant que celle qu'elle remplace. La fenêtre est
+         * étroite : une encre catégorielle doit à la fois se voir sur la
+         * feuille et porter du blanc.
+         */
+        let fan: [(turn: Double, lift: Double)] = [
+            (0, 0),
+            (26, 0.8),
+            (-26, -0.9),
+            (46, 1.0),
+            (-46, 0.4),
+            (13, -1.0),
+            (64, 0.6),
+            (-64, -0.5),
+        ]
+        return fan.map { step in
+            ink.spun(hue: step.turn,
+                     light: 0.155 * (1 + step.lift * 0.35),
+                     dark: 0.46 * (1 + step.lift * 0.18))
+        }
     }
 
     private static let editorialBase = Palette(
