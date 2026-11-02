@@ -55,14 +55,19 @@ PAPER = (0xFFFFFF, 0x000000)
 RAMP = [(0, 1.00, 0.040, 0.100), (0, 0.97, 0.065, 0.145), (0, 0.94, 0.100, 0.200),
         (0, 0.90, 0.145, 0.265), (0, 0.84, 0.200, 0.340), (0, 0.77, 0.265, 0.420),
         (0, 0.69, 0.335, 0.510), (0, 0.60, 0.410, 0.600)]
+INK_BAND = (0.30, 0.55)
 
-# L'éventail d'`editorialFan`, écrit sous la même forme : les luminances y
-# sont calculées, 0,135 et 0,44 relevés ou descendus selon le rang.
-FAN = [(turn, ink, 0.135 * (1 + lift * 0.60), 0.44 * (1 + lift * 0.26))
-       for turn, ink, lift in ((0, 1.00, 0.00), (19, 0.78, 0.70), (-19, 0.90, -0.60),
-                               (10, 0.64, 1.00), (-10, 0.96, -0.95), (24, 0.82, 0.32),
-                               (-24, 0.70, -0.28), (-11, 0.58, 0.92))]
+# L'accord d'`editorialFan` : les relations de la roue, pas le voisinage.
+FAN = [(0, 1.00, 0.120, 0.42), (150, 0.94, 0.165, 0.50), (-150, 1.00, 0.098, 0.38),
+       (30, 0.90, 0.190, 0.54), (180, 0.96, 0.140, 0.45), (-30, 1.00, 0.112, 0.40),
+       (90, 0.92, 0.175, 0.52), (-90, 0.98, 0.150, 0.47)]
+CHORD_BAND = (0.46, 0.78)
+
 SHAPE_FLOOR = 1.5
+# Deux encres d'un même accord doivent se distinguer l'une de l'autre, pas
+# seulement du papier : c'est tout l'objet du mode. Mesuré en distance de
+# teinte, parce que c'est elle qui sépare les rangs ici.
+CHORD_SPREAD = 25.0
 
 
 def hsl(value: int) -> tuple[float, float, float]:
@@ -95,11 +100,12 @@ def pack(hue: float, sat: float, light: float) -> int:
     return out
 
 
-def dilute(value: int, turn: float, scale: float, target: float) -> int:
+def dilute(value: int, turn: float, scale: float, target: float,
+            band: tuple[float, float] = INK_BAND) -> int:
     """Même dichotomie que `Tone.dilute` : la luminance visée, pas la clarté."""
     hue, sat, _ = hsl(value)
     hue = (hue + turn) % 360
-    sat = min(max(sat, 0.30), 0.55) * scale
+    sat = min(max(sat, band[0]), band[1]) * scale
     low, high, packed = 0.0, 1.0, 0
     for _ in range(14):
         middle = (low + high) / 2
@@ -125,9 +131,29 @@ def series_floor(light: int, dark: int) -> float:
     worst = 99.0
     for face, ink in ((0, light), (1, dark)):
         paper = PAPER[face]
-        for turn, scale, pale, deep in RAMP + FAN:
-            tone = dilute(ink, turn, scale, pale if face == 0 else deep)
-            worst = min(worst, ratio(tone, paper))
+        for table, band in ((RAMP, INK_BAND), (FAN, CHORD_BAND)):
+            for turn, scale, pale, deep in table:
+                tone = dilute(ink, turn, scale, pale if face == 0 else deep, band)
+                worst = min(worst, ratio(tone, paper))
+    return worst
+
+
+def chord_spread(light: int, dark: int) -> float:
+    """La plus petite distance de teinte entre deux encres de l'accord.
+
+    Deux essais ont tourné la teinte de ±64° puis de ±24° seulement : les
+    huit rangs tombaient dans la même famille, et une légende de huit
+    briques ne se lit pas. L'accord couvre maintenant le tour de la roue, et
+    c'est cette mesure-là qui l'empêche de se refermer.
+    """
+    worst = 360.0
+    for face, ink in ((0, light), (1, dark)):
+        hues = [hsl(dilute(ink, turn, scale, pale if face == 0 else deep, CHORD_BAND))[0]
+                for turn, scale, pale, deep in FAN]
+        for i, a in enumerate(hues):
+            for b in hues[i + 1:]:
+                gap = abs(a - b) % 360
+                worst = min(worst, min(gap, 360 - gap))
     return worst
 
 
@@ -142,11 +168,13 @@ def main() -> int:
         on_white = ratio(light, 0xFFFFFF)
         white_on_dark = ratio(0xFFFFFF, dark)
         inks = series_floor(light, dark)
+        spread = chord_spread(light, dark)
         worst = min(on_white, white_on_dark)
-        flag = "  " if worst >= FLOOR and inks >= SHAPE_FLOOR else "←"
-        print(f"{flag} {name:11} clair/blanc {on_white:5.2f}"
-              f"   blanc/sombre {white_on_dark:5.2f}   lavis/papier {inks:5.2f}")
-        if worst < FLOOR or inks < SHAPE_FLOOR:
+        ok = worst >= FLOOR and inks >= SHAPE_FLOOR and spread >= CHORD_SPREAD
+        print(f"{'  ' if ok else '←'} {name:11} clair/blanc {on_white:5.2f}"
+              f"   blanc/sombre {white_on_dark:5.2f}   lavis/papier {inks:5.2f}"
+              f"   accord {spread:5.1f}°")
+        if not ok:
             failures.append(name)
 
     if failures:

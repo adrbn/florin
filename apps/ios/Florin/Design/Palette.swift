@@ -54,15 +54,19 @@ struct Tone {
     /// Une par face, parce qu'une encre catégorielle est claire sur du noir
     /// et foncée sur du blanc.
     func diluted(saturation scale: Double, light l: Double, dark d: Double) -> Tone {
-        Tone(light: Tone.dilute(light, 0, scale, l), dark: Tone.dilute(dark, 0, scale, d))
+        Tone(light: Tone.dilute(light, 0, scale, l, Tone.inkBand),
+             dark: Tone.dilute(dark, 0, scale, d, Tone.inkBand))
     }
 
-    /// Le même, mais la teinte tournée de quelques degrés : une couleur
-    /// VOISINE de l'accent, posée à la même luminance imposée. C'est ce qui
-    /// fabrique une famille plutôt qu'une dilution.
-    func spun(hue offset: Double, saturation scale: Double, light l: Double, dark d: Double) -> Tone {
-        Tone(light: Tone.dilute(light, offset, scale, l),
-             dark: Tone.dilute(dark, offset, scale, d))
+    /// Le même, mais la teinte TOURNÉE sur la roue : une autre couleur, en
+    /// relation d'harmonie avec l'accent, reposée à la luminance imposée.
+    /// C'est ce qui fabrique un accord plutôt qu'une dilution.
+    func spun(
+        hue offset: Double, saturation scale: Double,
+        light l: Double, dark d: Double, band: ClosedRange<Double> = Tone.inkBand
+    ) -> Tone {
+        Tone(light: Tone.dilute(light, offset, scale, l, band),
+             dark: Tone.dilute(dark, offset, scale, d, band))
     }
 
     /// La fenêtre de saturation d'une encre catégorielle.
@@ -75,15 +79,23 @@ struct Tone {
     /// une boîte de crayons. Éditorial est un thème noir et blanc où la
     /// couleur est une ponctuation — elle doit rester une encre, pas un
     /// surligneur.
-    private static let seriesFloor = 0.30
-    private static let seriesCeiling = 0.55
+    /// La fenêtre d'un DÉGRADÉ : la teinte ne bouge pas, donc rien d'autre
+    /// que la densité ne distingue deux rangs, et un aplat trop saturé
+    /// tiendrait toute la page.
+    static let inkBand = 0.30 ... 0.55
+
+    /// Celle d'un ACCORD, plus haute : ici c'est la teinte qui sépare les
+    /// rangs, et une couleur lavée ne se nomme plus — un bleu et un vert
+    /// désaturés au même niveau finissent tous deux « gris-bleu ».
+    static let chordBand = 0.46 ... 0.78
 
     private static func dilute(
-        _ rgb: UInt32, _ turn: Double, _ scale: Double, _ target: Double
+        _ rgb: UInt32, _ turn: Double, _ scale: Double, _ target: Double,
+        _ band: ClosedRange<Double>
     ) -> UInt32 {
         let (base, saturation, _) = hsl(rgb)
         let hue = (base + turn).truncatingRemainder(dividingBy: 360)
-        let ink = min(max(saturation, seriesFloor), seriesCeiling) * scale
+        let ink = min(max(saturation, band.lowerBound), band.upperBound) * scale
 
         // La luminance croît avec la clarté à teinte et saturation fixes :
         // quatorze pas de dichotomie suffisent à tomber sous le demi-ton.
@@ -657,33 +669,47 @@ extension Palette {
     }
 
     /*
-     * Palette : huit couleurs VOISINES, de la même famille.
+     * Palette : un ACCORD, comme en sort un générateur de palettes.
      *
-     * Un éventail de ±24° autour de l'accent — pas plus. Un premier jet
-     * ouvrait à ±64° à pleine saturation : un olive contre un magenta, un
-     * vert pomme contre une brique. Ça ne faisait pas une famille, ça faisait
-     * une boîte de crayons. Ici c'est la VALEUR qui sépare les rangs, pas
-     * l'angle : la luminance va de 0,054 à 0,216 en clair, un rapport de
-     * quatre entre la plus profonde et la plus douce, et les teintes restent
-     * assez proches pour se reconnaître comme parentes.
+     * Deux essais ont tourné la teinte de ±64° puis de ±24° autour de
+     * l'accent, et le second était la bouillie annoncée : huit briques sur
+     * un accent terracotta, qu'on ne distingue pas dans une légende. Des
+     * couleurs voisines ne font pas une palette, elles font une tache.
+     *
+     * Ce que fait un color-palette : il prend les RELATIONS de la roue.
+     * L'accent, ses deux analogues à ±30°, sa complémentaire à 180°, les
+     * deux split-complémentaires à ±150°, les deux tétradiques à ±90°. Huit
+     * positions qui couvrent le tour entier — donc huit couleurs qu'on
+     * nomme différemment — et dont chacune a un nom de relation avec celle
+     * que la personne a choisie. C'est ça, l'harmonie : pas la proximité.
+     *
+     * Ce qui les tient ensemble n'est donc pas la teinte, c'est le RESTE :
+     * une même fenêtre de saturation et une bande de luminance étroite
+     * (0,098 à 0,190 en clair, un rapport de deux là où la rampe en prend
+     * dix). Même matière, même densité d'encre, huit teintes. C'est aussi
+     * pourquoi la fenêtre de saturation monte ici : à bas niveau, un bleu
+     * et un vert tournés au même endroit redeviennent deux gris.
+     *
+     * L'ordre des rangs n'est pas celui de la roue, et c'est voulu : deux
+     * rangs consécutifs sont toujours à 60° au moins l'un de l'autre, parce
+     * qu'une légende se lit de haut en bas et que deux lignes qui se
+     * suivent sont les deux qu'on compare.
      */
     private static func editorialFan(from ink: Tone) -> [Tone] {
-        // Angle, saturation, et de combien le rang s'éclaircit ou s'assombrit.
-        let fan: [(turn: Double, ink: Double, lift: Double)] = [
-            (0, 1.00, 0.00),
-            (19, 0.78, 0.70),
-            (-19, 0.90, -0.60),
-            (10, 0.64, 1.00),
-            (-10, 0.96, -0.95),
-            (24, 0.82, 0.32),
-            (-24, 0.70, -0.28),
-            (-11, 0.58, 0.92),
+        // Relation à l'accent, saturation, luminance claire, luminance sombre.
+        let chord: [(turn: Double, ink: Double, light: Double, dark: Double)] = [
+            (0, 1.00, 0.120, 0.42),     // l'accent lui-même
+            (150, 0.94, 0.165, 0.50),   // split-complémentaire
+            (-150, 1.00, 0.098, 0.38),  // l'autre split-complémentaire
+            (30, 0.90, 0.190, 0.54),    // analogue
+            (180, 0.96, 0.140, 0.45),   // complémentaire
+            (-30, 1.00, 0.112, 0.40),   // l'autre analogue
+            (90, 0.92, 0.175, 0.52),    // tétradique
+            (-90, 0.98, 0.150, 0.47),   // l'autre tétradique
         ]
-        return fan.map { step in
-            ink.spun(hue: step.turn,
-                     saturation: step.ink,
-                     light: 0.135 * (1 + step.lift * 0.60),
-                     dark: 0.44 * (1 + step.lift * 0.26))
+        return chord.map { step in
+            ink.spun(hue: step.turn, saturation: step.ink,
+                     light: step.light, dark: step.dark, band: Tone.chordBand)
         }
     }
 
