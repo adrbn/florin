@@ -46,11 +46,22 @@ def accents(source: str) -> list[tuple[str, int, int]]:
 PAPER = (0xFFFFFF, 0x000000)
 
 
-# L'éventail d'`editorialSeries`, recopié de Palette.swift.
-# La rampe d'`editorialSeries` : saturation, luminance claire, luminance sombre.
-RAMP = [(1.00, 0.040, 0.100), (0.97, 0.065, 0.145), (0.94, 0.100, 0.200),
-        (0.90, 0.145, 0.265), (0.84, 0.200, 0.340), (0.77, 0.265, 0.420),
-        (0.69, 0.335, 0.510), (0.60, 0.410, 0.600)]
+# Les deux générateurs d'encres, recopiés de Palette.swift. Chacun des deux
+# modes du réglage « encres » en tient un, et les deux descendent de l'accent :
+# il faut donc surveiller les deux, pas celui qu'on a écrit en dernier.
+#
+# La rampe d'`editorialRamp` : rotation (nulle), saturation, luminance claire,
+# luminance sombre.
+RAMP = [(0, 1.00, 0.040, 0.100), (0, 0.97, 0.065, 0.145), (0, 0.94, 0.100, 0.200),
+        (0, 0.90, 0.145, 0.265), (0, 0.84, 0.200, 0.340), (0, 0.77, 0.265, 0.420),
+        (0, 0.69, 0.335, 0.510), (0, 0.60, 0.410, 0.600)]
+
+# L'éventail d'`editorialFan`, écrit sous la même forme : les luminances y
+# sont calculées, 0,135 et 0,44 relevés ou descendus selon le rang.
+FAN = [(turn, ink, 0.135 * (1 + lift * 0.60), 0.44 * (1 + lift * 0.26))
+       for turn, ink, lift in ((0, 1.00, 0.00), (19, 0.78, 0.70), (-19, 0.90, -0.60),
+                               (10, 0.64, 1.00), (-10, 0.96, -0.95), (24, 0.82, 0.32),
+                               (-24, 0.70, -0.28), (-11, 0.58, 0.92))]
 SHAPE_FLOOR = 1.5
 
 
@@ -84,9 +95,10 @@ def pack(hue: float, sat: float, light: float) -> int:
     return out
 
 
-def dilute(value: int, scale: float, target: float) -> int:
+def dilute(value: int, turn: float, scale: float, target: float) -> int:
     """Même dichotomie que `Tone.dilute` : la luminance visée, pas la clarté."""
     hue, sat, _ = hsl(value)
+    hue = (hue + turn) % 360
     sat = min(max(sat, 0.30), 0.55) * scale
     low, high, packed = 0.0, 1.0, 0
     for _ in range(14):
@@ -105,12 +117,16 @@ def series_floor(light: int, dark: int) -> float:
     Un dégradé finit forcément près du papier : c'est le bout clair qui
     décide, et c'est lui qu'on surveille. En dessous de 1,5:1 la carte la
     plus pâle se confondrait avec la feuille.
+
+    Les deux modes passent ici. L'éventail est le moins exposé des deux — son
+    rang le plus doux vise 0,216 là où la rampe monte à 0,410 — mais rien ne
+    garantit qu'il le reste, et c'est tout l'intérêt de le mesurer.
     """
     worst = 99.0
     for face, ink in ((0, light), (1, dark)):
         paper = PAPER[face]
-        for scale, pale, deep in RAMP:
-            tone = dilute(ink, scale, pale if face == 0 else deep)
+        for turn, scale, pale, deep in RAMP + FAN:
+            tone = dilute(ink, turn, scale, pale if face == 0 else deep)
             worst = min(worst, ratio(tone, paper))
     return worst
 

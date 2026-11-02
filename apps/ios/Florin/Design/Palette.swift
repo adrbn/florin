@@ -54,7 +54,15 @@ struct Tone {
     /// Une par face, parce qu'une encre catégorielle est claire sur du noir
     /// et foncée sur du blanc.
     func diluted(saturation scale: Double, light l: Double, dark d: Double) -> Tone {
-        Tone(light: Tone.dilute(light, scale, l), dark: Tone.dilute(dark, scale, d))
+        Tone(light: Tone.dilute(light, 0, scale, l), dark: Tone.dilute(dark, 0, scale, d))
+    }
+
+    /// Le même, mais la teinte tournée de quelques degrés : une couleur
+    /// VOISINE de l'accent, posée à la même luminance imposée. C'est ce qui
+    /// fabrique une famille plutôt qu'une dilution.
+    func spun(hue offset: Double, saturation scale: Double, light l: Double, dark d: Double) -> Tone {
+        Tone(light: Tone.dilute(light, offset, scale, l),
+             dark: Tone.dilute(dark, offset, scale, d))
     }
 
     /// La fenêtre de saturation d'une encre catégorielle.
@@ -70,8 +78,11 @@ struct Tone {
     private static let seriesFloor = 0.30
     private static let seriesCeiling = 0.55
 
-    private static func dilute(_ rgb: UInt32, _ scale: Double, _ target: Double) -> UInt32 {
-        let (hue, saturation, _) = hsl(rgb)
+    private static func dilute(
+        _ rgb: UInt32, _ turn: Double, _ scale: Double, _ target: Double
+    ) -> UInt32 {
+        let (base, saturation, _) = hsl(rgb)
+        let hue = (base + turn).truncatingRemainder(dividingBy: 360)
         let ink = min(max(saturation, seriesFloor), seriesCeiling) * scale
 
         // La luminance croît avec la clarté à teinte et saturation fixes :
@@ -628,38 +639,69 @@ extension Palette {
          * répartition) prend les rangs 0, 2 et 4, écartés de 72° et de deux
          * crans de clarté.
          */
-        if EdInks.selected == .gradient {
-            base.series = editorialSeries(from: ink)
-        }
+        /*
+         * Les DEUX modes en descendent, et c'est la correction du build 586.
+         *
+         * « Palette » livrait la roue fixe : trente pastilles au-dessus d'un
+         * mode qui les ignorait. Le mot ne voulait pourtant rien dire d'autre
+         * qu'une palette de couleurs — des teintes qui vont ensemble parce
+         * qu'elles sont parentes. Les deux modes font donc le même travail,
+         * les huit encres des cartes, à partir du même accent ; ils diffèrent
+         * par la PARENTÉ qu'ils en tirent : voisines pour l'une, une seule
+         * diluée pour l'autre.
+         */
+        base.series = EdInks.selected == .gradient
+            ? editorialRamp(from: ink)
+            : editorialFan(from: ink)
         return base
     }
 
-    /// Les huit encres catégorielles d'Éditorial, déduites de l'accent.
-    ///
-    /// Les clartés de base (0,41 en clair, 0,68 en sombre) sont celles que la
-    /// roue fixe portait avant : une encre doit rester assez foncée pour tenir
-    /// du blanc sur du papier, et assez claire pour se détacher du noir.
-    private static func editorialSeries(from ink: Tone) -> [Tone] {
-        /*
-         * Une seule teinte, huit dilutions — du presque-noir au lavis.
-         *
-         * Deux tentatives ont fait tourner la teinte autour de l'accent,
-         * d'abord de ±64° puis de ±24°, pour garder huit couleurs
-         * distinguables comme le faisait la roue fixe. Les deux ont donné
-         * la même chose en plus ou moins fort : des couleurs voisines mais
-         * différentes, donc un assortiment. Ce n'est pas ce qu'on veut.
-         *
-         * Ce qu'on veut, c'est UNE encre. Rouge vers blanc, bleu vers
-         * blanc : la teinte ne bouge pas d'un degré, seule la dilution
-         * change — la luminance d'abord, de 0,04 à 0,41 en clair, soit un
-         * rapport de dix, et la saturation avec elle, parce qu'une encre
-         * diluée perd sa chroma en même temps que sa densité.
-         *
-         * Ce qu'on paie : deux rangs voisins sont plus proches qu'avec huit
-         * teintes distinctes. C'est le prix d'un dégradé, et il est juste —
-         * chaque carte porte son nom, et la barre de répartition prend les
-         * rangs 0, 2 et 4, soit trois crans sur huit.
-         */
+    /*
+     * Palette : huit couleurs VOISINES, de la même famille.
+     *
+     * Un éventail de ±24° autour de l'accent — pas plus. Un premier jet
+     * ouvrait à ±64° à pleine saturation : un olive contre un magenta, un
+     * vert pomme contre une brique. Ça ne faisait pas une famille, ça faisait
+     * une boîte de crayons. Ici c'est la VALEUR qui sépare les rangs, pas
+     * l'angle : la luminance va de 0,054 à 0,216 en clair, un rapport de
+     * quatre entre la plus profonde et la plus douce, et les teintes restent
+     * assez proches pour se reconnaître comme parentes.
+     */
+    private static func editorialFan(from ink: Tone) -> [Tone] {
+        // Angle, saturation, et de combien le rang s'éclaircit ou s'assombrit.
+        let fan: [(turn: Double, ink: Double, lift: Double)] = [
+            (0, 1.00, 0.00),
+            (19, 0.78, 0.70),
+            (-19, 0.90, -0.60),
+            (10, 0.64, 1.00),
+            (-10, 0.96, -0.95),
+            (24, 0.82, 0.32),
+            (-24, 0.70, -0.28),
+            (-11, 0.58, 0.92),
+        ]
+        return fan.map { step in
+            ink.spun(hue: step.turn,
+                     saturation: step.ink,
+                     light: 0.135 * (1 + step.lift * 0.60),
+                     dark: 0.44 * (1 + step.lift * 0.26))
+        }
+    }
+
+    /*
+     * Dégradé : UNE encre, huit dilutions — du presque-noir au lavis.
+     *
+     * Rouge vers blanc, bleu vers
+     * blanc : la teinte ne bouge pas d'un degré, seule la dilution change —
+     * la luminance d'abord, de 0,04 à 0,41 en clair, soit un rapport de dix,
+     * et la saturation avec elle, parce qu'une encre diluée perd sa chroma en
+     * même temps que sa densité.
+     *
+     * Ce qu'on paie : deux rangs voisins sont plus proches qu'avec huit
+     * teintes distinctes. C'est le prix d'un dégradé, et il est juste — chaque
+     * carte porte son nom, et la barre de répartition prend les rangs 0, 2 et
+     * 4, soit trois crans sur huit.
+     */
+    private static func editorialRamp(from ink: Tone) -> [Tone] {
         // Saturation, luminance en clair, luminance en sombre. La teinte,
         // elle, ne bouge pas d'un degré.
         let ramp: [(ink: Double, light: Double, dark: Double)] = [

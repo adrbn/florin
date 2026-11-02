@@ -62,8 +62,6 @@ struct EditorialHome: View {
     /// `EdHomeLift`.
     @State private var lift: CGFloat = 0
     @Environment(\.scenePhase) private var scenePhase
-    @Environment(\.colorScheme) private var scheme
-    @AppStorage("florin.appearance") private var appearanceRaw = Appearance.dark.rawValue
     @AppStorage(Greeting.key) private var firstName = ""
 
     private var t: Strings { model.overview?.t ?? .empty }
@@ -340,34 +338,6 @@ struct EditorialHome: View {
                     Task { await model.sync(confirmCurrent: false) }
                 }
                 .disabled(model.syncing || !(model.overview?.bankSyncConfigured ?? false))
-                /*
-                 * Jour ou nuit, sans passer par les réglages.
-                 *
-                 * C'est le seul réglage qu'on change pour une raison qui n'a
-                 * rien à voir avec l'app — le soleil est entré dans la pièce —
-                 * et donc plusieurs fois par jour. Trois tapes jusqu'à
-                 * « Apparence » pour ça, c'est deux de trop.
-                 *
-                 * Le bouton montre OÙ IL VA, pas où l'on est : un soleil sur
-                 * fond sombre. L'inverse se lit comme un état affiché, et on
-                 * tape alors pour revenir à ce qu'on a déjà.
-                 *
-                 * Il écrit « clair » ou « sombre », jamais « système » : sur
-                 * ce réglage-là, repartir de ce que l'écran montre est la
-                 * seule lecture qui ne surprenne pas — en « système » à la
-                 * tombée du jour, un bouton qui rend la main à l'OS ne
-                 * changerait rien de visible.
-                 */
-                EdIconButton(
-                    symbol: scheme == .dark ? "sun.max" : "moon",
-                    label: scheme == .dark
-                        ? t("v2.settings.theme.light", "Clair")
-                        : t("v2.settings.theme.dark", "Sombre")
-                ) {
-                    appearanceRaw = scheme == .dark
-                        ? Appearance.light.rawValue
-                        : Appearance.dark.rawValue
-                }
                 EdIconButton(
                     symbol: Ed.settingsSymbol,
                     label: t("v2.settings.title", "Réglages"),
