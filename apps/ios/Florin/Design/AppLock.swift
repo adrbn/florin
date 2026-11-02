@@ -153,46 +153,33 @@ final class AppLock: ObservableObject {
 /*
  * Le rideau : la pièce, et rien.
  *
- * Il y avait un titre et un bouton. Le titre disait « Florin est
- * verrouillé » à quelqu'un qui voit déjà l'invite Face ID du système
- * par-dessus, et le bouton réclamait un geste pour ce qui part tout seul à
- * l'apparition comme au retour au premier plan. Un cadenas fermé dit la même
- * chose sans mot, dans les neuf langues.
+ * Pas de titre : il disait « Florin est verrouillé » à quelqu'un qui voit
+ * déjà l'invite Face ID du système par-dessus. Pas de bouton non plus — il
+ * n'apparaissait qu'en cas d'échec, et son apparition POUSSAIT la pièce vers
+ * le haut : le seul objet de l'écran changeait de place au moment où il
+ * fallait le regarder.
  *
- * Le bouton revient quand le visage n'est PAS passé — là, il y a vraiment
- * quelque chose à faire, et aucune invite à l'écran pour le dire.
+ * L'issue de secours est l'écran lui-même : une invite refusée ou ratée se
+ * redemande d'une touche n'importe où. Rien à lire, rien qui bouge.
  */
 struct LockScreen: View {
     @ObservedObject var lock = AppLock.shared
-
-    private var unlockLabel: String {
-        AppLock.biometryName.map {
-            Strings.device("v2.lock.unlockWith", "Déverrouiller avec {method}", ["method": $0])
-        } ?? Strings.device("v2.lock.unlock", "Déverrouiller")
-    }
 
     var body: some View {
         ZStack {
             Backdrop(tint: TabRoute.overview.tint).ignoresSafeArea()
 
-            VStack(spacing: 24) {
-                CoinLock(open: lock.opened, side: 64)
-                    .accessibilityLabel(
-                        Strings.device("v2.lock.title", "Florin est verrouillé")
-                    )
-
-                if lock.failure != nil {
-                    Button {
-                        Task { await lock.unlock() }
-                    } label: {
-                        Text(unlockLabel)
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundStyle(Florin.text)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
+            CoinLock(open: lock.opened, side: 64)
+                .accessibilityLabel(
+                    Strings.device("v2.lock.title", "Florin est verrouillé")
+                )
+                .accessibilityAddTraits(.isButton)
+                .accessibilityHint(
+                    Strings.device("v2.lock.retry", "Toucher pour réessayer")
+                )
         }
+        .contentShape(Rectangle())
+        .onTapGesture { Task { await lock.unlock() } }
         .task { await lock.unlock() }
     }
 }
@@ -218,14 +205,29 @@ struct CoinLock: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Ce qui dépasse au-dessus de la pièce, et ce qui s'enfonce dedans.
-    private var rise: CGFloat { side * 0.42 }
+    /// L'arc occupe à lui seul 0,27 : au-dessus de la pièce il ne reste donc
+    /// qu'un cheveu de patte droite, et c'est voulu — plus longues, elles
+    /// faisaient un cadenas de vestiaire posé sur la pièce.
+    private var rise: CGFloat { side * 0.32 }
     private var plunge: CGFloat { side * 0.22 }
+
+    /// L'or de la pièce, relevé sur son axe vertical : le liseré du haut,
+    /// le plein du champ, l'ombre du bas. Une anse noire à côté d'un métal
+    /// rendu en volume ressemblait à un pictogramme collé dessus.
+    private static let metal = LinearGradient(
+        colors: [
+            Color(red: 0.969, green: 0.929, blue: 0.584),
+            Color(red: 0.957, green: 0.863, blue: 0.561),
+            Color(red: 0.659, green: 0.486, blue: 0.184),
+        ],
+        startPoint: .top, endPoint: .bottom
+    )
 
     var body: some View {
         ZStack(alignment: .bottom) {
             Shackle()
                 .stroke(
-                    Florin.text,
+                    Self.metal,
                     style: StrokeStyle(lineWidth: side * 0.075, lineCap: .round)
                 )
                 .frame(width: side * 0.54, height: rise + plunge)
