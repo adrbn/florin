@@ -244,6 +244,16 @@ struct CoinLock: View {
         // L'anse déborde vers le haut sans peser sur la mise en page : on lui
         // réserve la place ici, sinon elle vient se poser sur le titre.
         .frame(width: side, height: side + rise, alignment: .bottom)
+        /*
+         * Aplati AVANT le fondu de sortie.
+         *
+         * Une opacité posée sur un conteneur s'applique à chaque calque, pas
+         * à l'image qu'ils forment : à mi-fondu, la pièce devenue translucide
+         * laissait voir les pattes cachées derrière elle, et l'anse semblait
+         * passer par-dessus au tout dernier moment. Groupés, les deux calques
+         * sont composés d'abord et le fondu ne porte plus que sur le résultat.
+         */
+        .compositingGroup()
     }
 }
 
