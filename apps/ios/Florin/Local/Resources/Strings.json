@@ -927,7 +927,12 @@
     "v2.settings.inks.palette": "Palette",
     "v2.settings.inks.gradient": "Gradient",
     "v2.settings.inks.paletteHint": "The cards take eight colours in harmony with the chosen one.",
-    "v2.settings.inks.gradientHint": "The cards take eight shades of the colour you picked."
+    "v2.settings.inks.gradientHint": "The cards take eight shades of the colour you picked.",
+    "v2.siri.left": "You have {amount} left to spend this month.",
+    "v2.siri.over": "You are {amount} over for this month.",
+    "v2.siri.worth": "Your net worth is {amount}.",
+    "v2.siri.noLedger": "Florin could not open your ledger.",
+    "v2.siri.serverMode": "Florin is reading a server — open the app to see your figures."
   },
   "fr": {
     "v2.a11y.back": "Retour",
@@ -1857,7 +1862,12 @@
     "v2.settings.inks.palette": "Palette",
     "v2.settings.inks.gradient": "Dégradé",
     "v2.settings.inks.paletteHint": "Les cartes prennent huit couleurs en accord avec celle choisie.",
-    "v2.settings.inks.gradientHint": "Les cartes prennent huit nuances de la couleur choisie."
+    "v2.settings.inks.gradientHint": "Les cartes prennent huit nuances de la couleur choisie.",
+    "v2.siri.left": "Il vous reste {amount} à dépenser ce mois-ci.",
+    "v2.siri.over": "Vous avez dépassé de {amount} ce mois-ci.",
+    "v2.siri.worth": "Votre patrimoine est de {amount}.",
+    "v2.siri.noLedger": "Florin n'a pas pu ouvrir votre grand livre.",
+    "v2.siri.serverMode": "Florin lit un serveur : ouvrez l'app pour voir vos chiffres."
   },
   "nl": {
     "v2.a11y.back": "Terug",
@@ -2787,7 +2797,12 @@
     "v2.settings.inks.palette": "Palet",
     "v2.settings.inks.gradient": "Verloop",
     "v2.settings.inks.paletteHint": "De kaarten nemen acht kleuren die bij de gekozen kleur passen.",
-    "v2.settings.inks.gradientHint": "De kaarten krijgen acht tinten van de gekozen kleur."
+    "v2.settings.inks.gradientHint": "De kaarten krijgen acht tinten van de gekozen kleur.",
+    "v2.siri.left": "U hebt deze maand nog {amount} te besteden.",
+    "v2.siri.over": "U zit deze maand {amount} boven uw plafond.",
+    "v2.siri.worth": "Uw vermogen is {amount}.",
+    "v2.siri.noLedger": "Florin kon uw grootboek niet openen.",
+    "v2.siri.serverMode": "Florin leest een server — open de app om uw cijfers te zien."
   },
   "it": {
     "v2.a11y.back": "Indietro",
@@ -3717,7 +3732,12 @@
     "v2.settings.inks.palette": "Tavolozza",
     "v2.settings.inks.gradient": "Sfumatura",
     "v2.settings.inks.paletteHint": "Le schede prendono otto colori in armonia con quello scelto.",
-    "v2.settings.inks.gradientHint": "Le schede prendono otto sfumature del colore scelto."
+    "v2.settings.inks.gradientHint": "Le schede prendono otto sfumature del colore scelto.",
+    "v2.siri.left": "Ti restano {amount} da spendere questo mese.",
+    "v2.siri.over": "Hai superato di {amount} questo mese.",
+    "v2.siri.worth": "Il tuo patrimonio è di {amount}.",
+    "v2.siri.noLedger": "Florin non è riuscito ad aprire il tuo registro.",
+    "v2.siri.serverMode": "Florin legge un server: apri l'app per vedere i tuoi dati."
   },
   "es": {
     "v2.a11y.back": "Atrás",
@@ -4647,7 +4667,12 @@
     "v2.settings.inks.palette": "Paleta",
     "v2.settings.inks.gradient": "Degradado",
     "v2.settings.inks.paletteHint": "Las tarjetas toman ocho colores en armonía con el elegido.",
-    "v2.settings.inks.gradientHint": "Las tarjetas toman ocho tonos del color elegido."
+    "v2.settings.inks.gradientHint": "Las tarjetas toman ocho tonos del color elegido.",
+    "v2.siri.left": "Te quedan {amount} para gastar este mes.",
+    "v2.siri.over": "Te has pasado {amount} este mes.",
+    "v2.siri.worth": "Tu patrimonio es de {amount}.",
+    "v2.siri.noLedger": "Florin no ha podido abrir tu libro.",
+    "v2.siri.serverMode": "Florin lee un servidor: abre la app para ver tus cifras."
   },
   "ca": {
     "v2.a11y.back": "Enrere",
@@ -5577,7 +5602,12 @@
     "v2.settings.inks.palette": "Paleta",
     "v2.settings.inks.gradient": "Degradat",
     "v2.settings.inks.paletteHint": "Les targetes prenen vuit colors en harmonia amb el triat.",
-    "v2.settings.inks.gradientHint": "Les targetes prenen vuit tons del color triat."
+    "v2.settings.inks.gradientHint": "Les targetes prenen vuit tons del color triat.",
+    "v2.siri.left": "Et queden {amount} per gastar aquest mes.",
+    "v2.siri.over": "T'has passat {amount} aquest mes.",
+    "v2.siri.worth": "El teu patrimoni és de {amount}.",
+    "v2.siri.noLedger": "Florin no ha pogut obrir el teu llibre.",
+    "v2.siri.serverMode": "Florin llegeix un servidor: obre l'app per veure les teves xifres."
   },
   "de": {
     "v2.a11y.back": "Zurück",
@@ -6507,7 +6537,12 @@
     "v2.settings.inks.palette": "Palette",
     "v2.settings.inks.gradient": "Verlauf",
     "v2.settings.inks.paletteHint": "Die Karten nehmen acht Farben, die zur gewählten passen.",
-    "v2.settings.inks.gradientHint": "Die Karten nehmen acht Abstufungen der gewählten Farbe an."
+    "v2.settings.inks.gradientHint": "Die Karten nehmen acht Abstufungen der gewählten Farbe an.",
+    "v2.siri.left": "Diesen Monat bleiben Ihnen noch {amount}.",
+    "v2.siri.over": "Sie liegen diesen Monat {amount} darüber.",
+    "v2.siri.worth": "Ihr Vermögen beträgt {amount}.",
+    "v2.siri.noLedger": "Florin konnte Ihr Buch nicht öffnen.",
+    "v2.siri.serverMode": "Florin liest einen Server – öffnen Sie die App, um Ihre Zahlen zu sehen."
   },
   "pt": {
     "v2.a11y.back": "Voltar",
@@ -7437,7 +7472,12 @@
     "v2.settings.inks.palette": "Paleta",
     "v2.settings.inks.gradient": "Gradiente",
     "v2.settings.inks.paletteHint": "Os cartões tomam oito cores em harmonia com a escolhida.",
-    "v2.settings.inks.gradientHint": "Os cartões assumem oito tons da cor escolhida."
+    "v2.settings.inks.gradientHint": "Os cartões assumem oito tons da cor escolhida.",
+    "v2.siri.left": "Resta-lhe {amount} para gastar este mês.",
+    "v2.siri.over": "Ultrapassou em {amount} este mês.",
+    "v2.siri.worth": "O seu património é de {amount}.",
+    "v2.siri.noLedger": "O Florin não conseguiu abrir o seu livro.",
+    "v2.siri.serverMode": "O Florin lê um servidor — abra a app para ver os seus números."
   },
   "tr": {
     "v2.a11y.back": "Geri",
@@ -8367,6 +8407,11 @@
     "v2.settings.inks.palette": "Palet",
     "v2.settings.inks.gradient": "Geçiş",
     "v2.settings.inks.paletteHint": "Kartlar seçilen renkle uyumlu sekiz rengi alır.",
-    "v2.settings.inks.gradientHint": "Kartlar seçilen rengin sekiz tonunu alır."
+    "v2.settings.inks.gradientHint": "Kartlar seçilen rengin sekiz tonunu alır.",
+    "v2.siri.left": "Bu ay harcamak için {amount} kaldı.",
+    "v2.siri.over": "Bu ay {amount} aştınız.",
+    "v2.siri.worth": "Net varlığınız {amount}.",
+    "v2.siri.noLedger": "Florin defterinizi açamadı.",
+    "v2.siri.serverMode": "Florin bir sunucuyu okuyor — rakamlarınız için uygulamayı açın."
   }
 }

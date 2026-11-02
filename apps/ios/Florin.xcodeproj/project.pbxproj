@@ -43,6 +43,7 @@
 		28E4CC7F63FD56AA6F810744 /* FlorinApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 366071F020F6449805F3FCF1 /* FlorinApp.swift */; };
 		2CA9FDE0367C105AA8112F1F /* BankingSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41EE180075A0455B6DA27E90 /* BankingSync.swift */; };
 		2D3A287A5CAD7B268445E55E /* EnableBanking.swift in Sources */ = {isa = PBXBuildFile; fileRef = D88841043DF911CC3CBE4B95 /* EnableBanking.swift */; };
+		2EA20BBC3954CF3341306F3B /* AppShortcuts.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 08E1E7312527DD88B4912A08 /* AppShortcuts.xcstrings */; };
 		2ED83E4E75DB0DBEA0A037F4 /* LocalHoldings.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD8D00CFBF99A69C1BC612F8 /* LocalHoldings.swift */; };
 		302F4643CDA591613AD8B258 /* AmountText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75D28CE358FB2C14BF840725 /* AmountText.swift */; };
 		30EB900C687EDBBC94DEC3E7 /* DaySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CF1EDFEA6B96F300B0E16EC /* DaySheet.swift */; };
@@ -94,6 +95,7 @@
 		811A082056C43D09BFBAB1A5 /* Toast.swift in Sources */ = {isa = PBXBuildFile; fileRef = B70C1BD2212D9DC6EBE54B14 /* Toast.swift */; };
 		81FD555E5E6D1971BE3D29D8 /* MerchantNames.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3387D3C48B7DDAE07F4F27A /* MerchantNames.swift */; };
 		833382220CDAC9A9C278D1CF /* WalletGuideSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = DACD180DD215EA3B81655A72 /* WalletGuideSheet.swift */; };
+		84549BADF8092622873D605D /* FlorinShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15F057B806DAB14F74D3237A /* FlorinShortcuts.swift */; };
 		899EA5BAEDF756101D5425F6 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C815B4671E296193268EC13 /* WidgetSnapshot.swift */; };
 		8AA369E3069804A986597C94 /* RecordPaymentIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 541D3A0530EEE314419A9990 /* RecordPaymentIntent.swift */; };
 		8B043232F67805B4D6D0C40E /* LocalWrites.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE123F70898FE546A5D1ACE0 /* LocalWrites.swift */; };
@@ -123,6 +125,7 @@
 		B152DE26315C421734CB76D7 /* MovementSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66F1D402B59275D5B9FBD544 /* MovementSheet.swift */; };
 		B15C51D77EA7FE29F5EA552D /* NetWorthChart.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71F6A5D199B6FCCED78975D2 /* NetWorthChart.swift */; };
 		B1F7409E9F8A438D53F8EED1 /* LocalReceipts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94C8931D8663F16A85C6CBED /* LocalReceipts.swift */; };
+		B2389F4454A7CE57D6555EF6 /* AskIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1AE60BAF867AE09C90490EA /* AskIntents.swift */; };
 		B7865848DCF5CB5807AE1B58 /* ActivityModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9A820FC9213E4493C163519 /* ActivityModel.swift */; };
 		BC3FB0255CBA4207B6992527 /* DataSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB92AC9E5814FF0A7879214E /* DataSource.swift */; };
 		BFA47E4D7AF9314C5E8EA77E /* Appearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84BAB9F84D78CB4801400265 /* Appearance.swift */; };
@@ -199,10 +202,12 @@
 		00E74566417801045AB5E9C7 /* SettingsKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsKit.swift; sourceTree = "<group>"; };
 		053C4FF9EB60FEF2D22C6F7A /* Privacy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Privacy.swift; sourceTree = "<group>"; };
 		06123341C48B7130B314E0C1 /* LedgerUnavailable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LedgerUnavailable.swift; sourceTree = "<group>"; };
+		08E1E7312527DD88B4912A08 /* AppShortcuts.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = AppShortcuts.xcstrings; sourceTree = "<group>"; };
 		0D4A3DFFE4F3A4DCC92464BA /* Palette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Palette.swift; sourceTree = "<group>"; };
 		0E01B8AD2CC1890283839B9C /* ServerFields.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerFields.swift; sourceTree = "<group>"; };
 		1030F4E939DD8352B6EC5322 /* BankLogo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankLogo.swift; sourceTree = "<group>"; };
 		10D904FFFE7E0B55E4CE28DD /* SnapshotCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotCache.swift; sourceTree = "<group>"; };
+		15F057B806DAB14F74D3237A /* FlorinShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlorinShortcuts.swift; sourceTree = "<group>"; };
 		1716DE308068FD596619F829 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		17413DF3E29956C6F6A5B5CA /* CalendarFilterSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarFilterSheet.swift; sourceTree = "<group>"; };
 		18030E300AC0E1F0F5D92D52 /* MerchantNameSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MerchantNameSheet.swift; sourceTree = "<group>"; };
@@ -323,6 +328,7 @@
 		CDF4A709768A421F61F9223E /* TransactionDetailSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionDetailSheet.swift; sourceTree = "<group>"; };
 		CF76048AF929B992877341B9 /* SyncLogScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncLogScreen.swift; sourceTree = "<group>"; };
 		D01218C78CF2722622A51E5B /* Brand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Brand.swift; sourceTree = "<group>"; };
+		D1AE60BAF867AE09C90490EA /* AskIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AskIntents.swift; sourceTree = "<group>"; };
 		D1D62499D2405CFC7C953ABE /* BackgroundRefresh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundRefresh.swift; sourceTree = "<group>"; };
 		D3537C37632DE19D250D9675 /* EditorialMonth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorialMonth.swift; sourceTree = "<group>"; };
 		D369E2149BEF0B494A2B5467 /* TrueDate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrueDate.swift; sourceTree = "<group>"; };
@@ -531,6 +537,9 @@
 		9CD4BAB11FA3A8521D6C32E5 /* Intents */ = {
 			isa = PBXGroup;
 			children = (
+				08E1E7312527DD88B4912A08 /* AppShortcuts.xcstrings */,
+				D1AE60BAF867AE09C90490EA /* AskIntents.swift */,
+				15F057B806DAB14F74D3237A /* FlorinShortcuts.swift */,
 				20032485ADB9B3A5B1DD7938 /* Intents.xcstrings */,
 				541D3A0530EEE314419A9990 /* RecordPaymentIntent.swift */,
 			);
@@ -727,6 +736,7 @@
 				it,
 				nl,
 				pt,
+				tr,
 			);
 			mainGroup = D5734BF55873B642C290FFB5;
 			minimizedProjectReferenceProxies = 1;
@@ -754,6 +764,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2EA20BBC3954CF3341306F3B /* AppShortcuts.xcstrings in Resources */,
 				FD311ECCF233E41D8ECAB568 /* Assets.xcassets in Resources */,
 				A72703AD04324329F7E13BAD /* Intents.xcstrings in Resources */,
 				91C8FCE17A967B54AF404D1A /* SeedCategories.json in Resources */,
@@ -780,6 +791,7 @@
 				F695F96F5A1961DD0A132CCE /* AnalysisScreen.swift in Sources */,
 				162512FDDD1ED76892717E8D /* AppLock.swift in Sources */,
 				BFA47E4D7AF9314C5E8EA77E /* Appearance.swift in Sources */,
+				B2389F4454A7CE57D6555EF6 /* AskIntents.swift in Sources */,
 				D87635608BCCB448BAF63048 /* AssetSearch.swift in Sources */,
 				95AB81592F044A129E9D1CD3 /* AssetSearchSheet.swift in Sources */,
 				FB68C376EEC17B22E8F62093 /* AttachTransferSheet.swift in Sources */,
@@ -818,6 +830,7 @@
 				28E4CC7F63FD56AA6F810744 /* FlorinApp.swift in Sources */,
 				AC5803FD0059E042429D5E3A /* FlorinAuth.swift in Sources */,
 				22CDB53123C3C03EEA6F09DD /* FlorinClient.swift in Sources */,
+				84549BADF8092622873D605D /* FlorinShortcuts.swift in Sources */,
 				F80BE67161104F3EA7D27367 /* HoldingEditSheet.swift in Sources */,
 				FA55A2CEC466764B71564E65 /* HomeCardsSheet.swift in Sources */,
 				13F221008AC2C8208BE2C62F /* ImportSheet.swift in Sources */,
@@ -957,7 +970,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Florin/Florin.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 589;
+				CURRENT_PROJECT_VERSION = 590;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Florin/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;
@@ -978,7 +991,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = FlorinWidgets/FlorinWidgets.entitlements;
-				CURRENT_PROJECT_VERSION = 589;
+				CURRENT_PROJECT_VERSION = 590;
 				INFOPLIST_FILE = FlorinWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1083,7 +1096,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = FlorinWidgets/FlorinWidgets.entitlements;
-				CURRENT_PROJECT_VERSION = 589;
+				CURRENT_PROJECT_VERSION = 590;
 				INFOPLIST_FILE = FlorinWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1166,7 +1179,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Florin/Florin.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 589;
+				CURRENT_PROJECT_VERSION = 590;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Florin/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;
