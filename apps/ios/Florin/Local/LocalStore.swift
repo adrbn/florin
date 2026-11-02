@@ -44,6 +44,27 @@ final class LocalStore {
         }
     }
 
+    /*
+     * Le VRAI grand livre, même quand c'est la démonstration qui est à l'écran.
+     *
+     * Une carte présentée à la caisse est du vrai argent. Les trois chemins de
+     * `LocalWallet` écrivaient dans `shared`, c'est-à-dire dans le fichier
+     * AFFICHÉ : montrer l'app à quelqu'un pendant qu'on paie posait le
+     * paiement dans le grand livre inventé — invisible dans le vrai, et
+     * mélangé à de fausses lignes dans l'autre. Le mode démonstration décide
+     * ce qu'on REGARDE, pas où l'argent s'écrit.
+     *
+     * Hors démonstration c'est `shared`, à l'identique. En démonstration c'est
+     * une connexion neuve sur `florin.db`, ouverte pour l'occasion et pas
+     * gardée : le cas est rare, et deux fichiers ouverts en permanence
+     * seraient deux fois plus de choses à ne pas confondre. Elle n'est donc
+     * lue qu'UNE fois par chemin — chaque lecture ouvre et migre.
+     */
+    static var realLedger: LocalStore? {
+        guard LocalDemo.showcase else { return shared }
+        return try? LocalStore(url: defaultURL(showcase: false))
+    }
+
     /// Pourquoi la dernière ouverture a échoué — pour l'écran qui doit le dire
     /// plutôt que de faire comme s'il n'y avait rien.
     private(set) nonisolated(unsafe) static var lastFailure: Error?
@@ -94,7 +115,7 @@ final class LocalStore {
     /// Documents is user-visible in Files and gets backed up as documents; a
     /// database is neither. Application Support is where a private store
     /// belongs, and it is the same choice the desktop build makes.
-    private static func defaultURL() throws -> URL {
+    private static func defaultURL(showcase: Bool = LocalDemo.showcase) throws -> URL {
         let base = try FileManager.default.url(
             for: .applicationSupportDirectory,
             in: .userDomainMask,
@@ -114,7 +135,7 @@ final class LocalStore {
           * l'effacement du grand livre.
           */
          var file = folder.appendingPathComponent(
-             LocalDemo.showcase ? "florin-demo.db" : "florin.db"
+             showcase ? "florin-demo.db" : "florin.db"
          )
         /*
          * Backed up. The reasoning that excluded it has expired.
@@ -136,7 +157,7 @@ final class LocalStore {
         var values = URLResourceValues()
         // Le grand livre inventé ne vaut pas la peine d'être sauvegardé : il
         // se régénère en une seconde à partir de sa graine.
-        values.isExcludedFromBackup = LocalDemo.showcase
+        values.isExcludedFromBackup = showcase
         try? file.setResourceValues(values)
         return file
     }
@@ -650,13 +671,20 @@ extension LocalStore {
              */
             // Les paiements que Wallet a présentés pendant que la base était
             // fermée : repris avant tout le reste, puisque la suite les apparie.
-            let resumed = WalletQueue.drain(store: store)
-            if resumed > 0 {
-                log.notice("resumed \(resumed, privacy: .public) payments held while closed")
+            // `realLedger` et non `store` : un paiement de Wallet s'écrit dans
+            // le vrai fichier même si la démonstration est à l'écran. Rien
+            // n'est repris si ce fichier ne s'ouvre pas — la file et le
+            // fichier de l'automatisation attendent alors le lancement
+            // suivant, plutôt que d'être vidés dans le vide.
+            if let wallet = Self.realLedger {
+                let resumed = WalletQueue.drain(store: wallet)
+                if resumed > 0 {
+                    log.notice("resumed \(resumed, privacy: .public) payments held while closed")
+                }
+                // Puis le filet : ce que l'automatisation a écrit elle-même, pour
+                // les fois où l'action de Florin n'a pas été appelée du tout.
+                WalletInbox.drain(store: wallet)
             }
-            // Puis le filet : ce que l'automatisation a écrit elle-même, pour
-            // les fois où l'action de Florin n'a pas été appelée du tout.
-            WalletInbox.drain(store: store)
             WalletInbox.ensureExists()
 
             // A duplicate left by an earlier build outlives the sync that

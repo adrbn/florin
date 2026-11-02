@@ -47,15 +47,26 @@ struct RecordPaymentIntent: AppIntent {
          * un paiement d'entrer, d'où le magasin optionnel et les écritures qui
          * ne jettent pas.
          */
-        let attempt = LocalStore.shared.map {
+        /*
+         * Résolu UNE fois, et pas `LocalStore.shared`.
+         *
+         * Le mode démonstration ouvre un autre fichier, et `shared` rend
+         * celui-là : un paiement passé à la caisse pendant une démonstration
+         * atterrissait dans le grand livre inventé. Il s'écrit dans le vrai —
+         * et le journal avec lui, sans quoi la tentative serait constatée dans
+         * une base et la ligne dans l'autre. Une fois, parce qu'en
+         * démonstration chaque lecture de `realLedger` ouvre et migre.
+         */
+        let ledger = LocalStore.realLedger
+        let attempt = ledger.map {
             WalletLog.begin(store: $0, amountText: amount, merchant: merchant, card: card)
         }
         func close(_ outcome: WalletLog.Outcome, _ detail: String? = nil) {
-            guard let store = LocalStore.shared, let attempt else { return }
-            WalletLog.finish(store: store, id: attempt, outcome: outcome, detail: detail)
+            guard let ledger, let attempt else { return }
+            WalletLog.finish(store: ledger, id: attempt, outcome: outcome, detail: detail)
         }
         do {
-            let done = try await record()
+            let done = try await record(into: ledger)
             close(.recorded)
             return done
         } catch {
@@ -79,7 +90,7 @@ struct RecordPaymentIntent: AppIntent {
         }
     }
 
-    private func record() async throws -> some IntentResult & ReturnsValue<String> & ProvidesDialog {
+    private func record(into ledger: LocalStore?) async throws -> some IntentResult & ReturnsValue<String> & ProvidesDialog {
         // Against a server the ledger on screen is the server's; a row written
         // on the phone would be invisible there.
         if UserDefaults.standard.string(forKey: "florin.dataSource") == DataSource.server.rawValue {
@@ -95,7 +106,7 @@ struct RecordPaymentIntent: AppIntent {
          * où les réglages tiennent debout, et la prochaine ouverture le
          * reprend à l'heure de la carte.
          */
-        guard let store = LocalStore.shared else {
+        guard let store = ledger else {
             WalletQueue.hold(amountText: amount, merchant: merchant, card: card)
             let held = Strings.device(
                 "v2.wallet.heldBody", "{merchant} — ajouté à la prochaine ouverture de Florin",

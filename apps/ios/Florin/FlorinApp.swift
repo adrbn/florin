@@ -110,7 +110,9 @@ struct FlorinApp: App {
             if phase == .active {
                 Task {
                     await LocalStore.settled()
-                    if let store = LocalStore.shared { WalletInbox.drain(store: store) }
+                    // Le vrai grand livre, pas celui qui est à l'écran : voir
+                    // `LocalStore.realLedger`.
+                    if let store = LocalStore.realLedger { WalletInbox.drain(store: store) }
                 }
             }
             // Leaving the foreground is the moment a backup is most likely to

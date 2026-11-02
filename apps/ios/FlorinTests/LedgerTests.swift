@@ -1891,6 +1891,34 @@ struct DemoLedgerTests {
         #expect(try count(store, "SELECT count(*) FROM categories") == categories)
         #expect(!LocalDemo.isActive(in: store))
     }
+
+    /*
+     * Payer pendant une démonstration n'écrit pas dans la démonstration.
+     *
+     * Un vrai paiement s'est retrouvé parmi les fausses lignes : les chemins
+     * de Wallet prenaient `LocalStore.shared`, qui est le fichier AFFICHÉ.
+     * C'est le seul endroit de l'app où le fichier à ouvrir ne suit pas ce
+     * qu'on regarde, donc le seul à vérifier.
+     */
+    @Test("un paiement de Wallet va dans le vrai fichier, pas dans la démonstration")
+    func walletKeepsToTheRealLedger() throws {
+        let key = "florin.demoLedger"
+        let was = UserDefaults.standard.bool(forKey: key)
+        defer {
+            UserDefaults.standard.set(was, forKey: key)
+            LocalStore.forget()
+        }
+
+        UserDefaults.standard.set(true, forKey: key)
+        LocalStore.forget()
+        #expect(LocalStore.shared?.url.lastPathComponent == "florin-demo.db")
+        #expect(LocalStore.realLedger?.url.lastPathComponent == "florin.db")
+
+        UserDefaults.standard.set(false, forKey: key)
+        LocalStore.forget()
+        // Hors démonstration, c'est la même connexion : rien n'est ouvert deux fois.
+        #expect(LocalStore.realLedger === LocalStore.shared)
+    }
 }
 
 // MARK: - Month names
