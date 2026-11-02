@@ -94,7 +94,6 @@ struct Tone {
         _ band: ClosedRange<Double>
     ) -> UInt32 {
         let (base, saturation, _) = hsl(rgb)
-        let hue = (base + turn).truncatingRemainder(dividingBy: 360)
         let ink = min(max(saturation, band.lowerBound), band.upperBound) * scale
 
         // La luminance croît avec la clarté à teinte et saturation fixes :
@@ -104,7 +103,7 @@ struct Tone {
         var packed: UInt32 = 0
         for _ in 0 ..< 14 {
             let middle = (low + high) / 2
-            packed = pack(hue: hue, saturation: ink, lightness: middle)
+            packed = pack(hue: base + turn, saturation: ink, lightness: middle)
             if luminance(packed) < target { low = middle } else { high = middle }
         }
         return packed
@@ -138,8 +137,25 @@ struct Tone {
     }
 
     private static func pack(hue: Double, saturation: Double, lightness: Double) -> UInt32 {
+        /*
+         * La teinte ramenée dans le tour AVANT tout le reste.
+         *
+         * Le reste de cette fonction indexe une table par sixième de roue, et
+         * la table n'a pas de rang négatif. Quand `dilute` s'est mis à tourner
+         * la teinte, les rotations négatives sont sorties sous zéro — pour un
+         * accent à 42°, −150° donne −108° — et `Int(-1,8) % 6` vaut −1 en
+         * Swift : le `switch` tombait dans `default`, où `second` valait
+         * −0,8 × chroma, rogné à zéro juste après. Soit (chroma, 0, 0) : un
+         * ROUGE PUR, saturation 1,00, à la place de la couleur demandée.
+         *
+         * Deux rangs de l'accord sur huit, donc deux cartes de l'accueil
+         * rouge vif pendant que les six autres suivaient l'accent. C'est ici
+         * que ça se répare, pas chez l'appelant : la table est à cette
+         * fonction, l'invariant qu'elle suppose lui appartient aussi.
+         */
+        let turn = hue.truncatingRemainder(dividingBy: 360)
         let chroma = (1 - abs(2 * lightness - 1)) * saturation
-        let sector = hue / 60
+        let sector = (turn < 0 ? turn + 360 : turn) / 60
         let second = chroma * (1 - abs(sector.truncatingRemainder(dividingBy: 2) - 1))
         let lift = lightness - chroma / 2
         let (red, green, blue): (Double, Double, Double)

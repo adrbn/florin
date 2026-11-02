@@ -157,7 +157,24 @@ def chord_spread(light: int, dark: int) -> float:
     return worst
 
 
+def dump() -> int:
+    """Les huit encres de l'accord, pour chaque accent, en clair.
+
+    Sert à `check-chord.sh`, qui compare cette table à celle que le VRAI
+    Palette.swift imprime une fois compilé. Un miroir qui diverge du Swift
+    ne garde rien : celui-ci écrivait `% 360`, toujours positif en Python,
+    quand Swift renvoyait un angle négatif et sortait un rouge pur.
+    """
+    for name, light, _ in accents(PALETTE.read_text(encoding="utf-8")):
+        inks = " ".join(f"{dilute(light, turn, scale, pale, CHORD_BAND):06X}"
+                        for turn, scale, pale, _ in FAN)
+        print(f"{name:11} {inks}")
+    return 0
+
+
 def main() -> int:
+    if "--dump" in sys.argv:
+        return dump()
     found = accents(PALETTE.read_text(encoding="utf-8"))
     if len(found) < 6:
         print(f"seulement {len(found)} accents lus — le format a changé ?")
