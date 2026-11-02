@@ -925,7 +925,9 @@
     "v2.ed.cards.color": "Colour",
     "v2.settings.inks": "Inks",
     "v2.settings.inks.palette": "Palette",
-    "v2.settings.inks.gradient": "Gradient"
+    "v2.settings.inks.gradient": "Gradient",
+    "v2.settings.inks.paletteHint": "The cards keep eight fixed colours; the accent only touches the buttons.",
+    "v2.settings.inks.gradientHint": "The cards take eight shades of the colour you picked."
   },
   "fr": {
     "v2.a11y.back": "Retour",
@@ -1853,7 +1855,9 @@
     "v2.ed.cards.color": "Couleur",
     "v2.settings.inks": "Encres",
     "v2.settings.inks.palette": "Palette",
-    "v2.settings.inks.gradient": "Dégradé"
+    "v2.settings.inks.gradient": "Dégradé",
+    "v2.settings.inks.paletteHint": "Les cartes gardent huit couleurs fixes ; l'accent ne touche que les boutons.",
+    "v2.settings.inks.gradientHint": "Les cartes prennent huit nuances de la couleur choisie."
   },
   "nl": {
     "v2.a11y.back": "Terug",
@@ -2781,7 +2785,9 @@
     "v2.ed.cards.color": "Kleur",
     "v2.settings.inks": "Inkten",
     "v2.settings.inks.palette": "Palet",
-    "v2.settings.inks.gradient": "Verloop"
+    "v2.settings.inks.gradient": "Verloop",
+    "v2.settings.inks.paletteHint": "De kaarten houden acht vaste kleuren; het accent raakt alleen de knoppen.",
+    "v2.settings.inks.gradientHint": "De kaarten krijgen acht tinten van de gekozen kleur."
   },
   "it": {
     "v2.a11y.back": "Indietro",
@@ -3709,7 +3715,9 @@
     "v2.ed.cards.color": "Colore",
     "v2.settings.inks": "Inchiostri",
     "v2.settings.inks.palette": "Tavolozza",
-    "v2.settings.inks.gradient": "Sfumatura"
+    "v2.settings.inks.gradient": "Sfumatura",
+    "v2.settings.inks.paletteHint": "Le schede mantengono otto colori fissi; l'accento tocca solo i pulsanti.",
+    "v2.settings.inks.gradientHint": "Le schede prendono otto sfumature del colore scelto."
   },
   "es": {
     "v2.a11y.back": "Atrás",
@@ -4637,7 +4645,9 @@
     "v2.ed.cards.color": "Color",
     "v2.settings.inks": "Tintas",
     "v2.settings.inks.palette": "Paleta",
-    "v2.settings.inks.gradient": "Degradado"
+    "v2.settings.inks.gradient": "Degradado",
+    "v2.settings.inks.paletteHint": "Las tarjetas mantienen ocho colores fijos; el acento solo afecta a los botones.",
+    "v2.settings.inks.gradientHint": "Las tarjetas toman ocho tonos del color elegido."
   },
   "ca": {
     "v2.a11y.back": "Enrere",
@@ -5565,7 +5575,9 @@
     "v2.ed.cards.color": "Color",
     "v2.settings.inks": "Tintes",
     "v2.settings.inks.palette": "Paleta",
-    "v2.settings.inks.gradient": "Degradat"
+    "v2.settings.inks.gradient": "Degradat",
+    "v2.settings.inks.paletteHint": "Les targetes mantenen vuit colors fixos; l'accent només afecta els botons.",
+    "v2.settings.inks.gradientHint": "Les targetes prenen vuit tons del color triat."
   },
   "de": {
     "v2.a11y.back": "Zurück",
@@ -6493,7 +6505,9 @@
     "v2.ed.cards.color": "Farbe",
     "v2.settings.inks": "Farben",
     "v2.settings.inks.palette": "Palette",
-    "v2.settings.inks.gradient": "Verlauf"
+    "v2.settings.inks.gradient": "Verlauf",
+    "v2.settings.inks.paletteHint": "Die Karten behalten acht feste Farben; der Akzent betrifft nur die Schaltflächen.",
+    "v2.settings.inks.gradientHint": "Die Karten nehmen acht Abstufungen der gewählten Farbe an."
   },
   "pt": {
     "v2.a11y.back": "Voltar",
@@ -7421,7 +7435,9 @@
     "v2.ed.cards.color": "Cor",
     "v2.settings.inks": "Tintas",
     "v2.settings.inks.palette": "Paleta",
-    "v2.settings.inks.gradient": "Gradiente"
+    "v2.settings.inks.gradient": "Gradiente",
+    "v2.settings.inks.paletteHint": "Os cartões mantêm oito cores fixas; o destaque só afeta os botões.",
+    "v2.settings.inks.gradientHint": "Os cartões assumem oito tons da cor escolhida."
   },
   "tr": {
     "v2.a11y.back": "Geri",
@@ -8349,6 +8365,8 @@
     "v2.ed.cards.color": "Renk",
     "v2.settings.inks": "Mürekkepler",
     "v2.settings.inks.palette": "Palet",
-    "v2.settings.inks.gradient": "Geçiş"
+    "v2.settings.inks.gradient": "Geçiş",
+    "v2.settings.inks.paletteHint": "Kartlar sekiz sabit rengi korur; vurgu yalnızca düğmeleri etkiler.",
+    "v2.settings.inks.gradientHint": "Kartlar seçilen rengin sekiz tonunu alır."
   }
 }

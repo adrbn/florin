@@ -822,6 +822,11 @@ struct SettingsScreen: View {
                     .padding(.trailing, 6)
                     .padding(.top, 12)
 
+                inksHint
+                    .padding(.leading, 33)
+                    .padding(.trailing, 6)
+                    .padding(.top, 6)
+
                 accentPreview
                     .padding(.leading, 33)
                     .padding(.trailing, 6)
@@ -862,6 +867,28 @@ struct SettingsScreen: View {
             }
             Spacer(minLength: 0)
         }
+    }
+
+    /*
+     * Ce que le mot « Palette » ne dit pas.
+     *
+     * La grille d'accents est juste au-dessus, donc on lit « Palette » comme
+     * « la palette que je viens de choisir » — et on attend que les cartes
+     * changent de couleur. Elles ne changent pas : en palette, les huit
+     * encres sont un jeu FIXE, et l'accent ne touche que les boutons. Les
+     * deux mots nomment la forme du jeu (plusieurs couleurs / une seule
+     * déclinée), pas qui le décide. Une ligne le dit, plutôt que de laisser
+     * trente pastilles promettre ce qu'un mode ne fait pas.
+     */
+    private var inksHint: some View {
+        Text(EdInks.selected == .gradient
+            ? t("v2.settings.inks.gradientHint",
+                "Les cartes prennent huit nuances de la couleur choisie.")
+            : t("v2.settings.inks.paletteHint",
+                "Les cartes gardent huit couleurs fixes ; l'accent ne touche que les boutons."))
+            .font(.system(size: 12.5))
+            .foregroundStyle(Florin.text3)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     private func inkName(_ choice: EdInks) -> String {
