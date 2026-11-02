@@ -25,6 +25,9 @@ final class AppLock: ObservableObject {
     /// Set when a prompt fails or is dismissed, so the screen can offer another
     /// go rather than sit there blank.
     @Published private(set) var failure: String?
+    /// Le visage est passé : l'anse du cadenas s'ouvre, le rideau n'est pas
+    /// encore levé. Voir `unlock()`.
+    @Published private(set) var opened = false
 
     private var enabled: Bool {
         UserDefaults.standard.bool(forKey: Self.key)
@@ -95,6 +98,7 @@ final class AppLock: ObservableObject {
     func leaveForeground() {
         guard enabled else { return }
         shielded = false
+        opened = false
         locked = true
     }
 
@@ -123,8 +127,23 @@ final class AppLock: ObservableObject {
                     "v2.lock.reason", "Déverrouiller Florin"
                 )
             )
-            locked = !ok
             failure = nil
+            /*
+             * Le pêne s'ouvre avant que le rideau ne se lève.
+             *
+             * `locked = false` retire `LockScreen` en 0,18 s : l'anse aurait
+             * bien pivoté, mais sur une vue déjà en train de disparaître —
+             * personne ne l'aurait vue. On publie donc l'ouverture d'abord, et
+             * on garde le rideau le temps du ressort. Sans animation (mouvement
+             * réduit), il n'y a rien à regarder : on ne fait pas attendre.
+             */
+            if ok {
+                opened = true
+                if !UIAccessibility.isReduceMotionEnabled {
+                    try? await Task.sleep(for: .milliseconds(520))
+                }
+            }
+            locked = !ok
         } catch {
             failure = error.localizedDescription
         }
@@ -153,9 +172,7 @@ struct LockScreen: View {
 
     private var curtain: some View {
         VStack(spacing: 18) {
-            Image(systemName: "lock.fill")
-                .font(.system(size: 34, weight: .light))
-                .foregroundStyle(Florin.text2)
+            CoinLock(open: lock.opened, side: 46)
 
             Text(Strings.device("v2.lock.title", "Florin est verrouillé"))
                 .font(.system(size: 20, weight: .semibold))
@@ -191,9 +208,7 @@ struct LockScreen: View {
      */
     private var editorialCurtain: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Image(systemName: "lock")
-                .font(.system(size: 30, weight: .ultraLight))
-                .foregroundStyle(Florin.text)
+            CoinLock(open: lock.opened, side: 40)
 
             Text(Strings.device("v2.lock.title", "Florin est verrouillé") + Ed.inkRoom)
                 .font(.system(size: 34, weight: .medium))
@@ -217,5 +232,72 @@ struct LockScreen: View {
         }
         .padding(.horizontal, Ed.gutter)
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/*
+ * La pièce de Florin, en cadenas.
+ *
+ * Un `lock.fill` disait « verrouillé » et rien d'autre ; la pièce, elle, dit
+ * aussi de quoi il s'agit. L'anse est dessinée DERRIÈRE la pièce, c'est ce qui
+ * fait plonger ses pattes dedans au lieu de la poser dessus — sans ça, on voit
+ * deux objets côte à côte, pas un cadenas.
+ *
+ * À l'ouverture elle pivote autour de la patte droite et se soulève d'un
+ * cheveu, pour que la patte gauche sorte visiblement de son logement. Le
+ * déverrouillage prend le temps de se regarder : voir `unlock()`.
+ */
+struct CoinLock: View {
+    /// L'anse décrochée.
+    let open: Bool
+    /// Le diamètre de la pièce ; tout le reste en découle.
+    var side: CGFloat = 44
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// Ce qui dépasse au-dessus de la pièce, et ce qui s'enfonce dedans.
+    private var rise: CGFloat { side * 0.42 }
+    private var plunge: CGFloat { side * 0.22 }
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            Shackle()
+                .stroke(
+                    Florin.text,
+                    style: StrokeStyle(lineWidth: side * 0.075, lineCap: .round)
+                )
+                .frame(width: side * 0.54, height: rise + plunge)
+                .rotationEffect(.degrees(open ? 32 : 0), anchor: .bottomTrailing)
+                .offset(y: -(side - plunge) - (open ? side * 0.06 : 0))
+                .animation(
+                    reduceMotion ? nil : .spring(response: 0.42, dampingFraction: 0.62),
+                    value: open
+                )
+
+            Image("CoinFace")
+                .resizable()
+                .scaledToFit()
+                .frame(width: side, height: side)
+        }
+        // L'anse déborde vers le haut sans peser sur la mise en page : on lui
+        // réserve la place ici, sinon elle vient se poser sur le titre.
+        .frame(width: side, height: side + rise, alignment: .bottom)
+    }
+}
+
+/// Un U à l'envers : patte, demi-cercle, patte.
+private struct Shackle: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let radius = rect.width / 2
+        let crown = rect.minY + radius
+        path.move(to: CGPoint(x: rect.minX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: crown))
+        path.addArc(
+            center: CGPoint(x: rect.midX, y: crown), radius: radius,
+            startAngle: .degrees(180), endAngle: .degrees(0), clockwise: false
+        )
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        return path
     }
 }
