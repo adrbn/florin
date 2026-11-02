@@ -176,7 +176,7 @@ struct LockScreen: View {
             Backdrop(tint: TabRoute.overview.tint).ignoresSafeArea()
 
             VStack(spacing: 24) {
-                CoinLock(open: lock.opened, side: 84)
+                CoinLock(open: lock.opened, side: 64)
                     .accessibilityLabel(
                         Strings.device("v2.lock.title", "Florin est verrouillé")
                     )

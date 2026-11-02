@@ -429,6 +429,18 @@ struct RootView: View {
         }
         .animation(.easeOut(duration: 0.18), value: lock.locked)
         /*
+         * Le verrou mange le lancement.
+         *
+         * Au démarrage à froid, les deux arrivent ensemble et le rideau
+         * couvre la pièce qui tourne. Le visage passe, le rideau se lève — et
+         * on retombe sur une pièce, la même, qui finit son tour. Deux fois le
+         * même mark à la suite : le cadenas qui vient de s'ouvrir A ÉTÉ le
+         * lancement, il n'y a plus rien à annoncer.
+         */
+        .onChange(of: lock.locked) { _, nowLocked in
+            if !nowLocked { splashing = false }
+        }
+        /*
          * After the splash, and never over the lock: a sheet outranks both an
          * overlay and a cover, so the only thing keeping it in its place is
          * when it is asked for.
