@@ -1398,8 +1398,8 @@ enum LocalQueries {
 
         // Gross, so "spent so far" reads what actually went out and a single
         // reimbursement cannot zero it early in the month.
-        let spent = try sum(db, month: month, kind: "expense")
-        let fixed = try sum(db, month: month, kind: "expense", fixedOnly: true)
+        let spent = try sum(db, month: month, kind: "expense", includePending: true)
+        let fixed = try sum(db, month: month, kind: "expense", fixedOnly: true, includePending: true)
 
         let calendar = Calendar(identifier: .gregorian)
         let now = Date()
@@ -1579,11 +1579,34 @@ enum LocalQueries {
      * main ou devinée du Wallet n'est pas une dépense, et la date du jour
      * borne toujours ce qui est passé.
      */
+    /*
+     * `includePending` : compter aussi ce que la carte a déjà payé et que la
+     * banque n'a pas encore comptabilisé.
+     *
+     * Le 2 novembre l'écran disait « Quotidien 0 € » alors que quatre
+     * paiements du mois étaient faits : la banque comptabilise une carte en
+     * un à trois jours ouvrés, et un pont de Toussaint allonge ça à cinq. Le
+     * mois en cours lisait donc zéro pendant que l'argent était parti, et le
+     * « reste à vivre » annonçait plus qu'il n'en restait — la mauvaise
+     * direction pour un chiffre sur lequel on décide quoi dépenser.
+     *
+     * Seulement les lignes DATÉES AU PASSÉ, et seulement pour le mois en
+     * cours. Les échéances à venir du mois (un abonnement du 29) sont déjà
+     * écartées par la clause de date et appartiennent à « Fin de mois ». Les
+     * mois complets gardent leur lecture stricte : les moyennes et la
+     * comparaison avec le mois dernier ne doivent pas changer de définition
+     * en cours de route.
+     *
+     * Le double compte, lui, est tenu ailleurs : quand la banque comptabilise,
+     * `LocalWallet.settle` retire la tape. Vérifié sur ce grand livre — aucune
+     * ligne bancaire ne faisait face à une tape en attente.
+     */
     private static func sum(
         _ db: SQLiteDatabase,
         month: String,
         kind: String,
-        fixedOnly: Bool = false
+        fixedOnly: Bool = false,
+        includePending: Bool = false
     ) throws -> Double {
         guard kind == "expense" else {
             let value = try db.scalar(
@@ -1605,6 +1628,9 @@ enum LocalQueries {
 
         let amount = fixedOnly ? Self.netBurnCase : Self.grossBurnCase
         let fixedClause = fixedOnly ? "AND c.is_fixed = 1" : ""
+        let settled = includePending
+            ? "(t.status = 'cleared' OR (t.status = 'scheduled' AND t.is_pending = 1))"
+            : "t.status = 'cleared'"
         let value = try db.scalar(
             """
             SELECT coalesce(sum(\(amount)), 0)
@@ -1612,7 +1638,7 @@ enum LocalQueries {
             JOIN accounts a ON a.id = t.account_id
             LEFT JOIN categories c ON c.id = t.category_id
             LEFT JOIN category_groups g ON g.id = c.group_id
-            WHERE t.deleted_at IS NULL AND t.status = 'cleared'
+            WHERE t.deleted_at IS NULL AND \(settled)
               AND substr(t.occurred_at, 1, 10) <= date('now')
               AND substr(t.occurred_at, 1, 7) = ?
               AND t.transfer_pair_id IS NULL AND a.is_archived = 0 \(fixedClause)

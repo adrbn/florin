@@ -3,7 +3,16 @@ import SwiftUI
 /// Merchant / account bubble: the category emoji when there is one, initials
 /// over a stable hue otherwise.
 struct Bubble: View {
+    /// Ce qui donne la teinte — la catégorie, le plus souvent.
     let label: String
+    /// Ce dont on tire les initiales quand il n'y a ni image ni emoji. Sans
+    /// lui c'était `label`, donc la catégorie : une ligne « Cave du Coin »
+    /// affichait « BA », pour Bars. La teinte vient de la catégorie, les
+    /// initiales viennent du marchand ; ce ne sont pas les mêmes mots.
+    var name: String?
+    /// L'emoji que la personne a choisi elle-même pour ce marchand.
+    var chosen: String?
+    /// Celui qui vient de la catégorie, faute de mieux.
     var emoji: String?
     var systemImage: String?
     var size: CGFloat = 40
@@ -27,6 +36,13 @@ struct Bubble: View {
      *
      * Ailleurs, rien ne change : les quatre autres thèmes gardent leurs
      * emojis, et c'est exactement ce qu'on leur demande.
+     *
+     * UN emoji survit pourtant : celui que la personne est allée choisir à la
+     * main pour ce marchand-là. Ce n'est pas du remplissage automatique, c'est
+     * la même déclaration qu'un logo — « voilà lequel » — et l'écran qui le
+     * propose promet qu'il servira. Le jeter sans rien dire donnait un bouton
+     * « Enregistrer » grisé (l'emoji ÉTAIT enregistré) devant une pastille
+     * d'initiales : le réglage marchait, il ne se voyait nulle part.
      */
     private var flat: Bool { FlorinPalette.selected == .editorial }
 
@@ -40,14 +56,14 @@ struct Bubble: View {
             }
             if let logo {
                 logoFace(logo)
-            } else if let emoji, !emoji.isEmpty, !flat {
-                Text(emoji).font(.system(size: size * 0.42))
+            } else if let face = chosen ?? (flat ? nil : emoji), !face.isEmpty {
+                Text(face).font(.system(size: size * 0.42))
             } else if let systemImage {
                 Image(systemName: systemImage)
                     .font(.system(size: size * 0.4, weight: .medium))
                     .foregroundStyle(flat ? Florin.text : tint)
             } else {
-                Text(Self.initials(label))
+                Text(Self.initials(name ?? label))
                     .font(.system(size: size * 0.36, weight: flat ? .medium : .semibold))
                     .foregroundStyle(flat ? Florin.text : tint)
             }
@@ -317,7 +333,7 @@ struct AccountRowView: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Bubble(label: account.name, emoji: account.displayIcon, systemImage: icon)
+            Bubble(label: account.name, chosen: account.displayIcon, systemImage: icon)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(account.name)
@@ -450,7 +466,9 @@ struct TransactionRowView: View {
             let face = tx.isTransfer ? nil : logos.face(for: tx.payee)
             Bubble(
                 label: tx.categoryName ?? tx.payee,
-                emoji: face?.emoji ?? tx.categoryEmoji,
+                name: tx.payee,
+                chosen: face?.emoji,
+                emoji: tx.categoryEmoji,
                 // Une mensualité ne va pas dans les deux sens : elle descend.
                 systemImage: tx.isDebtRepayment
                     ? "arrow.down.right"

@@ -312,7 +312,9 @@ struct MerchantNameSheet: View {
         return HStack(spacing: 14) {
             Bubble(
                 label: bankLabel,
-                emoji: picture != nil ? nil : (emoji.isEmpty ? categoryEmoji : emoji),
+                name: trimmed.isEmpty ? bankLabel : trimmed,
+                chosen: picture == nil && !emoji.isEmpty ? emoji : nil,
+                emoji: picture != nil ? nil : categoryEmoji,
                 size: 52, logo: logo
             )
             VStack(alignment: .leading, spacing: 3) {

@@ -529,7 +529,9 @@ struct EditorialActivity: View {
         return HStack(spacing: 12) {
             Bubble(
                 label: plan.categoryName ?? plan.payee,
-                emoji: face?.emoji ?? plan.categoryEmoji,
+                name: plan.payee,
+                chosen: face?.emoji,
+                emoji: plan.categoryEmoji,
                 size: 38,
                 logo: face?.logo
             )
@@ -614,7 +616,9 @@ struct EditorialActivity: View {
             let face = tx.isTransfer ? nil : logos.face(for: tx.payee)
             Bubble(
                 label: tx.categoryName ?? tx.payee,
-                emoji: face?.emoji ?? tx.categoryEmoji,
+                name: tx.payee,
+                chosen: face?.emoji,
+                emoji: tx.categoryEmoji,
                 systemImage: tx.isDebtRepayment
                     ? "arrow.down.right"
                     : (tx.isTransfer ? "arrow.left.arrow.right" : nil),

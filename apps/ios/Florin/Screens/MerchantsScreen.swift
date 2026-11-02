@@ -75,7 +75,7 @@ struct MerchantsScreen: View {
     private func row(key: String, name: String) -> some View {
         HStack(spacing: 12) {
             let face = logos.face(forKey: key)
-            Bubble(label: key, emoji: face?.emoji, size: 34, logo: face?.logo)
+            Bubble(label: key, chosen: face?.emoji, size: 34, logo: face?.logo)
             VStack(alignment: .leading, spacing: 1) {
                 Text(name)
                     .font(.system(size: 15, weight: .medium))

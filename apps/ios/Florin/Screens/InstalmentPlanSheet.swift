@@ -32,7 +32,9 @@ struct InstalmentPlanRow: View {
             let face = logos.face(for: plan.payee)
             Bubble(
                 label: plan.categoryName ?? plan.payee,
-                emoji: face?.emoji ?? plan.categoryEmoji,
+                name: plan.payee,
+                chosen: face?.emoji,
+                emoji: plan.categoryEmoji,
                 logo: face?.logo
             )
             VStack(alignment: .leading, spacing: 3) {
@@ -229,7 +231,9 @@ struct InstalmentPlanSheet: View {
             let face = logos.face(for: plan.payee)
             Bubble(
                 label: plan.categoryName ?? plan.payee,
-                emoji: face?.emoji ?? plan.categoryEmoji,
+                name: plan.payee,
+                chosen: face?.emoji,
+                emoji: plan.categoryEmoji,
                 size: 52,
                 logo: face?.logo
             )

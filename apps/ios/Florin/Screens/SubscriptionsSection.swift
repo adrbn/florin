@@ -386,7 +386,7 @@ private struct SubscriptionRow: View {
             HStack(spacing: 12) {
                 Bubble(
                     label: given ?? names.name(forKey: key) ?? sub.payee,
-                    emoji: face?.emoji,
+                    chosen: face?.emoji,
                     systemImage: face == nil ? "repeat" : nil,
                     logo: face?.logo
                 )

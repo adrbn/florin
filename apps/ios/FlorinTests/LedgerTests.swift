@@ -2618,6 +2618,67 @@ struct TranslationTests {
     }
 }
 
+// MARK: - Ce que le mois compte comme dépensé
+
+@Suite("Le mois en cours compte les tapes en attente")
+struct PendingCountsThisMonthTests {
+    /*
+     * « Quotidien 0 € » un 2 novembre avec quatre paiements faits.
+     *
+     * La banque comptabilise une carte en un à trois jours ouvrés, un pont en
+     * prend cinq : le mois en cours lisait zéro pendant que l'argent était
+     * parti, et le reste à vivre annonçait plus qu'il n'en restait. Une tape
+     * DATÉE AU PASSÉ compte ; une échéance à venir du même mois, non — elle
+     * appartient à « Fin de mois ».
+     */
+    @Test("une tape d'hier compte, une échéance de la semaine prochaine non")
+    func pastPendingCounts() throws {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("florin-pending-\(UUID().uuidString).db")
+        let store = try LocalStore(url: url)
+        let account = UUID().uuidString
+        let group = UUID().uuidString, salary = UUID().uuidString
+        try store.database.exec("""
+        INSERT INTO accounts (id, name, kind, currency, current_balance, opening_balance, display_order)
+          VALUES ('\(account)', 'Compte courant', 'checking', 'EUR', 1000, 1000, 0);
+        INSERT INTO category_groups (id, name, kind) VALUES ('\(group)', 'Revenus', 'income');
+        INSERT INTO categories (id, group_id, name) VALUES ('\(salary)', '\(group)', 'Salaires');
+        """)
+
+        func write(_ payee: String, _ amount: Double, _ dayOffset: Int, pending: Bool,
+                   category: String? = nil) throws {
+            try store.database.run(
+                """
+                INSERT INTO transactions
+                    (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
+                     category_id, source, status, is_pending, needs_review)
+                VALUES (?, ?, date('now', ?) || 'T12:00:00Z', ?, 'EUR', ?, ?, ?, ?, ?, ?, 0)
+                """,
+                [
+                    .text(UUID().uuidString), .text(account),
+                    .text("\(dayOffset) days"), .real(amount), .text(payee),
+                    .text(LocalLedger.normalize(payee)),
+                    category.map { SQLiteValue.text($0) } ?? .null,
+                    .text(pending ? LocalWallet.source : "manual"),
+                    .text(pending ? "scheduled" : "cleared"), .integer(pending ? 1 : 0),
+                ]
+            )
+        }
+
+        // Le salaire au 1er du mois en cours. L'échéance « dans deux jours »
+        // est écartée dans tous les cas : par la date si elle tombe encore ce
+        // mois-ci, par le mois si elle déborde sur le suivant.
+        let today = Calendar(identifier: .gregorian).component(.day, from: Date())
+        try write("Salaire", 2000, 1 - today, pending: false, category: salary)
+        try write("Cave du Coin", -22.50, 0, pending: true)
+        try write("Abonnement", -10, 2, pending: true)
+
+        let month = try LocalQueries.leftToSpend(store.database)
+        #expect(month.monthSpent == 22.50)
+        #expect(month.leftToSpend == 1977.50)
+    }
+}
+
 // MARK: - Payments recorded at the till
 
 @Suite("Wallet payments", .serialized)
