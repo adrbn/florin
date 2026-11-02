@@ -591,26 +591,21 @@ extension Palette {
         base.warn = ink
 
         /*
-         * L'accent teinte le PAPIER, sinon il ne se voit nulle part.
+         * Le papier reste BLANC. Il a été teinté pendant quatre builds, et
+         * c'était une béquille.
          *
-         * Éditorial dessine ses cartes en blanc sur blanc, séparées par des
-         * filets : il n'y a pas de fond de carte à repeindre. Tant que
-         * `negative` suivait l'accent, en changer repeignait tous les
-         * montants de l'app et donnait l'illusion d'un thème ; une fois une
-         * perte redevenue rouge — ce qu'elle doit être — il ne restait que le
-         * bouton « Ajouter » et deux pastilles. Choisir une couleur ne
-         * changeait plus rien de visible, ce qui est une façon de mentir.
+         * Au moment où `negative` a cessé de suivre l'accent — une dépense
+         * doit être rouge — il ne restait plus à l'accent qu'un bouton et
+         * deux pastilles : en changer ne changeait rien de visible. Teinter
+         * la feuille de 9 % a rendu le réglage sensible, au prix du geste
+         * même d'Éditorial, qui est du noir sur du blanc PUR. Avec un accent
+         * chocolat la page virait au beige, avec un bordeaux au rose.
          *
-         * Donc la feuille prend la teinte, très peu : cinq pour cent sur le
-         * fond, un peu plus sur les surfaces et les filets, qui sont les
-         * seuls endroits où une carte existe dans ce thème. Le contraste du
-         * texte ne bouge pas — à ces proportions le blanc reste du blanc —
-         * et `scripts/check-accents.py` le vérifie accent par accent.
+         * Le dégradé a réglé le problème pour de bon : l'accent tient
+         * maintenant les huit encres, le héros et l'alerte. Il n'a plus
+         * besoin de déteindre sur la feuille pour exister.
          */
-        base.bg = base.bg.mixed(with: ink, light: 0.09, dark: 0.10)
-        base.surface = base.surface.mixed(with: ink, light: 0.14, dark: 0.16)
-        base.surface2 = base.surface2.mixed(with: ink, light: 0.16, dark: 0.18)
-        base.surface3 = base.surface3.mixed(with: ink, light: 0.24, dark: 0.26)
+
 
         /*
          * Et, si on l'a demandé, les huit encres catégorielles en descendent.

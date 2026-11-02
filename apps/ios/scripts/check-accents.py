@@ -41,33 +41,9 @@ def accents(source: str) -> list[tuple[str, int, int]]:
     return [(n, int(li, 16), int(da, 16)) for n, li, da in re.findall(pattern, block)]
 
 
-# Le papier d'Éditorial et ses encres, recopiés d'`editorialBase`. Si la
-# maquette change là-bas, ces valeurs doivent suivre — c'est le prix d'un
-# contrôle qui ne compile pas le Swift.
-PAPER = {"bg": (0xFFFFFF, 0x000000), "surface": (0xF2F2F4, 0x1C1C1E),
-         "surface2": (0xEFEFF1, 0x2C2C2E)}
-MIX = {"bg": (0.09, 0.10), "surface": (0.14, 0.16), "surface2": (0.16, 0.18)}
-TEXT = (0x0A0A0A, 0xF5F5F7)
-TEXT2 = (0x5C5C61, 0xA1A1A6)
-
-
-def blend(a: int, b: int, amount: float) -> int:
-    out = 0
-    for shift in (16, 8, 0):
-        lo, hi = (a >> shift) & 255, (b >> shift) & 255
-        out |= round(lo + (hi - lo) * amount) << shift
-    return out
-
-
-def paper_floor(light: int, dark: int) -> float:
-    """Le pire contraste texte/papier une fois la teinte posée."""
-    worst = 99.0
-    for face, (ink, tone) in enumerate(((light, 0), (dark, 1))):
-        for name, grounds in PAPER.items():
-            tinted = blend(grounds[tone], light if tone == 0 else dark, MIX[name][tone])
-            for body in (TEXT, TEXT2):
-                worst = min(worst, ratio(body[tone], tinted))
-    return worst
+# Le papier d'Éditorial, recopié d'`editorialBase`. Il n'est plus teinté :
+# l'accent tient les encres, le héros et l'alerte, pas la feuille.
+PAPER = (0xFFFFFF, 0x000000)
 
 
 # L'éventail d'`editorialSeries`, recopié de Palette.swift.
@@ -132,8 +108,7 @@ def series_floor(light: int, dark: int) -> float:
     """
     worst = 99.0
     for face, ink in ((0, light), (1, dark)):
-        base = light if face == 0 else dark
-        paper = blend(PAPER["bg"][face], base, MIX["bg"][face])
+        paper = PAPER[face]
         for scale, pale, deep in RAMP:
             tone = dilute(ink, scale, pale if face == 0 else deep)
             worst = min(worst, ratio(tone, paper))
@@ -150,13 +125,11 @@ def main() -> int:
     for name, light, dark in found:
         on_white = ratio(light, 0xFFFFFF)
         white_on_dark = ratio(0xFFFFFF, dark)
-        paper = paper_floor(light, dark)
         inks = series_floor(light, dark)
-        worst = min(on_white, white_on_dark, paper)
+        worst = min(on_white, white_on_dark)
         flag = "  " if worst >= FLOOR and inks >= SHAPE_FLOOR else "←"
         print(f"{flag} {name:11} clair/blanc {on_white:5.2f}"
-              f"   blanc/sombre {white_on_dark:5.2f}   texte/papier {paper:5.2f}"
-              f"   lavis/papier {inks:5.2f}")
+              f"   blanc/sombre {white_on_dark:5.2f}   lavis/papier {inks:5.2f}")
         if worst < FLOOR or inks < SHAPE_FLOOR:
             failures.append(name)
 

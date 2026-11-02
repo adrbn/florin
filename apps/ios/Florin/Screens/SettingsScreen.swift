@@ -885,6 +885,44 @@ struct SettingsScreen: View {
      * l'aperçu avec.
      */
     private var accentPreview: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            inkBands
+            /*
+             * Le bouton, parce qu'en mode Palette les bandes ne bougent pas.
+             *
+             * Et elles ont raison de ne pas bouger : la palette est un jeu
+             * fixe, l'accent n'y touche pas. Mais un aperçu où rien ne change
+             * quand on change de pastille ne dit pas « ce réglage n'agit pas
+             * ici », il dit « c'est cassé ». Ce que l'accent fait dans les
+             * deux modes, c'est le papier et le héros — alors l'aperçu les
+             * montre, et il bouge toujours.
+             */
+            HStack(spacing: 6) {
+                HStack(spacing: 4) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 10, weight: .bold))
+                    Text(t("v2.nav.add", "Ajouter"))
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                .foregroundStyle(Florin.onAccent)
+                .padding(.horizontal, 10)
+                .frame(height: 22)
+                .background(Capsule().fill(Florin.accent))
+
+                Capsule()
+                    .fill(Florin.accent.opacity(0.18))
+                    .frame(width: 34, height: 22)
+                Spacer(minLength: 0)
+            }
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Florin.surface)
+        )
+    }
+
+    private var inkBands: some View {
         VStack(spacing: 0) {
             ForEach(Array([0, 2, 4, 6].enumerated()), id: \.element) { index, rank in
                 let tone = Florin.series[rank]
@@ -908,7 +946,7 @@ struct SettingsScreen: View {
                 .background(tone)
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
     /// Des montants inventés : l'aperçu montre une couleur, pas un solde.
