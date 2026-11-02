@@ -150,11 +150,20 @@ final class AppLock: ObservableObject {
     }
 }
 
-/// The curtain. Deliberately says nothing about the ledger behind it.
+/*
+ * Le rideau : la pièce, et rien.
+ *
+ * Il y avait un titre et un bouton. Le titre disait « Florin est
+ * verrouillé » à quelqu'un qui voit déjà l'invite Face ID du système
+ * par-dessus, et le bouton réclamait un geste pour ce qui part tout seul à
+ * l'apparition comme au retour au premier plan. Un cadenas fermé dit la même
+ * chose sans mot, dans les neuf langues.
+ *
+ * Le bouton revient quand le visage n'est PAS passé — là, il y a vraiment
+ * quelque chose à faire, et aucune invite à l'écran pour le dire.
+ */
 struct LockScreen: View {
     @ObservedObject var lock = AppLock.shared
-
-    private var editorial: Bool { FlorinPalette.selected == .editorial }
 
     private var unlockLabel: String {
         AppLock.biometryName.map {
@@ -165,73 +174,26 @@ struct LockScreen: View {
     var body: some View {
         ZStack {
             Backdrop(tint: TabRoute.overview.tint).ignoresSafeArea()
-            if editorial { editorialCurtain } else { curtain }
+
+            VStack(spacing: 24) {
+                CoinLock(open: lock.opened, side: 84)
+                    .accessibilityLabel(
+                        Strings.device("v2.lock.title", "Florin est verrouillé")
+                    )
+
+                if lock.failure != nil {
+                    Button {
+                        Task { await lock.unlock() }
+                    } label: {
+                        Text(unlockLabel)
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(Florin.text)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
         }
         .task { await lock.unlock() }
-    }
-
-    private var curtain: some View {
-        VStack(spacing: 18) {
-            CoinLock(open: lock.opened, side: 46)
-
-            Text(Strings.device("v2.lock.title", "Florin est verrouillé"))
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(Florin.text)
-
-            Button {
-                Task { await lock.unlock() }
-            } label: {
-                Text(unlockLabel)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Florin.onAccent)
-                    .frame(height: 50)
-                    .padding(.horizontal, 28)
-                    .background(Florin.accent, in: Capsule())
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
-    /*
-     * Le rideau, à l'encre.
-     *
-     * La version colorée est juste dans Obsidienne, où une pilule d'accent est
-     * un bouton parmi d'autres. Sur du papier, c'était la seule couleur de
-     * l'écran, et elle criait plus fort que la phrase qu'elle sert — d'autant
-     * que l'accent d'Éditorial se choisit : la prune de quelqu'un devenait le
-     * ton d'un écran de sécurité. Ici le contraste fait tout le travail, comme
-     * partout ailleurs dans la maquette : le cadenas et le titre en encre
-     * pleine, le bouton en négatif, et rien d'autre.
-     *
-     * Aligné à gauche sur la gouttière, pas centré : un titre centré est une
-     * boîte de dialogue, et la maquette n'en a aucune.
-     */
-    private var editorialCurtain: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            CoinLock(open: lock.opened, side: 40)
-
-            Text(Strings.device("v2.lock.title", "Florin est verrouillé") + Ed.inkRoom)
-                .font(.system(size: 34, weight: .medium))
-                .kerning(Ed.tracking(34, 0.045))
-                .foregroundStyle(Florin.text)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 22)
-
-            Button {
-                Task { await lock.unlock() }
-            } label: {
-                Text(unlockLabel)
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(Florin.bg)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 54)
-                    .background(Florin.text, in: Capsule())
-            }
-            .buttonStyle(.plain)
-            .padding(.top, 28)
-        }
-        .padding(.horizontal, Ed.gutter)
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
