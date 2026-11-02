@@ -33,6 +33,8 @@ struct SettingsScreen: View {
     @AppStorage(FlorinPalette.key) private var paletteRaw = FlorinPalette.obsidian.rawValue
     @AppStorage(EdAccent.key) private var accentRaw = EdAccent.terracotta.rawValue
     @AppStorage(EdInks.key) private var inksRaw = EdInks.palette.rawValue
+    /// Les mêmes cartes écartées que l'accueil : l'aperçu montre SA pile.
+    @AppStorage(HomeCards.key) private var hiddenCards = ""
     @State private var editingServer = false
     @State private var draftServer = ""
     @State private var draftToken = ""
@@ -914,16 +916,8 @@ struct SettingsScreen: View {
     private var accentPreview: some View {
         VStack(alignment: .leading, spacing: 9) {
             inkBands
-            /*
-             * Le bouton, parce qu'en mode Palette les bandes ne bougent pas.
-             *
-             * Et elles ont raison de ne pas bouger : la palette est un jeu
-             * fixe, l'accent n'y touche pas. Mais un aperçu où rien ne change
-             * quand on change de pastille ne dit pas « ce réglage n'agit pas
-             * ici », il dit « c'est cassé ». Ce que l'accent fait dans les
-             * deux modes, c'est le papier et le héros — alors l'aperçu les
-             * montre, et il bouge toujours.
-             */
+            // Le bouton, pour que l'aperçu montre aussi ce que l'accent fait
+            // hors des cartes : le héros, et le creux derrière lui.
             HStack(spacing: 6) {
                 HStack(spacing: 4) {
                     Image(systemName: "plus")
@@ -949,34 +943,71 @@ struct SettingsScreen: View {
         )
     }
 
+    /*
+     * Les quatre premières cartes de l'accueil, pas quatre rangs au hasard.
+     *
+     * L'aperçu prenait les rangs 0, 2, 4 et 6 de la série avec des montants
+     * inventés. Il a la forme de la pile de l'accueil, donc il se lit comme
+     * une promesse — et la promesse était fausse : l'accueil attribue ses
+     * rangs par compte (un choix à la main, sinon le hachage de
+     * l'identifiant), si bien qu'aucune des quatre bandes ne tombait sur la
+     * carte en face. Choisir une pastille, voir quatre couleurs, puis en
+     * trouver quatre autres chez soi : c'est pire que pas d'aperçu.
+     *
+     * Il passe donc par `HomeCards.palette`, exactement comme l'accueil, et
+     * sur les mêmes comptes retenus. Les montants inventés ne servent plus
+     * que quand il n'y a pas encore de compte.
+     */
     private var inkBands: some View {
-        VStack(spacing: 0) {
-            ForEach(Array([0, 2, 4, 6].enumerated()), id: \.element) { index, rank in
-                let tone = Florin.series[rank]
-                HStack(spacing: 0) {
-                    Circle()
-                        .fill(Florin.readable(on: tone).opacity(0.55))
-                        .frame(width: 5, height: 5)
-                    Spacer(minLength: 0)
-                    Text(Money.compact(
-                        Self.sample[index],
-                        locale: model.overview?.localeTag ?? "fr-FR",
-                        currency: model.overview?.currency ?? "EUR"
-                    ))
-                        .font(.system(size: 12, weight: .medium))
-                        .monospacedDigit()
+        let hidden = HomeCards.hidden(hiddenCards)
+        let all = (model.overview?.accounts ?? []).filter {
+            !$0.isArchived && $0.isIncludedInNetWorth && !hidden.contains($0.id)
+        }
+        let tints = HomeCards.palette(all)
+        let shown = Array(all.prefix(4))
+        return VStack(spacing: 0) {
+            ForEach(Array(shown.enumerated()), id: \.element.id) { index, account in
+                band(
+                    tone: tints[account.id] ?? Florin.seriesColor(for: account.id),
+                    name: account.name,
+                    value: account.displayValue
+                )
+            }
+            if shown.isEmpty {
+                ForEach(Array([0, 2, 4, 6].enumerated()), id: \.element) { index, rank in
+                    band(tone: Florin.series[rank], name: "", value: Self.sample[index])
                 }
-                .foregroundStyle(Florin.readable(on: tone))
-                .padding(.horizontal, 12)
-                .frame(height: 32)
-                .frame(maxWidth: .infinity)
-                .background(tone)
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
-    /// Des montants inventés : l'aperçu montre une couleur, pas un solde.
+    private func band(tone: Color, name: String, value: Double) -> some View {
+        let ink = Florin.readable(on: tone)
+        return HStack(spacing: 6) {
+            Circle()
+                .fill(ink.opacity(0.55))
+                .frame(width: 5, height: 5)
+            Text(name)
+                .font(.system(size: 12, weight: .semibold))
+                .lineLimit(1)
+            Spacer(minLength: 6)
+            Text(Money.compact(
+                value,
+                locale: model.overview?.localeTag ?? "fr-FR",
+                currency: model.overview?.currency ?? "EUR"
+            ))
+                .font(.system(size: 12, weight: .medium))
+                .monospacedDigit()
+        }
+        .foregroundStyle(ink)
+        .padding(.horizontal, 12)
+        .frame(height: 32)
+        .frame(maxWidth: .infinity)
+        .background(tone)
+    }
+
+    /// Des montants inventés, pour l'installation qui n'a pas encore de compte.
     private static let sample: [Double] = [2140, 860, 415, 95]
 
     private func accentSwatch(_ choice: EdAccent) -> some View {
