@@ -390,12 +390,15 @@ struct EdInk: View {
 private var edTabs: [TabRoute] { edTabOrder }
 
 /// Le pictogramme de la maquette, qui n'est pas celui de la barre d'origine :
-/// une maison, une horloge, une liste. Trois traits, aucune couleur.
+/// une maison, un calendrier, une horloge. Trois traits, aucune couleur.
+///
+/// Le calendrier va au Plan, qui parle de mois à venir ; l'horloge à
+/// l'Activité, qui est un historique. L'inverse se lisait de travers.
 private func edSymbol(_ tab: TabRoute) -> String {
     switch tab {
     case .accounts: return "rectangle.stack"
-    case .plan: return "clock"
-    case .activity: return "list.bullet"
+    case .plan: return "calendar"
+    case .activity: return "clock"
     // Sans ce cas, Analyse tombait sur le `default` et portait la maison de
     // l'accueil : deux onglets, la même icône.
     case .analysis: return "chart.xyaxis.line"

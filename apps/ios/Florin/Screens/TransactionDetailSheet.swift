@@ -448,7 +448,6 @@ struct TransactionDetailSheet: View {
                     label: t("v2.receipts.open", "Ticket de caisse")
                 ) { receipting = true }
             }
-            EdIconButton(symbol: "xmark", label: t("v2.common.close", "Fermer")) { dismiss() }
         }
         /*
          * Pas d'entrée en scène dans une marge sûre.

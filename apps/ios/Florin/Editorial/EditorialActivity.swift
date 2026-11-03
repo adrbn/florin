@@ -185,10 +185,11 @@ struct EditorialActivity: View {
          * de la feuille vit hors de cette hiérarchie, il reste net.
          */
         .blur(radius: detail != nil ? 7 : 0)
-        // Le voile du système ne suffit pas sur un fond déjà clair : un
-        // assombrissement par-dessus le flou creuse l'écart avec la fiche.
+        // C'est le voile du système qui assombrit, et il n'est pas
+        // débrayable : un blanc par-dessus le flou le compense, pour un
+        // dépoli plutôt qu'une pièce éteinte.
         .overlay(
-            Color.black.opacity(detail != nil ? 0.22 : 0)
+            Color.white.opacity(detail != nil ? 0.16 : 0)
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
         )
