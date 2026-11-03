@@ -179,6 +179,13 @@ struct EditorialActivity: View {
             withAnimation(EdMotion.spring) { searching = true }
             searchFocused = true
         }
+        /*
+         * Le voile du système assombrit sans flouter, et il n'est pas
+         * remplaçable : c'est donc l'écran DESSOUS qu'on floute. Le contenu
+         * de la feuille vit hors de cette hiérarchie, il reste net.
+         */
+        .blur(radius: detail != nil ? 7 : 0)
+        .animation(.easeOut(duration: 0.28), value: detail != nil)
         .sheet(item: $detail) { tx in
             TransactionDetailSheet(
                 tx: tx,
