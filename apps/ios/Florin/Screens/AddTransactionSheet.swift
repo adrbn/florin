@@ -60,6 +60,8 @@ struct AddTransactionSheet: View {
     @State private var date: Date
     @State private var memo: String
     @State private var upcoming: Bool
+    /// Tant que personne n'a touché l'interrupteur, il suit le compte choisi.
+    @State private var decidedUpcoming = false
     /*
      * Un achat payé en plusieurs fois.
      *
@@ -175,6 +177,25 @@ struct AddTransactionSheet: View {
     /// Moving a row between accounts is a device-ledger write; see
     /// `isLocalLedger`. Creating one always chooses an account.
     private var offersAccount: Bool { !isEditing || isLocalLedger }
+
+    /*
+     * Sur un compte que la banque synchronise, « en prévision » est l'état
+     * normal d'une saisie.
+     *
+     * On note une dépense le soir même, et la banque la passera demain ou
+     * après-demain : la ligne saisie est une annonce, pas une écriture. Non
+     * cochée, elle entrait dans le solde tout de suite et la vraie ligne
+     * arrivait par-dessus deux jours plus tard — deux fois la même dépense,
+     * à corriger à la main. Sur un compte non synchronisé rien ne viendra
+     * jamais la relayer : l'interrupteur n'y est même pas offert.
+     *
+     * Dès que quelqu'un touche l'interrupteur, c'est son choix qui vaut, et
+     * le compte n'y touche plus (`decidedUpcoming`).
+     */
+    private func followAccount() {
+        guard !isEditing, !decidedUpcoming else { return }
+        upcoming = offersUpcoming
+    }
 
     private var magnitude: Double {
         Double(amount.replacingOccurrences(of: ",", with: ".").replacingOccurrences(of: " ", with: "")) ?? 0
@@ -516,7 +537,8 @@ struct AddTransactionSheet: View {
         }
         .onChange(of: amount) { guess() }
         .onChange(of: kind) { guess() }
-        .onChange(of: accountId) { guess() }
+        .onChange(of: accountId) { guess(); followAccount() }
+        .onAppear { followAccount() }
         .sheet(isPresented: $picking) {
             CategoryPicker(
                 categories: categories,
@@ -743,7 +765,11 @@ struct AddTransactionSheet: View {
              */
             if offersUpcoming {
                 let forced = instalmentCount > 1
-                Toggle(isOn: forced ? .constant(true) : $upcoming) {
+                let bound = Binding(
+                    get: { upcoming },
+                    set: { upcoming = $0; decidedUpcoming = true }
+                )
+                Toggle(isOn: forced ? .constant(true) : bound) {
                     HStack(spacing: 13) {
                         RowIcon("clock")
                         VStack(alignment: .leading, spacing: 2) {
