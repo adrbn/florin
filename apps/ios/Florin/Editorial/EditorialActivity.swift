@@ -138,6 +138,7 @@ struct EditorialActivity: View {
                 // La pastille « Activité · 3 223 opérations » occupait une
                 // ligne pour dire le nom de l'onglet qu'on vient d'ouvrir et
                 // un nombre dont on ne fait rien.
+                narrowing.edEnter()
                 waiting.edEnter()
 
                 if let first = days.first {
@@ -382,6 +383,110 @@ struct EditorialActivity: View {
         return f.string(from: day)
     }
 
+    // MARK: Ce qui réduit la liste
+
+    /*
+     * Un filtre qui ne se voit pas est une impasse.
+     *
+     * « Tout voir » sous la file à vérifier posait `needsReview` et rien
+     * d'autre ne bougeait à l'écran : pas de titre, pas de retour, et les
+     * trois plis — à venir, en plusieurs fois, à vérifier — disparaissaient
+     * d'un coup, puisque chacun s'efface sous ce filtre. On se retrouvait
+     * dans une liste rétrécie sans savoir où, ni comment en sortir ; la seule
+     * issue était le point sur l'entonnoir, puis la feuille, puis
+     * « réinitialiser ».
+     *
+     * Chaque réduction active s'écrit donc ici, et chaque pastille est son
+     * propre bouton d'annulation. Pas la recherche : le champ a déjà sa croix.
+     */
+    @ViewBuilder
+    private var narrowing: some View {
+        let items = narrowingChips
+        if !items.isEmpty {
+            ScrollView(.horizontal) {
+                HStack(spacing: 8) {
+                    ForEach(items, id: \.label) { chip in
+                        Button {
+                            edOpen {
+                                UISelectionFeedbackGenerator().selectionChanged()
+                                chip.clear()
+                                Task { await model.reload() }
+                            }
+                        } label: {
+                            HStack(spacing: 6) {
+                                Text(chip.label)
+                                    .font(.system(size: 13, weight: .medium))
+                                    .lineLimit(1)
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .opacity(0.65)
+                            }
+                            .foregroundStyle(Florin.text)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 7)
+                            .overlay {
+                                Capsule().strokeBorder(Florin.text.opacity(0.28), lineWidth: 1)
+                            }
+                            .contentShape(Capsule())
+                        }
+                        .buttonStyle(.edPress)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+            .scrollIndicators(.hidden)
+            .scrollClipDisabled()
+            .edHoldsSwipe()
+            .padding(.top, 12)
+        }
+    }
+
+    /// Une pastille par réduction, avec le geste qui la défait. Les libellés
+    /// sont ceux de la feuille de filtres — un même réglage ne porte pas deux
+    /// noms selon l'écran où on le lit.
+    private var narrowingChips: [(label: String, clear: () -> Void)] {
+        var out: [(String, () -> Void)] = []
+        switch model.filter.direction {
+        case .all: break
+        case .expense:
+            out.append((t("v2.activity.expenses", "Dépenses"), { model.filter.direction = .all }))
+        case .income:
+            out.append((t("v2.activity.income", "Entrées"), { model.filter.direction = .all }))
+        }
+        if model.filter.needsReview {
+            out.append((
+                t("v2.activity.needsReview", "À vérifier"),
+                { model.filter.needsReview = false }
+            ))
+        }
+        if model.filter.excludeTransfers {
+            out.append((
+                t("v2.filters.excludeTransfers", "Masquer les virements internes"),
+                { model.filter.excludeTransfers = false }
+            ))
+        }
+        if let id = model.filter.accountId {
+            let name = model.accounts.first { $0.id == id }?.name
+                ?? t("v2.add.account", "Compte")
+            out.append((name, { model.filter.accountId = nil }))
+        }
+        if let id = model.filter.categoryId {
+            let name = model.categories.first { $0.id == id }?.name
+                ?? t("v2.common.uncategorized", "Sans catégorie")
+            out.append((name, { model.filter.categoryId = nil }))
+        }
+        if model.filter.from != nil || model.filter.to != nil {
+            out.append((
+                t("v2.filters.period", "Période"),
+                {
+                    model.filter.from = nil
+                    model.filter.to = nil
+                }
+            ))
+        }
+        return out.map { (label: $0.0, clear: $0.1) }
+    }
+
     // MARK: Ce qui attend
 
     /*
@@ -477,6 +582,11 @@ struct EditorialActivity: View {
                                 edOpen {
                                     UISelectionFeedbackGenerator().selectionChanged()
                                     model.filter.needsReview = true
+                                    // Sans rechargement, le pli disparaissait
+                                    // et la liste dessous restait entière :
+                                    // « Tout voir » enlevait la file au lieu
+                                    // de l'ouvrir.
+                                    Task { await model.reload() }
                                 }
                             } label: {
                                 Text(t("v2.common.seeAll", "Tout voir"))

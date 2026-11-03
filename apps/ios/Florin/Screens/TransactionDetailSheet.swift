@@ -103,7 +103,19 @@ struct TransactionDetailSheet: View {
         return n
     }
 
+    /*
+     * Deux habillages, une seule feuille — comme dans `AddTransactionSheet`,
+     * et pour qu'elles se ressemblent enfin.
+     */
     var body: some View {
+        if editorial {
+            plumbed(editorialShell)
+        } else {
+            plumbed(classicShell)
+        }
+    }
+
+    private var classicShell: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 22) {
@@ -199,10 +211,6 @@ struct TransactionDetailSheet: View {
          */
         .presentationDetents([.height(sheetHeight), .large])
         .presentationDragIndicator(.visible)
-        // Le ticket se compte à l'ouverture de la FICHE. Accroché au
-        // sélecteur de catégorie, il n'était lu que si on l'ouvrait — la
-        // pastille restait grise sur une opération qui en portait un.
-        .task { countReceipts() }
         /*
          * Le fond passe à la feuille, comme dans les six autres.
          *
@@ -217,6 +225,18 @@ struct TransactionDetailSheet: View {
          * à la mise en page du contenu, ce qui sort la mesure de la boucle.
          */
         .presentationBackground { Backdrop(tint: TabRoute.activity.tint, floor: true) }
+    }
+
+    /*
+     * Tout ce qui s'ouvre depuis cette feuille, écrit une fois.
+     *
+     * Six feuilles filles et un comptage de tickets : recopiés par habillage,
+     * ils auraient été l'endroit exact où les deux versions se mettraient à
+     * diverger sans que personne ne le voie.
+     */
+    private func plumbed(_ shell: some View) -> some View {
+        shell
+        .task { countReceipts() }
         .sheet(isPresented: $picking, onDismiss: {
             if wantsTransfer {
                 wantsTransfer = false
@@ -348,6 +368,254 @@ struct TransactionDetailSheet: View {
     }
 
     private var editorial: Bool { FlorinPalette.selected == .editorial }
+
+    // MARK: Éditorial
+
+    /*
+     * La coque de l'ajout, à l'identique.
+     *
+     * Celle-ci se présentait à sa hauteur exacte — ce qui, depuis iOS 26, la
+     * dessine comme une carte flottante détachée des bords, pendant que la
+     * feuille d'ajout, pleine hauteur, touche l'écran. Deux feuilles pour le
+     * même objet, ouvertes l'une depuis l'autre, n'avaient donc ni la même
+     * forme ni le même vocabulaire : un titre centré contre une pastille, un
+     * montant centré contre un montant en héros, des faits en pastilles
+     * contre des faits en rangées.
+     *
+     * Même bandeau, même héros, même carte de rangées, même action
+     * principale en marge basse. Rien de neuf n'est dessiné : `RowGroup`,
+     * `EdPill` et `SheetAction` sont ceux de partout, et `sheetHeight` ne
+     * sert plus qu'à l'habillage classique.
+     */
+    private var editorialShell: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                edFigure
+                edStatus
+                edFacts
+                edActions
+            }
+            .padding(.bottom, 20)
+        }
+        .scrollIndicators(.hidden)
+        .safeAreaInset(edge: .top, spacing: 0) { edHeader.background(Florin.bg) }
+        .safeAreaInset(edge: .bottom, spacing: 0) { edPrimary.background(Florin.bg) }
+        .background(Florin.bg)
+    }
+
+    private var edHeader: some View {
+        HStack(spacing: 2) {
+            EdPill(text: t("v2.activity.title", "Activité"))
+            Spacer(minLength: 8)
+            if isLocalLedger {
+                EdIconButton(
+                    symbol: hasReceipt ? "doc.text.image" : "doc.text.viewfinder",
+                    label: t("v2.receipts.open", "Ticket de caisse")
+                ) { receipting = true }
+            }
+            EdIconButton(symbol: "xmark", label: t("v2.common.close", "Fermer")) { dismiss() }
+        }
+        .padding(.horizontal, Ed.gutter)
+        .padding(.trailing, -10)
+        .padding(.top, 8)
+        .padding(.bottom, 6)
+    }
+
+    /// Le montant est le sujet de la feuille : il s'écrit à la taille d'un
+    /// titre, et il porte la couleur de son sens — comme dans l'ajout, d'où
+    /// l'on arrive.
+    private var edFigure: some View {
+        AmountText(
+            value: tx.amount, locale: locale, currency: currency,
+            signed: true, tone: .auto, size: edFigureSize, weight: .medium
+        )
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, Ed.gutter)
+        .padding(.top, 12)
+    }
+
+    /// Il descend quand il s'allonge : un montant tronqué est un montant faux.
+    private var edFigureSize: CGFloat {
+        switch Money.string(tx.amount, locale: locale, currency: currency, signed: true).count {
+        case ...9: return 72
+        case 10, 11: return 56
+        default: return 42
+        }
+    }
+
+    /// Le nom du marchand, la date, puis ce qui cloche s'il y a lieu. Une
+    /// opération ordinaire n'affiche aucune pastille : elles sont là pour les
+    /// exceptions, pas pour meubler.
+    private var edStatus: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(PayeeText.title(tx.payee, category: tx.categoryName))
+                .font(.system(size: 19, weight: .medium))
+                .foregroundStyle(Florin.text)
+                .lineLimit(2)
+
+            Text(fullDate)
+                .font(.system(size: 14))
+                .foregroundStyle(Florin.text2)
+
+            if tx.needsReview || tx.isTransfer {
+                HStack(spacing: 8) {
+                    if tx.needsReview {
+                        EdPill(
+                            text: t("v2.activity.needsReview", "À vérifier"),
+                            tone: Florin.negative
+                        )
+                    }
+                    if tx.isTransfer {
+                        EdPill(text: t("v2.activity.transfer", "Virement interne"))
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, Ed.gutter)
+        .padding(.top, 10)
+        .padding(.bottom, 18)
+    }
+
+    /// Les faits, dans la carte de rangées de l'ajout — bénéficiaire, compte,
+    /// catégorie, note — et dans le même ordre, pour que passer de la lecture
+    /// à la modification ne déplace rien sous le pouce.
+    private var edFacts: some View {
+        RowGroup {
+            edFact(
+                symbol: "person.crop.circle", label: t("v2.add.payee", "Bénéficiaire"),
+                value: PayeeText.title(tx.payee, category: tx.categoryName),
+                tap: { naming = true }
+            )
+            Hairline()
+            edFact(
+                symbol: "building.columns", label: t("v2.add.account", "Compte"),
+                value: tx.accountName, tap: nil
+            )
+            Hairline()
+            edFact(
+                symbol: "tag", label: t("v2.add.category", "Catégorie"),
+                value: EdSymbols.label(
+                    tx.categoryEmoji,
+                    filed ?? tx.categoryName ?? t("v2.common.uncategorized", "Sans catégorie")
+                ),
+                tap: { picking = true }
+            )
+
+            if let memo = tx.memo, !memo.isEmpty {
+                Hairline()
+                HStack(alignment: .top, spacing: 13) {
+                    RowIcon("text.alignleft")
+                    Text(memo)
+                        .font(.system(size: 14))
+                        .foregroundStyle(Florin.text2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+            }
+        }
+        .padding(.horizontal, Florin.gutter)
+    }
+
+    /*
+     * Une rangée de fait, qui se touche ou non.
+     *
+     * Même anatomie que `pickerRow` dans l'ajout : l'icône, le mot en gris,
+     * la valeur en pastille à droite. Sans geste, la pastille perd son
+     * contour — un cadre qui ne mène nulle part est une promesse non tenue.
+     */
+    private func edFact(
+        symbol: String, label: String, value: String, tap: (() -> Void)?
+    ) -> some View {
+        HStack(spacing: 13) {
+            RowIcon(symbol)
+            Text(label)
+                .font(.system(size: 14.5))
+                .foregroundStyle(Florin.text2)
+            Spacer(minLength: 10)
+            if let tap {
+                Button(action: tap) { edValue(value, tappable: true) }
+                    .buttonStyle(.plain)
+            } else {
+                edValue(value, tappable: false)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+    }
+
+    private func edValue(_ text: String, tappable: Bool) -> some View {
+        Text(text)
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(Florin.text)
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .padding(.horizontal, tappable ? 11 : 0)
+            .padding(.vertical, tappable ? 6 : 0)
+            .overlay {
+                if tappable { Capsule().strokeBorder(Florin.text.opacity(0.28), lineWidth: 1) }
+            }
+            .frame(maxWidth: 200, alignment: .trailing)
+    }
+
+    /*
+     * L'action pour laquelle on a ouvert la fiche, en marge basse.
+     *
+     * Sur une ligne à vérifier c'est « Vérifié » ; sur les autres,
+     * « Modifier ». Elle ne défile pas, comme « Enregistrer » dans l'ajout :
+     * le pouce la trouve au même endroit d'une feuille à l'autre.
+     */
+    private var edPrimary: some View {
+        Group {
+            if tx.needsReview {
+                SheetAction(
+                    label: t("v2.review.approve", "Vérifié"), symbol: "checkmark",
+                    prominent: true
+                ) {
+                    if tx.categoryName == nil, filed == nil, !tx.isTransfer {
+                        filing = true
+                    } else {
+                        run { await onPatch(TxPatch(approve: true)) }
+                    }
+                }
+            } else {
+                SheetAction(
+                    label: t("v2.common.edit", "Modifier"), symbol: "pencil", prominent: true
+                ) { editing = true }
+            }
+        }
+        .padding(.horizontal, Ed.gutter)
+        .padding(.top, 10)
+        .padding(.bottom, 8)
+        .disabled(working)
+        .opacity(working ? 0.5 : 1)
+    }
+
+    /// Le reste, en contours : ce qui n'est pas la raison de l'ouverture.
+    private var edActions: some View {
+        VStack(spacing: 10) {
+            if tx.needsReview {
+                SheetAction(label: t("v2.common.edit", "Modifier"), symbol: "pencil") {
+                    editing = true
+                }
+            }
+            SheetAction(label: t("v2.review.categorize", "Catégoriser"), symbol: "tag") {
+                picking = true
+            }
+            SheetAction(
+                label: t("v2.common.delete", "Supprimer"), symbol: "trash", destructive: true
+            ) {
+                Task {
+                    await onDelete()
+                    dismiss()
+                }
+            }
+        }
+        .padding(.horizontal, Ed.gutter)
+        .padding(.top, 18)
+        .disabled(working)
+        .opacity(working ? 0.5 : 1)
+    }
 
     private var summary: some View {
         VStack(spacing: 12) {
