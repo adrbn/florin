@@ -394,12 +394,12 @@ struct TransactionDetailSheet: View {
                 edStatus
                 edFacts
                 edActions
+                edPrimary
             }
-            .padding(.bottom, 20)
+            .padding(.bottom, 28)
         }
         .scrollIndicators(.hidden)
         .safeAreaInset(edge: .top, spacing: 0) { edHeader.background(Florin.bg) }
-        .safeAreaInset(edge: .bottom, spacing: 0) { edPrimary.background(Florin.bg) }
         .background(Florin.bg)
     }
 
@@ -571,11 +571,14 @@ struct TransactionDetailSheet: View {
     }
 
     /*
-     * L'action pour laquelle on a ouvert la fiche, en marge basse.
+     * L'action pour laquelle on a ouvert la fiche, sous les autres.
      *
      * Sur une ligne à vérifier c'est « Vérifié » ; sur les autres,
-     * « Modifier ». Elle ne défile pas, comme « Enregistrer » dans l'ajout :
-     * le pouce la trouve au même endroit d'une feuille à l'autre.
+     * « Modifier ». Elle était épinglée en marge basse, comme « Enregistrer »
+     * dans l'ajout — mais l'ajout a un clavier qui pousse sa marge, et une
+     * fiche n'en a pas : sur une opération ordinaire, c'était six cents points
+     * de blanc entre la dernière rangée et le bouton. Elle suit donc le
+     * contenu, et la feuille s'arrête où le contenu s'arrête.
      */
     private var edPrimary: some View {
         Group {
@@ -599,7 +602,6 @@ struct TransactionDetailSheet: View {
         }
         .padding(.horizontal, Ed.gutter)
         .padding(.top, 10)
-        .padding(.bottom, 8)
         .disabled(working)
         .opacity(working ? 0.5 : 1)
     }
