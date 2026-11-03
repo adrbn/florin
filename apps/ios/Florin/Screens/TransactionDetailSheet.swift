@@ -399,8 +399,43 @@ struct TransactionDetailSheet: View {
             .padding(.bottom, 28)
         }
         .scrollIndicators(.hidden)
+        .scrollBounceBehavior(.basedOnSize)
         .safeAreaInset(edge: .top, spacing: 0) { edHeader.background(Florin.bg) }
         .background(Florin.bg)
+        /*
+         * Elle s'arrête où le contenu s'arrête.
+         *
+         * Pleine hauteur, une opération ordinaire laissait la moitié de
+         * l'écran en blanc sous le dernier bouton. UN SEUL cran, et pas de
+         * `.large` à côté : c'est la paire de crans qui rend une feuille
+         * redimensionnable, et une feuille redimensionnable est ce qu'iOS 26
+         * dessine en carte flottante détachée des bords — le reproche de
+         * départ. Avec un cran unique, elle garde les bords de l'écran.
+         */
+        .presentationDetents([.height(edSheetHeight)])
+    }
+
+    /*
+     * La hauteur, additionnée plutôt que mesurée.
+     *
+     * Voir `sheetHeight` pour l'habillage classique, et pour la raison : une
+     * hauteur MESURÉE sur la vue qu'elle dimensionne est une boucle, et elle
+     * se stabilise au plafond. Le contenu est connu d'avance — un montant, un
+     * nom, une date, trois rangées, deux actions puis une — donc on l'écrit.
+     */
+    private var edSheetHeight: CGFloat {
+        var height: CGFloat = 58                       // bandeau
+        height += 12 + edFigureSize * 1.2              // le montant
+        height += 10 + 24 + 10 + 17 + 18               // nom, date
+        if tx.needsReview || tx.isTransfer { height += 34 }
+        height += 3 * 42 + 2                           // bénéficiaire, compte, catégorie
+        if let memo = tx.memo, !memo.isEmpty {
+            height += 24 + CGFloat(min(4, memo.count / 38 + 1)) * 18
+        }
+        height += 18 + 68                              // la rangée de trois
+        height += 10 + 62                              // l'action principale
+        height += 28 + 16                              // marge basse et poignée
+        return min(height, 760)
     }
 
     private var edHeader: some View {
