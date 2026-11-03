@@ -394,6 +394,13 @@ private var edTabs: [TabRoute] { edTabOrder }
 ///
 /// Le calendrier va au Plan, qui parle de mois à venir ; l'horloge à
 /// l'Activité, qui est un historique. L'inverse se lisait de travers.
+/// `calendar` et `clock` sont dessinés dans un carré plus serré que la maison
+/// ou la pile : au même corps ils paraissent en retrait de leurs voisins, donc
+/// ils en prennent deux points de plus.
+private func edSymbolSize(_ symbol: String) -> CGFloat {
+    symbol == "calendar" || symbol == "clock" ? 20 : 18
+}
+
 private func edSymbol(_ tab: TabRoute) -> String {
     switch tab {
     case .accounts: return "rectangle.stack"
@@ -487,7 +494,7 @@ struct EdTabBar: View {
             }
         } label: {
             Image(systemName: symbol)
-                .font(.system(size: 18, weight: .medium))
+                .font(.system(size: edSymbolSize(symbol), weight: .medium))
                 .foregroundStyle(active ? Florin.text : Florin.bg)
                 // Six items — cinq onglets et « Ajouter » — dans la largeur
                 // d'un téléphone : 52 pt débordaient, 46 tiennent, et la
