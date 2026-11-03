@@ -365,6 +365,10 @@ struct AddTransactionSheet: View {
                 dismiss()
             }
         }
+        // Voir `TransactionDetailSheet.edHeader` : une fonte d'entrée dans une
+        // marge sûre n'a pas de défilement pour lui rendre sa phase d'identité,
+        // et finit par effacer le bandeau.
+        .environment(\.edEnterApplied, true)
         .padding(.horizontal, Ed.gutter)
         .padding(.trailing, -10)
         .padding(.top, 8)

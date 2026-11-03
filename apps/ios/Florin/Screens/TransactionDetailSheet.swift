@@ -415,6 +415,18 @@ struct TransactionDetailSheet: View {
             }
             EdIconButton(symbol: "xmark", label: t("v2.common.close", "Fermer")) { dismiss() }
         }
+        /*
+         * Pas d'entrée en scène dans une marge sûre.
+         *
+         * `EdPill` et `EdIconButton` fondent en arrivant, et cette fonte est
+         * une `scrollTransition` : elle attend du défilement qu'il lui rende
+         * une phase d'identité. Un `safeAreaInset` vit HORS du défilement —
+         * la phase ne revenait donc jamais, et cent cinquante millisecondes
+         * après l'ouverture le bandeau entier passait à zéro. Il gardait sa
+         * place, d'où une feuille qui s'ouvrait sur cinquante points de blanc
+         * sans nom et sans croix pour la fermer.
+         */
+        .environment(\.edEnterApplied, true)
         .padding(.horizontal, Ed.gutter)
         .padding(.trailing, -10)
         .padding(.top, 8)
@@ -570,7 +582,7 @@ struct TransactionDetailSheet: View {
             if tx.needsReview {
                 SheetAction(
                     label: t("v2.review.approve", "Vérifié"), symbol: "checkmark",
-                    prominent: true
+                    prominent: true, large: true
                 ) {
                     if tx.categoryName == nil, filed == nil, !tx.isTransfer {
                         filing = true
@@ -580,7 +592,8 @@ struct TransactionDetailSheet: View {
                 }
             } else {
                 SheetAction(
-                    label: t("v2.common.edit", "Modifier"), symbol: "pencil", prominent: true
+                    label: t("v2.common.edit", "Modifier"), symbol: "pencil",
+                    prominent: true, large: true
                 ) { editing = true }
             }
         }
@@ -591,19 +604,24 @@ struct TransactionDetailSheet: View {
         .opacity(working ? 0.5 : 1)
     }
 
-    /// Le reste, en contours : ce qui n'est pas la raison de l'ouverture.
+    /*
+     * Le reste, côte à côte.
+     *
+     * Trois rangées pleine largeur empilées, c'est cent quatre-vingts points
+     * pour trois mots — et une feuille qui descend jusqu'en bas de l'écran
+     * pour des gestes rares. Ils tiennent la même ligne : le symbole au-dessus
+     * du mot, trois colonnes égales, et la hauteur de la feuille retombe de
+     * moitié. Seule l'action principale garde sa pleine largeur, parce qu'elle
+     * est la seule qu'on vienne chercher.
+     */
     private var edActions: some View {
-        VStack(spacing: 10) {
+        HStack(spacing: 10) {
             if tx.needsReview {
-                SheetAction(label: t("v2.common.edit", "Modifier"), symbol: "pencil") {
-                    editing = true
-                }
+                edSmallAction(t("v2.common.edit", "Modifier"), "pencil") { editing = true }
             }
-            SheetAction(label: t("v2.review.categorize", "Catégoriser"), symbol: "tag") {
-                picking = true
-            }
-            SheetAction(
-                label: t("v2.common.delete", "Supprimer"), symbol: "trash", destructive: true
+            edSmallAction(t("v2.review.categorize", "Catégoriser"), "tag") { picking = true }
+            edSmallAction(
+                t("v2.common.delete", "Supprimer"), "trash", destructive: true
             ) {
                 Task {
                     await onDelete()
@@ -615,6 +633,40 @@ struct TransactionDetailSheet: View {
         .padding(.top, 18)
         .disabled(working)
         .opacity(working ? 0.5 : 1)
+    }
+
+    /// Une colonne de la rangée. Le contour d'un bouton secondaire éditorial,
+    /// en vertical — « Catégoriser » ne tient pas à côté de son symbole sur un
+    /// tiers d'écran.
+    private func edSmallAction(
+        _ label: String, _ symbol: String, destructive: Bool = false,
+        action: @escaping () -> Void
+    ) -> some View {
+        let tint = destructive ? Florin.negative : Florin.text
+        return Button(action: action) {
+            VStack(spacing: 7) {
+                Image(systemName: symbol).font(.system(size: 17, weight: .medium))
+                Text(label)
+                    .font(.system(size: 13, weight: .semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .foregroundStyle(tint)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .background(
+                editorial ? Color.clear : tint.opacity(destructive ? 0.12 : 0.08),
+                in: RoundedRectangle(cornerRadius: 20, style: .continuous)
+            )
+            .overlay {
+                if editorial {
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .strokeBorder(tint.opacity(0.28), lineWidth: 1)
+                }
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 
     private var summary: some View {
@@ -730,6 +782,9 @@ struct SheetAction: View {
     let symbol: String
     var prominent = false
     var destructive = false
+    /// L'action principale d'une feuille éditoriale, où elle est seule sur sa
+    /// ligne : elle a la place d'être plus grande que ce qui l'entoure.
+    var large = false
     let action: () -> Void
 
     private var editorial: Bool { FlorinPalette.selected == .editorial }
@@ -744,8 +799,9 @@ struct SheetAction: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 9) {
-                Image(systemName: symbol).font(.system(size: 15, weight: .semibold))
-                Text(label).font(.system(size: 16, weight: .semibold))
+                Image(systemName: symbol)
+                    .font(.system(size: large ? 18 : 15, weight: .semibold))
+                Text(label).font(.system(size: large ? 19 : 16, weight: .semibold))
             }
             /*
              * Noir sur l'accent était faux en clair.
@@ -760,7 +816,7 @@ struct SheetAction: View {
                     : (destructive ? Florin.negative : Florin.text)
             )
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 15)
+            .padding(.vertical, large ? 20 : 15)
             /*
              * En éditorial, un bouton secondaire est un contour.
              *
