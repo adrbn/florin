@@ -378,7 +378,7 @@ enum LocalWallet {
         let pending = try store.database.query(
             """
             SELECT id, account_id, amount, payee, substr(occurred_at, 1, 10) AS day,
-                   category_id, instalment_plan_id
+                   category_id, instalment_plan_id, memo
             FROM transactions
             WHERE source = ? AND deleted_at IS NULL
             ORDER BY occurred_at
@@ -431,7 +431,7 @@ enum LocalWallet {
                       let amount = row.double("amount"), let day = row.string("day") else { continue }
                 let candidates = try store.database.query(
                     """
-                    SELECT id, category_id, normalized_payee, payee,
+                    SELECT id, category_id, normalized_payee, payee, memo,
                            abs(julianday(substr(occurred_at, 1, 10)) - julianday(?)) AS drift
                     FROM transactions
                     WHERE account_id = ? AND deleted_at IS NULL
@@ -485,6 +485,32 @@ enum LocalWallet {
                 try adoptIdentity(
                     store, tap: row.string("payee") ?? "", bank: match.string("payee") ?? ""
                 )
+                /*
+                 * Et la note écrite à la main, qui est la seule irremplaçable.
+                 *
+                 * La catégorie, le nom, les tickets et l'échéancier passaient
+                 * déjà ; la note, non. « rb resto Camille » disparaissait
+                 * donc le jour où la banque comptabilisait — et c'est
+                 * précisément ce que la ligne de la banque ne saura jamais
+                 * dire, puisqu'elle n'a que « ACHAT CB … CARTE NO … ».
+                 *
+                 * Elle passe DEVANT le libellé de la banque, qui reste
+                 * dessous : l'un dit ce que c'était, l'autre d'où ça vient.
+                 */
+                let note = (row.string("memo") ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                let bankLine = match.string("memo") ?? ""
+                if !note.isEmpty, !bankLine.contains(note) {
+                    try store.database.run(
+                        """
+                        UPDATE transactions SET memo = ?, updated_at = datetime('now')
+                        WHERE id = ?
+                        """,
+                        [
+                            .text(bankLine.isEmpty ? note : note + "\n" + bankLine),
+                            .text(bankId),
+                        ]
+                    )
+                }
                 /*
                  * Et les tickets de caisse.
                  *
