@@ -32,7 +32,8 @@ cat > "$EXPORT/ExportOptions.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-  <key>method</key><string>debugging</string>
+  <key>method</key><string>release-testing</string>
+  <key>teamID</key><string>2TWQF4T93E</string>
   <key>signingStyle</key><string>automatic</string>
   <key>destination</key><string>export</string>
   <key>stripSwiftSymbols</key><true/>

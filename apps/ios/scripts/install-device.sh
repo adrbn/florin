@@ -24,13 +24,45 @@ APP="${1:-}"
 # DerivedData. Il annonçait « installé » en posant un build de la veille, et
 # on cherchait ensuite pourquoi le correctif n'avait rien changé à l'écran.
 # Un produit périmé ressemble trait pour trait à un produit à jour.
+#
+# Et on EXPORTE plutôt que de poser le produit de la compilation.
+#
+# Un build signé « Apple Development » n'est pas autorisé par son profil : au
+# premier lancement, iOS appelle Apple pour vérifier que le développeur est
+# fiable, et sans réseau il refuse d'ouvrir l'app — « Impossible de vérifier
+# l'app », un bouton Annuler, rien d'autre. Dans le métro ou en voyage, un
+# build fraîchement posé est donc inutilisable.
+#
+# Une signature Ad Hoc (`release-testing`) porte la liste des appareils
+# autorisés dans le profil lui-même : il n'y a rien à vérifier en ligne, et
+# l'app s'ouvre hors réseau comme n'importe quelle autre.
 DD="${DERIVED_DATA:-/tmp/florin-dd-rel}"
 if [ -z "$APP" ]; then
   cd "$(dirname "$0")/.."
+  ARCH="$DD/Florin.xcarchive"
+  OUT="$DD/export"
+  rm -rf "$ARCH" "$OUT"
+  mkdir -p "$OUT"
+  cat > "$OUT/ExportOptions.plist" <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>method</key><string>release-testing</string>
+  <key>teamID</key><string>2TWQF4T93E</string>
+  <key>signingStyle</key><string>automatic</string>
+  <key>destination</key><string>export</string>
+  <key>stripSwiftSymbols</key><true/>
+</dict></plist>
+PLIST
   xcodebuild -project Florin.xcodeproj -scheme Florin -configuration Release \
-    -destination 'generic/platform=iOS' -derivedDataPath "$DD" \
-    -allowProvisioningUpdates build -quiet || exit 1
-  APP=$(find "$DD/Build/Products" -maxdepth 3 -name "Florin.app" 2>/dev/null | head -1)
+    -destination 'generic/platform=iOS' -archivePath "$ARCH" \
+    -allowProvisioningUpdates archive -quiet || exit 1
+  xcodebuild -exportArchive -archivePath "$ARCH" -exportPath "$OUT" \
+    -exportOptionsPlist "$OUT/ExportOptions.plist" -allowProvisioningUpdates \
+    >/dev/null || exit 1
+  rm -rf "$OUT/unz" && mkdir -p "$OUT/unz"
+  unzip -q "$OUT/Florin.ipa" -d "$OUT/unz"
+  APP="$OUT/unz/Payload/Florin.app"
 fi
 if [ -z "$APP" ] || [ ! -d "$APP" ]; then
   echo "Florin.app introuvable — passe son chemin en argument." >&2
