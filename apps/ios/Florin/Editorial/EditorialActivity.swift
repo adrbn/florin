@@ -185,6 +185,13 @@ struct EditorialActivity: View {
          * de la feuille vit hors de cette hiérarchie, il reste net.
          */
         .blur(radius: detail != nil ? 7 : 0)
+        // Le voile du système ne suffit pas sur un fond déjà clair : un
+        // assombrissement par-dessus le flou creuse l'écart avec la fiche.
+        .overlay(
+            Color.black.opacity(detail != nil ? 0.22 : 0)
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+        )
         .animation(.easeOut(duration: 0.28), value: detail != nil)
         .sheet(item: $detail) { tx in
             TransactionDetailSheet(
