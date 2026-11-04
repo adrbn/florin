@@ -35,16 +35,22 @@ enum LocalReimbursements {
         let payee: String
         let amount: Double
         let day: Date
+        /// De quoi dessiner la même pastille que partout ailleurs : la teinte
+        /// vient de la catégorie, pas du marchand.
+        var category: String?
+        var emoji: String?
     }
 
     /// Ce qu'on a rendu sur cette dépense, la plus récente d'abord.
     static func on(store: LocalStore, expense id: String) throws -> [Entry] {
         try store.database.query(
             """
-            SELECT id, payee, amount, substr(occurred_at, 1, 10) AS day
-            FROM transactions
-            WHERE reimburses_tx_id = ? AND deleted_at IS NULL
-            ORDER BY occurred_at DESC
+            SELECT t.id, t.payee, t.amount, substr(t.occurred_at, 1, 10) AS day,
+                   c.name AS category, c.emoji AS emoji
+            FROM transactions t
+            LEFT JOIN categories c ON c.id = t.category_id
+            WHERE t.reimburses_tx_id = ? AND t.deleted_at IS NULL
+            ORDER BY t.occurred_at DESC
             """,
             [.text(id)]
         ).compactMap(entry)
@@ -54,8 +60,11 @@ enum LocalReimbursements {
     static func expense(store: LocalStore, of id: String) throws -> Entry? {
         try store.database.query(
             """
-            SELECT id, payee, amount, substr(occurred_at, 1, 10) AS day
-            FROM transactions WHERE id = ? AND deleted_at IS NULL
+            SELECT t.id, t.payee, t.amount, substr(t.occurred_at, 1, 10) AS day,
+                   c.name AS category, c.emoji AS emoji
+            FROM transactions t
+            LEFT JOIN categories c ON c.id = t.category_id
+            WHERE t.id = ? AND t.deleted_at IS NULL
             """,
             [.text(id)]
         ).compactMap(entry).first
@@ -82,7 +91,7 @@ enum LocalReimbursements {
             "%" + LocalLedger.normalize(String($0)).lowercased() + "%"
         }
         let filter = words.map { _ in
-            "AND (lower(normalized_payee) LIKE ? OR lower(COALESCE(memo,'')) LIKE ?)"
+            "AND (lower(t.normalized_payee) LIKE ? OR lower(COALESCE(t.memo,'')) LIKE ?)"
         }.joined(separator: " ")
         var values: [SQLiteValue] = [
             .real(-abs(income.amount)), .text(day), .text(day), .text(income.id),
@@ -90,15 +99,17 @@ enum LocalReimbursements {
         for word in words { values.append(.text(word)); values.append(.text(word)) }
         return try store.database.query(
             """
-            SELECT id, payee, amount, substr(occurred_at, 1, 10) AS day
-            FROM transactions
-            WHERE deleted_at IS NULL AND amount <= ?
-              AND transfer_pair_id IS NULL
-              AND julianday(substr(occurred_at, 1, 10)) BETWEEN julianday(?) - 90
-                                                            AND julianday(?) + 7
-              AND id <> ?
+            SELECT t.id, t.payee, t.amount, substr(t.occurred_at, 1, 10) AS day,
+                   c.name AS category, c.emoji AS emoji
+            FROM transactions t
+            LEFT JOIN categories c ON c.id = t.category_id
+            WHERE t.deleted_at IS NULL AND t.amount <= ?
+              AND t.transfer_pair_id IS NULL
+              AND julianday(substr(t.occurred_at, 1, 10)) BETWEEN julianday(?) - 90
+                                                              AND julianday(?) + 7
+              AND t.id <> ?
               \(filter)
-            ORDER BY occurred_at DESC
+            ORDER BY t.occurred_at DESC
             LIMIT 40
             """,
             values
@@ -121,7 +132,8 @@ enum LocalReimbursements {
               let day = row.string("day") else { return nil }
         return Entry(
             id: id, payee: row.string("payee") ?? "", amount: amount,
-            day: Dates.iso.date(from: day) ?? .distantPast
+            day: Dates.iso.date(from: day) ?? .distantPast,
+            category: row.string("category"), emoji: row.string("emoji")
         )
     }
 }

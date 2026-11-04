@@ -407,6 +407,7 @@ struct TransactionDetailSheet: View {
                 edFacts
                 edActions
                 edPrimary
+                edRefund
             }
             .padding(.bottom, 28)
         }
@@ -441,12 +442,13 @@ struct TransactionDetailSheet: View {
         height += 10 + 24 + 10 + 17 + 18               // nom, date
         if tx.needsReview || tx.isTransfer { height += 34 }
         height += 3 * 42 + 2                           // bénéficiaire, compte, catégorie
-        if reimbursementRow { height += 43 }           // le remboursement
+
         if let memo = tx.memo, !memo.isEmpty {
             height += 24 + CGFloat(min(4, memo.count / 38 + 1)) * 18
         }
         height += 18 + 68                              // la rangée de trois
         height += 10 + 62                              // l'action principale
+        if reimbursementRow { height += 18 + 34 }      // la note de remboursement
         height += 28 + 16                              // marge basse et poignée
         return min(height, 760)
     }
@@ -576,28 +578,6 @@ struct TransactionDetailSheet: View {
                 tap: { picking = true }
             )
 
-            /*
-             * Ce qu'on vous a rendu, et sur quoi.
-             *
-             * Une addition avancée pour quatre revient en morceaux : la
-             * dépense un soir, un virement d'un prénom trois jours plus tard.
-             * Chaque ligne, seule, ment un peu — l'une sur ce que la soirée a
-             * coûté, l'autre sur d'où vient l'argent. Le lien les fait se
-             * répondre, dans les deux sens, et ne déplace rien : c'est la
-             * catégorie recopiée au moment du lien qui solde le poste.
-             */
-            if reimbursementRow {
-                Hairline()
-                edFact(
-                    symbol: "arrow.uturn.left",
-                    label: tx.amount > 0
-                        ? t("v2.detail.reimburses", "Remboursement de")
-                        : t("v2.detail.reimbursed", "Remboursé"),
-                    value: reimbursementValue,
-                    tap: tx.amount > 0 ? { linking = true } : nil
-                )
-            }
-
             if let memo = tx.memo, !memo.isEmpty {
                 Hairline()
                 HStack(alignment: .top, spacing: 13) {
@@ -643,6 +623,52 @@ struct TransactionDetailSheet: View {
 
     /// Une rentrée propose toujours de désigner sa dépense ; une dépense ne
     /// dit quelque chose que si on lui a rendu de l'argent.
+    /*
+     * Ce qu'on vous a rendu — une note, pas un fait.
+     *
+     * C'était une rangée de plus sous Bénéficiaire, Compte et Catégorie,
+     * c'est-à-dire au même rang que les trois choses qu'une opération EST.
+     * Un remboursement n'en est pas une : il en relie deux, il arrive après,
+     * et souvent il n'y en a pas. Au même niveau, il faisait lire la liste
+     * comme si l'app ne savait pas ce qui comptait.
+     *
+     * Il descend donc sous l'action principale, en une ligne discrète avec
+     * sa flèche de retour — la place d'une annotation. Ce qu'il dit change
+     * de sens selon le côté : une rentrée désigne SA dépense (et se tape
+     * pour la choisir), une dépense récite ce qui lui est revenu.
+     */
+    @ViewBuilder
+    private var edRefund: some View {
+        if reimbursementRow {
+            let tappable = tx.amount > 0
+            Button {
+                guard tappable else { return }
+                linking = true
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "arrow.uturn.left")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Florin.text3)
+                    Text(tx.amount > 0
+                        ? t("v2.detail.reimburses", "Remboursement de")
+                        : t("v2.detail.reimbursed", "Remboursé"))
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(Florin.text3)
+                    Text(reimbursementValue)
+                        .font(.system(size: 12.5, weight: .medium))
+                        .foregroundStyle(reimburses == nil && tappable ? Florin.accent : Florin.text2)
+                        .lineLimit(1)
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(!tappable)
+            .padding(.horizontal, Ed.gutter)
+            .padding(.top, 18)
+        }
+    }
+
     private var reimbursementRow: Bool {
         guard !tx.isTransfer, !tx.isMovementOnly else { return false }
         return tx.amount > 0 ? true : !reimbursedBy.isEmpty

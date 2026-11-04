@@ -33,6 +33,17 @@ struct SettingsScreen: View {
     @AppStorage(FlorinPalette.key) private var paletteRaw = FlorinPalette.obsidian.rawValue
     @AppStorage(EdAccent.key) private var accentRaw = EdAccent.terracotta.rawValue
     @AppStorage(EdInks.key) private var inksRaw = EdInks.palette.rawValue
+    /*
+     * Gardé sur le disque, et pas en `@State`, pour une raison précise.
+     *
+     * La racine porte `.id("…-\(accentRaw)-\(inksRaw)")` : choisir un accent
+     * reconstruit tout l'arbre, c'est ce qui fait que les jeux de jetons se
+     * relisent. Un `@State` repartirait donc à zéro à CHAQUE pastille — le
+     * panneau se refermerait sous le doigt à la première tape. Posé ici, il
+     * traverse la reconstruction, et l'aperçu se regarde pendant qu'on
+     * parcourt les trente teintes.
+     */
+    @AppStorage("florin.settings.accentOpen") private var accentOpen = false
     /// Les mêmes cartes écartées que l'accueil : l'aperçu montre SA pile.
     @AppStorage(HomeCards.key) private var hiddenCards = ""
     @State private var editingServer = false
@@ -737,6 +748,10 @@ struct SettingsScreen: View {
             )
             Hairline()
             themeRow
+            if paletteRaw == FlorinPalette.editorial.rawValue {
+                Hairline()
+                accentRow
+            }
             Hairline()
             choiceRow(
                 t("v2.settings.language", "Langue"),
@@ -820,20 +835,62 @@ struct SettingsScreen: View {
              * n'en a qu'une, sur le héros et l'alerte — c'est le seul où
              * choisir veut dire quelque chose, donc le seul qui le propose.
              */
-            if paletteRaw == FlorinPalette.editorial.rawValue {
-                Text(t("v2.settings.accent", "Couleur d'accent"))
-                    .font(.system(size: 13))
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 13)
+    }
+
+    /*
+     * L'accent : une ligne repliée, pas un quart d'écran déroulé.
+     *
+     * La carte « Affichage » empilait, d'un coup et sans qu'on l'ait demandé,
+     * trente pastilles, deux gélules, une phrase d'explication et un aperçu
+     * à quatre bandes — sous trois autres réglages. Sept contrôles dans une
+     * carte : on ne lit plus, on balaie.
+     *
+     * Repliée, la ligne dit l'essentiel — le nom de la teinte et un rond de
+     * cette teinte — et c'est tout ce qu'on vient vérifier neuf fois sur dix.
+     * Dépliée, elle montre exactement ce qu'elle montrait avant.
+     */
+    @ViewBuilder
+    private var accentRow: some View {
+        Button {
+            withAnimation(.snappy(duration: 0.22)) { accentOpen.toggle() }
+        } label: {
+            HStack(spacing: 11) {
+                Image(systemName: "drop")
+                    .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(Florin.text2)
-                    .padding(.leading, 33)
-                    .padding(.top, 4)
+                    .frame(width: 22)
+                Text(t("v2.settings.accent", "Couleur d'accent"))
+                    .font(.system(size: 16))
+                    .foregroundStyle(Florin.text)
+                Spacer(minLength: 8)
+                Circle()
+                    .fill(Florin.accent)
+                    .frame(width: 15, height: 15)
+                Text(EdAccent.selected.name)
+                    .font(.system(size: 15))
+                    .foregroundStyle(Florin.text2)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Florin.text3)
+                    .rotationEffect(.degrees(accentOpen ? 180 : 0))
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 13)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+
+        if accentOpen {
+            VStack(alignment: .leading, spacing: 12) {
                 /*
                  * Une grille, parce qu'une rangée ne tient plus.
                  *
-                 * Six pastilles tenaient sur une ligne ; dix-huit, non — et
-                 * les faire défiler horizontalement cacherait la moitié du
-                 * choix derrière un geste que rien n'annonce. La grille les
-                 * montre toutes d'un coup, ce qui est le seul intérêt d'en
-                 * proposer autant.
+                 * Six pastilles tenaient sur une ligne ; trente, non — et les
+                 * faire défiler horizontalement cacherait la moitié du choix
+                 * derrière un geste que rien n'annonce.
                  */
                 LazyVGrid(
                     columns: [GridItem(.adaptive(minimum: 40), spacing: 10)],
@@ -843,28 +900,13 @@ struct SettingsScreen: View {
                         accentSwatch(choice)
                     }
                 }
-                .padding(.leading, 33)
-                .padding(.trailing, 6)
-                .padding(.top, 2)
-
                 inksRow
-                    .padding(.leading, 33)
-                    .padding(.trailing, 6)
-                    .padding(.top, 12)
-
                 inksHint
-                    .padding(.leading, 33)
-                    .padding(.trailing, 6)
-                    .padding(.top, 6)
-
                 accentPreview
-                    .padding(.leading, 33)
-                    .padding(.trailing, 6)
-                    .padding(.top, 8)
             }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 14)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 13)
     }
 
     /*

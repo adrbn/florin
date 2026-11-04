@@ -11,6 +11,12 @@ import SwiftUI
  * et la catégorie de la dépense recopiée sur la rentrée. C'est elle qui fait
  * que le poste se solde net — trente euros rendus sur une addition rangée en
  * « Sorties » ne valent rien s'ils atterrissent en « Courses ».
+ *
+ * La mise en page est celle des autres feuilles qui proposent un choix
+ * (`AttachTransferSheet`) : un en-tête qui rappelle de quelle somme on parle,
+ * puis des lignes d'opération comme partout ailleurs — pastille, nom, jour,
+ * montant. Une `List` brute laissait un écran gris à filets système au milieu
+ * d'une app qui n'en a nulle part.
  */
 struct ReimbursementPicker: View {
     let income: Transaction
@@ -24,25 +30,37 @@ struct ReimbursementPicker: View {
     var onPick: () -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @StateObject private var logos = MerchantLogos.shared
     @State private var search = ""
     @State private var rows: [LocalReimbursements.Entry] = []
 
     var body: some View {
         NavigationStack {
-            List {
-                if rows.isEmpty {
-                    Text(t("v2.reimburse.empty", "Aucune dépense d'au moins ce montant ces trois derniers mois."))
-                        .font(.system(size: 14))
-                        .foregroundStyle(Florin.text3)
-                        .listRowBackground(Color.clear)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    header
+                    if rows.isEmpty {
+                        Text(t("v2.reimburse.empty",
+                               "Aucune dépense d'au moins ce montant ces trois derniers mois."))
+                            .font(.system(size: 14))
+                            .foregroundStyle(Florin.text3)
+                            .padding(.horizontal, Florin.gutter)
+                    } else {
+                        RowGroup {
+                            ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
+                                if index > 0 { Hairline() }
+                                Button { pick(row) } label: { line(row) }
+                                    .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(.horizontal, Florin.gutter)
+                    }
                 }
-                ForEach(rows) { row in
-                    Button { pick(row) } label: { line(row) }
-                        .buttonStyle(.plain)
-                        .listRowBackground(Color.clear)
-                }
+                .padding(.top, 8)
+                .padding(.bottom, 24)
             }
-            .listStyle(.plain)
+            .scrollIndicators(.hidden)
+            .background(Florin.bg)
             .searchable(text: $search, prompt: t("v2.common.search", "Rechercher"))
             .navigationTitle(t("v2.reimburse.title", "Quelle dépense ?"))
             .navigationBarTitleDisplayMode(.inline)
@@ -63,39 +81,64 @@ struct ReimbursementPicker: View {
                     }
                 }
             }
-            .safeAreaInset(edge: .bottom) {
-                Text(t("v2.reimburse.hint", "La rentrée prendra la catégorie de la dépense choisie."))
-                    .font(.system(size: 12.5))
-                    .foregroundStyle(Florin.text3)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, Florin.gutter)
-                    .padding(.vertical, 10)
-                    .background(Florin.bg)
-            }
         }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .task(id: search) { load() }
     }
 
+    /*
+     * De quelle somme on parle, avant la liste.
+     *
+     * La feuille s'ouvre sur quarante lignes de dépenses : sans rappel, on a
+     * déjà oublié qu'on place trente euros et pas trois cents. Le montant,
+     * d'où il vient, et la seule chose que choisir va faire d'autre que lier.
+     */
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            AmountText(
+                value: income.amount, locale: locale, currency: currency,
+                decimals: true, signed: true, tone: .auto, size: 30, weight: .light
+            )
+            Text(PayeeText.title(income.payee, category: income.categoryName))
+                .font(.system(size: 14))
+                .foregroundStyle(Florin.text2)
+                .lineLimit(1)
+            Text(t("v2.reimburse.hint",
+                   "La rentrée prendra la catégorie de la dépense choisie."))
+                .font(.system(size: 12.5))
+                .foregroundStyle(Florin.text3)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 3)
+        }
+        .padding(.horizontal, Florin.gutter)
+    }
+
     private func line(_ row: LocalReimbursements.Entry) -> some View {
-        HStack(spacing: 12) {
+        let face = logos.face(for: row.payee)
+        return HStack(spacing: 12) {
+            Bubble(
+                label: row.category ?? row.payee, name: row.payee,
+                chosen: face?.emoji, emoji: row.emoji, logo: face?.logo
+            )
             VStack(alignment: .leading, spacing: 2) {
-                Text(PayeeText.title(row.payee, category: nil))
-                    .font(.system(size: 16, weight: .medium))
+                Text(PayeeText.title(row.payee, category: row.category))
+                    .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(Florin.text)
                     .lineLimit(1)
                 Text(DayLabel.string(row.day, locale: locale, t: t))
                     .font(.system(size: 12.5))
-                    .foregroundStyle(Florin.text3)
+                    .foregroundStyle(Florin.text2)
+                    .lineLimit(1)
             }
             Spacer(minLength: 8)
             Text(Money.string(row.amount, locale: locale, currency: currency))
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: 15, weight: .medium))
                 .monospacedDigit()
-                .foregroundStyle(Florin.text2)
+                .foregroundStyle(Florin.text)
         }
-        .padding(.vertical, 6)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
         .contentShape(Rectangle())
     }
 
