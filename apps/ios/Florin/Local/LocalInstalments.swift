@@ -292,9 +292,27 @@ enum LocalInstalments {
         /// Les échéances dans l'ordre des dates, payées puis à venir.
         let instalments: [Transaction]
 
-        /// L'enseigne, prise sur la première échéance : renommer une ligne
-        /// renomme donc l'échéancier, ce qui est le comportement attendu.
-        var payee: String { instalments.first?.payee ?? "" }
+        /*
+         * L'enseigne, prise sur une échéance que la banque n'a pas écrite.
+         *
+         * La première échéance était le choix évident et c'était le mauvais :
+         * dès qu'elle est prélevée, c'est la ligne de la banque, et la banque
+         * ne connaît pas l'enseigne. Un paiement en quatre fois chez PayPal
+         * s'écrit « ACHAT CB PAYPAL *Paieme … » quel que soit le commerçant —
+         * la clé est la même pour tous, si bien que cinq échéanciers
+         * différents s'affichaient sous un seul nom, celui du renommage posé
+         * une fois sur cette clé. Steam, Adopt et le reste devenaient
+         * indiscernables au moment précis où ils commençaient à être payés.
+         *
+         * Une échéance encore annoncée porte, elle, le nom tapé à l'achat.
+         * Reste la limite : un échéancier entièrement prélevé n'en a plus
+         * aucune et retombe sur le libellé bancaire. Y remédier demanderait
+         * d'écrire le nom sur l'échéancier lui-même, ce que la table ne fait
+         * pas encore.
+         */
+        var payee: String {
+            (instalments.first(where: \.isScheduled) ?? instalments.first)?.payee ?? ""
+        }
         var accountName: String { instalments.first?.accountName ?? "" }
         var categoryName: String? { instalments.first?.categoryName }
         var categoryEmoji: String? { instalments.first?.categoryEmoji }
