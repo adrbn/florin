@@ -179,6 +179,23 @@ struct Palette {
     var text, text2, text3: Tone
     var accent, onAccent, positive, negative, warn: Tone
     /// Huit encres catégorielles, jamais le vert ni le rouge sémantiques.
+    /*
+     * Huit teintes d'UNE SEULE famille, pas huit points de la roue.
+     *
+     * Les séries faisaient le tour complet : bleu, cyan, menthe, ocre,
+     * orange, magenta, violet, ardoise. Un écran qui n'en montrait que deux
+     * ou trois — la répartition — se lisait comme une palette tenue ; la pile
+     * de cartes de l'accueil, qui les tire au hasard du nom, en montrait six
+     * et se lisait comme une autre. Même boîte, deux impressions, et
+     * l'impression de deux palettes vient de là, pas de la façon de piocher.
+     *
+     * Chaque thème garde donc sa famille et s'y tient : Obsidienne va du bleu
+     * au vert menthe, Ardoise de la sarcelle au bleu, Sépia du brun à la
+     * sauge, Papier est une rampe de gris. Les teintes se distinguent par
+     * leur valeur plutôt que par leur teinte — c'est ce qui fait qu'un écran
+     * entier tient ensemble. Le rouge et le vert restent dehors : ils disent
+     * perdu et gagné.
+     */
     var series: [Tone]
     /*
      * Les fonds colorés : un par onglet, puis celui des feuilles.
@@ -476,13 +493,13 @@ extension Palette {
         warn: Tone(light: 0xB4690E, dark: 0xF0B357),
         series: [
             Tone(light: 0x4B57D2, dark: 0x8C93F2),
-            Tone(light: 0x1E7FA0, dark: 0x63C3DE),
             Tone(light: 0x148A93, dark: 0x5CCBD3),
-            Tone(light: 0x9A6A18, dark: 0xE0B45C),
-            Tone(light: 0xB25C1E, dark: 0xEFA26A),
-            Tone(light: 0xA33C86, dark: 0xEC85C9),
-            Tone(light: 0x7B45B8, dark: 0xBB92EF),
+            Tone(light: 0x1E5FA8, dark: 0x6FA8DC),
+            Tone(light: 0x2A7F6A, dark: 0x6FD4B4),
+            Tone(light: 0x1E7FA0, dark: 0x63C3DE),
             Tone(light: 0x4E6B8F, dark: 0x97AECC),
+            Tone(light: 0x146B74, dark: 0x8FDCE2),
+            Tone(light: 0x6168C4, dark: 0xAEB3F7),
         ],
         grounds: [
             Tone(0x5C54E6), Tone(0x1A6BC7), Tone(0x9E4D9E),
@@ -544,12 +561,12 @@ extension Palette {
         warn: Tone(light: 0x8A6510, dark: 0xE0B05A),
         series: [
             Tone(light: 0x8A5A24, dark: 0xD9A460),
-            Tone(light: 0x6B5A2A, dark: 0xC9B273),
             Tone(light: 0x3F6B4A, dark: 0x9ECF9E),
-            Tone(light: 0x2A6B6B, dark: 0x73C9C9),
-            Tone(light: 0x6B4A6B, dark: 0xC993C9),
-            Tone(light: 0x8A4A3A, dark: 0xE89A86),
-            Tone(light: 0x5A5A8A, dark: 0x9A9AD9),
+            Tone(light: 0x6B5A2A, dark: 0xC9B273),
+            Tone(light: 0x5A6B45, dark: 0xB2C491),
+            Tone(light: 0x7A6B3A, dark: 0xD4BC80),
+            Tone(light: 0x4A5A3A, dark: 0x9AAD80),
+            Tone(light: 0x8A6B45, dark: 0xD9B88E),
             Tone(light: 0x7A7A4A, dark: 0xCBCB86),
         ],
         grounds: [
@@ -577,11 +594,11 @@ extension Palette {
             Tone(light: 0x0E6E7A, dark: 0x48C6D4),
             Tone(light: 0x1F5C8C, dark: 0x6FA8DC),
             Tone(light: 0x2A7A5A, dark: 0x5FD0A0),
-            Tone(light: 0x6B6B2A, dark: 0xC9C96B),
-            Tone(light: 0x8A5A2A, dark: 0xE0A06B),
-            Tone(light: 0x8A3A6B, dark: 0xE07BB8),
-            Tone(light: 0x5A3A8A, dark: 0xA88ADC),
+            Tone(light: 0x15607A, dark: 0x5FB5CC),
+            Tone(light: 0x1A7A6B, dark: 0x58D4BC),
             Tone(light: 0x46606E, dark: 0x93AEBF),
+            Tone(light: 0x1F4C7A, dark: 0x7FB0E0),
+            Tone(light: 0x35708A, dark: 0x86C2D6),
         ],
         grounds: [
             Tone(0x1A6E7A), Tone(0x15597A), Tone(0x4A5A8A),
@@ -790,13 +807,13 @@ extension Palette {
         warn: Tone(light: 0xB4690E, dark: 0xF0B357),
         series: [
             Tone(light: 0x1F6FB2, dark: 0x6FB8EE),
-            Tone(light: 0x1F8B5F, dark: 0x5FD9A0),
-            Tone(light: 0xB25C1E, dark: 0xEFA26A),
-            Tone(light: 0x7B45B8, dark: 0xBB92EF),
             Tone(light: 0x148A93, dark: 0x5CCBD3),
-            Tone(light: 0xA33C86, dark: 0xEC85C9),
-            Tone(light: 0x9A6A18, dark: 0xE0B45C),
+            Tone(light: 0x1F5C8C, dark: 0x6FA8DC),
+            Tone(light: 0x2A7F6A, dark: 0x6FD4B4),
+            Tone(light: 0x1E7FA0, dark: 0x63C3DE),
             Tone(light: 0x4E6B8F, dark: 0x97AECC),
+            Tone(light: 0x146B74, dark: 0x8FDCE2),
+            Tone(light: 0x6168C4, dark: 0xAEB3F7),
         ],
         grounds: Array(repeating: Tone(light: 0x0A0A0A, dark: 0xF5F5F7), count: 7),
         // Ni dégradé ni voile teinté : la maquette n'en a aucun.
