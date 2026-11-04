@@ -55,12 +55,39 @@ enum AccountsLogic {
     }
 
     /// Les trois tranches de la répartition, vides exclues.
+    /*
+     * Les trois parts et leurs teintes — ici et nulle part ailleurs.
+     *
+     * Quatre écrans dessinaient cette barre, et trois d'entre eux
+     * choisissaient leurs couleurs eux-mêmes : des rangs en dur d'un côté,
+     * du gris de texte de l'autre, du rouge sémantique pour les dettes sur un
+     * troisième. Même barre, trois palettes. Elle part d'un seul endroit
+     * maintenant, et la teinte vient de la règle commune
+     * (`Florin.seriesColors`), sur une clé stable et non sur le libellé
+     * traduit — sinon passer en anglais repeindrait l'écran.
+     */
     static func slices(_ data: Overview, t: Strings) -> [(label: String, value: Double, color: Color)] {
-        [
-            (t("v2.overview.cash", "Liquidités"), data.allocation.cash, Florin.series[0]),
-            (t("v2.overview.invested", "Investi"), data.allocation.invested, Florin.series[2]),
-            (t("v2.overview.debt", "Dettes"), data.allocation.loans, Florin.negative),
-        ].filter { $0.1 > 0 }
+        let owned: [(key: String, label: String, value: Double)] = [
+            ("allocation.cash", t("v2.overview.cash", "Liquidités"), max(0, data.allocation.cash)),
+            ("allocation.invested", t("v2.overview.invested", "Investi"), max(0, data.allocation.invested)),
+        ].filter { $0.value > 0 }
+        let tones = Florin.seriesColors(for: owned.map(\.key))
+        var out = zip(owned, tones).map {
+            (label: $0.0.label, value: $0.0.value, color: $0.1)
+        }
+        // Les dettes gardent le rouge : ce n'est pas une catégorie de plus à
+        // colorier, c'est de l'argent dû. Un négatif est rouge partout dans
+        // l'app — le solde d'un compte, le total d'un mois — et une part de
+        // répartition ne fait pas exception. Le gris de texte qu'un écran
+        // utilisait, lui, ne disait rien.
+        if abs(data.allocation.loans) > 0 {
+            out.append((
+                label: t("v2.overview.debt", "Dettes"),
+                value: abs(data.allocation.loans),
+                color: Florin.negative
+            ))
+        }
+        return out
     }
 
     /// Le solde n'est modifiable que là où il est à nous : pas sur un compte

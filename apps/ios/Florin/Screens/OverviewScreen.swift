@@ -1121,18 +1121,15 @@ struct OverviewScreen: View {
     }
 
     private func allocation(_ data: Overview) -> some View {
-        let slices: [(String, Double, Color)] = [
-            (data.t("v2.overview.cash", "Liquidités"), data.allocation.cash, Florin.series[0]),
-            (data.t("v2.overview.invested", "Investi"), data.allocation.invested, Florin.series[2]),
-        ].filter { $0.1 > 0 }
-        let total = slices.reduce(0) { $0 + $1.1 }
+        let slices = AccountsLogic.slices(data, t: data.t)
+        let total = slices.reduce(0) { $0 + $1.value }
 
         return Group {
             if total > 0 {
                 section(data.t("v2.overview.allocation", "Répartition")) {
                     FlorinCard {
                         AllocationCard(
-                            slices: slices.map { (label: $0.0, value: $0.1, color: $0.2) },
+                            slices: slices,
                             center: Money.compact(total, locale: data.localeTag, currency: data.currency),
                             caption: data.t("v2.overview.gross", "Brut"),
                             locale: data.localeTag,

@@ -100,6 +100,34 @@ enum Florin {
         series[seriesIndex(for: label)]
     }
 
+    /*
+     * Plusieurs libellés montrés ensemble, et aucun deux fois la même teinte.
+     *
+     * Une seule règle dans toute l'app : une chose colorée prend la teinte
+     * que son nom possède dans les huit. Les comptes le faisaient déjà ; la
+     * barre de répartition, elle, tapait des rangs en dur — 0, 2, 4 — donc
+     * deux écrans tiraient dans la même palette par deux règles différentes
+     * et l'ensemble se lisait comme deux palettes.
+     *
+     * La clé passée ici ne doit pas être un libellé traduit : « Liquidités »
+     * et « Cash » ne tombent pas au même rang, et changer de langue
+     * changerait les couleurs. Une clé stable, comme l'identifiant d'un
+     * compte.
+     */
+    static func seriesColors(for keys: [String], avoiding reserved: Set<Int> = []) -> [Color] {
+        var taken = reserved
+        return keys.map { key in
+            var slot = seriesIndex(for: key)
+            var tries = 0
+            while taken.contains(slot), tries < seriesCount {
+                slot = (slot + 1) % seriesCount
+                tries += 1
+            }
+            taken.insert(slot)
+            return series[slot]
+        }
+    }
+
     /// Le rang que ce libellé tire dans `series`.
     ///
     /// Exposé à part parce qu'un appelant qui dessine PLUSIEURS libellés côte

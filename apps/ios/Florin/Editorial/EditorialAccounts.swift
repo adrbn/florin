@@ -268,9 +268,9 @@ struct EditorialAccounts: View {
                 EdSection(text: t("v2.overview.allocation", "Répartition"))
                 GeometryReader { geo in
                     HStack(spacing: 2) {
-                        ForEach(Array(slices.enumerated()), id: \.offset) { index, slice in
+                        ForEach(Array(slices.enumerated()), id: \.offset) { _, slice in
                             Rectangle()
-                                .fill(ink(index))
+                                .fill(slice.color)
                                 .frame(width: max(2, geo.size.width * slice.value / total - 2))
                         }
                     }
@@ -281,7 +281,7 @@ struct EditorialAccounts: View {
                     ForEach(Array(slices.enumerated()), id: \.offset) { index, slice in
                         if index > 0 { EdRule() }
                         HStack(spacing: 10) {
-                            Circle().fill(ink(index)).frame(width: 8, height: 8)
+                            Circle().fill(slice.color).frame(width: 8, height: 8)
                             Text(slice.label)
                                 .font(.system(size: 15))
                                 .foregroundStyle(Florin.text)
@@ -307,18 +307,22 @@ struct EditorialAccounts: View {
         }
     }
 
-    /// Trois encres du plus foncé au plus clair : la part la plus grosse est
-    /// la plus appuyée, et aucune n'est l'accent — qui reste à l'alerte.
-    private func ink(_ index: Int) -> Color {
-        Florin.series[min(index * 2, Florin.series.count - 1)]
-    }
-
     // MARK: Les comptes
 
     private func groups(_ data: Overview) -> some View {
         let scale = AccountsLogic.assetTotal(data)
         let buckets = AccountsLogic.buckets(data, t: t)
-        return ForEach(Array(buckets.enumerated()), id: \.element.title) { rank, group in
+        /*
+         * La teinte d'un compte est celle de sa carte sur l'accueil.
+         *
+         * La barre portait l'encre de son GROUPE, tirée d'un rang calculé ici
+         * (0, 2, 4, 6…) : cinq groupes, cinq teintes qui ne voulaient rien
+         * dire, et aucun rapport avec la couleur sous laquelle le même compte
+         * apparaît deux écrans plus loin. Une seule règle : `HomeCards.palette`,
+         * celle des cartes, qui respecte aussi la teinte choisie à la main.
+         */
+        let tints = HomeCards.palette(AccountsLogic.visible(data))
+        return ForEach(Array(buckets.enumerated()), id: \.element.title) { _, group in
             VStack(alignment: .leading, spacing: 10) {
                 EdSection(
                     text: group.title,
@@ -343,7 +347,10 @@ struct EditorialAccounts: View {
                     ForEach(Array(group.accounts.enumerated()), id: \.element.id) { index, account in
                         VStack(spacing: 0) {
                             if index > 0 { EdRule() }
-                            row(account, data, scale: scale, ink: ink(rank))
+                            row(
+                                account, data, scale: scale,
+                                ink: tints[account.id] ?? Florin.seriesColor(for: account.id)
+                            )
                         }
                         .edEnter()
                     }
@@ -385,9 +392,9 @@ struct EditorialAccounts: View {
                     ZStack(alignment: .leading) {
                         Capsule().fill(Florin.text.opacity(0.10))
                         Capsule()
-                            // La barre porte l'encre de son groupe : c'est la
-                            // même que la part correspondante de la
-                            // répartition, donc on relie les deux d'un regard.
+                            // La barre porte la teinte du compte : la même que
+                            // sa carte sur l'accueil, donc on relie les deux
+                            // d'un regard.
                             .fill(account.displayValue < 0 ? Florin.negative : ink)
                             .frame(
                                 width: max(

@@ -72,15 +72,12 @@ enum HomeCards {
                 out[account.id] = Florin.series[slot]
             }
         }
-        for account in all where out[account.id] == nil {
-            var rank = Florin.seriesIndex(for: account.id)
-            var tries = 0
-            while taken.contains(rank), tries < count {
-                rank = (rank + 1) % count
-                tries += 1
-            }
-            taken.insert(rank)
-            out[account.id] = Florin.series[rank]
+        // L'écartement lui-même est la règle commune de l'app
+        // (`Florin.seriesColors`) : les rangs déjà réservés à la main lui sont
+        // passés, elle place le reste.
+        let automatic = all.map(\.id).filter { out[$0] == nil }
+        for (id, tone) in zip(automatic, Florin.seriesColors(for: automatic, avoiding: taken)) {
+            out[id] = tone
         }
         return out
     }
@@ -402,34 +399,17 @@ struct EdAllocation: View {
     let data: Overview
 
     var body: some View {
-        let cash = max(0, data.allocation.cash)
-        let invested = max(0, data.allocation.invested)
-        let loans = max(0, abs(data.allocation.loans))
-        let total = max(cash + invested + loans, 1)
+        let slices = AccountsLogic.slices(data, t: data.t)
+        let total = max(slices.reduce(0) { $0 + $1.value }, 1)
         return VStack(alignment: .leading, spacing: 14) {
             EdSection(text: data.t("v2.overview.allocation", "Répartition"))
             EdParts(
-                parts: [
-                    .init(value: cash, tone: Florin.series[0]),
-                    .init(value: invested, tone: Florin.series[2]),
-                    .init(value: loans, tone: Florin.text.opacity(0.22)),
-                ],
+                parts: slices.map { .init(value: $0.value, tone: $0.color) },
                 total: total
             )
-            EdFigures(figures: [
-                .init(
-                    label: data.t("v2.overview.cash", "Liquidités"),
-                    text: money(cash), tone: Florin.series[0]
-                ),
-                .init(
-                    label: data.t("v2.overview.invested", "Investi"),
-                    text: money(invested), tone: Florin.series[2]
-                ),
-                .init(
-                    label: data.t("v2.overview.debt", "Dettes"),
-                    text: money(loans), tone: Florin.text2
-                ),
-            ])
+            EdFigures(figures: slices.map {
+                .init(label: $0.label, text: money($0.value), tone: $0.color)
+            })
         }
     }
 
