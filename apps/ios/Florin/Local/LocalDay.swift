@@ -156,7 +156,7 @@ enum LocalDay {
                    c.name AS category_name, c.emoji AS category_emoji,
                    a.name AS account_name, t.transfer_pair_id,
                    t.needs_review, t.is_pending, t.status,
-                   t.account_id, t.category_id, t.instalment_plan_id, t.reimburses_tx_id,
+                   t.account_id, t.category_id, t.instalment_plan_id,
                    a.kind AS account_kind
             FROM transactions t
             LEFT JOIN categories c ON c.id = t.category_id
@@ -185,8 +185,7 @@ enum LocalDay {
                 categoryId: row.string("category_id"),
                 instalmentPlanId: row.string("instalment_plan_id"),
                 accountKind: row.string("account_kind"),
-                transferPairId: row.string("transfer_pair_id"),
-                reimbursesTxId: row.string("reimburses_tx_id")
+                transferPairId: row.string("transfer_pair_id")
             )
         }
     }

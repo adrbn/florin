@@ -331,15 +331,6 @@ struct Transaction: Decodable, Sendable, Identifiable {
      */
     var repaymentInterest: Double?
 
-    /*
-     * La dépense que cette rentrée rembourse.
-     *
-     * Porté par la RENTRÉE et désignant la dépense, parce qu'une addition
-     * peut être remboursée par trois personnes et que l'inverse n'arrive
-     * pas. Vide partout ailleurs, c'est-à-dire sur presque tout.
-     */
-    var reimbursesTxId: String?
-
     /// Une ligne qui raconte les deux bouts d'un même mouvement.
     var isPairedTransfer: Bool { transferCounterAccount != nil }
 

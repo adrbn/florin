@@ -56,15 +56,27 @@ enum LocalReimbursements {
         ).compactMap(entry)
     }
 
-    /// La dépense que cette rentrée rembourse, si elle en désigne une.
-    static func expense(store: LocalStore, of id: String) throws -> Entry? {
+    /*
+     * La dépense que cette rentrée désigne — relue du grand livre.
+     *
+     * Et non prise sur la `Transaction` qu'un écran tient en mémoire. Une
+     * fiche est ouverte AVANT qu'on y pose le lien : sa colonne vaut encore
+     * `nil`, et c'est elle qu'on relisait après le choix. Le lien était bien
+     * écrit, la catégorie bien recopiée, et l'écran continuait d'afficher
+     * « Lier une dépense » — donc choisir « ne faisait rien ».
+     *
+     * On part de l'identifiant de la rentrée, qui lui ne bouge pas, et la
+     * jointure va chercher l'état du moment.
+     */
+    static func linked(store: LocalStore, income id: String) throws -> Entry? {
         try store.database.query(
             """
-            SELECT t.id, t.payee, t.amount, substr(t.occurred_at, 1, 10) AS day,
+            SELECT e.id, e.payee, e.amount, substr(e.occurred_at, 1, 10) AS day,
                    c.name AS category, c.emoji AS emoji
-            FROM transactions t
-            LEFT JOIN categories c ON c.id = t.category_id
-            WHERE t.id = ? AND t.deleted_at IS NULL
+            FROM transactions i
+            JOIN transactions e ON e.id = i.reimburses_tx_id
+            LEFT JOIN categories c ON c.id = e.category_id
+            WHERE i.id = ? AND e.deleted_at IS NULL
             """,
             [.text(id)]
         ).compactMap(entry).first

@@ -689,9 +689,7 @@ struct TransactionDetailSheet: View {
     private func readLinks() {
         guard let store = LocalStore.shared else { return }
         reimbursedBy = (try? LocalReimbursements.on(store: store, expense: tx.id)) ?? []
-        reimburses = tx.reimbursesTxId.flatMap {
-            try? LocalReimbursements.expense(store: store, of: $0)
-        } ?? nil
+        reimburses = try? LocalReimbursements.linked(store: store, income: tx.id)
     }
 
     private func edValue(_ text: String, tappable: Bool) -> some View {
