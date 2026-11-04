@@ -1,7 +1,8 @@
 # Mettre Florin sur l'App Store
 
-Tout ce que la soumission demande, prêt à coller. L'app est `6807898365`,
-`com.adrbn.florin`, équipe `2TWQF4T93E`.
+Tout ce que la soumission demande, prêt à coller. L'app est `com.adrbn.florin`,
+équipe `2TWQF4T93E` ; son identifiant App Store Connect est dans
+`~/.appstoreconnect/florin-asc.env`.
 
 ---
 
@@ -274,8 +275,16 @@ xcodebuild -exportArchive -archivePath "$PWD/build-archive/Florin.xcarchive" \
 ```
 
 ```bash
-xcrun altool --upload-app --type ios -f apps/ios/build-export/Florin.ipa --apiKey 5L888V4RWV --apiIssuer 21df40c7-84f8-445f-ae7d-a46e373904db
+set -a; . ~/.appstoreconnect/florin-asc.env; set +a
+xcrun altool --upload-app --type ios -f apps/ios/build-export/Florin.ipa \
+  --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
 ```
+
+Ce dépôt est public, donc l'identité du compte n'y est pas écrite : le fichier
+`~/.appstoreconnect/florin-asc.env` (0600, à côté de la clé `.p8` qu'il
+accompagne) porte `ASC_KEY_ID`, `ASC_ISSUER_ID` et `ASC_APP_ID`. Rien là-dedans
+n'ouvre quoi que ce soit sans le `.p8`, mais ces identifiants nomment le compte,
+et un dépôt lisible par tous n'est pas l'endroit pour ça.
 
 Le traitement de la build prend cinq à quinze minutes, après quoi elle apparaît
 dans TestFlight et devient sélectionnable dans la fiche.
@@ -283,7 +292,7 @@ dans TestFlight et devient sélectionnable dans la fiche.
 ### Si la signature casse un jour
 
 Le certificat a été créé par l'API, pas par Xcode, parce que la clé
-`5L888V4RWV` n'a pas le rôle Admin qu'exige la signature automatique. Pour que
+n'a pas le rôle Admin qu'exige la signature automatique. Pour que
 Xcode se débrouille seul à l'avenir, il suffit de régénérer une clé API en
 **Admin** (App Store Connect → Utilisateurs et accès → Intégrations) ; sinon
 `ExportOptions-appstore.plist` nomme les profils à la main et n'a besoin de rien.
