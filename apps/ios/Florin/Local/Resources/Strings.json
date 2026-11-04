@@ -938,7 +938,15 @@
     "v2.merchant.reachPlan": "Applies to this purchase's {count} instalments, and to those alone. This payee's other transactions keep their name.",
     "v2.settings.themeClassic": "Classic",
     "v2.settings.themeMinimal": "Minimal",
-    "v2.settings.themeMinimalHint": "No cards, no emoji: type, rules, a single colour."
+    "v2.settings.themeMinimalHint": "No cards, no emoji: type, rules, a single colour.",
+    "v2.detail.reimburses": "Reimbursement of",
+    "v2.detail.reimbursed": "Reimbursed",
+    "v2.detail.reimbursedOf": "{back} of {total}",
+    "v2.detail.linkExpense": "Link an expense",
+    "v2.reimburse.title": "Which expense?",
+    "v2.reimburse.hint": "The income will take the chosen expense's category.",
+    "v2.reimburse.empty": "No expense of at least this amount in the last three months.",
+    "v2.reimburse.unlink": "Unlink"
   },
   "fr": {
     "v2.a11y.back": "Retour",
@@ -1879,7 +1887,15 @@
     "v2.merchant.reachPlan": "S'applique aux {count} échéances de cet achat, et à elles seules. Les autres opérations de ce bénéficiaire gardent leur nom.",
     "v2.settings.themeClassic": "Classique",
     "v2.settings.themeMinimal": "Minimaliste",
-    "v2.settings.themeMinimalHint": "Ni cartes ni emoji : du texte, des filets, une seule couleur."
+    "v2.settings.themeMinimalHint": "Ni cartes ni emoji : du texte, des filets, une seule couleur.",
+    "v2.detail.reimburses": "Remboursement de",
+    "v2.detail.reimbursed": "Remboursé",
+    "v2.detail.reimbursedOf": "{back} sur {total}",
+    "v2.detail.linkExpense": "Lier une dépense",
+    "v2.reimburse.title": "Quelle dépense ?",
+    "v2.reimburse.hint": "La rentrée prendra la catégorie de la dépense choisie.",
+    "v2.reimburse.empty": "Aucune dépense d'au moins ce montant ces trois derniers mois.",
+    "v2.reimburse.unlink": "Détacher"
   },
   "nl": {
     "v2.a11y.back": "Terug",
@@ -2820,7 +2836,15 @@
     "v2.merchant.reachPlan": "Geldt voor de {count} termijnen van deze aankoop, en alleen daarvoor. De andere transacties van deze begunstigde houden hun naam.",
     "v2.settings.themeClassic": "Klassiek",
     "v2.settings.themeMinimal": "Minimalistisch",
-    "v2.settings.themeMinimalHint": "Geen kaarten, geen emoji: tekst, lijnen, één kleur."
+    "v2.settings.themeMinimalHint": "Geen kaarten, geen emoji: tekst, lijnen, één kleur.",
+    "v2.detail.reimburses": "Terugbetaling van",
+    "v2.detail.reimbursed": "Terugbetaald",
+    "v2.detail.reimbursedOf": "{back} van {total}",
+    "v2.detail.linkExpense": "Een uitgave koppelen",
+    "v2.reimburse.title": "Welke uitgave?",
+    "v2.reimburse.hint": "De inkomst neemt de categorie van de gekozen uitgave over.",
+    "v2.reimburse.empty": "Geen uitgave van minstens dit bedrag in de laatste drie maanden.",
+    "v2.reimburse.unlink": "Ontkoppelen"
   },
   "it": {
     "v2.a11y.back": "Indietro",
@@ -3761,7 +3785,15 @@
     "v2.merchant.reachPlan": "Si applica alle {count} rate di questo acquisto, e solo a quelle. Le altre operazioni di questo beneficiario mantengono il loro nome.",
     "v2.settings.themeClassic": "Classico",
     "v2.settings.themeMinimal": "Minimalista",
-    "v2.settings.themeMinimalHint": "Niente schede né emoji: testo, filetti, un solo colore."
+    "v2.settings.themeMinimalHint": "Niente schede né emoji: testo, filetti, un solo colore.",
+    "v2.detail.reimburses": "Rimborso di",
+    "v2.detail.reimbursed": "Rimborsato",
+    "v2.detail.reimbursedOf": "{back} su {total}",
+    "v2.detail.linkExpense": "Collega una spesa",
+    "v2.reimburse.title": "Quale spesa?",
+    "v2.reimburse.hint": "L'entrata prenderà la categoria della spesa scelta.",
+    "v2.reimburse.empty": "Nessuna spesa di almeno questo importo negli ultimi tre mesi.",
+    "v2.reimburse.unlink": "Scollega"
   },
   "es": {
     "v2.a11y.back": "Atrás",
@@ -4702,7 +4734,15 @@
     "v2.merchant.reachPlan": "Se aplica a los {count} plazos de esta compra, y solo a ellos. Las demás operaciones de este beneficiario conservan su nombre.",
     "v2.settings.themeClassic": "Clásico",
     "v2.settings.themeMinimal": "Minimalista",
-    "v2.settings.themeMinimalHint": "Sin tarjetas ni emoji: texto, filetes, un solo color."
+    "v2.settings.themeMinimalHint": "Sin tarjetas ni emoji: texto, filetes, un solo color.",
+    "v2.detail.reimburses": "Reembolso de",
+    "v2.detail.reimbursed": "Reembolsado",
+    "v2.detail.reimbursedOf": "{back} de {total}",
+    "v2.detail.linkExpense": "Vincular un gasto",
+    "v2.reimburse.title": "¿Qué gasto?",
+    "v2.reimburse.hint": "El ingreso tomará la categoría del gasto elegido.",
+    "v2.reimburse.empty": "Ningún gasto de al menos este importe en los últimos tres meses.",
+    "v2.reimburse.unlink": "Desvincular"
   },
   "ca": {
     "v2.a11y.back": "Enrere",
@@ -5643,7 +5683,15 @@
     "v2.merchant.reachPlan": "S'aplica als {count} terminis d'aquesta compra, i només a aquests. Les altres operacions d'aquest beneficiari conserven el seu nom.",
     "v2.settings.themeClassic": "Clàssic",
     "v2.settings.themeMinimal": "Minimalista",
-    "v2.settings.themeMinimalHint": "Ni targetes ni emoji: text, filets, un sol color."
+    "v2.settings.themeMinimalHint": "Ni targetes ni emoji: text, filets, un sol color.",
+    "v2.detail.reimburses": "Reemborsament de",
+    "v2.detail.reimbursed": "Reemborsat",
+    "v2.detail.reimbursedOf": "{back} de {total}",
+    "v2.detail.linkExpense": "Vincula una despesa",
+    "v2.reimburse.title": "Quina despesa?",
+    "v2.reimburse.hint": "L'entrada prendrà la categoria de la despesa triada.",
+    "v2.reimburse.empty": "Cap despesa d'almenys aquest import els últims tres mesos.",
+    "v2.reimburse.unlink": "Desvincula"
   },
   "de": {
     "v2.a11y.back": "Zurück",
@@ -6584,7 +6632,15 @@
     "v2.merchant.reachPlan": "Gilt für die {count} Raten dieses Kaufs, und nur für sie. Die übrigen Vorgänge dieses Empfängers behalten ihren Namen.",
     "v2.settings.themeClassic": "Klassisch",
     "v2.settings.themeMinimal": "Minimalistisch",
-    "v2.settings.themeMinimalHint": "Keine Karten, keine Emojis: Schrift, Linien, eine Farbe."
+    "v2.settings.themeMinimalHint": "Keine Karten, keine Emojis: Schrift, Linien, eine Farbe.",
+    "v2.detail.reimburses": "Erstattung von",
+    "v2.detail.reimbursed": "Erstattet",
+    "v2.detail.reimbursedOf": "{back} von {total}",
+    "v2.detail.linkExpense": "Ausgabe verknüpfen",
+    "v2.reimburse.title": "Welche Ausgabe?",
+    "v2.reimburse.hint": "Die Einnahme übernimmt die Kategorie der gewählten Ausgabe.",
+    "v2.reimburse.empty": "Keine Ausgabe in dieser Höhe in den letzten drei Monaten.",
+    "v2.reimburse.unlink": "Lösen"
   },
   "pt": {
     "v2.a11y.back": "Voltar",
@@ -7525,7 +7581,15 @@
     "v2.merchant.reachPlan": "Aplica-se às {count} prestações desta compra, e só a elas. As outras operações deste beneficiário mantêm o seu nome.",
     "v2.settings.themeClassic": "Clássico",
     "v2.settings.themeMinimal": "Minimalista",
-    "v2.settings.themeMinimalHint": "Sem cartões nem emoji: texto, filetes, uma só cor."
+    "v2.settings.themeMinimalHint": "Sem cartões nem emoji: texto, filetes, uma só cor.",
+    "v2.detail.reimburses": "Reembolso de",
+    "v2.detail.reimbursed": "Reembolsado",
+    "v2.detail.reimbursedOf": "{back} de {total}",
+    "v2.detail.linkExpense": "Associar uma despesa",
+    "v2.reimburse.title": "Qual despesa?",
+    "v2.reimburse.hint": "A entrada assumirá a categoria da despesa escolhida.",
+    "v2.reimburse.empty": "Nenhuma despesa de pelo menos este valor nos últimos três meses.",
+    "v2.reimburse.unlink": "Desassociar"
   },
   "tr": {
     "v2.a11y.back": "Geri",
@@ -8466,6 +8530,14 @@
     "v2.merchant.reachPlan": "Bu alışverişin {count} taksidi için geçerlidir, yalnızca onlar için. Bu alıcının diğer işlemleri adını korur.",
     "v2.settings.themeClassic": "Klasik",
     "v2.settings.themeMinimal": "Minimal",
-    "v2.settings.themeMinimalHint": "Kart yok, emoji yok: yazı, çizgi, tek renk."
+    "v2.settings.themeMinimalHint": "Kart yok, emoji yok: yazı, çizgi, tek renk.",
+    "v2.detail.reimburses": "Şunun iadesi",
+    "v2.detail.reimbursed": "İade edildi",
+    "v2.detail.reimbursedOf": "{total} içinden {back}",
+    "v2.detail.linkExpense": "Bir harcamaya bağla",
+    "v2.reimburse.title": "Hangi harcama?",
+    "v2.reimburse.hint": "Gelir, seçilen harcamanın kategorisini alır.",
+    "v2.reimburse.empty": "Son üç ayda en az bu tutarda harcama yok.",
+    "v2.reimburse.unlink": "Bağlantıyı kaldır"
   }
 }

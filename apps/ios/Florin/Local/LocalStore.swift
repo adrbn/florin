@@ -199,6 +199,20 @@ final class LocalStore {
          */
         try addColumn("transactions", "instalment_plan_id", "TEXT")
         /*
+         * Ce qu'une rentrée rembourse.
+         *
+         * Une dépense partagée revient en deux morceaux : la dépense entière
+         * d'un côté, ce qu'on vous rend de l'autre, et rien ne dit que les
+         * deux lignes parlent de la même soirée. Le lien est porté par la
+         * RENTRÉE et désigne la dépense : une addition peut être remboursée
+         * par trois personnes, l'inverse n'arrive pas.
+         *
+         * Il ne déplace pas un centime. Ranger le remboursement dans la
+         * catégorie de la dépense suffit déjà à ce que le poste se solde net
+         * — c'est ce que le lien propose de faire, pas ce qu'il calcule.
+         */
+        try addColumn("transactions", "reimburses_tx_id", "TEXT")
+        /*
          * Le prix d'achat, que les échéances ne disent pas.
          *
          * Un achat de 100 € en 3 fois avec 2 € de frais entre au grand livre
@@ -365,9 +379,10 @@ final class LocalStore {
             let rows = try database.query("SELECT match_key FROM \(table) ORDER BY updated_at ASC")
             for row in rows {
                 guard let old = row.string("match_key") else { continue }
-                // Une clé de série n'est pas un libellé : la recalculer la
-                // détruirait.
-                if old.hasPrefix(MerchantNames.seriesSign) { continue }
+                // Ni une clé de série ni celle d'un achat en plusieurs fois
+                // ne sont des libellés : les recalculer les détruirait.
+                if old.hasPrefix(MerchantNames.seriesSign)
+                    || old.hasPrefix(MerchantNames.planSign) { continue }
                 let fresh = MerchantNames.key(old)
                 guard fresh != old, !fresh.isEmpty else { continue }
                 try database.run(

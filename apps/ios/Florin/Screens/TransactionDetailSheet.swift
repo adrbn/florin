@@ -46,6 +46,11 @@ struct TransactionDetailSheet: View {
     /// Un ticket est posé sur cette opération : l'icône le dit en vert,
     /// autrement rien ne distingue « pas de ticket » de « pas regardé ».
     @State private var hasReceipt = false
+    /// Le lien de remboursement, dans les deux sens — voir
+    /// `LocalReimbursements`. Chargé à l'ouverture, relu après un changement.
+    @State private var linking = false
+    @State private var reimburses: LocalReimbursements.Entry?
+    @State private var reimbursedBy: [LocalReimbursements.Entry] = []
     /// Observed so the title changes the moment the merchant is renamed.
     @ObservedObject private var names = MerchantNames.shared
 
@@ -237,6 +242,7 @@ struct TransactionDetailSheet: View {
     private func plumbed(_ shell: some View) -> some View {
         shell
         .task { countReceipts() }
+        .task { readLinks() }
         .sheet(isPresented: $picking, onDismiss: {
             if wantsTransfer {
                 wantsTransfer = false
@@ -324,6 +330,12 @@ struct TransactionDetailSheet: View {
             ReceiptsSheet(
                 tx: tx, locale: locale, currency: currency, t: t,
                 onChanged: countReceipts
+            )
+        }
+        .sheet(isPresented: $linking) {
+            ReimbursementPicker(
+                income: tx, t: t, locale: locale, currency: currency,
+                linked: reimburses != nil, onPick: readLinks
             )
         }
         .sheet(isPresented: $naming) {
@@ -429,6 +441,7 @@ struct TransactionDetailSheet: View {
         height += 10 + 24 + 10 + 17 + 18               // nom, date
         if tx.needsReview || tx.isTransfer { height += 34 }
         height += 3 * 42 + 2                           // bénéficiaire, compte, catégorie
+        if reimbursementRow { height += 43 }           // le remboursement
         if let memo = tx.memo, !memo.isEmpty {
             height += 24 + CGFloat(min(4, memo.count / 38 + 1)) * 18
         }
@@ -563,6 +576,28 @@ struct TransactionDetailSheet: View {
                 tap: { picking = true }
             )
 
+            /*
+             * Ce qu'on vous a rendu, et sur quoi.
+             *
+             * Une addition avancée pour quatre revient en morceaux : la
+             * dépense un soir, un virement d'un prénom trois jours plus tard.
+             * Chaque ligne, seule, ment un peu — l'une sur ce que la soirée a
+             * coûté, l'autre sur d'où vient l'argent. Le lien les fait se
+             * répondre, dans les deux sens, et ne déplace rien : c'est la
+             * catégorie recopiée au moment du lien qui solde le poste.
+             */
+            if reimbursementRow {
+                Hairline()
+                edFact(
+                    symbol: "arrow.uturn.left",
+                    label: tx.amount > 0
+                        ? t("v2.detail.reimburses", "Remboursement de")
+                        : t("v2.detail.reimbursed", "Remboursé"),
+                    value: reimbursementValue,
+                    tap: tx.amount > 0 ? { linking = true } : nil
+                )
+            }
+
             if let memo = tx.memo, !memo.isEmpty {
                 Hairline()
                 HStack(alignment: .top, spacing: 13) {
@@ -604,6 +639,33 @@ struct TransactionDetailSheet: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
+    }
+
+    /// Une rentrée propose toujours de désigner sa dépense ; une dépense ne
+    /// dit quelque chose que si on lui a rendu de l'argent.
+    private var reimbursementRow: Bool {
+        guard !tx.isTransfer, !tx.isMovementOnly else { return false }
+        return tx.amount > 0 ? true : !reimbursedBy.isEmpty
+    }
+
+    private var reimbursementValue: String {
+        if tx.amount > 0 {
+            guard let reimburses else { return t("v2.detail.linkExpense", "Lier une dépense") }
+            return PayeeText.title(reimburses.payee, category: nil)
+        }
+        let back = reimbursedBy.reduce(0) { $0 + $1.amount }
+        return t("v2.detail.reimbursedOf", "{back} sur {total}", [
+            "back": Money.string(back, locale: locale, currency: currency),
+            "total": Money.string(abs(tx.amount), locale: locale, currency: currency),
+        ])
+    }
+
+    private func readLinks() {
+        guard let store = LocalStore.shared else { return }
+        reimbursedBy = (try? LocalReimbursements.on(store: store, expense: tx.id)) ?? []
+        reimburses = tx.reimbursesTxId.flatMap {
+            try? LocalReimbursements.expense(store: store, of: $0)
+        } ?? nil
     }
 
     private func edValue(_ text: String, tappable: Bool) -> some View {
