@@ -283,6 +283,10 @@ struct EdFold<Content: View>: View {
     let inverse: Bool
     @ViewBuilder var content: Content
 
+    /// Mesurée sur le contenu lui-même : un volet dont le nombre de lignes
+    /// change n'a pas à être renseigné deux fois.
+    @State private var height: CGFloat = 0
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Button {
@@ -309,10 +313,54 @@ struct EdFold<Content: View>: View {
             .buttonStyle(.edPress)
             .modifier(EdFoldSkin(inverse: inverse))
 
-            if open {
-                content.transition(.opacity)
-            }
+            /*
+             * Un volet se replie ; il ne s'efface pas.
+             *
+             * `if open { content.transition(.opacity) }` retire la vue de
+             * l'arbre : le contenu fondait sur place en gardant sa hauteur,
+             * et la liste dessous sautait d'un bloc à la fin du fondu — on
+             * voyait « Hier » et toute la suite remonter d'un coup, sans
+             * rapport avec le geste qui venait d'être fait. Une transition
+             * d'opacité ne peut pas faire autrement : elle n'a pas d'avis sur
+             * la mise en page.
+             *
+             * Le contenu reste donc là, et c'est sa HAUTEUR qu'on anime,
+             * de zéro à celle qu'il occupe. Ce chiffre-là, l'animation sait
+             * l'interpoler, donc la liste dessous monte et descend avec le
+             * volet. Il se mesure pendant que le volet est ouvert et ne coûte
+             * rien de plus : ces volets tiennent quelques lignes, pas une
+             * liste paginée.
+             *
+             * `allowsHitTesting` parce qu'un contenu rogné reste touchable :
+             * sans ça, replier un volet laissait ses boutons sous le doigt.
+             */
+            content
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    GeometryReader { geo in
+                        Color.clear.preference(
+                            key: EdFoldHeight.self, value: geo.size.height
+                        )
+                    }
+                )
+                .frame(height: open ? height : 0, alignment: .top)
+                .clipped()
+                .opacity(open ? 1 : 0)
+                .allowsHitTesting(open)
+                .accessibilityHidden(!open)
+                .onPreferenceChange(EdFoldHeight.self) { measured in
+                    if measured > 0 { height = measured }
+                }
         }
+    }
+}
+
+/// La hauteur que prend le contenu d'un volet, remontée pour pouvoir
+/// l'animer. Voir `EdFold`.
+private struct EdFoldHeight: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
     }
 }
 

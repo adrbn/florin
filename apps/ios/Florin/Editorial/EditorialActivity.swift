@@ -624,8 +624,15 @@ struct EditorialActivity: View {
              * et c'est le héros qui rend les siens — voir `hero`, dont la
              * ligne de 64 pt porte déjà une quinzaine de points de blanc
              * au-dessus de ses majuscules.
+             *
+             * Dessous, l'écart doit être plus grand que celui qui sépare deux
+             * volets : la première journée de la liste est la seule sans
+             * en-tête — `EdSection` ne s'écrit qu'à partir de la deuxième —
+             * donc ses lignes touchaient le dernier volet et se lisaient
+             * comme son contenu.
              */
             .padding(.top, 14)
+            .padding(.bottom, 16)
         }
     }
 
@@ -686,14 +693,29 @@ struct EditorialActivity: View {
         .contentShape(Rectangle())
     }
 
+    /*
+     * Deux chiffres et une date, et aucun mot à tronquer.
+     *
+     * « 2 sur 4 payées · 29 novembre » ne tient pas dans la colonne qui reste
+     * à gauche de la pastille de montant : la ligne rendait « 2 sur 4 pay… »
+     * ou « … 9 n… », c'est-à-dire un compte illisible et une date qui n'en
+     * est plus une. Or ces deux faits sont des nombres : « 2/4 » se lit d'un
+     * coup d'œil et ne se coupe pas, et la date en chiffres fait cinq signes
+     * là où son nom en faisait douze.
+     */
     private func planSubtitle(_ plan: LocalInstalments.Schedule) -> String {
-        let progress = t(
-            "v2.instalments.paidOf", "{paid} sur {count} payées",
-            ["paid": plan.paidCount, "count": plan.count]
-        )
+        let progress = "\(plan.paidCount)/\(plan.count)"
         guard let next = plan.next else { return progress }
-        return progress + " · " + dayLabel(next.day)
+        return progress + " · " + Self.shortDay.string(from: next.day)
     }
+
+    /// « 29/11 » — le gabarit est localisé, donc l'ordre jour/mois suit la
+    /// langue sans qu'on écrive deux formats.
+    private static let shortDay: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.setLocalizedDateFormatFromTemplate("ddMM")
+        return formatter
+    }()
 
     // MARK: Les lignes
 

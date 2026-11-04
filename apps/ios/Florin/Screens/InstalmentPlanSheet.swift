@@ -105,16 +105,27 @@ struct InstalmentProgress: View {
          * et il la donne mieux aligné sous le chiffre qu'il commente.
          */
         if editorial {
-            ZStack(alignment: .leading) {
-                GeometryReader { geo in
-                    Capsule().fill(Florin.text.opacity(0.12))
+            /*
+             * Un trait par échéance, et une largeur qui ne dépend de rien.
+             *
+             * Deux défauts tenaient au même choix. Le filet continu donnait
+             * une proportion — un tiers, la moitié — là où la question est
+             * « combien sur combien » : trois échéances sur quatre, ce n'est
+             * pas 75 % d'un achat, c'est un trait qui reste. Et sa largeur
+             * `maxWidth: .infinity` était celle de la colonne, donc celle de
+             * la pastille de montant au-dessus : « −9 € » et « −90,96 € » ne
+             * font pas la même largeur, si bien que le filet de chaque ligne
+             * démarrait à une abscisse différente et qu'aucun ne se comparait
+             * à son voisin. Une largeur fixe les aligne tous.
+             */
+            HStack(spacing: 3) {
+                ForEach(0..<max(1, count), id: \.self) { index in
                     Capsule()
-                        .fill(Florin.text)
-                        .frame(width: geo.size.width * fraction)
+                        .fill(index < paid ? Florin.text : Florin.text.opacity(0.16))
+                        .frame(height: 2)
                 }
             }
-            .frame(maxWidth: .infinity)
-            .frame(height: 2)
+            .frame(width: width)
         } else if count <= 6 {
             HStack(spacing: 3) {
                 ForEach(0..<max(1, count), id: \.self) { index in

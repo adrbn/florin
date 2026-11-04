@@ -522,13 +522,29 @@ struct TransactionDetailSheet: View {
         .padding(.bottom, 18)
     }
 
+    /*
+     * « Bénéficiaire » ne vaut que pour un virement.
+     *
+     * Le mot vient du formulaire de virement de la banque, où il est juste :
+     * quelqu'un reçoit. Posé sur une dépense, il nomme mal ce qu'on lit —
+     * une boulangerie n'est pas bénéficiaire d'un pain, elle le vend ; et sur
+     * une rentrée il est carrément à l'envers, puisque le bénéficiaire, c'est
+     * soi. Trois natures, trois mots, décidés par la ligne elle-même.
+     */
+    private var payeeLabel: String {
+        if tx.isTransfer { return t("v2.add.payee", "Bénéficiaire") }
+        return tx.amount > 0
+            ? t("v2.detail.source", "Provenance")
+            : t("v2.detail.merchant", "Commerçant")
+    }
+
     /// Les faits, dans la carte de rangées de l'ajout — bénéficiaire, compte,
     /// catégorie, note — et dans le même ordre, pour que passer de la lecture
     /// à la modification ne déplace rien sous le pouce.
     private var edFacts: some View {
         RowGroup {
             edFact(
-                symbol: "person.crop.circle", label: t("v2.add.payee", "Bénéficiaire"),
+                symbol: "person.crop.circle", label: payeeLabel,
                 value: PayeeText.title(tx.payee, category: tx.categoryName),
                 tap: { naming = true }
             )
