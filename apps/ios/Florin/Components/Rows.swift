@@ -481,7 +481,14 @@ struct TransactionRowView: View {
         HStack(spacing: 12) {
             // A transfer between one's own accounts keeps its arrows: the
             // "merchant" there is oneself.
-            let face = tx.isTransfer ? nil : logos.face(for: tx.payee)
+            // Le nom de la rangee demandait deja le sien a l'achat en
+            // plusieurs fois (voir `title`) ; la tete, non. Elle restait donc
+            // celle de l'encaisseur quand le nom, lui, etait passe au
+            // marchand : le bon nom sous le mauvais logo, et c'est le logo
+            // qu'on croit.
+            let face = tx.isTransfer
+                ? nil
+                : logos.face(for: tx.payee, plan: tx.instalmentPlanId)
             Bubble(
                 label: tx.categoryName ?? tx.payee,
                 name: tx.payee,
