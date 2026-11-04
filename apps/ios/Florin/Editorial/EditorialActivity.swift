@@ -657,7 +657,14 @@ struct EditorialActivity: View {
      * comptent sans se lire.
      */
     private func planRow(_ plan: LocalInstalments.Schedule) -> some View {
-        let face = logos.face(for: plan.payee)
+        // Sa tete est celle de l'ACHAT, pas celle du rail qui l'encaisse.
+        // Le nom le demandait deja au plan ; la tete, non. Ca ne se voyait
+        // pas tant que le beneficiaire etait le marchand — un achat chez
+        // La Boutique est libelle « La Boutique » — et ca sautait aux yeux des
+        // qu'il ne l'etait plus : un achat encaisse par un intermediaire
+        // s'affichait sous le nom qu'on lui avait donne et le logo de
+        // l'intermediaire, cote a cote dans la meme rangee.
+        let face = logos.face(for: plan.payee, plan: plan.id)
         return HStack(spacing: 12) {
             Bubble(
                 label: plan.categoryName ?? plan.payee,

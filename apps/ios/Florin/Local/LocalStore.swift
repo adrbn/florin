@@ -328,6 +328,7 @@ final class LocalStore {
         try addColumn("holding_purchases", "transaction_id", "TEXT")
         try rekeyMerchantNames()
         try healSettledRefundLinks()
+        try healExpiredInstalments()
         // `settings` is exactly (key, value) in this schema — no timestamps.
         try database.run(
             "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
@@ -393,6 +394,68 @@ final class LocalStore {
      * Rien a versionner : une fois les liens reportes, les clauses
      * `IS NULL` ne trouvent plus personne et la passe ne fait rien.
      */
+    /*
+     * Les echeances jetees pendant qu'un centime les separait de leur debit.
+     *
+     * `settle` exigeait le montant au centime pres. Un achat en plusieurs
+     * fois ne se divise pas toujours rond : le plan pose le centime qui reste
+     * sur une echeance, l'encaisseur le pose sur une autre, et les deux
+     * lignes ne se rencontraient jamais. La prevision finissait par expirer,
+     * sans successeur — ce n'est pas une comptabilisation, c'est un abandon —
+     * et le vrai debit restait en dehors du plan. Le plan s'affichait donc
+     * « 0 sur 3 » en ayant deja ete paye une fois, et le debit, lui, passait
+     * pour une depense ordinaire.
+     *
+     * Le plan est reporte sur le debit, ce que `settle` aurait fait. La
+     * prevision reste jetee : elle l'etait deja, et la ressusciter compterait
+     * la somme deux fois.
+     *
+     * Etroit par construction : seulement un plan qui existe encore et a
+     * encore des echeances vivantes, seulement un debit qui n'appartient a
+     * aucun plan, deux centimes et quatre jours. Une fois reporte, le debit
+     * a un plan et la passe ne le retrouve plus.
+     */
+    private func healExpiredInstalments() throws {
+        let orphans = try database.query(
+            """
+            SELECT gone.instalment_plan_id AS plan, real.id AS debit
+            FROM transactions gone
+            JOIN transactions real
+              ON real.account_id = gone.account_id AND real.deleted_at IS NULL
+             AND real.status = 'cleared' AND real.instalment_plan_id IS NULL
+             AND abs(real.amount - gone.amount) <= 0.02
+             AND abs(julianday(substr(real.occurred_at, 1, 10))
+                     - julianday(substr(gone.occurred_at, 1, 10))) <= 4
+            WHERE gone.deleted_at IS NOT NULL
+              AND gone.merge_suggested_tx_id IS NULL
+              AND gone.instalment_plan_id IS NOT NULL
+              AND EXISTS (SELECT 1 FROM instalment_plans p WHERE p.id = gone.instalment_plan_id)
+              AND EXISTS (
+                    SELECT 1 FROM transactions live
+                    WHERE live.instalment_plan_id = gone.instalment_plan_id
+                      AND live.deleted_at IS NULL
+                  )
+            ORDER BY gone.occurred_at
+            """
+        )
+        // Un debit ne paie qu'une echeance, meme si deux previsions jetees
+        // le reclament — une saisie en double en laisse.
+        var claimed: Set<String> = []
+        for row in orphans {
+            guard let plan = row.string("plan"), let debit = row.string("debit"),
+                  !claimed.contains(debit) else { continue }
+            claimed.insert(debit)
+            try database.run(
+                """
+                UPDATE transactions
+                SET instalment_plan_id = ?, updated_at = datetime('now')
+                WHERE id = ? AND instalment_plan_id IS NULL
+                """,
+                [.text(plan), .text(debit)]
+            )
+        }
+    }
+
     private func healSettledRefundLinks() throws {
         // Ce qui pointait sur la ligne retiree pointe sur celle qui l'a remplacee.
         try database.run(

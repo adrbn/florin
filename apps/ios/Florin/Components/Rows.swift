@@ -464,7 +464,7 @@ struct TransactionRowView: View {
                 ? what
                 : RowText.join(what, DayLabel.string(tx.day, locale: locale, t: t))
         }
-        return RowText.subtitle(
+        let base = RowText.subtitle(
             title: title,
             category: tx.categoryName,
             account: tx.accountName,
@@ -475,6 +475,11 @@ struct TransactionRowView: View {
             isDebtRepayment: tx.isDebtRepayment,
             t: t
         )
+        // Le rang d'abord, comme dans le panneau des plans : c'est ce qui
+        // dit si le montant affiche est le dernier a sortir ou le premier.
+        guard let rank = tx.instalmentRank, let count = tx.instalmentCount,
+              count > 1 else { return base }
+        return RowText.join("\(rank)/\(count)", base)
     }
 
     var body: some View {

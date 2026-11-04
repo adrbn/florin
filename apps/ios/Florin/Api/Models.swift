@@ -292,6 +292,18 @@ struct Transaction: Decodable, Sendable, Identifiable {
     var instalmentPlanId: String?
 
     /*
+     * Où on en est de cet achat — « 3 sur 4 ».
+     *
+     * Le panneau des plans le disait, la rangée non : on voyait 38,20 € sans
+     * savoir si c'était la première échéance ou la dernière, c'est-à-dire
+     * sans savoir ce qui reste à sortir. Comptés par la requête qui liste,
+     * pas par la rangée : une sous-requête par ligne de liste se paierait
+     * cher pour une information que presque aucune ligne ne porte.
+     */
+    var instalmentRank: Int?
+    var instalmentCount: Int?
+
+    /*
      * Le genre du compte, parce que le signe ne veut pas dire la même chose
      * sur un passif.
      *

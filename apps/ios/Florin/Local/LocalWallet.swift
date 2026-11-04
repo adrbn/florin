@@ -444,9 +444,17 @@ enum LocalWallet {
                  * L'echeance restait donc « en prevision » a cote du vrai
                  * debit, et le meme achat comptait deux fois.
                  *
-                 * Quatre jours de part et d'autre, et seulement pour une
-                 * echeance : le montant d'un plan est connu au centime et
-                 * n'est pas celui d'un cafe quotidien. L'accord des noms ne
+                 * Quatre jours de part et d'autre, et un centime de jeu sur
+                 * le montant — qui est predit lui aussi. Un achat de 79,61 en
+                 * quatre fois ne se divise pas : le plan pose le centime qui
+                 * reste sur une echeance, l'encaisseur le pose sur une autre,
+                 * et 12,34 face a 12,33 ne se rencontraient jamais. La
+                 * prevision partait a la poubelle au bout de quelques
+                 * semaines et le vrai debit restait hors du plan, qui
+                 * s'affichait « 0 sur 3 » en ayant deja ete paye une fois.
+                 *
+                 * Tout cela pour une echeance seulement : son montant vient
+                 * d'un plan, et n'est pas celui d'un cafe quotidien. L'accord des noms ne
                  * peut pas servir ici — la ligne porte le nom de l'encaisseur
                  * (« PAIEUR »), jamais celui du marchand (« La Boutique »), et
                  * c'est precisement pour cela que le plan existe.
@@ -459,12 +467,13 @@ enum LocalWallet {
                     FROM transactions
                     WHERE account_id = ? AND deleted_at IS NULL
                       AND source <> ? AND status = 'cleared'
-                      AND abs(amount - ?) < 0.005
+                      AND abs(amount - ?) < ?
                       AND julianday(substr(occurred_at, 1, 10))
                           BETWEEN julianday(?) - ? AND julianday(?) + ?
                     ORDER BY abs(julianday(substr(occurred_at, 1, 10)) - julianday(?))
                     """,
-                    [.text(day), .text(account), .text(source), .real(amount), .text(day),
+                    [.text(day), .text(account), .text(source), .real(amount),
+                     .real(forecast ? 0.015 : 0.005), .text(day),
                      .real(byName ? (amount > 0 ? 14 : 3) : (forecast ? 4 : 0)), .text(day),
                      .real(byName ? 7 : (forecast ? 4 : 1)), .text(day)]
                 )

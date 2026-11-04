@@ -157,6 +157,13 @@ enum LocalDay {
                    a.name AS account_name, t.transfer_pair_id,
                    t.needs_review, t.is_pending, t.status,
                    t.account_id, t.category_id, t.instalment_plan_id,
+                   (SELECT count(*) FROM transactions r
+                     WHERE r.instalment_plan_id = t.instalment_plan_id
+                       AND r.deleted_at IS NULL
+                       AND r.occurred_at <= t.occurred_at) AS instalment_rank,
+                   (SELECT count(*) FROM transactions r
+                     WHERE r.instalment_plan_id = t.instalment_plan_id
+                       AND r.deleted_at IS NULL) AS instalment_count,
                    a.kind AS account_kind
             FROM transactions t
             LEFT JOIN categories c ON c.id = t.category_id
@@ -184,6 +191,8 @@ enum LocalDay {
                 accountId: row.string("account_id"),
                 categoryId: row.string("category_id"),
                 instalmentPlanId: row.string("instalment_plan_id"),
+                instalmentRank: row.int("instalment_rank"),
+                instalmentCount: row.int("instalment_count"),
                 accountKind: row.string("account_kind"),
                 transferPairId: row.string("transfer_pair_id")
             )
