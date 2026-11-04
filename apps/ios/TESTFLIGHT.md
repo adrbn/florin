@@ -4,42 +4,39 @@ Everything here is done once. The build itself is already prepared — the archi
 command below produces what App Store Connect wants, and `Info.plist` already
 declares the encryption exemption so the upload does not stop to ask.
 
-## What only you can do
+## The one-time steps are done
 
-Three steps need your Apple ID, and nothing else does.
+All three were settled on 2026-11-04: Xcode holds the Apple ID that owns team
+`2TWQF4T93E`, the app record exists under bundle ID `com.adrbn.florin`, and the
+agreements are accepted. An App Store Connect API key sits in
+`~/.appstoreconnect/private_keys/` — outside the repository, never committed —
+so an upload needs no password and no Organizer.
 
-1. **Sign in to Xcode.** Settings → Accounts → the Apple ID that owns team
-   `2TWQF4T93E`. Without it, `xcodebuild -exportArchive` reports "No Accounts"
-   and cannot create a distribution certificate.
-2. **Create the app record.** <https://appstoreconnect.apple.com/apps> → **+** →
-   New App. iOS · name **Florin** · primary language French · bundle ID
-   `com.adrbn.florin` · SKU `florin-ios`.
-3. **Accept the agreements**, if App Store Connect asks. It will, the first time.
-
-## Then
+## Shipping a build
 
 ```bash
 cd apps/ios
-xcodegen generate
-xcodebuild archive -project Florin.xcodeproj -scheme Florin \
-  -configuration Release -destination 'generic/platform=iOS' \
-  -archivePath /tmp/florin.xcarchive -allowProvisioningUpdates
-xcodebuild -exportArchive -archivePath /tmp/florin.xcarchive \
-  -exportOptionsPlist ExportOptions-appstore.plist \
-  -exportPath /tmp/florin-ipa -allowProvisioningUpdates
-```
-
-Upload with Xcode's Organizer (Window → Organizer → Distribute App), or from the
-command line with an App Store Connect API key:
-
-```bash
-xcrun altool --upload-app -f /tmp/florin-ipa/Florin.ipa -t ios \
+sed -i '' 's/CURRENT_PROJECT_VERSION: <old>/CURRENT_PROJECT_VERSION: <new>/g' project.yml
+xcodegen generate --spec project.yml
+xcodebuild -project Florin.xcodeproj -scheme Florin -configuration Release \
+  -destination 'generic/platform=iOS' \
+  -archivePath "$PWD/build-archive/Florin.xcarchive" archive
+xcodebuild -exportArchive -archivePath "$PWD/build-archive/Florin.xcarchive" \
+  -exportOptionsPlist ExportOptions-appstore.plist -exportPath "$PWD/build-export"
+xcrun altool --upload-app --type ios -f build-export/Florin.ipa \
   --apiKey <KEY_ID> --apiIssuer <ISSUER_ID>
 ```
 
-Create that key at <https://appstoreconnect.apple.com/access/integrations/api>
-(role: App Manager) and drop the `.p8` in `~/.appstoreconnect/private_keys/`.
-With it, every future upload is one command and no password.
+`CURRENT_PROJECT_VERSION` appears **twice** in `project.yml` — miss one and the
+archive carries the old number. App Store Connect refuses a build number it has
+already seen for the same `MARKETING_VERSION`, so it only ever goes up.
+
+Processing takes five to fifteen minutes, after which the build appears in
+TestFlight and becomes selectable on the app record.
+
+Signing is pinned by `ExportOptions-appstore.plist` rather than left to Xcode:
+the API key carries App Manager, not the Admin role automatic signing wants.
+Naming the profiles by hand costs nothing and removes the dependency.
 
 ## Beta App Review
 

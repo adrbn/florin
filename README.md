@@ -69,6 +69,7 @@ Nothing to sign up for, anywhere. Want to look around first? The iPhone app has 
 | Recurring charges found on their own, with their cadence and yearly cost | ✅ | ✅ | ✅ |
 | Rename a merchant once — the bank's label, shown your way, everywhere | ✅ | — | — |
 | An instalment plan tracked to its last payment | ✅ | — | — |
+| A purchase in instalments named at the till, even when PayPal or Revolut collected it | ✅ | — | — |
 
 ### Money in
 
@@ -83,6 +84,8 @@ Nothing to sign up for, anywhere. Want to look around first? The iPhone app has 
 | Search your own receipts by article, not just by merchant | ✅ | — | — |
 | Apple Pay payments listed as upcoming the moment you pay, then replaced by the bank's row | ✅ | — | — |
 | A loan instalment filed in one tap, with its mirror row on the loan account | ✅ | — | — |
+| An entry on a bank-synced account is upcoming by default, swallowed when the bank's own row lands | ✅ | — | — |
+| Link a refund to the expense it pays back — the expense's category comes with it | ✅ | — | — |
 | YNAB-style spreadsheet import | — | — | ✅ |
 
 ### Wealth
@@ -91,6 +94,7 @@ Nothing to sign up for, anywhere. Want to look around first? The iPhone app has 
 | --- | :---: | :---: | :---: |
 | Loans on a real amortisation schedule | ✅ | ✅ | ✅ |
 | Holdings with cost basis, gain, and opt-in live quotes | ✅ | ✅ | ✅ |
+| Search a listed asset by name; a line is priced the moment it is created | ✅ | — | — |
 | Net worth over time, scrubbable day by day | ✅ | ✅ | ✅ |
 | The year ahead in dotted line, at the pace of the complete months behind | ✅ | — | — |
 | Allocation ring and rolling savings rate over 3, 6 and 12 complete months | ✅ | ✅ | ✅ |
@@ -106,7 +110,20 @@ Nothing to sign up for, anywhere. Want to look around first? The iPhone app has 
 | One morning summary; a payment banner only if you set up the Apple Pay automation | ✅ | — | — |
 | A trash: a deleted row is recoverable, not gone | ✅ | — | — |
 | A demo with invented accounts, erased in one tap | ✅ | — | — |
+| Siri shortcuts, in all nine languages | ✅ | — | — |
 | Languages | 9 | 3 | 3 |
+
+### Make it yours
+
+|  | iPhone | Mac | Web |
+| --- | :---: | :---: | :---: |
+| Five themes, light or dark — the two settings compose rather than replace each other | ✅ | — | — |
+| One of the five is a second grammar of screen: type and rules, no cards and no emoji | ✅ | — | — |
+| Thirty accent colours, as eight flat inks or as eight dilutions of one | ✅ | — | — |
+| Day and night switched from the home screen, without opening Settings | ✅ | — | — |
+| A colour per account, picked by hand or taken from its name, the same everywhere it appears | ✅ | — | — |
+
+Each theme holds one family of hues — Obsidian runs blue to mint, Slate teal to blue, Sepia brown to sage, Paper is a ramp of greys. Red and green stay out of it: they mean lost and gained.
 
 iPhone: English, French, German, Dutch, Italian, Spanish, Portuguese, Catalan, Turkish. Mac and web: English, French, Dutch.
 
@@ -116,10 +133,10 @@ The same five on every platform, plus Settings — on iPhone behind the avatar i
 
 | Tab | What it answers |
 | --- | --- |
-| **Overview** | What am I worth, what is left this month, what happened today. The net worth curve sits at the top: tap the figure to swap net for gross, scrub it to read any day, and switch to **Prév.** to fold the past to three months and see the year ahead dotted. |
+| **Overview** | What am I worth, what is left this month, what happened today. Accounts sit at the top as a wallet of cards, each in its own colour, fanned open with a tap. Under them the net worth curve: tap the figure to swap net for gross, scrub it to read any day, and switch to **Prév.** to fold the past to three months and see the year ahead dotted. |
 | **Accounts** | What I own and what I owe, grouped by kind, with the allocation ring. Holdings, loans and their schedules open from here. |
 | **Plan** | The month in category groups: planned against spent, carried over from last month in one tap. |
-| **Activity** | Every row, searchable and filterable, with the review queue at the top. A row opens to its detail: category, merchant name, receipt, transfer pairing, instalment plan. |
+| **Activity** | Every row, searchable and filterable, with the review queue folded into a panel and counted on the tab itself. A row opens to its detail: category, merchant name, receipt, transfer pairing, instalment plan. |
 | **Analysis** | Spending per day over the month, movers against last month, recurring charges, savings rate. |
 
 ## Get started
