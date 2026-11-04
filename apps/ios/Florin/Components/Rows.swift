@@ -272,7 +272,12 @@ enum PayeeText {
      * trouver : la ligne porte alors sa catégorie, la seule chose qu'on sache
      * d'elle. Un nom donné à la main passe avant, toujours.
      */
-    static func title(_ payee: String, category: String?) -> String {
+    static func title(_ payee: String, category: String?, plan: String? = nil) -> String {
+        // Le nom donné à l'achat passe avant celui du rail qui l'encaisse :
+        // voir `MerchantNames.planKey`.
+        if let plan, let own = MerchantNames.shared.name(forKey: MerchantNames.planKey(plan)) {
+            return own
+        }
         if MerchantNames.shared.name(for: payee) == nil,
            OwnAccounts.shared.named(by: payee),
            let category, !category.isEmpty {
@@ -421,7 +426,7 @@ struct TransactionRowView: View {
     private var title: String {
         tx.isPairedTransfer && !tx.isPairedRepayment
             ? t("v2.common.ownTransfer", "Virement")
-            : PayeeText.title(tx.payee, category: tx.categoryName)
+            : PayeeText.title(tx.payee, category: tx.categoryName, plan: tx.instalmentPlanId)
     }
 
     private var subtitle: String {

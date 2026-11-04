@@ -126,7 +126,7 @@ struct TransactionDetailSheet: View {
                 .padding(.bottom, 20)
             }
             .scrollBounceBehavior(.basedOnSize)
-            .navigationTitle(PayeeText.title(tx.payee, category: tx.categoryName))
+            .navigationTitle(PayeeText.title(tx.payee, category: tx.categoryName, plan: tx.instalmentPlanId))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 /*
@@ -141,7 +141,7 @@ struct TransactionDetailSheet: View {
                 ToolbarItem(placement: .principal) {
                     Button { naming = true } label: {
                         HStack(spacing: 6) {
-                            Text(PayeeText.title(tx.payee, category: tx.categoryName))
+                            Text(PayeeText.title(tx.payee, category: tx.categoryName, plan: tx.instalmentPlanId))
                                 .font(.system(size: 16, weight: .semibold))
                                 .foregroundStyle(Florin.text)
                                 .lineLimit(1)
@@ -494,7 +494,7 @@ struct TransactionDetailSheet: View {
     /// exceptions, pas pour meubler.
     private var edStatus: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(PayeeText.title(tx.payee, category: tx.categoryName))
+            Text(PayeeText.title(tx.payee, category: tx.categoryName, plan: tx.instalmentPlanId))
                 .font(.system(size: 19, weight: .medium))
                 .foregroundStyle(Florin.text)
                 .lineLimit(2)
@@ -545,7 +545,7 @@ struct TransactionDetailSheet: View {
         RowGroup {
             edFact(
                 symbol: "person.crop.circle", label: payeeLabel,
-                value: PayeeText.title(tx.payee, category: tx.categoryName),
+                value: PayeeText.title(tx.payee, category: tx.categoryName, plan: tx.instalmentPlanId),
                 tap: { naming = true }
             )
             Hairline()

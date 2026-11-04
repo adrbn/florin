@@ -25,18 +25,7 @@ struct ThemeSwatch: View {
             VStack(spacing: 6) {
                 ZStack {
                     palette.bg.color
-                    VStack(spacing: 4) {
-                        RoundedRectangle(cornerRadius: 2, style: .continuous)
-                            .fill(palette.text.color)
-                            .frame(width: 24, height: 3)
-                        RoundedRectangle(cornerRadius: 2, style: .continuous)
-                            .fill(palette.text3.color)
-                            .frame(width: 16, height: 3)
-                        Circle()
-                            .fill(palette.accent.color)
-                            .frame(width: 9, height: 9)
-                            .padding(.top, 1)
-                    }
+                    if choice == .editorial { editorialFace(palette) } else { cardFace(palette) }
                 }
                 .frame(height: height)
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
@@ -55,5 +44,46 @@ struct ThemeSwatch: View {
             }
         }
         .buttonStyle(.plain)
+    }
+
+    /*
+     * Deux aperçus, parce que deux choses changent.
+     *
+     * Les cinq pastilles dessinaient le même croquis dans cinq fonds : le
+     * choix se lisait comme « cinq couleurs », alors qu'Éditorial n'est pas
+     * une couleur de plus — c'est l'autre mise en page. Un aperçu qui ne
+     * montre pas ça ne sert qu'à départager des gris.
+     *
+     * Le croquis classique montre ce qu'on verra : une carte, une tuile de
+     * couleur, deux lignes de texte. L'éditorial montre ce qu'on ne verra
+     * plus : pas de carte, pas de tuile — un chiffre, un filet, du texte.
+     */
+    private func cardFace(_ palette: Palette) -> some View {
+        HStack(spacing: 5) {
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(palette.accent.color.opacity(0.22))
+                .frame(width: 14, height: 14)
+            VStack(alignment: .leading, spacing: 3) {
+                RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                    .fill(palette.text.color).frame(width: 22, height: 3)
+                RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                    .fill(palette.text3.color).frame(width: 13, height: 3)
+            }
+        }
+        .padding(7)
+        .background(palette.surface.color, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+    }
+
+    private func editorialFace(_ palette: Palette) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            RoundedRectangle(cornerRadius: 1, style: .continuous)
+                .fill(palette.text.color).frame(width: 27, height: 6)
+            Rectangle().fill(palette.text3.color.opacity(0.5)).frame(width: 34, height: 0.5)
+            HStack(spacing: 4) {
+                Circle().fill(palette.accent.color).frame(width: 5, height: 5)
+                RoundedRectangle(cornerRadius: 1, style: .continuous)
+                    .fill(palette.text3.color).frame(width: 18, height: 2.5)
+            }
+        }
     }
 }

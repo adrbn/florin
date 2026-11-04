@@ -668,7 +668,7 @@ struct EditorialActivity: View {
                 logo: face?.logo
             )
             VStack(alignment: .leading, spacing: 2) {
-                Text(PayeeText.title(plan.payee, category: plan.categoryName))
+                Text(PayeeText.title(plan.payee, category: plan.categoryName, plan: plan.id))
                     .font(.system(size: 17, weight: .medium))
                     .foregroundStyle(Florin.text)
                     .lineLimit(1)
@@ -753,14 +753,14 @@ struct EditorialActivity: View {
         if tx.isPairedTransfer, !tx.isPairedRepayment {
             return t("v2.common.ownTransfer", "Virement")
         }
-        return PayeeText.title(tx.payee, category: tx.categoryName)
+        return PayeeText.title(tx.payee, category: tx.categoryName, plan: tx.instalmentPlanId)
     }
 
     private func row(_ tx: Transaction) -> some View {
         HStack(spacing: 12) {
             // Un virement entre ses propres comptes n'a pas de marchand : le
             // « marchand », là, c'est soi.
-            let face = tx.isTransfer ? nil : logos.face(for: tx.payee)
+            let face = tx.isTransfer ? nil : logos.face(for: tx.payee, plan: tx.instalmentPlanId)
             Bubble(
                 label: tx.categoryName ?? tx.payee,
                 name: tx.payee,

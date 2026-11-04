@@ -777,10 +777,38 @@ struct SettingsScreen: View {
                     .foregroundStyle(Florin.text)
                 Spacer(minLength: 0)
             }
+            /*
+             * Deux familles, pas cinq couleurs.
+             *
+             * Les cinq thèmes se suivaient dans une seule rangée, sous cinq
+             * aperçus qui se ressemblaient : le choix se lisait comme « quelle
+             * teinte », alors que quatre d'entre eux sont la même mise en page
+             * dans quatre fonds et que le cinquième est une autre maison —
+             * pas de cartes, pas d'emoji, du type et des filets.
+             *
+             * Deux groupes nommés, et l'aperçu de chacun dessine ce qu'il
+             * fait (voir `ThemeSwatch`). Un intitulé coûte deux lignes et
+             * évite d'avoir à essayer les cinq pour comprendre.
+             */
+            themeFamily(t("v2.settings.themeClassic", "Classique"))
             HStack(spacing: 8) {
-                ForEach(FlorinPalette.allCases) { choice in
+                ForEach(FlorinPalette.allCases.filter { $0 != .editorial }) { choice in
                     themeSwatch(choice)
                 }
+            }
+            .padding(.leading, 33)
+
+            themeFamily(t("v2.settings.themeMinimal", "Minimaliste"))
+                .padding(.top, 6)
+            HStack(spacing: 10) {
+                themeSwatch(.editorial)
+                    .frame(width: 72)
+                Text(t("v2.settings.themeMinimalHint",
+                       "Ni cartes ni emoji : du texte, des filets, une seule couleur."))
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(Florin.text3)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
             }
             .padding(.leading, 33)
 
@@ -1031,6 +1059,15 @@ struct SettingsScreen: View {
                 .accessibilityLabel(Text(choice.name))
         }
         .buttonStyle(.plain)
+    }
+
+    /// L'intitulé d'une famille de thèmes — voir `themeRow`.
+    private func themeFamily(_ label: String) -> some View {
+        Text(label.uppercased())
+            .font(.system(size: 11, weight: .semibold))
+            .tracking(0.6)
+            .foregroundStyle(Florin.text3)
+            .padding(.leading, 33)
     }
 
     private func themeSwatch(_ choice: FlorinPalette) -> some View {

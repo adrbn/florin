@@ -25,11 +25,11 @@ struct InstalmentPlanRow: View {
     @ObservedObject private var names = MerchantNames.shared
     @ObservedObject private var logos = MerchantLogos.shared
 
-    private var title: String { PayeeText.title(plan.payee, category: plan.categoryName) }
+    private var title: String { PayeeText.title(plan.payee, category: plan.categoryName, plan: plan.id) }
 
     var body: some View {
         HStack(spacing: 12) {
-            let face = logos.face(for: plan.payee)
+            let face = logos.face(for: plan.payee, plan: plan.id)
             Bubble(
                 label: plan.categoryName ?? plan.payee,
                 name: plan.payee,
@@ -159,14 +159,40 @@ struct InstalmentPlanSheet: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var logos = MerchantLogos.shared
     @State private var confirming = false
+    @State private var renaming = false
 
-    private var title: String { PayeeText.title(plan.payee, category: plan.categoryName) }
+    private var title: String { PayeeText.title(plan.payee, category: plan.categoryName, plan: plan.id) }
 
     private var editorial: Bool { FlorinPalette.selected == .editorial }
 
     var body: some View {
-        if editorial { editorialShell } else { classicShell }
+        Group {
+            if editorial { editorialShell } else { classicShell }
+        }
+        /*
+         * Renommer l'ACHAT, pas le rail.
+         *
+         * Le relevé d'un 4x ne porte que « PAYPAL *Paieme » : le même libellé,
+         * donc la même clé, pour toutes les boutiques du monde. Renommer ce
+         * marchand-là nommerait les quatre échéanciers en cours d'un coup.
+         * L'achat porte sa propre clé — `MerchantNames.planKey` — et son nom,
+         * comme sa tête, ne vaut que pour ses lignes à lui.
+         */
+        .sheet(isPresented: $renaming) {
+            MerchantNameSheet(
+                key: MerchantNames.planKey(plan.id),
+                bankLabel: plan.payee, t: t,
+                categoryEmoji: plan.categoryEmoji,
+                title: t("v2.instalments.rename", "Renommer cet achat"),
+                reach: t(
+                    "v2.merchant.reachPlan",
+                    "S'applique aux {count} échéances de cet achat, et à elles seules. Les autres opérations de ce bénéficiaire gardent leur nom.",
+                    ["count": plan.count]
+                )
+            )
+        }
     }
+
 
     /*
      * La même coque que la fiche d'une opération.
@@ -270,10 +296,18 @@ struct InstalmentPlanSheet: View {
 
     private var edStatus: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.system(size: 19, weight: .medium))
-                .foregroundStyle(Florin.text)
-                .lineLimit(1)
+            Button { renaming = true } label: {
+                HStack(spacing: 7) {
+                    Text(title)
+                        .font(.system(size: 19, weight: .medium))
+                        .foregroundStyle(Florin.text)
+                        .lineLimit(1)
+                    Image(systemName: "pencil")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Florin.text3)
+                }
+            }
+            .buttonStyle(.plain)
             HStack(spacing: 10) {
                 Text(edCaption)
                     .font(.system(size: 14))
@@ -497,7 +531,7 @@ struct InstalmentPlanSheet: View {
 
     private var header: some View {
         HStack(spacing: 14) {
-            let face = logos.face(for: plan.payee)
+            let face = logos.face(for: plan.payee, plan: plan.id)
             Bubble(
                 label: plan.categoryName ?? plan.payee,
                 name: plan.payee,
@@ -507,10 +541,13 @@ struct InstalmentPlanSheet: View {
                 logo: face?.logo
             )
             VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.system(size: 19, weight: .semibold))
-                    .foregroundStyle(Florin.text)
-                    .lineLimit(2)
+                Button { renaming = true } label: {
+                    Text(title)
+                        .font(.system(size: 19, weight: .semibold))
+                        .foregroundStyle(Florin.text)
+                        .lineLimit(2)
+                }
+                .buttonStyle(.plain)
                 Text(
                     t("v2.instalments.paidOf", "{paid} sur {count} payées",
                       ["paid": plan.paidCount, "count": plan.count])

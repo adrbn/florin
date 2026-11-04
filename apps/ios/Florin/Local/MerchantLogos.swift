@@ -64,6 +64,14 @@ final class MerchantLogos: ObservableObject {
         face(forKey: key(payee))
     }
 
+    /// La tête d'une ligne : celle de son achat en plusieurs fois quand il en
+    /// a un et qu'on la lui a donnée, sinon celle de son marchand — qui est
+    /// le rail, et ne dit pas lequel. Voir `MerchantNames.planKey`.
+    func face(for payee: String, plan: String?) -> Face? {
+        if let plan, let own = face(forKey: MerchantNames.planKey(plan)) { return own }
+        return face(for: payee)
+    }
+
     func face(forKey key: String) -> Face? {
         guard !key.isEmpty else { return nil }
         // Sous sa clé, ou sous celle que la banque a tronquée — voir

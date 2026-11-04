@@ -77,6 +77,29 @@ final class MerchantNames: ObservableObject {
 
     static func cents(_ amount: Double) -> Int { Int((abs(amount) * 100).rounded()) }
 
+    /*
+     * Nommer l'ACHAT, quand le relevé ne nomme que le rail.
+     *
+     * PayPal, Revolut, Lydia encaissent pour quelqu'un d'autre : « ACHAT CB
+     * PAYPAL *Paieme … » est le même libellé, donc la même clé, pour un 4x
+     * Steam et un 4x Adopt. Nommer ce marchand-là nomme les deux à la fois —
+     * et le refuser (`adoptIdentity` ne réécrit pas un nom décidé) laissait
+     * tous les échéanciers sous le nom du rail.
+     *
+     * Ni le marchand ni le montant ne sont la bonne unité — la dernière
+     * échéance d'un 4x tombe souvent à un centime près de ses sœurs. L'unité,
+     * c'est l'achat : un échéancier porte donc sa propre clé, et son nom vaut
+     * pour ses quatre lignes, celles déjà prélevées comprises.
+     *
+     * Le signe la rend étrangère aux clés de marchand, comme « § » : aucun
+     * libellé nettoyé ne commence par « ¶ », et deux identifiants ne peuvent
+     * pas être le préfixe l'un de l'autre, donc la règle de troncature de
+     * `resolve` ne les mélange pas.
+     */
+    static let planSign = "¶"
+
+    static func planKey(_ planId: String) -> String { planSign + planId }
+
     /// The same trimming, with the bank's own casing left on: what `key` is
     /// computed from, and what a screen shows when no name has been given.
     static func merchantWords(_ payee: String) -> String {
@@ -265,8 +288,12 @@ final class MerchantNames: ObservableObject {
     }
 
     /// Tous les marchands renommés, par ordre alphabétique du nom donné.
+    ///
+    /// Les séries et les achats en plusieurs fois portent une clé qui n'est
+    /// pas un marchand : ils ont leur propre écran, pas cette liste-ci.
     func all() -> [(key: String, name: String)] {
         table()
+            .filter { !$0.key.hasPrefix(Self.seriesSign) && !$0.key.hasPrefix(Self.planSign) }
             .map { (key: $0.key, name: $0.value) }
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }

@@ -18,6 +18,10 @@ struct MerchantNameSheet: View {
     var categoryEmoji: String?
     /// « Renommer le marchand », sauf quand la clé ne désigne qu'une série.
     var title: String?
+    /// Ce que le renommage atteindra, quand ce n'est pas un marchand et que
+    /// compter ses opérations ne veut rien dire — un achat en plusieurs fois,
+    /// par exemple, dont la portée est son échéancier et rien d'autre.
+    var reach: String?
 
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var logos = MerchantLogos.shared
@@ -42,12 +46,13 @@ struct MerchantNameSheet: View {
     private let existingMark: MerchantLogos.Mark?
 
     init(key: String, bankLabel: String, t: Strings, categoryEmoji: String? = nil,
-         title: String? = nil) {
+         title: String? = nil, reach: String? = nil) {
         self.key = key
         self.bankLabel = bankLabel
         self.t = t
         self.categoryEmoji = categoryEmoji
         self.title = title
+        self.reach = reach
         let existing = MerchantNames.shared.name(forKey: key)
         self.existing = existing
         let mark = MerchantLogos.shared.mark(forKey: key)
@@ -211,7 +216,12 @@ struct MerchantNameSheet: View {
                         .fixedSize(horizontal: false, vertical: true)
                     }
 
-                    if let count {
+                    if let reach {
+                        Text(reach)
+                            .font(.system(size: 13.5))
+                            .foregroundStyle(Florin.text2)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else if let count {
                         Text(MerchantNames.series(of: key) != nil
                             ? t(
                                 "v2.merchant.reachSeries",

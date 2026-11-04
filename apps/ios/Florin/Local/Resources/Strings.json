@@ -933,7 +933,12 @@
     "v2.siri.worth": "Your net worth is {amount}.",
     "v2.siri.noLedger": "Florin could not open your ledger.",
     "v2.siri.serverMode": "Florin is reading a server — open the app to see your figures.",
-    "v2.lock.retry": "Tap to try again"
+    "v2.lock.retry": "Tap to try again",
+    "v2.instalments.rename": "Rename this purchase",
+    "v2.merchant.reachPlan": "Applies to this purchase's {count} instalments, and to those alone. This payee's other transactions keep their name.",
+    "v2.settings.themeClassic": "Classic",
+    "v2.settings.themeMinimal": "Minimal",
+    "v2.settings.themeMinimalHint": "No cards, no emoji: type, rules, a single colour."
   },
   "fr": {
     "v2.a11y.back": "Retour",
@@ -1869,7 +1874,12 @@
     "v2.siri.worth": "Votre patrimoine est de {amount}.",
     "v2.siri.noLedger": "Florin n'a pas pu ouvrir votre grand livre.",
     "v2.siri.serverMode": "Florin lit un serveur : ouvrez l'app pour voir vos chiffres.",
-    "v2.lock.retry": "Toucher pour réessayer"
+    "v2.lock.retry": "Toucher pour réessayer",
+    "v2.instalments.rename": "Renommer cet achat",
+    "v2.merchant.reachPlan": "S'applique aux {count} échéances de cet achat, et à elles seules. Les autres opérations de ce bénéficiaire gardent leur nom.",
+    "v2.settings.themeClassic": "Classique",
+    "v2.settings.themeMinimal": "Minimaliste",
+    "v2.settings.themeMinimalHint": "Ni cartes ni emoji : du texte, des filets, une seule couleur."
   },
   "nl": {
     "v2.a11y.back": "Terug",
@@ -2805,7 +2815,12 @@
     "v2.siri.worth": "Uw vermogen is {amount}.",
     "v2.siri.noLedger": "Florin kon uw grootboek niet openen.",
     "v2.siri.serverMode": "Florin leest een server — open de app om uw cijfers te zien.",
-    "v2.lock.retry": "Tik om opnieuw te proberen"
+    "v2.lock.retry": "Tik om opnieuw te proberen",
+    "v2.instalments.rename": "Deze aankoop hernoemen",
+    "v2.merchant.reachPlan": "Geldt voor de {count} termijnen van deze aankoop, en alleen daarvoor. De andere transacties van deze begunstigde houden hun naam.",
+    "v2.settings.themeClassic": "Klassiek",
+    "v2.settings.themeMinimal": "Minimalistisch",
+    "v2.settings.themeMinimalHint": "Geen kaarten, geen emoji: tekst, lijnen, één kleur."
   },
   "it": {
     "v2.a11y.back": "Indietro",
@@ -3741,7 +3756,12 @@
     "v2.siri.worth": "Il tuo patrimonio è di {amount}.",
     "v2.siri.noLedger": "Florin non è riuscito ad aprire il tuo registro.",
     "v2.siri.serverMode": "Florin legge un server: apri l'app per vedere i tuoi dati.",
-    "v2.lock.retry": "Tocca per riprovare"
+    "v2.lock.retry": "Tocca per riprovare",
+    "v2.instalments.rename": "Rinomina questo acquisto",
+    "v2.merchant.reachPlan": "Si applica alle {count} rate di questo acquisto, e solo a quelle. Le altre operazioni di questo beneficiario mantengono il loro nome.",
+    "v2.settings.themeClassic": "Classico",
+    "v2.settings.themeMinimal": "Minimalista",
+    "v2.settings.themeMinimalHint": "Niente schede né emoji: testo, filetti, un solo colore."
   },
   "es": {
     "v2.a11y.back": "Atrás",
@@ -4677,7 +4697,12 @@
     "v2.siri.worth": "Tu patrimonio es de {amount}.",
     "v2.siri.noLedger": "Florin no ha podido abrir tu libro.",
     "v2.siri.serverMode": "Florin lee un servidor: abre la app para ver tus cifras.",
-    "v2.lock.retry": "Tocar para reintentar"
+    "v2.lock.retry": "Tocar para reintentar",
+    "v2.instalments.rename": "Renombrar esta compra",
+    "v2.merchant.reachPlan": "Se aplica a los {count} plazos de esta compra, y solo a ellos. Las demás operaciones de este beneficiario conservan su nombre.",
+    "v2.settings.themeClassic": "Clásico",
+    "v2.settings.themeMinimal": "Minimalista",
+    "v2.settings.themeMinimalHint": "Sin tarjetas ni emoji: texto, filetes, un solo color."
   },
   "ca": {
     "v2.a11y.back": "Enrere",
@@ -5613,7 +5638,12 @@
     "v2.siri.worth": "El teu patrimoni és de {amount}.",
     "v2.siri.noLedger": "Florin no ha pogut obrir el teu llibre.",
     "v2.siri.serverMode": "Florin llegeix un servidor: obre l'app per veure les teves xifres.",
-    "v2.lock.retry": "Toca per tornar-ho a provar"
+    "v2.lock.retry": "Toca per tornar-ho a provar",
+    "v2.instalments.rename": "Reanomena aquesta compra",
+    "v2.merchant.reachPlan": "S'aplica als {count} terminis d'aquesta compra, i només a aquests. Les altres operacions d'aquest beneficiari conserven el seu nom.",
+    "v2.settings.themeClassic": "Clàssic",
+    "v2.settings.themeMinimal": "Minimalista",
+    "v2.settings.themeMinimalHint": "Ni targetes ni emoji: text, filets, un sol color."
   },
   "de": {
     "v2.a11y.back": "Zurück",
@@ -6549,7 +6579,12 @@
     "v2.siri.worth": "Ihr Vermögen beträgt {amount}.",
     "v2.siri.noLedger": "Florin konnte Ihr Buch nicht öffnen.",
     "v2.siri.serverMode": "Florin liest einen Server – öffnen Sie die App, um Ihre Zahlen zu sehen.",
-    "v2.lock.retry": "Zum erneuten Versuch tippen"
+    "v2.lock.retry": "Zum erneuten Versuch tippen",
+    "v2.instalments.rename": "Diesen Kauf umbenennen",
+    "v2.merchant.reachPlan": "Gilt für die {count} Raten dieses Kaufs, und nur für sie. Die übrigen Vorgänge dieses Empfängers behalten ihren Namen.",
+    "v2.settings.themeClassic": "Klassisch",
+    "v2.settings.themeMinimal": "Minimalistisch",
+    "v2.settings.themeMinimalHint": "Keine Karten, keine Emojis: Schrift, Linien, eine Farbe."
   },
   "pt": {
     "v2.a11y.back": "Voltar",
@@ -7485,7 +7520,12 @@
     "v2.siri.worth": "O seu património é de {amount}.",
     "v2.siri.noLedger": "O Florin não conseguiu abrir o seu livro.",
     "v2.siri.serverMode": "O Florin lê um servidor — abra a app para ver os seus números.",
-    "v2.lock.retry": "Tocar para tentar de novo"
+    "v2.lock.retry": "Tocar para tentar de novo",
+    "v2.instalments.rename": "Renomear esta compra",
+    "v2.merchant.reachPlan": "Aplica-se às {count} prestações desta compra, e só a elas. As outras operações deste beneficiário mantêm o seu nome.",
+    "v2.settings.themeClassic": "Clássico",
+    "v2.settings.themeMinimal": "Minimalista",
+    "v2.settings.themeMinimalHint": "Sem cartões nem emoji: texto, filetes, uma só cor."
   },
   "tr": {
     "v2.a11y.back": "Geri",
@@ -8421,6 +8461,11 @@
     "v2.siri.worth": "Net varlığınız {amount}.",
     "v2.siri.noLedger": "Florin defterinizi açamadı.",
     "v2.siri.serverMode": "Florin bir sunucuyu okuyor — rakamlarınız için uygulamayı açın.",
-    "v2.lock.retry": "Yeniden denemek için dokunun"
+    "v2.lock.retry": "Yeniden denemek için dokunun",
+    "v2.instalments.rename": "Bu alışverişi yeniden adlandır",
+    "v2.merchant.reachPlan": "Bu alışverişin {count} taksidi için geçerlidir, yalnızca onlar için. Bu alıcının diğer işlemleri adını korur.",
+    "v2.settings.themeClassic": "Klasik",
+    "v2.settings.themeMinimal": "Minimal",
+    "v2.settings.themeMinimalHint": "Kart yok, emoji yok: yazı, çizgi, tek renk."
   }
 }
