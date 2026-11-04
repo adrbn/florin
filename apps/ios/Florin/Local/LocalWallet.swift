@@ -823,6 +823,27 @@ enum LocalWallet {
             """,
             [.text(UUID().uuidString), .text(bankKey), .text(display)]
         )
+        /*
+         * Et la vignette ne part QUE si le nom est parti.
+         *
+         * Les deux `DO NOTHING` etaient independants, donc les deux pouvaient
+         * se separer — et c'est sur la cle d'un encaisseur que ca arrive. Une
+         * cle d'encaisseur porte un nom donne a la main (« Paiement en 4
+         * fois »), parce qu'aucun de ses marchands n'a le droit de la nommer :
+         * le nom etait donc refuse. La vignette, elle, trouvait la place
+         * libre et passait. La cle de l'encaisseur se retrouvait sous le logo
+         * d'UN de ses marchands, et toutes ses lignes avec — un billet
+         * d'avion sous l'icone d'une boutique de cosmetiques.
+         *
+         * Le nom etait protege, la vignette ne l'etait pas, et c'est la
+         * vignette qu'on regarde : un nom qui n'est pas le bon se lit, un
+         * logo qui n'est pas le bon se croit. Les deux sont la meme identite
+         * et passent ensemble, ou pas du tout.
+         */
+        let settled = (try? store.database.scalar(
+            "SELECT display_name FROM payee_aliases WHERE match_key = ?", [.text(bankKey)]
+        )?.string) ?? nil
+        guard settled == display else { return }
         try store.database.run(
             """
             INSERT INTO merchant_marks (match_key, domain, emoji, image)

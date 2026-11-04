@@ -306,6 +306,19 @@ enum PayeeText {
         deShout(clean(payee))
     }
 
+    /*
+     * Trois lettres qui crient, c'est un sigle — sauf quand c'est un article.
+     *
+     * « ATAC », « PAM », « LBP » doivent rester tels quels, et la regle qui
+     * les protege est leur longueur. Elle protegeait aussi l'article colle au
+     * nom de l'enseigne : « THE BASEMENT » devenait « THE Basement », a moitie
+     * crie, comme si le nom avait ete mal recopie. Aucune de ces formes n'est
+     * un sigle dans aucune des langues de l'app.
+     */
+    private static let articles: Set<String> = [
+        "THE", "LES", "DES", "DEL", "DEI", "LOS", "LAS", "HET",
+    ]
+
     private static func deShout(_ label: String) -> String {
         label
             .split(separator: " ")
@@ -313,7 +326,7 @@ enum PayeeText {
                 let s = String(word)
                 guard s == s.uppercased() else { return s }
                 let vowelless = s.rangeOfCharacter(from: CharacterSet(charactersIn: "AEIOUY")) == nil
-                if s.count <= 3 || (s.count <= 5 && vowelless) { return s }
+                if s.count <= 3 || (s.count <= 5 && vowelless), !articles.contains(s) { return s }
                 return s.prefix(1) + s.dropFirst().lowercased()
             }
             .joined(separator: " ")
