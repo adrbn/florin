@@ -162,7 +162,45 @@ struct InstalmentPlanSheet: View {
 
     private var title: String { PayeeText.title(plan.payee, category: plan.categoryName) }
 
+    private var editorial: Bool { FlorinPalette.selected == .editorial }
+
     var body: some View {
+        if editorial { editorialShell } else { classicShell }
+    }
+
+    /*
+     * La même coque que la fiche d'une opération.
+     *
+     * Un échéancier est un achat, et on l'ouvre depuis la même liste que les
+     * opérations : lui donner une barre de navigation, un fond teinté et une
+     * feuille pleine hauteur, c'était changer de maison en changeant de
+     * ligne. Il reprend donc la coque éditoriale — bandeau en pastille,
+     * chiffre en grand, faits en rangées, action en bas — et s'arrête où son
+     * contenu s'arrête.
+     */
+    private var editorialShell: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                edFigure
+                edStatus
+                edFacts
+                edSchedule
+                edPrimary
+            }
+            .padding(.bottom, 28)
+        }
+        .scrollIndicators(.hidden)
+        .scrollBounceBehavior(.basedOnSize)
+        .safeAreaInset(edge: .top, spacing: 0) { edHeader.background(Florin.bg) }
+        .background(Florin.bg)
+        .presentationDetents([.height(edSheetHeight)])
+        .confirmationDialog(
+            t("v2.instalments.forget", "Supprimer l'échéancier"),
+            isPresented: $confirming, titleVisibility: .visible
+        ) { forgetButtons } message: { forgetMessage }
+    }
+
+    private var classicShell: some View {
         NavigationStack {
             ZStack {
                 Backdrop(tint: TabRoute.activity.tint).ignoresSafeArea()
@@ -188,6 +226,226 @@ struct InstalmentPlanSheet: View {
             }
         }
         .presentationDetents([.large])
+    }
+
+    // MARK: - La coque éditoriale
+
+    /// Voir `TransactionDetailSheet.edHeader` : une fonte d'entrée dans une
+    /// marge sûre n'a pas de défilement pour lui rendre sa phase d'identité.
+    /// Pas de croix non plus — la feuille se ferme en la tirant vers le bas.
+    private var edHeader: some View {
+        HStack(spacing: 2) {
+            EdPill(text: t("v2.instalments.planTitle", "Paiement en plusieurs fois"))
+            Spacer(minLength: 8)
+        }
+        .environment(\.edEnterApplied, true)
+        .padding(.horizontal, Ed.gutter)
+        .padding(.top, 8)
+        .padding(.bottom, 6)
+    }
+
+    /// Ce qu'il reste à payer : la seule question qu'on se pose en ouvrant un
+    /// échéancier en cours. Soldé, c'est le prix d'achat qui prend la place,
+    /// parce qu'un zéro en gros corps ne dit rien de l'achat qu'on relit.
+    private var edFigure: some View {
+        AmountText(
+            value: plan.isOver ? -plan.purchase : -plan.remaining,
+            locale: locale, currency: currency,
+            signed: true, tone: .auto, size: edFigureSize, weight: .medium
+        )
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, Ed.gutter)
+        .padding(.top, 12)
+    }
+
+    /// Il descend quand il s'allonge : un montant tronqué est un montant faux.
+    private var edFigureSize: CGFloat {
+        let shown = plan.isOver ? plan.purchase : plan.remaining
+        switch Money.string(-shown, locale: locale, currency: currency, signed: true).count {
+        case ...9: return 72
+        case 10, 11: return 56
+        default: return 42
+        }
+    }
+
+    private var edStatus: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.system(size: 19, weight: .medium))
+                .foregroundStyle(Florin.text)
+                .lineLimit(1)
+            HStack(spacing: 10) {
+                Text(edCaption)
+                    .font(.system(size: 14))
+                    .foregroundStyle(Florin.text2)
+                    .lineLimit(1)
+                InstalmentProgress(count: plan.count, paid: plan.paidCount)
+                    .hiddenWhenPrivate()
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, Ed.gutter)
+        .padding(.top, 10)
+    }
+
+    /// « Reste à payer · 2/4 » — le chiffre au-dessus a besoin qu'on dise ce
+    /// qu'il est, et l'avancement tient en deux nombres.
+    private var edCaption: String {
+        let what = plan.isOver
+            ? t("v2.instalments.purchase", "Montant de l'achat")
+            : t("v2.instalments.remainingTotal", "Reste à payer")
+        return what + " · \(plan.paidCount)/\(plan.count)"
+    }
+
+    private var edFacts: some View {
+        RowGroup {
+            edFact(t("v2.instalments.purchase", "Montant de l'achat"), Money.string(
+                plan.purchase, locale: locale, currency: currency
+            ))
+            Hairline()
+            edFact(t("v2.add.instalmentsFees", "Frais"), edFees)
+            Hairline()
+            edFact(t("v2.instalments.paidTotal", "Déjà payé"), Money.string(
+                plan.paid, locale: locale, currency: currency
+            ))
+            Hairline()
+            edFact(t("v2.add.account", "Compte"), plan.accountName)
+        }
+        .padding(.horizontal, Ed.gutter)
+        .padding(.top, 18)
+    }
+
+    /// Sans frais, on le dit en toutes lettres. Avec, le taux annuel suit le
+    /// montant, parce que c'est lui qui dit ce que l'offre coûte vraiment.
+    private var edFees: String {
+        guard !plan.isFree else { return t("v2.add.instalmentsNoFees", "Sans frais") }
+        let amount = Money.string(plan.fees, locale: locale, currency: currency)
+        guard let rate = plan.annualRate, rate > 0 else { return amount }
+        return amount + " · " + t("v2.add.instalmentsPerYear", "{rate} par an",
+                                  ["rate": Money.percent(rate, locale: locale)])
+    }
+
+    private func edFact(_ label: String, _ value: String) -> some View {
+        HStack(spacing: 13) {
+            Text(label)
+                .font(.system(size: 14.5))
+                .foregroundStyle(Florin.text2)
+            Spacer(minLength: 10)
+            Text(value)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Florin.text)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .frame(maxWidth: 210, alignment: .trailing)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+    }
+
+    private var edSchedule: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            EdSection(text: t("v2.instalments.schedule", "Échéances"))
+                .padding(.horizontal, Ed.gutter)
+                .padding(.top, 22)
+                .padding(.bottom, 8)
+            RowGroup {
+                ForEach(Array(plan.instalments.enumerated()), id: \.element.id) { index, tx in
+                    if index > 0 { Hairline() }
+                    edStep(tx, rank: index + 1)
+                }
+            }
+            .padding(.horizontal, Ed.gutter)
+        }
+    }
+
+    /*
+     * Une échéance : son rang, sa date, son sort, son montant.
+     *
+     * Pas de fond teinté sur la prochaine — l'éditorial n'a pas de couleur à
+     * dépenser pour ça. C'est l'encre pleine qui la désigne, et le gris qui
+     * efface celles qui sont derrière.
+     */
+    private func edStep(_ tx: Transaction, rank: Int) -> some View {
+        let isNext = tx.id == plan.next?.id
+        return HStack(spacing: 12) {
+            Text("\(rank)/\(plan.count)")
+                .font(.system(size: 13, weight: .semibold))
+                .monospacedDigit()
+                .foregroundStyle(tx.isScheduled ? Florin.text2 : Florin.text3)
+                .frame(width: 34, alignment: .leading)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(DayLabel.string(tx.day, locale: locale, t: t))
+                    .font(.system(size: 15, weight: isNext ? .semibold : .medium))
+                    .foregroundStyle(tx.isScheduled ? Florin.text : Florin.text2)
+                    .lineLimit(1)
+                Text(
+                    tx.isScheduled
+                        ? t("v2.activity.scheduled", "Prévu")
+                        : t("v2.instalments.settled", "Prélevée")
+                )
+                .font(.system(size: 12))
+                .foregroundStyle(Florin.text3)
+            }
+            Spacer(minLength: 8)
+            EdAmountPill(
+                text: Money.string(
+                    -abs(tx.amount), locale: locale, currency: currency, signed: true
+                ),
+                tone: tx.isScheduled ? EdMoney.minus : Florin.text3
+            )
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 11)
+    }
+
+    private var edPrimary: some View {
+        SheetAction(
+            label: t("v2.instalments.forget", "Supprimer l'échéancier"),
+            symbol: "trash", destructive: true, large: true
+        ) { confirming = true }
+            .padding(.horizontal, Ed.gutter)
+            .padding(.top, 22)
+    }
+
+    @ViewBuilder
+    private var forgetButtons: some View {
+        Button(t("v2.common.delete", "Supprimer"), role: .destructive) {
+            guard let store = LocalStore.shared else { return }
+            try? LocalInstalments.forget(store: store, planId: plan.id)
+            onForget?()
+            dismiss()
+        }
+        Button(t("v2.common.cancel", "Annuler"), role: .cancel) {}
+    }
+
+    private var forgetMessage: some View {
+        Text(
+            plan.paidCount == 0
+                ? t("v2.instalments.forgetAll", "Ses {count} échéances partent à la corbeille.",
+                    ["count": plan.count])
+                : t("v2.instalments.forgetSome",
+                    "Ses {due} échéances à venir partent à la corbeille. Les {paid} déjà prélevées restent, comme dépenses ordinaires.",
+                    ["due": plan.due.count, "paid": plan.paidCount])
+        )
+    }
+
+    /*
+     * La hauteur, additionnée à la main.
+     *
+     * Mesurer la vue dont on fixe la hauteur est une boucle — c'est
+     * exactement ce qui a gonflé les volets de l'Activité. On additionne donc
+     * ce qu'on pose, et un échéancier long s'arrête au plafond et défile.
+     */
+    private var edSheetHeight: CGFloat {
+        var height: CGFloat = 58
+        height += 12 + edFigureSize * 1.2
+        height += 10 + 24 + 4 + 18
+        height += 18 + 4 * 42 + 3
+        height += 22 + 24 + 8
+        height += CGFloat(plan.count) * 56 + CGFloat(max(0, plan.count - 1))
+        height += 22 + 62
+        height += 28 + 16
+        return min(height, 780)
     }
 
     /*
