@@ -86,7 +86,7 @@
     "recharts": "^3.10.1",
     "sonner": "^2.0.8",
     "tailwind-merge": "^3.6.0",
-    "zod": "^4.6.2"
+    "zod": "^4.6.6"
   },
   "peerDependencies": {
     "next": ">=14",
