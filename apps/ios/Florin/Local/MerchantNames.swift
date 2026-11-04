@@ -176,9 +176,24 @@ final class MerchantNames: ObservableObject {
         "gmbh", "ltd", "llc", "inc", "plc", "ag", "cie", "kg",
     ]
 
-    /// « S.a, » et « Srl » doivent se lire pareil : la ponctuation part du
-    /// mot entier, pas seulement de ses bords.
-    private static let punctuation: Set<Character> = [".", ",", ";", "(", ")"]
+    /*
+     * « S.a, » et « Srl » doivent se lire pareil : la ponctuation part du mot
+     * entier, pas seulement de ses bords.
+     *
+     * L'asterisque en fait partie, et c'est lui qui a coute le plus cher. Un
+     * intermediaire de paiement colle le marchand a son propre nom avec le
+     * separateur que la banque veut bien lui laisser, et elle en change sans
+     * prevenir : « PAIEUR *Boutique » pendant deux mois, « PAIEUR .Boutique »
+     * le troisieme. Comme la cle d'un renommage est tiree du libelle, le nom
+     * donne a la main cessait de repondre du jour au lendemain — la ligne
+     * reaffichait le libelle brut, et personne ne pouvait deviner qu'un seul
+     * caractere avait bouge.
+     *
+     * Les cles deja rangees suivent toutes seules : `rekeyMerchantNames`
+     * recalcule par la regle du jour a chaque lancement, et le calcul est un
+     * point fixe.
+     */
+    private static let punctuation: Set<Character> = [".", ",", ";", "(", ")", "*"]
 
     /// Le numéro que la caisse ajoute — mais pas une année, qui fait partie
     /// du nom (« Le Comptoir 1971 ») ou le date (« Cotisation Février 2026 »).

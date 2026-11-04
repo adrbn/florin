@@ -378,7 +378,7 @@ enum LocalWallet {
         let pending = try store.database.query(
             """
             SELECT id, account_id, amount, payee, substr(occurred_at, 1, 10) AS day,
-                   category_id, instalment_plan_id, memo
+                   category_id, instalment_plan_id, memo, reimburses_tx_id
             FROM transactions
             WHERE source = ? AND deleted_at IS NULL
             ORDER BY occurred_at
@@ -429,6 +429,29 @@ enum LocalWallet {
                 guard let id = row.string("id"), !done.contains(id),
                       let account = row.string("account_id"),
                       let amount = row.double("amount"), let day = row.string("day") else { continue }
+                /*
+                 * Une echeance n'a pas ete tapee : elle a ete calculee.
+                 *
+                 * Tout ce qui precede suppose une tape — ecrite a la caisse,
+                 * donc datee du jour de l'achat, donc jamais avant la ligne de
+                 * la banque. Une echeance de paiement en plusieurs fois n'est
+                 * pas de cette nature : sa date a ete deduite d'un « le 4 de
+                 * chaque mois » au moment ou le plan a ete saisi, et c'est
+                 * l'encaisseur qui decide du jour reel. L'encaisseur a preleve
+                 * la troisieme de quatre le 3 pour une echeance annoncee le 4 :
+                 * un jour EN ARRIERE, que la fenetre aveugle n'autorise pas.
+                 *
+                 * L'echeance restait donc « en prevision » a cote du vrai
+                 * debit, et le meme achat comptait deux fois.
+                 *
+                 * Quatre jours de part et d'autre, et seulement pour une
+                 * echeance : le montant d'un plan est connu au centime et
+                 * n'est pas celui d'un cafe quotidien. L'accord des noms ne
+                 * peut pas servir ici — la ligne porte le nom de l'encaisseur
+                 * (« PAIEUR »), jamais celui du marchand (« La Boutique »), et
+                 * c'est precisement pour cela que le plan existe.
+                 */
+                let forecast = row.string("instalment_plan_id") != nil
                 let candidates = try store.database.query(
                     """
                     SELECT id, category_id, normalized_payee, payee, memo,
@@ -442,8 +465,8 @@ enum LocalWallet {
                     ORDER BY abs(julianday(substr(occurred_at, 1, 10)) - julianday(?))
                     """,
                     [.text(day), .text(account), .text(source), .real(amount), .text(day),
-                     .real(byName ? (amount > 0 ? 14 : 3) : 0), .text(day),
-                     .real(byName ? 7 : 1), .text(day)]
+                     .real(byName ? (amount > 0 ? 14 : 3) : (forecast ? 4 : 0)), .text(day),
+                     .real(byName ? 7 : (forecast ? 4 : 1)), .text(day)]
                 )
                 let tap = row.string("payee") ?? ""
                 for candidate in candidates
@@ -549,6 +572,38 @@ enum LocalWallet {
                         WHERE id = ?
                         """,
                         [.text(plan), .text(bankId)]
+                    )
+                }
+                /*
+                 * Et le remboursement, dans les deux sens.
+                 *
+                 * Une rentree designe la depense qu'elle rembourse, par son
+                 * identifiant. Les deux lignes finissent comptabilisees, et
+                 * chacune laisse alors sa place a celle de la banque : le lien
+                 * pointait sur une ligne effacee d'un cote, partait avec elle
+                 * de l'autre. Il disparaissait donc tout seul le lendemain,
+                 * sans que rien ne l'ait defait — « j'ai lie, et ca a saute ».
+                 *
+                 * Deux passes parce que la ligne retiree peut etre l'un ou
+                 * l'autre bout : ce qui pointait sur elle pointe desormais sur
+                 * la survivante, et ce vers quoi elle pointait la suit.
+                 */
+                try store.database.run(
+                    """
+                    UPDATE transactions
+                    SET reimburses_tx_id = ?, updated_at = datetime('now')
+                    WHERE reimburses_tx_id = ?
+                    """,
+                    [.text(bankId), .text(id)]
+                )
+                if let refunds = row.string("reimburses_tx_id") {
+                    try store.database.run(
+                        """
+                        UPDATE transactions
+                        SET reimburses_tx_id = ?, updated_at = datetime('now')
+                        WHERE id = ? AND reimburses_tx_id IS NULL
+                        """,
+                        [.text(refunds), .text(bankId)]
                     )
                 }
                 // The link stays on the retired payment, so this bank row is never

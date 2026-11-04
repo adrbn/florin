@@ -327,6 +327,7 @@ final class LocalStore {
          */
         try addColumn("holding_purchases", "transaction_id", "TEXT")
         try rekeyMerchantNames()
+        try healSettledRefundLinks()
         // `settings` is exactly (key, value) in this schema — no timestamps.
         try database.run(
             "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
@@ -374,6 +375,75 @@ final class LocalStore {
      * comptoir » et « le comptoir srl ». `OR REPLACE` garde la dernière
      * écrite, et l'ordre par `updated_at` fait que c'est la plus récente.
      */
+    /*
+     * Les liens de remboursement que la comptabilisation avait coupes.
+     *
+     * `LocalWallet.settle` retire la ligne saisie a la main quand celle de la
+     * banque arrive, et ne transportait pas `reimburses_tx_id`. Le lien
+     * partait donc avec elle, ou pointait sur une ligne effacee — dans les
+     * deux cas il disparaissait de l'ecran le lendemain, sans que personne ne
+     * l'ait defait.
+     *
+     * Rien n'est perdu pour autant : la ligne retiree garde le nom de celle
+     * qui lui succede (`merge_suggested_tx_id`), et il suffit de suivre la
+     * succession des deux cotes. Les deux bouts ont pu etre comptabilises le
+     * meme soir — c'est le cas qui a fait decouvrir la chose — donc la cible
+     * est resolue elle aussi.
+     *
+     * Rien a versionner : une fois les liens reportes, les clauses
+     * `IS NULL` ne trouvent plus personne et la passe ne fait rien.
+     */
+    private func healSettledRefundLinks() throws {
+        // Ce qui pointait sur la ligne retiree pointe sur celle qui l'a remplacee.
+        try database.run(
+            """
+            UPDATE transactions
+            SET reimburses_tx_id = (
+                    SELECT gone.merge_suggested_tx_id FROM transactions gone
+                    WHERE gone.id = transactions.reimburses_tx_id
+                ),
+                updated_at = datetime('now')
+            WHERE deleted_at IS NULL
+              AND reimburses_tx_id IN (
+                    SELECT gone.id FROM transactions gone
+                    WHERE gone.deleted_at IS NOT NULL
+                      AND gone.merge_suggested_tx_id IS NOT NULL
+                )
+            """
+        )
+        // Et le lien que la ligne retiree portait suit sa propre succession.
+        let orphans = try database.query(
+            """
+            SELECT heir.id AS heir, gone.reimburses_tx_id AS target
+            FROM transactions gone
+            JOIN transactions heir ON heir.id = gone.merge_suggested_tx_id
+            WHERE gone.deleted_at IS NOT NULL
+              AND gone.reimburses_tx_id IS NOT NULL
+              AND heir.deleted_at IS NULL
+              AND heir.reimburses_tx_id IS NULL
+            """
+        )
+        for row in orphans {
+            guard let heir = row.string("heir"), let target = row.string("target") else { continue }
+            let alive = try database.query(
+                """
+                SELECT CASE WHEN deleted_at IS NULL THEN id
+                            ELSE merge_suggested_tx_id END AS id
+                FROM transactions WHERE id = ?
+                """,
+                [.text(target)]
+            ).first?.string("id")
+            guard let alive else { continue }
+            try database.run(
+                """
+                UPDATE transactions SET reimburses_tx_id = ?, updated_at = datetime('now')
+                WHERE id = ? AND reimburses_tx_id IS NULL
+                """,
+                [.text(alive), .text(heir)]
+            )
+        }
+    }
+
     private func rekeyMerchantNames() throws {
         for table in ["payee_aliases", "merchant_marks"] {
             let rows = try database.query("SELECT match_key FROM \(table) ORDER BY updated_at ASC")
