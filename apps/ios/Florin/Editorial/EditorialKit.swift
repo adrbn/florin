@@ -334,8 +334,32 @@ struct EdFold<Content: View>: View {
              * `allowsHitTesting` parce qu'un contenu rogné reste touchable :
              * sans ça, replier un volet laissait ses boutons sous le doigt.
              */
-            content
+            /*
+             * Un contenu de `@ViewBuilder` est un GROUPE, pas une vue.
+             *
+             * Les modificateurs posés dessus s'appliquent alors à chacune de
+             * ses vues : la hauteur du volet entier se retrouvait sur CHAQUE
+             * échéancier, et la marge du haut entre chacun — deux cents
+             * points de blanc entre deux lignes. Un `VStack` autour en fait
+             * une vue unique, et les modificateurs portent enfin sur le bloc.
+             */
+            VStack(alignment: .leading, spacing: 0) { content }
+                .padding(.top, 18)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                /*
+                 * Mesurer une vue dont on fixe la hauteur est une boucle.
+                 *
+                 * Sans ce `fixedSize`, le contenu acceptait la hauteur qu'on
+                 * venait de lui poser et s'étirait pour la remplir — ses
+                 * lignes s'écartaient les unes des autres —, la mesure
+                 * suivante rendait donc un chiffre plus grand, qu'on reposait
+                 * aussitôt. Le volet grandissait jusqu'à ce que ça se calme,
+                 * avec deux cents points de blanc entre deux échéanciers.
+                 *
+                 * Il garde maintenant sa hauteur idéale quelle que soit la
+                 * proposition : la mesure ne dépend plus de ce qu'on en fait.
+                 */
+                .fixedSize(horizontal: false, vertical: true)
                 .background(
                     GeometryReader { geo in
                         Color.clear.preference(
