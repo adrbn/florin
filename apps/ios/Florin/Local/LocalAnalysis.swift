@@ -34,13 +34,9 @@ enum LocalAnalysis {
         let breakdown = try categoryShares(
             db, from: LocalQueries.dayFormatter.string(from: since)
         )
-        // Le mois civil, pour la bascule de l'écran : le premier du mois.
-        let firstOfMonth = calendar.date(
-            from: calendar.dateComponents([.year, .month], from: Date())
-        ) ?? Date()
-        let monthly = try categoryShares(
-            db, from: LocalQueries.dayFormatter.string(from: firstOfMonth)
-        )
+        // Les mois civils, pour la bascule de l'écran — tous, parce que le
+        // mois affiché se choisit dans la phrase.
+        let monthly = try monthlyShares(db, months: months)
         // And one pass for the calendar: its squares are the sum of its slices
         // by construction, so a filtered total and an unfiltered one cannot
         // come to disagree about what a day was worth.
@@ -57,7 +53,7 @@ enum LocalAnalysis {
             ageOfMoney: nil,
             dailySlices: slices,
             spendCategories: try spendCategories(db),
-            monthCategories: monthly.shares
+            monthCategories: monthly
         )
     }
 
@@ -110,9 +106,19 @@ enum LocalAnalysis {
      * days; local mode has to ask for the same thing or the two renderings
      * are not the same app.
      *
-     * Rows are excluded one by one on `amount < 0`, as the server does, rather
-     * than by the sign of a category's sum: a refund inside a category should
-     * not be able to hide the spending it sits next to.
+     * Une seule définition de « dépensé » par écran, et c'est le NET.
+     *
+     * Les lignes étaient écartées une à une sur `amount < 0`, pour qu'un
+     * remboursement ne puisse pas masquer la dépense d'à côté. Mais la phrase
+     * du dessous et le calendrier, eux, comptent le signé — et le même mois
+     * s'affichait à un total en haut et à un autre trois lignes plus bas,
+     * l'écart étant exactement les remboursements du mois. Deux chiffres pour
+     * le même mois sur le même écran, c'est un bug, pas une nuance : un achat
+     * rendu n'a pas été dépensé.
+     *
+     * Le filtre passe donc du NIVEAU LIGNE au NIVEAU CATÉGORIE (`HAVING`) :
+     * une catégorie qui n'a reçu qu'un remboursement ne descend pas sous zéro
+     * dans une liste de dépenses, elle en sort.
      */
     /*
      * Trente jours glissants OU le mois civil : deux fenêtres, une requête.
@@ -137,9 +143,10 @@ enum LocalAnalysis {
             JOIN category_groups g ON g.id = c.group_id
             WHERE t.deleted_at IS NULL AND substr(t.occurred_at, 1, 10) <= date('now')
               AND t.transfer_pair_id IS NULL AND a.is_archived = 0
-              AND g.kind = 'expense' AND t.amount < 0
+              AND g.kind = 'expense'
               AND substr(t.occurred_at, 1, 10) >= ?
             GROUP BY c.id, c.name, c.emoji, g.name
+            HAVING sum(t.amount) < 0
             ORDER BY sum(t.amount) ASC
             """,
             [.text(day)]
@@ -153,6 +160,55 @@ enum LocalAnalysis {
             )
         }
         return (shares, try categoryIds(db))
+    }
+
+    /*
+     * Les mêmes parts, mois civil par mois civil.
+     *
+     * L'en-tête nomme un mois et la phrase en dessous en nomme un autre : il
+     * n'y a donc pas UN mois civil à calculer mais les douze, et l'écran
+     * prend celui qu'on lui a demandé. Une requête de plus serait une requête
+     * par changement de mois ; celle-ci groupe par mois et le dictionnaire
+     * répond ensuite sans retoucher la base.
+     *
+     * Le prédicat est copié mot pour mot de `categorySeries` — c'est ce qui
+     * garantit que le total de l'en-tête et le chiffre de la phrase tombent
+     * à l'euro, puisque les deux lisent la même définition.
+     */
+    static func monthlyShares(
+        _ db: SQLiteDatabase, months: [String]
+    ) throws -> [String: [CategoryShare]] {
+        let rows = try db.query(
+            """
+            SELECT c.name AS name, c.emoji AS emoji, g.name AS group_name,
+                   substr(t.occurred_at, 1, 7) AS month,
+                   coalesce(sum(t.amount), 0) AS total
+            FROM transactions t
+            JOIN accounts a ON a.id = t.account_id
+            JOIN categories c ON c.id = t.category_id
+            JOIN category_groups g ON g.id = c.group_id
+            WHERE t.deleted_at IS NULL AND substr(t.occurred_at, 1, 10) <= date('now')
+              AND t.transfer_pair_id IS NULL AND a.is_archived = 0
+              AND g.kind = 'expense' AND substr(t.occurred_at, 1, 7) >= ?
+            GROUP BY c.id, month
+            HAVING sum(t.amount) < 0
+            ORDER BY sum(t.amount) ASC
+            """,
+            [.text(months.first ?? "")]
+        )
+        var byMonth: [String: [CategoryShare]] = [:]
+        for row in rows {
+            guard let month = row.string("month") else { continue }
+            byMonth[month, default: []].append(
+                CategoryShare(
+                    groupName: row.string("group_name") ?? "",
+                    categoryName: row.string("name") ?? "",
+                    emoji: row.string("emoji"),
+                    total: round2(-(row.double("total") ?? 0))
+                )
+            )
+        }
+        return byMonth
     }
 
     /*

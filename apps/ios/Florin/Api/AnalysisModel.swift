@@ -106,9 +106,10 @@ struct AnalysisData: Decodable, Sendable {
      */
     let dailySlices: [DailySlice]?
     let spendCategories: [SpendCategory]?
-    /// Les mêmes parts, bornées au mois civil. Absent du flux serveur, d'où
-    /// l'optionnel : sans lui l'écran reste sur ses trente jours glissants.
-    var monthCategories: [CategoryShare]?
+    /// Les mêmes parts, mois civil par mois civil, clé « 2026-11 ». Absent du
+    /// flux serveur, d'où l'optionnel : sans lui l'écran reste sur ses trente
+    /// jours glissants.
+    var monthCategories: [String: [CategoryShare]]?
 }
 
 @MainActor

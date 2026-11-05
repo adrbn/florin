@@ -78,25 +78,54 @@ struct AnalysisScreen: View {
      */
     @AppStorage("analysis.whereCalendarMonth") private var calendarWindow = false
 
-    /// Les parts de la fenêtre choisie — le mois civil n'arrive pas du
-    /// serveur, qui ne connaît que les trente jours.
+    /*
+     * UN mois pour tout le volet, celui que la phrase nomme.
+     *
+     * L'en-tête se mettait sur le mois EN COURS et la phrase du dessous sur
+     * le dernier mois COMPLET : deux mois à l'écran en même temps, et choisir
+     * octobre dans la phrase laissait l'en-tête sur novembre. Le mois est donc
+     * un seul état — celui de la phrase — et choisir un mois fait aussi
+     * BASCULER la fenêtre, puisque demander octobre ne peut pas vouloir dire
+     * « montre-moi les trente derniers jours ».
+     */
+    private func windowMonth(_ data: AnalysisData?) -> String? {
+        let months = data?.categorySeries.months ?? []
+        if let said = saidMonth, months.contains(said) { return said }
+        // Le dernier mois COMPLET : ouvrir sur un mois entamé de cinq jours
+        // ferait lire une chute tous les débuts de mois.
+        return months.dropLast().last ?? months.last
+    }
+
+    /// Le mois civil est calculé sur l'appareil ; un serveur ne renvoie que
+    /// les trente jours, donc la bascule ne vaut que s'il y a de quoi.
+    private func monthly(_ data: AnalysisData?) -> Bool {
+        guard calendarWindow, let month = windowMonth(data) else { return false }
+        return data?.monthCategories?[month] != nil
+    }
+
+    private func monthShares(_ data: AnalysisData?) -> [CategoryShare] {
+        guard let month = windowMonth(data), let rows = data?.monthCategories?[month]
+        else { return data?.categories ?? [] }
+        return rows
+    }
+
     private func shares(_ data: AnalysisData?) -> [CategoryShare] {
-        guard calendarWindow, let monthly = data?.monthCategories else {
-            return data?.categories ?? []
+        monthly(data) ? monthShares(data) : (data?.categories ?? [])
+    }
+
+    private func windowCaption(_ data: AnalysisData?) -> String {
+        guard monthly(data), let month = windowMonth(data) else {
+            return t("v2.analysis.spent30", "Dépensé sur 30 jours")
         }
-        return monthly
+        return t("v2.analysis.spentMonth", "Dépensé en {month}",
+                 ["month": MonthLabel.long(month, locale: locale)])
     }
 
-    private var windowCaption: String {
-        calendarWindow
-            ? t("v2.analysis.spentMonth", "Dépensé ce mois-ci")
-            : t("v2.analysis.spent30", "Dépensé sur 30 jours")
-    }
-
-    private var windowShort: String {
-        calendarWindow
-            ? MonthLabel.long(MonthlyFlow.runningMonth, locale: locale)
-            : t("v2.analysis.days30", "30 jours")
+    private func windowShort(_ data: AnalysisData?) -> String {
+        guard monthly(data), let month = windowMonth(data) else {
+            return t("v2.analysis.days30", "30 jours")
+        }
+        return MonthLabel.long(month, locale: locale)
     }
 
     private var editorial: Bool { FlorinPalette.selected == .editorial }
@@ -242,7 +271,7 @@ struct AnalysisScreen: View {
                 let rows = shares(data)
                 let total = rows.reduce(0) { $0 + $1.total }
                 return (
-                    windowCaption, total,
+                    windowCaption(data), total,
                     t("v2.analysis.categoriesCount", "{count} catégories",
                       ["count": rows.count])
                 )
@@ -456,13 +485,15 @@ struct AnalysisScreen: View {
          * qu'on ne pose pas : « ou j'en suis, la, maintenant » est la plus
          * legitime des deux. Il y est, marque « en cours », et le choix tient.
          */
-        let complete = Array(months.dropLast())
-        let running = months.last
-        let month = saidMonth.flatMap { months.contains($0) ? $0 : nil } ?? complete.last
+        let month = windowMonth(data)
         if let month, let index = months.firstIndex(of: month) {
             let rows = data.categorySeries.categories
             let pick = saidCategory.flatMap { name in rows.first { $0.categoryName == name } }
+            // « En tout » lit les MÊMES parts que l'en-tête, pas une autre
+            // somme du même mois : c'est la seule façon qu'elles tombent à
+            // l'euro, et elles ne tombaient pas.
             let amount = pick.map { $0.monthly.indices.contains(index) ? $0.monthly[index] : 0 }
+                ?? data.monthCategories?[month]?.reduce(0) { $0 + $1.total }
                 ?? rows.reduce(0) { $0 + ($1.monthly.indices.contains(index) ? $1.monthly[index] : 0) }
 
             EdFlow {
@@ -498,6 +529,9 @@ struct AnalysisScreen: View {
                     }
                 ) { candidate in
                     saidMonth = candidate
+                    // Demander un mois, c'est demander le mois : la fenêtre
+                    // glissante n'a plus rien à voir avec la question.
+                    withAnimation(EdMotion.spring) { calendarWindow = true }
                 }
                 /*
                  * Plus de « · en cours » accroché à la phrase.
@@ -617,7 +651,7 @@ struct AnalysisScreen: View {
                                  color: Florin.seriesColor(for: $0.name))
                             },
                             center: Money.compact(total, locale: locale, currency: currency),
-                            caption: windowShort,
+                            caption: windowShort(data),
                             locale: locale,
                             currency: currency
                         )
