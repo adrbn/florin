@@ -33,6 +33,17 @@ struct AnalysisScreen: View {
      */
     @State private var hidden: Set<String> = []
     /*
+     * Le panier se lit à part, et seulement si on l'ouvre.
+     *
+     * Il ne vient pas de `AnalysisData` : c'est une passe sur les lignes de
+     * ticket, et la grande majorité des installations n'en a aucune. La
+     * charger avec le reste ferait payer une requête par ouverture de
+     * l'écran pour une liste vide.
+     */
+    @State private var basket: LocalBasket.Data?
+    @State private var sorting = false
+    @State private var sortFailure: String?
+    /*
      * Ce que le lecteur ne compte pas comme abonnement.
      *
      * Les deux magasins appartiennent à `SubscriptionsSection` ; ils sont
@@ -63,7 +74,7 @@ struct AnalysisScreen: View {
         _model = StateObject(wrappedValue: AnalysisModel(base: overview.base))
     }
 
-    private enum Tab: Hashable { case where_, trends, flows, calendar, subs }
+    private enum Tab: Hashable { case where_, trends, flows, calendar, subs, basket }
 
     /*
      * Trente jours glissants, ou le mois civil — et c'est la pastille qui le dit.
@@ -135,7 +146,12 @@ struct AnalysisScreen: View {
     private var currency: String { overview.overview?.currency ?? "EUR" }
 
     var body: some View {
-        TabScaffold(tint: TabRoute.analysis.tint, refresh: { await model.load() }) {
+        TabScaffold(
+            tint: TabRoute.analysis.tint,
+            // Le panier ne vient pas du même endroit : tirer pour rafraîchir
+            // doit le relire aussi, sinon il reste sur la passe d'avant.
+            refresh: { await model.load(); loadBasket() }
+        ) {
             if editorial {
                 /*
                  * Pas de bandeau : les deux gestes sont SUR la première ligne.
@@ -210,6 +226,7 @@ struct AnalysisScreen: View {
                 pickedMonth = nil
                 expanded = nil
                 tab = next
+                if next == .basket { loadBasket() }
             }
         )
     }
@@ -257,6 +274,7 @@ struct AnalysisScreen: View {
             (.flows, t("v2.analysis.tab.flows", "Flux"), 0),
             (.calendar, t("v2.analysis.tab.calendar", "Calendrier"), 0),
             (.subs, t("v2.analysis.tab.subs", "Abonnements"), 0),
+            (.basket, t("v2.analysis.tab.basket", "Panier"), 0),
         ]
     }
 
@@ -333,6 +351,19 @@ struct AnalysisScreen: View {
                             ["amount": Money.string(spent / Double(active), locale: locale,
                                                     currency: currency, decimals: false)])
                         : ""
+                )
+            case .basket:
+                // La PART est la seule chose honnête à écrire en grand : le
+                // montant détaillé ne veut rien dire sans elle.
+                let share = Int(((basket?.coverage ?? 0) * 100).rounded())
+                return (
+                    t("v2.analysis.basketWindow", "Détail des tickets, 12 mois"),
+                    basket?.detailed ?? 0,
+                    basket.map {
+                        t("v2.analysis.basketCount",
+                          "{items} articles · {receipts} tickets · {share} % des dépenses",
+                          ["items": $0.items, "receipts": $0.receipts, "share": share])
+                    } ?? ""
                 )
             case .subs:
                 let counted = SubscriptionsSection.counted(
@@ -441,6 +472,7 @@ struct AnalysisScreen: View {
             case .flows: flowsTab(data)
             case .calendar: calendarTab(data)
             case .subs: subsTab(data)
+            case .basket: basketTab()
             }
         } else if let failure = model.failure {
             VStack(spacing: 10) {
@@ -741,6 +773,219 @@ struct AnalysisScreen: View {
                     .padding(.horizontal, Florin.gutter)
                 }
             }
+        }
+    }
+
+    // MARK: - Panier
+
+    /*
+     * Ce qu'il y avait dans le sac, pas seulement ce qu'il a coûté.
+     *
+     * Les quatre autres volets lisent le grand livre, qui dit « Alimentation,
+     * 412 € ». Celui-ci lit les lignes de ticket, qui disent du poulet et une
+     * lessive. C'est le seul volet qui peut être VIDE sans que rien ne soit
+     * cassé — il faut avoir scanné un ticket — donc il le dit lui-même au
+     * lieu d'afficher des sections à zéro.
+     */
+    private func loadBasket() {
+        guard let store = LocalStore.shared else { return }
+        basket = try? LocalBasket.data(store: store)
+    }
+
+    /// Ranger l'historique : un appel sur des MOTS, pas sur des tickets. Voir
+    /// `ProductNames.sortIntoFamilies`.
+    private func sortFamilies() {
+        guard let store = LocalStore.shared, !sorting else { return }
+        sorting = true
+        sortFailure = nil
+        Task {
+            do {
+                _ = try await ProductNames.sortIntoFamilies(store: store)
+            } catch {
+                sortFailure = error.localizedDescription
+            }
+            sorting = false
+            loadBasket()
+        }
+    }
+
+    /// La famille telle qu'on la lit : une majuscule, et un mot pour celles
+    /// qui n'en ont pas encore.
+    private func familyLabel(_ name: String) -> String {
+        guard name != LocalBasket.unsortedFamily else {
+            return t("v2.basket.toSort", "À ranger")
+        }
+        guard let first = name.first else { return name }
+        return first.uppercased() + name.dropFirst()
+    }
+
+    @ViewBuilder
+    private func basketTab() -> some View {
+        if let basket, !basket.isEmpty {
+            let peak = basket.families.first?.total ?? 1
+            VStack(alignment: .leading, spacing: 30) {
+                ScreenSection(title: t("v2.basket.byFamily", "Par famille")) {
+                    FlorinCard {
+                        VStack(spacing: 15) {
+                            ForEach(basket.families) { family in
+                                RankBar(
+                                    label: familyLabel(family.name),
+                                    value: family.total,
+                                    peak: peak,
+                                    share: basket.detailed > 0
+                                        ? family.total / basket.detailed : 0,
+                                    locale: locale,
+                                    currency: currency
+                                )
+                            }
+                        }
+                    }
+                    .padding(.horizontal, Florin.gutter)
+                }
+
+                if !basket.movers.isEmpty {
+                    ScreenSection(
+                        title: t("v2.basket.priceMoves", "Le prix a bougé"),
+                        trailing: t("v2.basket.priceMovesHint", "du premier au dernier achat")
+                    ) {
+                        FlorinCard {
+                            VStack(spacing: 14) {
+                                ForEach(basket.movers.prefix(8)) { product in
+                                    priceRow(product)
+                                }
+                            }
+                        }
+                        .padding(.horizontal, Florin.gutter)
+                    }
+                }
+
+                ScreenSection(title: t("v2.basket.mostBought", "Les plus achetés")) {
+                    FlorinCard {
+                        VStack(spacing: 14) {
+                            ForEach(
+                                basket.products
+                                    .sorted { ($0.count, $0.total) > ($1.count, $1.total) }
+                                    .prefix(10)
+                            ) { product in
+                                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                                    Text(product.name)
+                                        .font(.system(size: editorial ? 17 : 13.5))
+                                        .foregroundStyle(Florin.text)
+                                        .lineLimit(1)
+                                    Text("×\(product.count)")
+                                        .font(.system(size: editorial ? 14 : 11))
+                                        .monospacedDigit()
+                                        .foregroundStyle(Florin.text3)
+                                    Spacer(minLength: 8)
+                                    AmountText(
+                                        value: product.total, locale: locale,
+                                        currency: currency, decimals: false,
+                                        size: editorial ? 17 : 13
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    .padding(.horizontal, Florin.gutter)
+                }
+
+                sortRow(basket)
+            }
+        } else {
+            /*
+             * Un volet vide qui dit par où commencer.
+             *
+             * Le panier ne se remplit pas tout seul : il faut avoir
+             * photographié un ticket depuis une opération. Trois sections à
+             * zéro euro ne diraient pas ça, elles diraient que l'app est
+             * cassée.
+             */
+            VStack(spacing: 10) {
+                Text(t("v2.basket.emptyTitle", "Aucun ticket encore lu"))
+                    .font(.system(size: editorial ? 22 : 16, weight: .semibold))
+                    .foregroundStyle(Florin.text)
+                Text(t(
+                    "v2.basket.emptyHint",
+                    "Ouvre une opération, photographie son ticket, et ce qu'il y avait dedans se compte ici."
+                ))
+                .font(.system(size: 14))
+                .foregroundStyle(Florin.text2)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, Florin.gutter)
+            .padding(.vertical, 50)
+            .onAppear { if basket == nil { loadBasket() } }
+        }
+    }
+
+    /*
+     * « 3,20 € → 4,10 € », et le pourcentage en pastille.
+     *
+     * L'écart en pourcents suffit ici, contrairement au reste de l'écran : on
+     * compare le MÊME produit à lui-même, et trente centimes sur un café sont
+     * une nouvelle là où trente centimes sur un loyer n'en sont pas une.
+     */
+    @ViewBuilder
+    private func priceRow(_ product: LocalBasket.Product) -> some View {
+        let up = product.change > 0
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(product.name)
+                    .font(.system(size: editorial ? 17 : 13.5))
+                    .foregroundStyle(Florin.text)
+                    .lineLimit(1)
+                Text(
+                    Money.string(product.first, locale: locale, currency: currency)
+                        + " → "
+                        + Money.string(product.last, locale: locale, currency: currency)
+                )
+                .font(.system(size: editorial ? 14 : 11))
+                .monospacedDigit()
+                .foregroundStyle(Florin.text3)
+                .hiddenWhenPrivate()
+            }
+            Spacer(minLength: 8)
+            EdAmountPill(
+                text: (up ? "+" : "−")
+                    + "\(Int((abs(product.change) * 100).rounded()))%",
+                tone: up ? EdMoney.minus : EdMoney.plus
+            )
+        }
+    }
+
+    /// Le bouton qui range, et ce qu'il reste à ranger — sans le nombre, un
+    /// bouton d'IA ne dit pas s'il a quelque chose à faire.
+    @ViewBuilder
+    private func sortRow(_ basket: LocalBasket.Data) -> some View {
+        if basket.unsortedWords > 0 || sortFailure != nil {
+            VStack(alignment: .leading, spacing: 8) {
+                Button(action: sortFamilies) {
+                    HStack(spacing: 8) {
+                        if sorting { ProgressView().controlSize(.small) }
+                        Text(
+                            sorting
+                                ? t("v2.basket.sorting", "Rangement…")
+                                : t("v2.basket.sort", "Ranger les familles")
+                        )
+                        .font(.system(size: editorial ? 17 : 14, weight: .semibold))
+                        .foregroundStyle(Florin.text)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(sorting)
+                Text(
+                    sortFailure
+                        ?? t("v2.basket.sortHint", "{count} mots n'ont pas encore de famille",
+                             ["count": basket.unsortedWords])
+                )
+                .font(.system(size: 13))
+                .foregroundStyle(sortFailure == nil ? Florin.text3 : Florin.negative)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.horizontal, Florin.gutter)
         }
     }
 

@@ -7320,3 +7320,134 @@ struct PaletteTests {
         }
     }
 }
+
+/*
+ * Le panier, et les deux arithmétiques qui l'ont fait mentir.
+ *
+ * Un libellé de caisse se replie en Swift et se range en SQL : si les deux
+ * repliages divergent, la famille d'un article est perdue sans que rien ne
+ * casse. Et un prix « qui a bougé » ne doit pas compter deux unités achetées
+ * le même jour comme une évolution.
+ */
+@Suite("Le panier")
+struct BasketTests {
+    private func store() throws -> LocalStore {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("florin-basket-\(UUID().uuidString).db")
+        return try LocalStore(url: url)
+    }
+
+    private func day(_ back: Int) -> String {
+        let date = Calendar(identifier: .gregorian)
+            .date(byAdding: .day, value: -back, to: Date()) ?? Date()
+        return LocalQueries.dayFormatter.string(from: date)
+    }
+
+    /// Deux achats du même article à deux dates, un troisième article, et un
+    /// libellé que personne n'a encore fait lire.
+    private func seeded() throws -> LocalStore {
+        let store = try store()
+        let account = UUID().uuidString, group = UUID().uuidString
+        let category = UUID().uuidString
+        let old = UUID().uuidString, new = UUID().uuidString
+        try store.database.exec("""
+        INSERT INTO category_groups (id, name, kind) VALUES ('\(group)', 'Dépenses', 'expense');
+        INSERT INTO categories (id, group_id, name) VALUES ('\(category)', '\(group)', 'Courses');
+        INSERT INTO accounts (id, name, kind, currency)
+          VALUES ('\(account)', 'Compte exemple', 'checking', 'EUR');
+        INSERT INTO transactions (id, account_id, category_id, occurred_at, amount, currency, payee, source)
+          VALUES ('\(old)', '\(account)', '\(category)', '\(day(40))', -30.00, 'EUR', 'Épicerie exemple', 'manual');
+        INSERT INTO transactions (id, account_id, category_id, occurred_at, amount, currency, payee, source)
+          VALUES ('\(new)', '\(account)', '\(category)', '\(day(2))', -24.00, 'EUR', 'Épicerie exemple', 'manual');
+        INSERT INTO receipts (id, transaction_id, raw_text) VALUES ('r1', '\(old)', '');
+        INSERT INTO receipts (id, transaction_id, raw_text) VALUES ('r2', '\(new)', '');
+        INSERT INTO receipt_items (id, receipt_id, transaction_id, label, amount, line_no)
+          VALUES ('i1', 'r1', '\(old)', 'CAFE MOULU 250', 4.00, 0);
+        INSERT INTO receipt_items (id, receipt_id, transaction_id, label, amount, line_no)
+          VALUES ('i2', 'r1', '\(old)', 'POLO FERM', 7.50, 1);
+        INSERT INTO receipt_items (id, receipt_id, transaction_id, label, amount, line_no)
+          VALUES ('i3', 'r2', '\(new)', 'CAFE MOULU 250', 5.00, 0);
+        INSERT INTO receipt_items (id, receipt_id, transaction_id, label, amount, line_no)
+          VALUES ('i4', 'r2', '\(new)', 'POLO FERM', 7.50, 1);
+        INSERT INTO receipt_items (id, receipt_id, transaction_id, label, amount, line_no)
+          VALUES ('i5', 'r2', '\(new)', 'SACHET INCONNU', 0.30, 2);
+        """)
+        // Les lectures, avec accents et casse de travers exprès : c'est le
+        // repliage de `ProductNames.key` qui doit les rattraper.
+        try ProductNames.remember(
+            store: store, label: "café moulu 250",
+            ProductNames.Reading(name: "café moulu", category: "café", family: "épicerie")
+        )
+        try ProductNames.remember(
+            store: store, label: "POLO ferm",
+            ProductNames.Reading(name: "poulet fermier", category: "poulet", family: "viande")
+        )
+        return store
+    }
+
+    @Test("une famille se compte même quand la caisse écrit sans accent")
+    func familiesFoldLabels() throws {
+        let basket = try LocalBasket.data(store: try seeded())
+        #expect(basket.items == 5)
+        #expect(basket.receipts == 2)
+        #expect(basket.detailed == 24.30)
+        // Épicerie : 4,00 + 5,00. Viande : 7,50 × 2. Et les 0,30 du libellé
+        // que personne n'a fait lire tombent dans « à ranger », pas dans le
+        // vide — sinon le total des familles ne ferait plus le détail.
+        let byName = Dictionary(uniqueKeysWithValues: basket.families.map { ($0.name, $0.total) })
+        #expect(byName["viande"] == 15.00)
+        #expect(byName["épicerie"] == 9.00)
+        #expect(byName[LocalBasket.unsortedFamily] == 0.30)
+        #expect(basket.families.reduce(0) { $0 + $1.total } == basket.detailed)
+    }
+
+    @Test("un prix a bougé s'il a bougé entre deux jours, pas dans un panier")
+    func priceMovesNeedTwoDays() throws {
+        let basket = try LocalBasket.data(store: try seeded())
+        // Le poulet est passé deux fois, au même prix : rien n'a bougé, et il
+        // n'a rien à faire dans cette liste. Le café a pris 25 %.
+        #expect(basket.movers.count == 1)
+        #expect(basket.movers.first?.name == "café moulu")
+        #expect(basket.movers.first?.first == 4.00)
+        #expect(basket.movers.first?.last == 5.00)
+        #expect(basket.products.first { $0.name == "poulet fermier" }?.count == 2)
+    }
+
+    @Test("la part des dépenses que les tickets expliquent")
+    func coverage() throws {
+        let basket = try LocalBasket.data(store: try seeded())
+        // 54 € sortis, 24,30 € détaillés : l'écran doit pouvoir dire 45 %, pas
+        // laisser croire que le panier est le budget.
+        #expect(basket.spent == 54.00)
+        #expect(Int((basket.coverage * 100).rounded()) == 45)
+    }
+
+    @Test("un remboursement ne fait pas deux totaux pour le même mois")
+    func refundNetsTheSameWayEverywhere() throws {
+        let store = try store()
+        let account = UUID().uuidString, group = UUID().uuidString
+        let category = UUID().uuidString
+        try store.database.exec("""
+        INSERT INTO category_groups (id, name, kind) VALUES ('\(group)', 'Dépenses', 'expense');
+        INSERT INTO categories (id, group_id, name) VALUES ('\(category)', '\(group)', 'Courses');
+        INSERT INTO accounts (id, name, kind, currency)
+          VALUES ('\(account)', 'Compte exemple', 'checking', 'EUR');
+        INSERT INTO transactions (id, account_id, category_id, occurred_at, amount, currency, payee, source)
+          VALUES ('\(UUID().uuidString)', '\(account)', '\(category)', '\(day(1))', -60.00, 'EUR', 'Magasin exemple', 'manual');
+        INSERT INTO transactions (id, account_id, category_id, occurred_at, amount, currency, payee, source)
+          VALUES ('\(UUID().uuidString)', '\(account)', '\(category)', '\(day(1))', 10.00, 'EUR', 'Magasin exemple', 'manual');
+        """)
+        let months = LocalAnalysis.recentMonths(12)
+        let month = String(day(1).prefix(7))
+        let shares = try LocalAnalysis.monthlyShares(store.database, months: months)
+        let series = try LocalAnalysis.categorySeries(store.database, months: months)
+        guard let index = months.firstIndex(of: month) else { return }
+        let fromShares = (shares[month] ?? []).reduce(0) { $0 + $1.total }
+        let fromSeries = series.categories.reduce(0) {
+            $0 + ($1.monthly.indices.contains(index) ? $1.monthly[index] : 0)
+        }
+        // L'en-tête disait 60 et la phrase 50 : c'est le même mois.
+        #expect(fromShares == 50.00)
+        #expect(fromShares == fromSeries)
+    }
+}
