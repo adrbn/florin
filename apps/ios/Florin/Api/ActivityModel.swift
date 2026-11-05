@@ -195,8 +195,13 @@ extension FlorinClient {
 /// of thirty feel broken.
 @MainActor
 final class ActivityModel: ObservableObject {
-    @Published var filter = TxFilter()
-    @Published private(set) var rows: [Transaction] = []
+    @Published var filter = TxFilter() {
+        didSet {
+            guard filter.needsReview != oldValue.needsReview else { return }
+            regroup()
+        }
+    }
+    @Published private(set) var rows: [Transaction] = [] { didSet { regroup() } }
     @Published private(set) var total = 0
     /// Ce que pèsent les lignes comptées. Inconnu contre un serveur, qui ne
     /// le rend pas — voir `TransactionPage.sum`.
@@ -211,6 +216,29 @@ final class ActivityModel: ObservableObject {
     @Published private(set) var failure: String?
     @Published var toast: ToastMessage?
 
+    /*
+     * Les lignes rangées comme l'écran les lit, calculées ICI.
+     *
+     * Elles étaient quatre propriétés calculées de la vue. Une propriété
+     * calculée ne garde rien : chaque évaluation du corps refaisait trois
+     * filtres sur les trois mille lignes, un début de journée par ligne et
+     * l'appariement des virements — et `days` était lu deux fois par corps,
+     * donc tout cela deux fois. Vingt millisecondes de fil principal l'unité.
+     *
+     * Or le corps est réévalué à chaque changement d'état de l'app, pour les
+     * cinq pages montées du pagineur, visibles ou pas : un simple changement
+     * d'onglet en déclenchait une demi-douzaine de tours. D'où les 300 ms
+     * pendant lesquelles rien ne répondait.
+     *
+     * Le rangement ne dépend que des lignes et de la file à vérifier. Il est
+     * donc fait une fois quand elles bougent, et le corps ne fait plus que
+     * lire.
+     */
+    @Published private(set) var upcoming: [Transaction] = []
+    @Published private(set) var instalments: [Transaction] = []
+    @Published private(set) var pending: [Transaction] = []
+    @Published private(set) var days: [(day: Date, rows: [Transaction])] = []
+
     private let client: FlorinClient
     private var reachedEnd = false
     /// Generation counter: a page that arrives after the filter changed is
@@ -219,6 +247,52 @@ final class ActivityModel: ObservableObject {
     private var generation = 0
 
     init(base: URL) { client = FlorinClient(base: base) }
+
+    /*
+     * Ce qui n'a pas encore eu lieu ne se range pas avec ce qui a eu lieu.
+     *
+     * Une banque publie un prélèvement plusieurs jours avant de le prendre,
+     * et un achat en quatre fois connaît ses trois échéances suivantes le
+     * jour même. Par date, tout cela arrive en tête — donc un « 30 octobre »
+     * s'ouvrait au-dessus d'« Aujourd'hui » et poussait les vraies opérations
+     * vers le bas. Elles sont déjà hors de tous les totaux ; elles sortent
+     * aussi des journées, et se replient dans leur propre pli au-dessus.
+     *
+     * La file d'attente sort aussi de sa journée : la voir ici ET là ferait
+     * croire à deux opérations. Elle se replie dans son pli, sauf quand c'est
+     * précisément elle qu'on a demandé à voir.
+     *
+     * Les deux jambes d'un virement sont repliées en une : les voir toutes
+     * les deux, à une ligne d'écart et au signe près, ne dit rien de plus que
+     * la ligne unique et fait croire à deux mouvements.
+     */
+    private func regroup() {
+        upcoming = rows.filter { $0.isUpcoming && !$0.isInstalment }
+        instalments = rows.filter { $0.isScheduled && $0.isInstalment }
+        pending = filter.needsReview
+            ? [] : rows.filter { $0.needsReview && !$0.isUpcoming }
+
+        var announced = Set(upcoming.lazy.filter(\.isToCome).map(\.id))
+        announced.formUnion(instalments.lazy.map(\.id))
+        announced.formUnion(pending.lazy.map(\.id))
+
+        // `Calendar.current` rend une COPIE à chaque lecture : la prendre
+        // dans la boucle, c'est trois mille calendriers pour trois mille
+        // lignes.
+        let calendar = Calendar.current
+        var out: [(day: Date, rows: [Transaction])] = []
+        // Le serveur les rend déjà triées, donc ce découpage n'a rien à
+        // retrier.
+        for row in rows where !announced.contains(row.id) {
+            let day = calendar.startOfDay(for: row.day)
+            if out.last?.day == day {
+                out[out.count - 1].rows.append(row)
+            } else {
+                out.append((day, [row]))
+            }
+        }
+        days = out.map { ($0.day, TransferPairs.collapsed($0.rows)) }
+    }
 
     /// The phone's own books. The edit sheet asks: two of its rows are writes
     /// only the device performs — see `TxPatch.accountId`.

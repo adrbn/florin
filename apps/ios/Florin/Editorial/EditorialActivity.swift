@@ -61,24 +61,6 @@ struct EditorialActivity: View {
     private var currency: String { overview.overview?.currency ?? "EUR" }
 
     /*
-     * Ce qui n'a pas encore eu lieu ne se range pas avec ce qui a eu lieu.
-     *
-     * Une banque publie un prélèvement plusieurs jours avant de le prendre,
-     * et un achat en quatre fois connaît ses trois échéances suivantes le
-     * jour même. Par date, tout cela arrive en tête — donc un « 30 octobre »
-     * s'ouvrait au-dessus d'« Aujourd'hui » et poussait les vraies opérations
-     * vers le bas. Elles sont déjà hors de tous les totaux ; elles sortent
-     * aussi des journées, et se replient dans leur propre pli au-dessus.
-     */
-    private var upcoming: [Transaction] {
-        model.rows.filter { $0.isUpcoming && !$0.isInstalment }
-    }
-
-    private var instalments: [Transaction] {
-        model.rows.filter { $0.isScheduled && $0.isInstalment }
-    }
-
-    /*
      * Le pli compte des ACHATS, pas des mensualités.
      *
      * Il listait les échéances à plat : les quatre d'un voyage mêlées aux
@@ -91,42 +73,16 @@ struct EditorialActivity: View {
     }
 
     /*
-     * La file d'attente n'existait que sur la fiche d'un compte.
+     * Les quatre listes que lit le corps sont RANGÉES, pas recalculées.
      *
-     * L'onglet qui porte le compteur dans la barre était le seul écran à ne
-     * pas dire ce qu'il compte : les lignes à vérifier étaient bien là, mais
-     * dispersées dans leurs journées, reconnaissables à un mot sous le nom du
-     * marchand. Il fallait donc parcourir trois mois pour en trouver cinq.
-     *
-     * Même pli que les deux autres, et comme sur la fiche elles sortent de
-     * leur journée : les voir ici ET là ferait croire à deux opérations.
+     * Elles étaient calculées ici, donc refaites à chaque évaluation du
+     * corps — et le corps est réévalué pour les cinq pages du pagineur à
+     * chaque changement d'état, visible ou pas. Voir `ActivityModel.regroup`.
      */
-    private var pending: [Transaction] {
-        model.filter.needsReview
-            ? [] : model.rows.filter { $0.needsReview && !$0.isUpcoming }
-    }
-
-    /// Les lignes regroupées par jour, dans l'ordre où elles arrivent — le
-    /// serveur les rend déjà triées, donc ce découpage n'a rien à retrier.
-    ///
-    /// Les deux jambes d'un virement sont repliées en une : les voir toutes
-    /// les deux, à une ligne d'écart et au signe près, ne dit rien de plus
-    /// que la ligne unique et fait croire à deux mouvements.
-    private var days: [(day: Date, rows: [Transaction])] {
-        let announced = Set(upcoming.filter(\.isToCome).map(\.id))
-            .union(instalments.map(\.id))
-            .union(pending.map(\.id))
-        var out: [(day: Date, rows: [Transaction])] = []
-        for row in model.rows where !announced.contains(row.id) {
-            let day = Calendar.current.startOfDay(for: row.day)
-            if out.last?.day == day {
-                out[out.count - 1].rows.append(row)
-            } else {
-                out.append((day, [row]))
-            }
-        }
-        return out.map { ($0.day, TransferPairs.collapsed($0.rows)) }
-    }
+    private var upcoming: [Transaction] { model.upcoming }
+    private var instalments: [Transaction] { model.instalments }
+    private var pending: [Transaction] { model.pending }
+    private var days: [(day: Date, rows: [Transaction])] { model.days }
 
     var body: some View {
         ScrollView {
