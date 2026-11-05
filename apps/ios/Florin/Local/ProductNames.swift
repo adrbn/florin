@@ -310,9 +310,17 @@ enum ProductNames {
             // qu'on avait : sous 503, elle échoue comme le reste.
             let fresh = (try? await availableModels(apiKey: apiKey)) ?? []
             let current = model(store: store)
-            let candidates = code == 404
-                ? (fresh.isEmpty ? [] : fresh)
-                : [current] + fresh.filter { $0 != current }
+            /*
+             * Le modèle qui vient d'échouer ne se réessaye que s'il peut
+             * réussir : un 5xx est un encombrement passager, et c'est lui
+             * qu'on veut reprendre. Un 404 dit qu'il n'existe plus et un 429
+             * que SON quota est épuisé — dans les deux cas le redemander ne
+             * fait que brûler un des quatre essais, ce qu'il faisait : la
+             * liste le reproposait en deuxième position et il rendait le
+             * même 404.
+             */
+            let others = fresh.filter { $0 != current }
+            let candidates = code >= 500 ? [current] + others : others
             guard !candidates.isEmpty else { throw first }
             var found: [String: Reading]?
             /*
@@ -355,8 +363,36 @@ enum ProductNames {
      * ticket à l'autre, sinon le cache garde une loterie. La sortie est
      * contrainte par un schéma, donc la réponse se décode sans rattrapage.
      */
+    /*
+     * Sans réflexion préalable : nommer un yaourt n'est pas un problème.
+     *
+     * Les modèles « flash » récents réfléchissent par défaut avant de
+     * répondre, et avec une sortie contrainte par un schéma cela dépassait
+     * les vingt-cinq secondes sur le réseau d'un téléphone — deux candidats
+     * sur quatre échouaient en « délai dépassé » pour une question qui tient
+     * en trois libellés. L'option n'existe pas partout : un modèle qui la
+     * refuse rend 400, et la même question repart aussitôt sans elle, une
+     * fois. C'est fait ici et pas chez l'appelant, sinon un 400 remonterait
+     * en « clé refusée », ce qu'il n'est pas.
+     */
     static func read(
         labels: [String], merchant: String, apiKey: String, model: String
+    ) async throws -> [String: Reading] {
+        do {
+            return try await ask(
+                labels: labels, merchant: merchant, apiKey: apiKey,
+                model: model, thinking: false
+            )
+        } catch Failure.http(400) {
+            return try await ask(
+                labels: labels, merchant: merchant, apiKey: apiKey,
+                model: model, thinking: true
+            )
+        }
+    }
+
+    private static func ask(
+        labels: [String], merchant: String, apiKey: String, model: String, thinking: Bool
     ) async throws -> [String: Reading] {
         let instruction = """
             Voici les lignes d'un ticket de caisse\
@@ -373,24 +409,26 @@ enum ProductNames {
             \(labels.map { "- \($0)" }.joined(separator: "\n"))
             """
 
-        let body: [String: Any] = [
-            "contents": [["parts": [["text": instruction]]]],
-            "generationConfig": [
-                "temperature": 0,
-                "responseMimeType": "application/json",
-                "responseSchema": [
-                    "type": "ARRAY",
-                    "items": [
-                        "type": "OBJECT",
-                        "properties": [
-                            "label": ["type": "STRING"],
-                            "name": ["type": "STRING"],
-                            "category": ["type": "STRING"],
-                        ],
-                        "required": ["label", "name"],
+        var config: [String: Any] = [
+            "temperature": 0,
+            "responseMimeType": "application/json",
+            "responseSchema": [
+                "type": "ARRAY",
+                "items": [
+                    "type": "OBJECT",
+                    "properties": [
+                        "label": ["type": "STRING"],
+                        "name": ["type": "STRING"],
+                        "category": ["type": "STRING"],
                     ],
+                    "required": ["label", "name"],
                 ],
             ],
+        ]
+        if !thinking { config["thinkingConfig"] = ["thinkingBudget": 0] }
+        let body: [String: Any] = [
+            "contents": [["parts": [["text": instruction]]]],
+            "generationConfig": config,
         ]
 
         var request = URLRequest(
