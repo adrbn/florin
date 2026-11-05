@@ -238,6 +238,36 @@ struct FlorinClient: Sendable {
     }
 }
 
+/*
+ * Qui peut se contenter de la lecture deja en cours.
+ *
+ * MESURE sur l'appareil : les quatre ecrans montes portent chacun un
+ * `reloadsOnLedgerChange`, ils appellent tous le MEME modele, et `load()`
+ * n'avait aucune garde — quatre lectures completes de l'apercu partaient
+ * dans la meme milliseconde, chacune suivie de son affectation d'etat,
+ * donc de quatre reconstructions de corps d'ecran. Seize pour un evenement.
+ *
+ * Mais « une seule a la fois » ne suffit pas, et c'est tout le piege. Un
+ * appelant qui vient d'ECRIRE ne peut pas se joindre a une lecture commencee
+ * AVANT son ecriture : il lirait du perime et la sheet se fermerait sur une
+ * liste ou sa ligne n'est pas. D'ou le compteur d'ecritures : on ne rejoint
+ * une lecture que si elle est partie APRES l'ecriture qu'on vient de faire.
+ *
+ * Rendre la main tout de suite ne marcherait pas non plus — `add()` fait
+ * `load()` et son appelant attend les chiffres d'apres.
+ */
+struct OverviewFlight {
+    private var reading = false
+    /// Le compteur d'ecritures au depart de la lecture en vol.
+    private var stamp = -1
+
+    /// Vrai quand la lecture en vol est au moins aussi fraiche que demande.
+    func joinable(at need: Int) -> Bool { reading && stamp >= need }
+
+    mutating func begin(at need: Int) { reading = true; stamp = need }
+    mutating func end() { reading = false; stamp = -1 }
+}
+
 @MainActor
 final class OverviewModel: ObservableObject {
     enum State {
@@ -480,7 +510,38 @@ final class OverviewModel: ObservableObject {
         return ns.domain == NSURLErrorDomain && ns.code == NSURLErrorCancelled
     }
 
+    private var flight = OverviewFlight()
+    private var reading: Task<Void, Never>?
+    private var readingToken = 0
+
+    /// Lit l'apercu, ou attend celle qui est deja partie — voir
+    /// `OverviewFlight`.
     func load(showSpinner: Bool = true) async {
+        let need = LedgerStamp.current
+        if flight.joinable(at: need), let reading {
+            await reading.value
+            return
+        }
+        readingToken += 1
+        let token = readingToken
+        flight.begin(at: need)
+        /*
+         * Non structuree, expres.
+         *
+         * Les quatre appelants attendent la MEME tache ; si elle etait fille
+         * de l'un d'eux, l'abandon de celui-la — un tire-pour-rafraichir que
+         * le doigt quitte — annulerait la lecture des trois autres.
+         */
+        let task = Task { await self.fetch(showSpinner: showSpinner) }
+        reading = task
+        await task.value
+        if readingToken == token {
+            reading = nil
+            flight.end()
+        }
+    }
+
+    private func fetch(showSpinner: Bool) async {
         /*
          * A server that cannot be reached is answered from the cache at once.
          *

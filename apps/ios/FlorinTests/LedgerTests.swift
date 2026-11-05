@@ -401,6 +401,33 @@ struct LedgerStampTests {
     }
 }
 
+/*
+ * Ce qui decide de se joindre a une lecture deja partie.
+ *
+ * Le piege n'est pas « deux lectures en meme temps », c'est « une lecture
+ * trop vieille ». Un appelant qui vient d'ecrire et qui rejoint la lecture
+ * d'avant son ecriture referme sa sheet sur une liste ou sa ligne n'est pas.
+ */
+@Suite("Qui attend la lecture en vol")
+struct OverviewFlightTests {
+    @Test("deux lecteurs du meme instant partagent une seule lecture")
+    func sameStampShares() {
+        var flight = OverviewFlight()
+        #expect(!flight.joinable(at: 12), "rien en vol, personne n'attend")
+        flight.begin(at: 12)
+        #expect(flight.joinable(at: 12), "meme instant : une lecture suffit")
+    }
+
+    @Test("celui qui vient d'ecrire ne rejoint pas la lecture d'avant")
+    func aWriterNeverJoinsAnOlderRead() {
+        var flight = OverviewFlight()
+        flight.begin(at: 12)
+        #expect(!flight.joinable(at: 13), "l'ecriture est posterieure a la lecture")
+        flight.end()
+        #expect(!flight.joinable(at: 12), "finie, elle n'est plus a rejoindre")
+    }
+}
+
 // MARK: - Filing a repayment
 
 @Suite("Loan mirror", .serialized)
