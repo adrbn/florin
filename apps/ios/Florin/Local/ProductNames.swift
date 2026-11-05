@@ -170,7 +170,7 @@ enum ProductNames {
         var usable: [String] = []
         var token: String?
         // Borne haute : la pagination vient du service, pas de nous.
-        for _ in 0..<10 {
+        for _ in 0..<4 {
             var components = URLComponents(
                 string: "https://generativelanguage.googleapis.com/v1beta/models"
             )!
@@ -178,7 +178,7 @@ enum ProductNames {
                 + (token.map { [URLQueryItem(name: "pageToken", value: $0)] } ?? [])
             var request = URLRequest(url: components.url!)
             request.setValue(apiKey, forHTTPHeaderField: "x-goog-api-key")
-            request.timeoutInterval = 20
+                request.timeoutInterval = 12
 
             let (data, response) = try await URLSession.shared.data(for: request)
             if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
@@ -224,6 +224,16 @@ enum ProductNames {
     }
 
     // MARK: - Demander
+
+    /// Le motif d'un échec, en deux mots — un message d'erreur entier par
+    /// candidat ferait un pavé illisible sur un téléphone.
+    private static func reason(_ error: Error) -> String {
+        if case let Failure.http(code) = error { return "\(code)" }
+        if let url = error as? URLError {
+            return url.code == .timedOut ? "délai dépassé" : "réseau"
+        }
+        return "illisible"
+    }
 
     enum Failure: LocalizedError {
         case noKey
@@ -283,17 +293,26 @@ enum ProductNames {
              */
             let candidates = try await availableModels(apiKey: apiKey)
             var found: [String: Reading]?
+            /*
+             * Chaque candidat avec SA raison d'avoir échoué.
+             *
+             * Le filtre ne retenait que les 404 : un délai dépassé sur le
+             * premier nom — le réseau d'un téléphone en ville — arrêtait net
+             * une boucle qui en avait quatre autres à essayer, et l'écran
+             * disait « la requête a expiré » sans dire laquelle. Tout échec
+             * fait maintenant passer au suivant, et ce qui s'affiche quand
+             * aucun n'a répondu nomme chacun avec son motif.
+             */
             var tried: [String] = []
-            for candidate in candidates.prefix(5) {
-                tried.append(candidate)
+            for candidate in candidates.prefix(4) {
                 do {
                     found = try await read(
                         labels: asked, merchant: merchant, apiKey: apiKey, model: candidate
                     )
                     try? setModel(store: store, candidate)
                     break
-                } catch Failure.http(404) {
-                    continue
+                } catch {
+                    tried.append("\(candidate) (\(reason(error)))")
                 }
             }
             guard let found else { throw Failure.noneAnswered(tried) }
@@ -364,7 +383,7 @@ enum ProductNames {
         // retrouve dans les journaux de tout ce qui la relaie.
         request.setValue(apiKey, forHTTPHeaderField: "x-goog-api-key")
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        request.timeoutInterval = 30
+        request.timeoutInterval = 25
 
         let (data, response) = try await URLSession.shared.data(for: request)
         if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {

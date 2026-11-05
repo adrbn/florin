@@ -234,29 +234,7 @@ struct ReceiptsSheet: View {
     private func edReceipt(_ receipt: LocalReceipts.Receipt) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             if let image = photos[receipt.id], let path = receipt.imagePath {
-                Button {
-                    viewing = Photo(id: receipt.id, image: image, path: path)
-                } label: {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 170)
-                        .clipShape(
-                            RoundedRectangle(cornerRadius: Ed.largeCard, style: .continuous)
-                        )
-                        .overlay(alignment: .bottomTrailing) {
-                            Image(systemName: "arrow.up.left.and.arrow.down.right")
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(.white)
-                                .padding(7)
-                                .background(.black.opacity(0.45), in: Circle())
-                                .padding(9)
-                        }
-                }
-                .buttonStyle(.plain)
-                .padding(.horizontal, Ed.gutter)
-                .padding(.bottom, 14)
+                edPhoto(receipt: receipt, image: image, path: path)
             }
             if receipt.items.isEmpty {
                 Text(t("v2.receipts.nothingRead", "Aucun article lu sur cette photo."))
@@ -320,6 +298,52 @@ struct ReceiptsSheet: View {
      * contre lui qu'on vérifie une lecture douteuse. La catégorie se range sur
      * la même ligne que l'imprimé : elle était calculée et jetée.
      */
+    /*
+     * Un ticket est une bande, pas une image de bandeau.
+     *
+     * Pleine largeur sur 170 points, `scaledToFill` recadrait au CENTRE d'un
+     * rapport de un sur trois : on perdait l'en-tête et le total — les deux
+     * seules parties qu'on reconnaît — pour garder le milieu, qui sur du
+     * papier de caisse est une bande blanche. Sans bordure et sur un fond
+     * clair, elle n'avait même pas de bord : une respiration bizarre au
+     * milieu de la page.
+     *
+     * Une vignette à la forme d'une photo, cadrée EN HAUT, montre le nom du
+     * commerçant et la date — de quoi reconnaître le papier et décider de
+     * l'ouvrir. Le filet d'un point lui rend un bord quand le papier est
+     * aussi blanc que la page. Vérifier une ligne douteuse se fait en grand,
+     * et c'est à un doigt.
+     */
+    private func edPhoto(
+        receipt: LocalReceipts.Receipt, image: UIImage, path: String
+    ) -> some View {
+        Button {
+            viewing = Photo(id: receipt.id, image: image, path: path)
+        } label: {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
+                .frame(width: 104, height: 136, alignment: .top)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .strokeBorder(Florin.text.opacity(0.14), lineWidth: 1)
+                )
+                .overlay(alignment: .bottomTrailing) {
+                    Image(systemName: "arrow.up.left.and.arrow.down.right")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(6)
+                        .background(.black.opacity(0.5), in: Circle())
+                        .padding(6)
+                }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(t("v2.receipts.openPhoto", "Voir la photo du ticket"))
+        .padding(.horizontal, Ed.gutter)
+        .padding(.bottom, 18)
+    }
+
     private func edItem(_ item: LocalReceipts.Item) -> some View {
         let reading = meanings[ProductNames.key(item.label)]
         return HStack(alignment: .firstTextBaseline, spacing: 10) {
