@@ -748,6 +748,17 @@ enum LocalQueries {
                 """
                 INSERT INTO account_balances (account_id, day, balance) VALUES (?, ?, ?)
                 ON CONFLICT(account_id, day) DO UPDATE SET balance = excluded.balance
+                  -- Ne rien reecrire quand rien n'a bouge, et ce n'est pas une
+                  -- economie d'ecriture : c'est une BOUCLE qu'on coupe.
+                  --
+                  -- `LedgerStamp` detecte « le grand livre a change » en lisant
+                  -- `sqlite3_total_changes`. Ce releve-ci ecrivait un solde par
+                  -- compte A CHAQUE lecture de l'Apercu, donc il faisait avancer
+                  -- le compteur qui sert a decider s'il faut relire : chaque
+                  -- changement d'onglet rechargeait tous les ecrans montes, et
+                  -- chaque rechargement reecrivait, et ainsi de suite. Lire
+                  -- modifiait la chose qui dit si quelque chose a ete modifie.
+                  WHERE balance <> excluded.balance
                 """,
                 [.text(account.id), .text(day), .real(round2(value))]
             )
