@@ -25,11 +25,39 @@ struct RecordPaymentIntent: AppIntent {
     /// Nothing to show: the point is that paying does not mean opening an app.
     static let openAppWhenRun = false
 
-    @Parameter(title: LocalizedStringResource("intent.payment.amount", defaultValue: "Amount", table: "Intents"))
+    /*
+     * Une question posée, sinon Siri n'en pose aucune.
+     *
+     * Les deux valeurs sont obligatoires, et l'automatisation Wallet les
+     * fournit toujours — mais à la voix, personne ne les fournit. Sans
+     * `requestValueDialog`, Siri n'a pas de phrase à dire pour les réclamer :
+     * il affiche le titre du champ, ou renvoie dans Raccourcis, et
+     * « ajoute une dépense » ne faisait rien du tout. La phrase à dire est
+     * donc écrite ici, dans la langue de Siri.
+     */
+    @Parameter(
+        title: LocalizedStringResource("intent.payment.amount", defaultValue: "Amount", table: "Intents"),
+        requestValueDialog: IntentDialog(LocalizedStringResource(
+            "intent.payment.askAmount", defaultValue: "How much?", table: "Intents"
+        ))
+    )
     var amount: String
 
-    @Parameter(title: LocalizedStringResource("intent.payment.merchant", defaultValue: "Merchant", table: "Intents"))
+    @Parameter(
+        title: LocalizedStringResource("intent.payment.merchant", defaultValue: "Merchant", table: "Intents"),
+        requestValueDialog: IntentDialog(LocalizedStringResource(
+            "intent.payment.askMerchant", defaultValue: "Who did you pay?", table: "Intents"
+        ))
+    )
     var merchant: String
+
+    /// Ce que l'action affiche dans Raccourcis, une fois remplie.
+    static var parameterSummary: some ParameterSummary {
+        Summary("Add \(\.$amount) at \(\.$merchant)") {
+            \.$account
+            \.$card
+        }
+    }
 
     @Parameter(title: LocalizedStringResource("intent.payment.card", defaultValue: "Card", table: "Intents"))
     var card: String?

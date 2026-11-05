@@ -76,6 +76,8 @@ struct FlorinShortcuts: AppShortcutsProvider {
         AppShortcut(
             intent: RecordPaymentIntent(),
             phrases: [
+                "Add an expense in \(.applicationName)",
+                "Add a transaction to \(.applicationName)",
                 "Add a payment to \(.applicationName)",
                 "Record an expense in \(.applicationName)",
             ],
