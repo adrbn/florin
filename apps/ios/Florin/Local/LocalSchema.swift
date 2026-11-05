@@ -237,6 +237,14 @@ enum LocalSchema {
               PRIMARY KEY (symbol, day)
             );
         CREATE INDEX IF NOT EXISTS transactions_status_idx ON transactions(status, occurred_at) WHERE deleted_at IS NULL;
+        /*
+         * Partiel : presque aucune ligne n'est l'echeance d'un achat.
+         *
+         * Le rang « 3/4 » se compte par une sous-requete correlee sur ce
+         * meme champ, et sans index elle balayait la table. Partiel parce
+         * que l'index complet serait, a 99 %, une colonne de NULL.
+         */
+        CREATE INDEX IF NOT EXISTS transactions_instalment_plan_idx ON transactions(instalment_plan_id, occurred_at) WHERE instalment_plan_id IS NOT NULL;
         CREATE INDEX IF NOT EXISTS transactions_recurring_rule_idx ON transactions(recurring_rule_id) WHERE recurring_rule_id IS NOT NULL;
         CREATE UNIQUE INDEX IF NOT EXISTS transactions_recurrence_key_unique ON transactions(recurrence_key, account_id) WHERE recurrence_key IS NOT NULL;
         CREATE TABLE IF NOT EXISTS payee_aliases (

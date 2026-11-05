@@ -671,13 +671,28 @@ enum LocalQueries {
                    a.name AS account_name, t.transfer_pair_id,
                    t.needs_review, t.is_pending, t.status,
                    t.account_id, t.category_id, t.instalment_plan_id,
-                   (SELECT count(*) FROM transactions r
-                     WHERE r.instalment_plan_id = t.instalment_plan_id
-                       AND r.deleted_at IS NULL
-                       AND r.occurred_at <= t.occurred_at) AS instalment_rank,
-                   (SELECT count(*) FROM transactions r
-                     WHERE r.instalment_plan_id = t.instalment_plan_id
-                       AND r.deleted_at IS NULL) AS instalment_count,
+                   /*
+                    * Le `CASE` n'est pas de la coquetterie, il est la mesure.
+                    *
+                    * `r.instalment_plan_id = t.instalment_plan_id` ne peut
+                    * rien trouver quand la ligne n'a pas d'echeancier — mais
+                    * SQLite BALAIE quand meme la table entiere pour le
+                    * decouvrir, et presque aucune ligne n'en a. Douze lignes
+                    * rendues faisaient vingt-quatre balayages complets de
+                    * trois mille cinq cents lignes : MESURE sur l'appareil,
+                    * 2 300 ms pour les douze dernieres operations de
+                    * l'Apercu, contre 1 ms pour ses voisines. Le `CASE`
+                    * court-circuite, l'index fait le reste.
+                    */
+                   CASE WHEN t.instalment_plan_id IS NULL THEN NULL ELSE
+                     (SELECT count(*) FROM transactions r
+                       WHERE r.instalment_plan_id = t.instalment_plan_id
+                         AND r.deleted_at IS NULL
+                         AND r.occurred_at <= t.occurred_at) END AS instalment_rank,
+                   CASE WHEN t.instalment_plan_id IS NULL THEN NULL ELSE
+                     (SELECT count(*) FROM transactions r
+                       WHERE r.instalment_plan_id = t.instalment_plan_id
+                         AND r.deleted_at IS NULL) END AS instalment_count,
                    a.kind AS account_kind
             FROM transactions t
             LEFT JOIN categories c ON c.id = t.category_id
