@@ -30,7 +30,34 @@ enum ProductNames {
     /// Ce qu'on a compris d'un libellé.
     struct Reading: Equatable {
         let name: String
+        /// Le mot du modèle, au plus près : « poulet », « provolone ».
         let category: String?
+        /// L'une des dix familles, celle qui se compte. Voir `families`.
+        var family: String?
+    }
+
+    /*
+     * Dix familles, et pas une de plus.
+     *
+     * Une catégorie libre ne s'additionne pas : « poulet », « volaille » et
+     * « blanc de poulet » sont trois barres d'un article là où il n'y a
+     * qu'une viande. La liste est donc fermée, courte, et tient dans une
+     * phrase — c'est elle qu'on demande au modèle EN PLUS de son mot à lui,
+     * jamais à la place. « autre » existe pour que rien ne soit perdu quand
+     * rien ne colle, et un panier où « autre » domine dit que la liste est à
+     * revoir, ce qu'un classement forcé aurait caché.
+     */
+    static let families = [
+        "viande", "poisson", "fruits & légumes", "crémerie", "épicerie",
+        "boisson", "hygiène", "entretien", "maison", "autre",
+    ]
+
+    /// La famille d'un mot, telle qu'elle est écrite — une casse ou un accent
+    /// de travers ne doit pas créer une onzième famille.
+    static func family(of raw: String?) -> String? {
+        guard let raw, !raw.isEmpty else { return nil }
+        let folded = key(raw)
+        return families.first { key($0) == folded }
     }
 
     /// La clé de rangement d'un libellé : sa forme repliée, pour que deux
@@ -50,12 +77,14 @@ enum ProductNames {
         guard !keys.isEmpty else { return [:] }
         let marks = keys.map { _ in "?" }.joined(separator: ", ")
         let rows = try store.database.query(
-            "SELECT match_key, name, category FROM product_names WHERE match_key IN (\(marks))",
+            "SELECT match_key, name, category, family FROM product_names WHERE match_key IN (\(marks))",
             keys.map { SQLiteValue.text($0) }
         )
         return rows.reduce(into: [:]) { out, row in
             guard let key = row.string("match_key"), let name = row.string("name") else { return }
-            out[key] = Reading(name: name, category: row.string("category"))
+            out[key] = Reading(
+                name: name, category: row.string("category"), family: row.string("family")
+            )
         }
     }
 
@@ -71,14 +100,26 @@ enum ProductNames {
         guard !folded.isEmpty, !reading.name.isEmpty else { return }
         try store.database.run(
             """
-            INSERT INTO product_names (match_key, name, category, source)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO product_names (match_key, name, category, family, source)
+            VALUES (?, ?, ?, ?, ?)
             ON CONFLICT(match_key) DO UPDATE SET
-                name = excluded.name, category = excluded.category, source = excluded.source
+                name = excluded.name, category = excluded.category,
+                /*
+                 * Une correction à la main ne connaît pas les familles.
+                 *
+                 * Elle rend un nom, et seulement lui : écraser la famille
+                 * avec son vide ferait retomber dans « à ranger » un article
+                 * déjà classé, à chaque fois qu'on corrige une faute de
+                 * frappe. Le vide ne remplace donc rien.
+                 */
+                family = coalesce(excluded.family, product_names.family),
+                source = excluded.source
             """,
             [
                 .text(folded), .text(reading.name),
-                reading.category.map { SQLiteValue.text($0) } ?? .null, .text(source),
+                reading.category.map { SQLiteValue.text($0) } ?? .null,
+                family(of: reading.family).map { SQLiteValue.text($0) } ?? .null,
+                .text(source),
             ]
         )
     }
@@ -356,74 +397,174 @@ enum ProductNames {
         return learnt
     }
 
-    /*
-     * L'appel, et le seul endroit qui connaît le fournisseur.
-     *
-     * Température à zéro : la même caisse doit donner la même réponse d'un
-     * ticket à l'autre, sinon le cache garde une loterie. La sortie est
-     * contrainte par un schéma, donc la réponse se décode sans rattrapage.
-     */
-    /*
-     * Sans réflexion préalable : nommer un yaourt n'est pas un problème.
-     *
-     * Les modèles « flash » récents réfléchissent par défaut avant de
-     * répondre, et avec une sortie contrainte par un schéma cela dépassait
-     * les vingt-cinq secondes sur le réseau d'un téléphone — deux candidats
-     * sur quatre échouaient en « délai dépassé » pour une question qui tient
-     * en trois libellés. L'option n'existe pas partout : un modèle qui la
-     * refuse rend 400, et la même question repart aussitôt sans elle, une
-     * fois. C'est fait ici et pas chez l'appelant, sinon un 400 remonterait
-     * en « clé refusée », ce qu'il n'est pas.
-     */
-    static func read(
-        labels: [String], merchant: String, apiKey: String, model: String
-    ) async throws -> [String: Reading] {
-        do {
-            return try await ask(
-                labels: labels, merchant: merchant, apiKey: apiKey,
-                model: model, thinking: false
-            )
-        } catch Failure.http(400) {
-            return try await ask(
-                labels: labels, merchant: merchant, apiKey: apiKey,
-                model: model, thinking: true
-            )
-        }
+    // MARK: - Ranger ce qui a été appris avant les familles
+
+    /// Les mots de catégorie encore sans famille, chacun une fois.
+    static func unsorted(store: LocalStore) -> [String] {
+        let rows = (try? store.database.query(
+            """
+            SELECT DISTINCT category FROM product_names
+            WHERE family IS NULL AND category IS NOT NULL AND category <> ''
+            ORDER BY category
+            """
+        )) ?? []
+        return rows.compactMap { $0.string("category") }
     }
 
-    private static func ask(
-        labels: [String], merchant: String, apiKey: String, model: String, thinking: Bool
+    /*
+     * Ranger tout l'historique en UN appel, et sur des mots seuls.
+     *
+     * Relire les tickets pour retrouver les familles serait payer deux fois
+     * la même lecture, et faire repartir des libellés de caisse. Or la
+     * question ne porte pas sur les tickets : « poulet appartient-il à la
+     * viande » se répond sans savoir qui l'a acheté, ni quand, ni pour
+     * combien. Ce qui part est donc une liste de mots de dictionnaire —
+     * quelques dizaines, une seule fois, sans montant, sans date, sans
+     * marchand — et ce qui revient range tous les articles qui portaient ce
+     * mot. Deux cents produits se classent pour le prix d'une phrase.
+     */
+    @discardableResult
+    static func sortIntoFamilies(store: LocalStore) async throws -> Int {
+        guard let apiKey = apiKey(store: store) else { throw Failure.noKey }
+        let words = unsorted(store: store)
+        guard !words.isEmpty else { return 0 }
+
+        let instruction = """
+            Range chacun de ces mots de catégorie de produit dans EXACTEMENT \
+            l'une de ces familles, et rien d'autre : \
+            \(families.joined(separator: ", ")).
+            Quand rien ne colle, mets « autre ». Ne commente pas, \
+            n'ajoute ni ne retire de mot.
+
+            Mots :
+            \(words.map { "- \($0)" }.joined(separator: "\n"))
+            """
+        let schema: [String: Any] = [
+            "type": "ARRAY",
+            "items": [
+                "type": "OBJECT",
+                "properties": [
+                    "category": ["type": "STRING"],
+                    "family": ["type": "STRING", "enum": families],
+                ],
+                "required": ["category", "family"],
+            ],
+        ]
+        let rows = try await structured(
+            instruction: instruction, schema: schema, apiKey: apiKey,
+            model: model(store: store)
+        )
+        var sorted = 0
+        for row in rows {
+            guard let word = row["category"] as? String,
+                  let named = family(of: row["family"] as? String)
+            else { continue }
+            try store.database.run(
+                "UPDATE product_names SET family = ? WHERE category = ? AND family IS NULL",
+                [.text(named), .text(word)]
+            )
+            sorted += 1
+        }
+        return sorted
+    }
+
+    /// Ce que veut dire une poignée de libellés de caisse — la question, sa
+    /// forme de réponse, et rien du fournisseur, qui est dans `structured`.
+    static func read(
+        labels: [String], merchant: String, apiKey: String, model: String
     ) async throws -> [String: Reading] {
         let instruction = """
             Voici les lignes d'un ticket de caisse\
             \(merchant.isEmpty ? "" : " du commerçant « \(merchant) »").
             La caisse abrège les noms d'articles, parfois en italien, en français \
-            ou en anglais. Pour chaque libellé, donne le nom du produit en clair \
-            en français, court, tel qu'on le dirait (« provolone Valpadana DOP », \
-            « nettoyant ménager »), et une catégorie courte en français \
-            (« fromage », « boisson », « entretien », « viande », « pain »).
-            Si un libellé ne t'évoque rien, répète-le tel quel et laisse la \
-            catégorie vide. Ne commente pas, ne complète pas la liste.
+            ou en anglais. Pour chaque libellé, donne trois choses :
+            - « name » : le nom du produit en clair en français, court, tel \
+            qu'on le dirait (« provolone Valpadana DOP », « nettoyant ménager ») ;
+            - « category » : une catégorie courte et PRÉCISE en français \
+            (« fromage », « poulet », « lessive », « pain ») ;
+            - « family » : EXACTEMENT l'une de ces familles, rien d'autre — \
+            \(families.joined(separator: ", ")).
+            Si un libellé ne t'évoque rien, répète-le tel quel, laisse la \
+            catégorie vide et mets « autre » en famille.
+            Ne commente pas, ne complète pas la liste.
 
             Libellés :
             \(labels.map { "- \($0)" }.joined(separator: "\n"))
             """
+        let schema: [String: Any] = [
+            "type": "ARRAY",
+            "items": [
+                "type": "OBJECT",
+                "properties": [
+                    "label": ["type": "STRING"],
+                    "name": ["type": "STRING"],
+                    "category": ["type": "STRING"],
+                    "family": ["type": "STRING", "enum": families],
+                ],
+                "required": ["label", "name", "family"],
+            ],
+        ]
+        let rows = try await structured(
+            instruction: instruction, schema: schema, apiKey: apiKey, model: model
+        )
+        var out: [String: Reading] = [:]
+        for row in rows {
+            guard let label = row["label"] as? String,
+                  let name = (row["name"] as? String)?.trimmingCharacters(in: .whitespaces),
+                  !name.isEmpty
+            else { continue }
+            let category = (row["category"] as? String)?.trimmingCharacters(in: .whitespaces)
+            out[label] = Reading(
+                name: name, category: (category?.isEmpty ?? true) ? nil : category,
+                family: family(of: row["family"] as? String)
+            )
+        }
+        return out
+    }
 
+    /*
+     * Une question, un schéma, une liste d'objets — et rien du fournisseur
+     * au-dehors.
+     *
+     * Deux questions la posent : ce que veut dire un libellé de caisse, et
+     * dans quelle famille range un mot de catégorie. Elles ne partagent ni
+     * leur texte ni leur forme de réponse, mais tout le reste : l'adresse, la
+     * clé en en-tête, la température à zéro, la sortie contrainte, le délai.
+     * Changer de fournisseur ne touche donc toujours qu'un seul endroit.
+     *
+     * Sans réflexion préalable : nommer un yaourt n'est pas un problème. Les
+     * modèles « flash » récents réfléchissent par défaut, et avec une sortie
+     * contrainte cela dépassait les vingt-cinq secondes sur le réseau d'un
+     * téléphone. Un modèle qui refuse l'option rend 400, et la même question
+     * repart aussitôt sans elle, une fois — ici et pas chez l'appelant, sinon
+     * un 400 remonterait en « clé refusée », ce qu'il n'est pas.
+     */
+    static func structured(
+        instruction: String, schema: [String: Any], apiKey: String, model: String
+    ) async throws -> [[String: Any]] {
+        do {
+            return try await post(
+                instruction: instruction, schema: schema, apiKey: apiKey,
+                model: model, thinking: false
+            )
+        } catch Failure.http(400) {
+            return try await post(
+                instruction: instruction, schema: schema, apiKey: apiKey,
+                model: model, thinking: true
+            )
+        }
+    }
+
+    private static func post(
+        instruction: String, schema: [String: Any], apiKey: String,
+        model: String, thinking: Bool
+    ) async throws -> [[String: Any]] {
+        // Température à zéro : la même caisse doit donner la même réponse d'un
+        // ticket à l'autre, sinon le cache garde une loterie.
         var config: [String: Any] = [
             "temperature": 0,
             "responseMimeType": "application/json",
-            "responseSchema": [
-                "type": "ARRAY",
-                "items": [
-                    "type": "OBJECT",
-                    "properties": [
-                        "label": ["type": "STRING"],
-                        "name": ["type": "STRING"],
-                        "category": ["type": "STRING"],
-                    ],
-                    "required": ["label", "name"],
-                ],
-            ],
+            "responseSchema": schema,
         ]
         if !thinking { config["thinkingConfig"] = ["thinkingBudget": 0] }
         let body: [String: Any] = [
@@ -456,18 +597,6 @@ enum ProductNames {
               let text = parts.compactMap({ $0["text"] as? String }).first,
               let rows = try JSONSerialization.jsonObject(with: Data(text.utf8)) as? [[String: Any]]
         else { throw Failure.unreadable }
-
-        var out: [String: Reading] = [:]
-        for row in rows {
-            guard let label = row["label"] as? String,
-                  let name = (row["name"] as? String)?.trimmingCharacters(in: .whitespaces),
-                  !name.isEmpty
-            else { continue }
-            let category = (row["category"] as? String)?.trimmingCharacters(in: .whitespaces)
-            out[label] = Reading(
-                name: name, category: (category?.isEmpty ?? true) ? nil : category
-            )
-        }
-        return out
+        return rows
     }
 }

@@ -299,6 +299,17 @@ final class LocalStore {
                 match_key TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
                 category TEXT,
+                /*
+                 * Deux niveaux, et c'est voulu.
+                 *
+                 * `category` est ce que le modèle a dit, au mot près :
+                 * « poulet », « volaille », « blanc de poulet ». Précis, et
+                 * donc impossible à additionner — quarante mots font quarante
+                 * barres d'un article. `family` est la dizaine de familles
+                 * fixes où tout cela se range pour être compté. Garder les
+                 * deux, c'est pouvoir compter sans perdre le détail.
+                 */
+                family TEXT,
                 source TEXT NOT NULL DEFAULT 'gemini',
                 created_at TEXT NOT NULL DEFAULT (datetime('now'))
               );
@@ -326,6 +337,9 @@ final class LocalStore {
          * l'un retire l'autre.
          */
         try addColumn("holding_purchases", "transaction_id", "TEXT")
+        // Les noms appris avant les familles n'en ont pas : elle se remplit
+        // au fil des lectures, et d'un coup par « Ranger les familles ».
+        try addColumn("product_names", "family", "TEXT")
         try rekeyMerchantNames()
         try healSettledRefundLinks()
         try healExpiredInstalments()
