@@ -5653,6 +5653,28 @@ struct ReceiptTests {
         #expect(items.reduce(0) { $0 + $1.amount } == 14.50)
     }
 
+    /*
+     * Un récapitulatif reste un récapitulatif quand la caisse l'abîme.
+     *
+     * Trois façons d'échapper au filtre, toutes sur le même ticket : le mot
+     * d'en-tête arrive derrière du bruit de reconnaissance au lieu d'ouvrir
+     * la ligne, l'en-tête lui-même est mal lu (« TetalE » pour « TOTALE »)
+     * et deux colonnes voisines sont recollées, si bien que le libellé d'un
+     * article se termine par le sous-total imprimé à côté. Les trois
+     * entraient dans le détail, et le « reste à détailler » mentait d'autant.
+     */
+    @Test("un récapitulatif abîmé ou recollé n'est pas un article")
+    func mangledSummariesAreNotItems() {
+        let items = ReceiptParser.items(from: [
+            "FARINE TYPE 55 1,20",
+            "XXW HAI RISPARMIATO WEN 1,70",
+            "TetalE ART. NON SCONTABIL 0,13",
+            "SACHET REUTILISABLE 20X40 0A K 22,00% T.PARZIRLE: 9,99 0,30",
+            "TOTALE COMPLESSIVO 1,50",
+        ], total: -1.50)
+        #expect(items == [.init(label: "FARINE TYPE 55", amount: 1.20)])
+    }
+
     @Test("un récapitulatif chiffré clôt le nom resté sans prix")
     func summariesEndAPendingName() {
         // Sans quoi le nom en attente irait chercher un prix bien plus bas.

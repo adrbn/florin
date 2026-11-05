@@ -307,11 +307,47 @@ enum ReceiptParser {
         "IMPORTE", "EFECTIVO", "CAMBIO",
     ]
 
+    /*
+     * Les phrases qu'on reconnaît OÙ QU'ELLES SOIENT dans la ligne.
+     *
+     * Une tête de ligne ne tient que si la caisse commence par elle, et un
+     * vrai ticket montre deux façons d'y échapper : la caisse imprime un
+     * caractère graphique devant (« WHW HAI RISPARMIATO WEN »), et la
+     * reconnaissance recolle deux colonnes voisines en une seule ligne. Dans
+     * les deux cas la phrase est là, mais pas en premier.
+     *
+     * Seulement des phrases de plusieurs mots, et sans ambiguïté : « TOTAL »
+     * cherché partout écarterait un yaourt de marque Total, d'où la liste des
+     * têtes au-dessus, qui reste comparée par le début.
+     */
+    private static let summaryPhrases: [String] = [
+        "HAI RISPARMIATO", "NON SCONTABIL", "T PARZIALE", "TOT PARZIALE",
+        "IMPORTO PAGATO", "PAGAMENTO ELETTRONICO", "DI CUI IVA",
+        "TOTALE COMPLESSIVO", "SCONTO APPLICATO", "TOTALE ARTICOLI",
+        "YOU SAVED", "TOTAL SAVINGS", "VOUS AVEZ ECONOMISE", "MONTANT PAYE",
+    ]
+
+    /// Un libellé qui finit par un second montant : la ligne en portait deux,
+    /// donc elle en recollait deux — celle de l'article et un cumul. Le prix
+    /// de queue a déjà été prélevé, et le taux de TVA retiré par `clean` :
+    /// ce qui reste en fin de nom n'a pas de raison d'être un prix.
+    private static let trailingFigure = try? NSRegularExpression(
+        pattern: #"\d[.,]\d{2}$"#
+    )
+
     private static func isNotAPurchase(_ label: String) -> Bool {
         let folded = fold(label)
         if folded.isEmpty { return true }
         if notPurchases.contains(folded) { return true }
-        return summaryHeads.contains { folded == $0 || folded.hasPrefix($0 + " ") }
+        if summaryHeads.contains(where: { folded == $0 || folded.hasPrefix($0 + " ") }) {
+            return true
+        }
+        let padded = " \(folded) "
+        if summaryPhrases.contains(where: { padded.contains(" \($0) ") }) { return true }
+        let trimmed = label.trimmingCharacters(in: .whitespaces)
+        return trailingFigure?.firstMatch(
+            in: trimmed, range: NSRange(trimmed.startIndex..., in: trimmed)
+        ) != nil
     }
 
     /// « 1 234,56 », « 1.234,56 », « -3.49 » : le séparateur décimal est le
