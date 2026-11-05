@@ -186,8 +186,31 @@ struct FlorinAccountEntity: AppEntity {
 }
 
 struct FlorinAccountQuery: EntityQuery {
+    /*
+     * Un compte introuvable est rendu quand même, sous son identifiant.
+     *
+     * Raccourcis redemande à chaque exécution le compte choisi dans l'action.
+     * Une réponse vide ne veut pas dire « pas de compte » pour lui, elle veut
+     * dire que le réglage n'est plus valable : il vide le champ, et une
+     * automatisation dont une action attend une valeur ne s'exécute pas —
+     * « Afficher lors de l'exécution » étant décoché, sans rien demander et
+     * sans rien dire. L'action n'étant jamais entrée, il n'y a pas même une
+     * tentative au journal : du dehors, la détection a simplement cessé.
+     *
+     * Et le vide arrive pour des raisons passagères — la base fermée pendant
+     * qu'un build remplace le conteneur, le mode démonstration qui ouvre un
+     * autre fichier, un grand livre réimporté dont les comptes ont de
+     * nouveaux identifiants. Rendre l'identifiant tel quel garde le lien
+     * intact ; s'il ne désigne plus rien au moment d'écrire, `LocalWallet`
+     * retombe sur le compte par défaut, ce qui vaut mieux qu'un paiement
+     * perdu.
+     */
     func entities(for identifiers: [String]) async throws -> [FlorinAccountEntity] {
-        accounts().filter { identifiers.contains($0.id) }
+        let known = accounts()
+        return identifiers.map { id in
+            known.first { $0.id == id }
+                ?? FlorinAccountEntity(id: id, name: Strings.device("v2.account.unnamed", "Compte"))
+        }
     }
 
     func suggestedEntities() async throws -> [FlorinAccountEntity] {
@@ -195,8 +218,11 @@ struct FlorinAccountQuery: EntityQuery {
     }
 
     /// The accounts a card can draw on: current accounts first, then cash.
+    ///
+    /// Le vrai grand livre : l'action y écrit, donc c'est là que vivent les
+    /// comptes qu'elle peut viser — pas dans la démonstration à l'écran.
     private func accounts() -> [FlorinAccountEntity] {
-        guard let store = LocalStore.shared,
+        guard let store = LocalStore.realLedger,
               let rows = try? store.database.query(
                   """
                   SELECT id, name FROM accounts
