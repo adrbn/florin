@@ -29,7 +29,18 @@ enum LocalAnalysis {
         let months = recentMonths(12)
         // One pass. The shares and the id lookup are two halves of the same
         // answer, and this is the heaviest query on the screen.
-        let breakdown = try categoryShares(db, days: 30)
+        let calendar = Calendar(identifier: .gregorian)
+        let since = calendar.date(byAdding: .day, value: -30, to: Date()) ?? Date()
+        let breakdown = try categoryShares(
+            db, from: LocalQueries.dayFormatter.string(from: since)
+        )
+        // Le mois civil, pour la bascule de l'écran : le premier du mois.
+        let firstOfMonth = calendar.date(
+            from: calendar.dateComponents([.year, .month], from: Date())
+        ) ?? Date()
+        let monthly = try categoryShares(
+            db, from: LocalQueries.dayFormatter.string(from: firstOfMonth)
+        )
         // And one pass for the calendar: its squares are the sum of its slices
         // by construction, so a filtered total and an unfiltered one cannot
         // come to disagree about what a day was worth.
@@ -45,7 +56,8 @@ enum LocalAnalysis {
             savings: try LocalQueries.savingsRates(db),
             ageOfMoney: nil,
             dailySlices: slices,
-            spendCategories: try spendCategories(db)
+            spendCategories: try spendCategories(db),
+            monthCategories: monthly.shares
         )
     }
 
@@ -102,9 +114,18 @@ enum LocalAnalysis {
      * than by the sign of a category's sum: a refund inside a category should
      * not be able to hide the spending it sits next to.
      */
+    /*
+     * Trente jours glissants OU le mois civil : deux fenêtres, une requête.
+     *
+     * Trente jours glissants comptent DEUX loyers quand le mois en cours est
+     * entamé de vingt-neuf jours, et le total double sans que rien n'ait
+     * changé. C'est juste, et ce n'est pas ce qu'on veut lire pour juger son
+     * mois. La borne basse est donc passée en paramètre, et l'écran bascule
+     * de l'une à l'autre.
+     */
     static func categoryShares(
         _ db: SQLiteDatabase,
-        days: Int
+        from day: String
     ) throws -> (shares: [CategoryShare], ids: [String: String]) {
         let rows = try db.query(
             """
@@ -117,11 +138,11 @@ enum LocalAnalysis {
             WHERE t.deleted_at IS NULL AND substr(t.occurred_at, 1, 10) <= date('now')
               AND t.transfer_pair_id IS NULL AND a.is_archived = 0
               AND g.kind = 'expense' AND t.amount < 0
-              AND substr(t.occurred_at, 1, 10) >= date('now', ?)
+              AND substr(t.occurred_at, 1, 10) >= ?
             GROUP BY c.id, c.name, c.emoji, g.name
             ORDER BY sum(t.amount) ASC
             """,
-            [.text("-\(days) days")]
+            [.text(day)]
         )
         let shares = rows.map { row -> CategoryShare in
             CategoryShare(

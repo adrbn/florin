@@ -65,6 +65,40 @@ struct AnalysisScreen: View {
 
     private enum Tab: Hashable { case where_, trends, flows, calendar, subs }
 
+    /*
+     * Trente jours glissants, ou le mois civil — et c'est la pastille qui le dit.
+     *
+     * Le loyer payé aujourd'hui et celui d'il y a vingt-neuf jours tombent
+     * tous les deux dans trente jours glissants : le total double un matin
+     * sans qu'on ait rien dépensé de plus, et le mois devient illisible. La
+     * fenêtre glissante garde sa valeur — elle ignore les bords de mois —
+     * donc on ne la remplace pas, on bascule : toucher l'en-tête change la
+     * fenêtre, et tout le volet « Où » suit, comme le montant de l'accueil
+     * bascule entre brut et patrimoine. Le choix se retient.
+     */
+    @AppStorage("analysis.whereCalendarMonth") private var calendarWindow = false
+
+    /// Les parts de la fenêtre choisie — le mois civil n'arrive pas du
+    /// serveur, qui ne connaît que les trente jours.
+    private func shares(_ data: AnalysisData?) -> [CategoryShare] {
+        guard calendarWindow, let monthly = data?.monthCategories else {
+            return data?.categories ?? []
+        }
+        return monthly
+    }
+
+    private var windowCaption: String {
+        calendarWindow
+            ? t("v2.analysis.spentMonth", "Dépensé ce mois-ci")
+            : t("v2.analysis.spent30", "Dépensé sur 30 jours")
+    }
+
+    private var windowShort: String {
+        calendarWindow
+            ? MonthLabel.long(MonthlyFlow.runningMonth, locale: locale)
+            : t("v2.analysis.days30", "30 jours")
+    }
+
     private var editorial: Bool { FlorinPalette.selected == .editorial }
 
     private var t: Strings { overview.overview?.t ?? .device }
@@ -205,11 +239,12 @@ struct AnalysisScreen: View {
         let (caption, value, sub): (String, Double, String) = {
             switch tab {
             case .where_:
-                let total = data?.categories.reduce(0) { $0 + $1.total } ?? 0
+                let rows = shares(data)
+                let total = rows.reduce(0) { $0 + $1.total }
                 return (
-                    t("v2.analysis.spent30", "Dépensé sur 30 jours"), total,
+                    windowCaption, total,
                     t("v2.analysis.categoriesCount", "{count} catégories",
-                      ["count": data?.categories.count ?? 0])
+                      ["count": rows.count])
                 )
             case .trends:
                 let rows = movers(data)
@@ -302,6 +337,8 @@ struct AnalysisScreen: View {
                     // Elle grandit si la pastille doit se replier.
                     HStack(alignment: .center, spacing: 8) {
                         EdPill(text: caption)
+                            .contentShape(Capsule())
+                            .onTapGesture { toggleWindow() }
                         Spacer(minLength: 8)
                         EdIconButton(
                             symbol: "arrow.left.arrow.right",
@@ -324,6 +361,8 @@ struct AnalysisScreen: View {
                         size: 48, value: value
                     )
                     .hiddenWhenPrivate()
+                    .contentShape(Rectangle())
+                    .onTapGesture { toggleWindow() }
                     if !sub.isEmpty {
                         Text(sub)
                             .font(.system(size: 15))
@@ -351,7 +390,17 @@ struct AnalysisScreen: View {
                     .hiddenWhenPrivate()
             }
             .padding(.bottom, 2)
+            .contentShape(Rectangle())
+            .onTapGesture { toggleWindow() }
         )
+    }
+
+    /// Ne bascule que là où la fenêtre veut dire quelque chose : les autres
+    /// volets ont leur propre période, écrite dans leur propre en-tête.
+    private func toggleWindow() {
+        guard tab == .where_ else { return }
+        withAnimation(EdMotion.spring) { calendarWindow.toggle() }
+        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
     }
 
     @ViewBuilder
@@ -445,20 +494,20 @@ struct AnalysisScreen: View {
                         (
                             value: $0,
                             label: MonthLabel.long($0, locale: locale)
-                                + ($0 == running
-                                   ? " · " + t("v2.analysis.running", "en cours") : "")
                         )
                     }
                 ) { candidate in
                     saidMonth = candidate
                 }
-                // Le mois en cours le dit dans la phrase aussi : un chiffre
-                // arrete au 5 du mois ne doit pas se lire comme un mois entier.
-                if month == running {
-                    Text("· " + t("v2.analysis.running", "en cours"))
-                        .font(.system(size: 22))
-                        .foregroundStyle(Florin.text3)
-                }
+                /*
+                 * Plus de « · en cours » accroché à la phrase.
+                 *
+                 * Ce n'était pas une phrase : un point médian et deux mots
+                 * posés après un titre, qui ne se lisaient ni avec ce qui
+                 * précède ni tout seuls. Ce qu'ils voulaient dire — le mois
+                 * n'est pas fini — est déjà écrit en toutes lettres par la
+                 * note sous les barres, là où ça change une lecture.
+                 */
             }
             .padding(.horizontal, Florin.gutter)
             .edEnter()
@@ -552,7 +601,7 @@ struct AnalysisScreen: View {
     // MARK: - Où
 
     private func whereTab(_ data: AnalysisData) -> some View {
-        let ranked = data.categories.sorted { $0.total > $1.total }
+        let ranked = shares(data).sorted { $0.total > $1.total }
         let total = ranked.reduce(0) { $0 + $1.total }
         let peak = ranked.first?.total ?? 1
         let byGroup = groupTotals(ranked)
@@ -568,7 +617,7 @@ struct AnalysisScreen: View {
                                  color: Florin.seriesColor(for: $0.name))
                             },
                             center: Money.compact(total, locale: locale, currency: currency),
-                            caption: t("v2.analysis.days30", "30 jours"),
+                            caption: windowShort,
                             locale: locale,
                             currency: currency
                         )
