@@ -122,6 +122,12 @@ struct EditorialActivity: View {
             .padding(.bottom, 120)
         }
         .edRewind(.activity, chrome: chrome)
+        .onReceive(
+            NotificationCenter.default.publisher(for: .florinTabReselected)
+        ) { note in
+            guard note.object as? TabRoute == .activity else { return }
+            closeSearch()
+        }
         .scrollIndicators(.hidden)
         .edPlainEdges()
         .background(Florin.bg)
@@ -232,12 +238,11 @@ struct EditorialActivity: View {
                 symbol: "magnifyingglass",
                 label: t("v2.common.search", "Rechercher")
             ) {
-                withAnimation(EdMotion.spring) { searching.toggle() }
-                searchFocused = searching
-                if !searching, !draft.isEmpty {
-                    draft = ""
-                    model.filter.search = ""
-                    Task { await model.reload() }
+                if searching {
+                    closeSearch()
+                } else {
+                    withAnimation(EdMotion.spring) { searching = true }
+                    searchFocused = true
                 }
             }
         } trailing: {
@@ -259,6 +264,25 @@ struct EditorialActivity: View {
         }
     }
 
+    /*
+     * Refermer la recherche rend la liste entière.
+     *
+     * Deux gestes veulent dire la même chose — retaper la loupe, et retaper
+     * l'onglet où l'on est déjà. Le second ne faisait que remonter en haut :
+     * on revenait sur Activité, on la trouvait remontée mais toujours
+     * réduite à « Amaz », et rien à l'écran ne disait pourquoi il manquait
+     * trois mois d'opérations.
+     */
+    private func closeSearch() {
+        guard searching || !draft.isEmpty else { return }
+        withAnimation(EdMotion.spring) { searching = false }
+        searchFocused = false
+        guard !draft.isEmpty else { return }
+        draft = ""
+        model.filter.search = ""
+        Task { await model.reload() }
+    }
+
     private var searchField: some View {
         TextField(
             t("v2.activity.searchPlaceholder", "Bénéficiaire, note…"),
@@ -270,7 +294,39 @@ struct EditorialActivity: View {
         .submitLabel(.search)
         .autocorrectionDisabled()
         .padding(.vertical, 12)
+        // La place de la croix, et seulement quand elle est là : sans ça un
+        // libellé long passe dessous.
+        .padding(.trailing, draft.isEmpty ? 0 : 30)
         .overlay(alignment: .bottom) { EdRule() }
+        /*
+         * La croix efface la recherche sans la refermer.
+         *
+         * `TextField` n'en a pas : c'est `clearButtonMode`, qui appartient à
+         * UIKit. Sans elle, vider le champ se fait lettre par lettre, ou en
+         * refermant la recherche — ce qui n'est pas la même intention que
+         * « chercher autre chose ». Le clavier reste donc, et le curseur
+         * aussi.
+         */
+        .overlay(alignment: .trailing) {
+            if !draft.isEmpty {
+                Button {
+                    draft = ""
+                    model.filter.search = ""
+                    searchFocused = true
+                    Task { await model.reload() }
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 16))
+                        .foregroundStyle(Florin.text3)
+                        .frame(width: 30, height: 34)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(t("v2.common.clear", "Effacer"))
+                .transition(.opacity)
+            }
+        }
+        .animation(EdMotion.spring, value: draft.isEmpty)
         .padding(.top, 10)
         .transition(.opacity.combined(with: .move(edge: .top)))
         // Une frappe par lettre ferait une requête par lettre : on attend que
