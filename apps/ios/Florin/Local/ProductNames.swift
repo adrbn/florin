@@ -283,7 +283,22 @@ enum ProductNames {
             readings = try await read(
                 labels: asked, merchant: merchant, apiKey: apiKey, model: model(store: store)
             )
-        } catch Failure.http(404) {
+        } catch let first as Failure {
+            /*
+             * Un service surchargé n'est pas un modèle disparu.
+             *
+             * Seul le 404 déclenchait le repli, et Google rend des 503 par
+             * rafales aux heures pleines : l'écran disait « le service a
+             * répondu 503 » et s'arrêtait là, alors qu'un deuxième essai deux
+             * secondes plus tard passe. Le 429 et les 5xx reprennent donc le
+             * même chemin, en commençant par le modèle en place — c'est lui
+             * qu'on veut garder quand ce n'est que de l'encombrement, et le
+             * remplacer n'aurait rien arrangé.
+             */
+            guard case let .http(code) = first,
+                  code == 404 || code == 429 || code >= 500
+            else { throw first }
+            if code != 404 { try? await Task.sleep(for: .seconds(2)) }
             /*
              * Le nom retenu n'existe plus. On redemande la liste, et on
              * descend les candidats jusqu'à ce que l'un réponde — un seul
@@ -291,7 +306,14 @@ enum ProductNames {
              * et c'est ce second échec qui s'affichait. Le nom qui a marché
              * est gardé : le prochain ticket part directement au bon endroit.
              */
-            let candidates = try await availableModels(apiKey: apiKey)
+            // Une liste qu'on n'obtient pas ne doit pas effacer le seul nom
+            // qu'on avait : sous 503, elle échoue comme le reste.
+            let fresh = (try? await availableModels(apiKey: apiKey)) ?? []
+            let current = model(store: store)
+            let candidates = code == 404
+                ? (fresh.isEmpty ? [] : fresh)
+                : [current] + fresh.filter { $0 != current }
+            guard !candidates.isEmpty else { throw first }
             var found: [String: Reading]?
             /*
              * Chaque candidat avec SA raison d'avoir échoué.
