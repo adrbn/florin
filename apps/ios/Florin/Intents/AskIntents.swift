@@ -63,6 +63,54 @@ struct NetWorthIntent: AppIntent {
     }
 }
 
+/*
+ * L'état des comptes, dit d'une traite.
+ *
+ * Sans paramètre, et c'est le point : demander « lequel ? » à la voix coûte
+ * un aller-retour par compte, alors que les lire tous tient en une phrase.
+ * « Combien sur mon CCP » trouve donc sa réponse dans la même phrase que
+ * « l'état de mes comptes », sans que Siri ait rien à réclamer.
+ */
+struct AccountBalancesIntent: AppIntent {
+    static let title = LocalizedStringResource(
+        "intent.balances.title", defaultValue: "What my accounts hold", table: "Intents"
+    )
+    static let description = IntentDescription(LocalizedStringResource(
+        "intent.balances.description",
+        defaultValue: "Answers with the balance of each of your accounts, from the ledger on this device.",
+        table: "Intents"
+    ))
+    static let openAppWhenRun = false
+
+    /// Au-delà, la phrase devient une liste qu'on n'écoute plus — le compte
+    /// des oubliés en dit assez pour aller voir l'écran.
+    private static let spoken = 6
+
+    func perform() async throws -> some IntentResult & ReturnsValue<String> & ProvidesDialog {
+        let data = try FlorinAsk.read()
+        let t = Strings.device
+        // Un prêt remboursé ou un compte à zéro n'apprend rien à l'oreille.
+        let accounts = data.accounts.filter { abs($0.total) > 0.005 }
+        guard !accounts.isEmpty else {
+            let empty = t("v2.siri.noAccounts", "Vous n'avez encore aucun compte dans Florin.")
+            return .result(value: empty, dialog: IntentDialog(stringLiteral: empty))
+        }
+        var parts = accounts.prefix(Self.spoken).map { account in
+            t("v2.siri.balanceLine", "{name} : {amount}", [
+                "name": account.name,
+                "amount": Money.string(account.total, locale: t.localeTag, currency: data.currency),
+            ])
+        }
+        let rest = accounts.count - parts.count
+        if rest > 0 {
+            parts.append(t("v2.siri.balancesMore", "et {count} autres comptes",
+                           ["count": "\(rest)"]))
+        }
+        let said = parts.joined(separator: ". ") + "."
+        return .result(value: said, dialog: IntentDialog(stringLiteral: said))
+    }
+}
+
 /// Ce que les deux questions ont en commun.
 enum FlorinAsk {
     enum Failure: LocalizedError {

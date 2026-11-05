@@ -62,6 +62,18 @@ struct FlorinShortcuts: AppShortcutsProvider {
          * carte ne voit pas : des espèces, un virement entre amis.
          */
         AppShortcut(
+            intent: AccountBalancesIntent(),
+            phrases: [
+                "What are my balances in \(.applicationName)",
+                "Ask \(.applicationName) for my account balances",
+                "How much is on my accounts in \(.applicationName)",
+            ],
+            shortTitle: LocalizedStringResource(
+                "intent.balances.short", defaultValue: "My balances", table: "Intents"
+            ),
+            systemImageName: "building.columns"
+        )
+        AppShortcut(
             intent: RecordPaymentIntent(),
             phrases: [
                 "Add a payment to \(.applicationName)",
