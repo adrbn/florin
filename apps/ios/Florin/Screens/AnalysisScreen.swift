@@ -113,9 +113,9 @@ struct AnalysisScreen: View {
              * d'onglet. Le calendrier garde donc ses chips, qui sont juste
              * au-dessus.
              */
-            content.edSwipe(
+            content.edInnerPager(
                 chips.map(\.value), selection: tabBinding,
-                enabled: tab != .calendar, nested: true
+                enabled: tab != .calendar
             )
         }
         .fullScreenCover(item: $drill) { target in

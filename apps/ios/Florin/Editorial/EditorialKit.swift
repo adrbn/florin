@@ -942,10 +942,51 @@ extension View {
      * peut le dire lui-meme en un mot, et ca ne coute rien.
      */
     func edSwipe<Value: Hashable>(
-        _ order: [Value], selection: Binding<Value>, enabled: Bool = true,
-        nested: Bool = false
+        _ order: [Value], selection: Binding<Value>, enabled: Bool = true
     ) -> some View {
-        modifier(EdSwipe(order: order, selection: selection, enabled: enabled, nested: nested))
+        modifier(EdSwipe(order: order, selection: selection, enabled: enabled))
+    }
+
+    /*
+     * Des sous-onglets qui repondent au balayage, sans poser de geste.
+     *
+     * Voir `EdGesture.inner` : poser ici un second `DragGesture` revenait a
+     * couper le defilement vertical de l'ecran, parce qu'il serait pose a
+     * l'interieur de lui. On s'inscrit, et le balayage d'onglets vient
+     * demander avant de bouger.
+     */
+    func edInnerPager<Value: Hashable>(
+        _ order: [Value], selection: Binding<Value>, enabled: Bool = true
+    ) -> some View {
+        modifier(EdInnerPager(order: order, selection: selection, enabled: enabled))
+    }
+}
+
+private struct EdInnerPager<Value: Hashable>: ViewModifier {
+    let order: [Value]
+    @Binding var selection: Value
+    let enabled: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .onAppear { register() }
+            .onDisappear { EdGesture.shared.inner = nil }
+            // La reponse est refaite a chaque changement : elle doit dire
+            // « je peux bouger » depuis le sous-onglet d'AUJOURD'HUI.
+            .onChange(of: enabled) { _, _ in register() }
+            .onChange(of: order) { _, _ in register() }
+    }
+
+    private func register() {
+        guard enabled else { EdGesture.shared.inner = nil; return }
+        EdGesture.shared.inner = { dx in
+            guard let here = order.firstIndex(of: selection) else { return false }
+            let next = dx < 0 ? here + 1 : here - 1
+            guard order.indices.contains(next) else { return false }
+            UISelectionFeedbackGenerator().selectionChanged()
+            withAnimation(EdMotion.spring) { selection = order[next] }
+            return true
+        }
     }
 }
 
@@ -972,16 +1013,7 @@ private struct EdSwipe<Value: Hashable>: ViewModifier {
     @Binding var selection: Value
     let enabled: Bool
 
-    let nested: Bool
-
     @State private var locked = false
-
-    /// Dans quel sens le doigt est parti, lu au verrou — c'est ce qui dit si
-    /// le pagineur du dedans a quelque part a aller.
-    private func canMove(_ dx: Double) -> Bool {
-        guard let here = order.firstIndex(of: selection) else { return false }
-        return order.indices.contains(dx < 0 ? here + 1 : here - 1)
-    }
 
     func body(content: Content) -> some View {
         content
@@ -1002,8 +1034,6 @@ private struct EdSwipe<Value: Hashable>: ViewModifier {
                             // d'être un appui : les rangées sous lui doivent
                             // le savoir avant qu'il se lève. Voir `edOpen`.
                             EdGesture.shared.swiping = true
-                            // Le fils se sert d'abord, s'il a où aller.
-                            if nested, canMove(dx) { EdGesture.shared.paging = true }
                             /*
                              * Le verrou rend la main tout seul.
                              *
@@ -1029,36 +1059,20 @@ private struct EdSwipe<Value: Hashable>: ViewModifier {
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
                                 EdGesture.shared.swiping = false
                             }
-                            // Au tour d'après : les deux `onEnded` tombent
-                            // dans le même tour de boucle et dans un ordre qui
-                            // n'est pas garanti, donc le père doit pouvoir
-                            // lire la réclamation du fils après lui.
-                            if nested {
-                                DispatchQueue.main.async { EdGesture.shared.paging = false }
-                            }
                         }
                         /*
-                         * Deux refus, et il faut les deux.
-                         *
                          * `mine` dit qu'on a bien pris ce doigt : sans
                          * verrou, le geste appartenait à quelqu'un d'autre
                          * dès le départ.
-                         *
-                         * Le drapeau se relit à la FIN, et c'est ce qui
-                         * manquait. On verrouille à quatorze points ; le
-                         * balayage du mois ne démarre qu'à vingt-quatre, et
-                         * ne pose son drapeau qu'après. À ne décider qu'au
-                         * verrou, on changeait d'onglet sous un geste qui
-                         * demandait le mois suivant.
                          */
-                        guard enabled, mine, !EdGesture.shared.scrubbing,
-                              nested || !EdGesture.shared.paging
-                        else { return }
+                        guard enabled, mine, !EdGesture.shared.scrubbing else { return }
                         let dx = move.translation.width
                         let dy = move.translation.height
-                        guard abs(dx) > 60, abs(dx) > abs(dy) * 2,
-                              let here = order.firstIndex(of: selection)
-                        else { return }
+                        guard abs(dx) > 60, abs(dx) > abs(dy) * 2 else { return }
+                        // Les sous-onglets de l'ecran d'abord, s'il y en a et
+                        // s'ils ont ou aller — voir `EdGesture.inner`.
+                        if let inner = EdGesture.shared.inner, inner(dx) { return }
+                        guard let here = order.firstIndex(of: selection) else { return }
                         let next = dx < 0 ? here + 1 : here - 1
                         guard order.indices.contains(next) else { return }
                         UISelectionFeedbackGenerator().selectionChanged()
@@ -1123,16 +1137,15 @@ final class EdGesture: ObservableObject {
 
     private var scrubUntil = Date.distantPast
     private var swipeUntil = Date.distantPast
-    private var pageUntil = Date.distantPast
 
     /*
      * Deux drapeaux, parce qu'ils ne sont pas lus par les mêmes.
      *
      * `scrubbing` arbitre entre GESTES : celui qui l'a posé garde le doigt,
      * les autres reconnaisseurs horizontaux renoncent. Le changement d'onglet
-     * ne peut donc pas le poser — il y a un `edSwipe` à l'intérieur d'un
-     * autre sur Analyse, et celui des deux qui aurait posé le drapeau le
-     * premier aurait fait taire l'autre.
+     * ne peut donc pas le poser — il n'y a qu'un `edSwipe` dans l'app, mais
+     * la courbe du patrimoine en pose un, et le balayage d'onglets doit
+     * pouvoir lire le sien sans l'avoir efface.
      *
      * `swiping` ne dit qu'une chose, à l'ACTION d'une rangée : un doigt est en
      * train de balayer, ce toucher n'est pas un appui. Aucun geste ne le lit,
@@ -1149,23 +1162,29 @@ final class EdGesture: ObservableObject {
     }
 
     /*
-     * Le pagineur du dedans a pris ce doigt.
+     * Le pagineur du dedans, quand il y en a un a l'ecran.
      *
-     * Analyse porte un `edSwipe` a l'interieur de celui des onglets, et rien
-     * ne les arbitrait : un balayage vers la droite reculait le sous-onglet ET
-     * quittait l'ecran, du meme doigt. On arrivait sur Activite en ayant perdu
-     * le sous-onglet qu'on regardait.
+     * Il y en avait deux, et c'etait un `DragGesture` de trop : celui du
+     * dedans etait pose SUR LE CONTENU, c'est-a-dire a l'interieur du
+     * defilement de l'ecran. Un reconnaisseur de glissement place sous une
+     * zone defilante prend le doigt avant elle — c'est la regle d'UIKit, un
+     * descendant passe devant — et il le prend des quatorze points PEU
+     * IMPORTE LE SENS. Donc sur Analyse, le pouce pose sur le contenu ne
+     * faisait plus defiler la page du tout : le geste vertical etait reclame
+     * par le pagineur des sous-onglets, qui n'en faisait rien.
      *
-     * Celui du dedans se sert d'abord, et seulement s'il peut bouger : au bout
-     * de ses sous-onglets il ne reclame rien et le doigt passe au suivant, ce
-     * qui est exactement ce que fait un pagineur dans un pagineur partout
-     * ailleurs sur iOS. `scrubbing` ne pouvait pas servir a ca — les deux le
-     * lisent, et le premier a le poser aurait fait taire l'autre.
+     * C'est pour ca que seul Analyse etait touche : celui des onglets est
+     * pose sur le `TabView`, donc AU-DESSUS du defilement, et un ancetre perd
+     * contre lui. Un seul geste dans toute l'app, celui du haut ; celui du
+     * dedans n'est plus un geste mais une REPONSE — « ce balayage, je le
+     * prends » — que le geste du haut vient lui proposer.
+     *
+     * Il se sert d'abord, et seulement s'il peut bouger : au bout de ses
+     * sous-onglets il refuse et le doigt passe a l'onglet suivant, ce qui est
+     * exactement ce que fait un pagineur dans un pagineur partout ailleurs
+     * sur iOS.
      */
-    var paging: Bool {
-        get { pageUntil > Date() }
-        set { pageUntil = newValue ? Date().addingTimeInterval(Self.ttl) : .distantPast }
-    }
+    var inner: ((Double) -> Bool)?
 }
 
 
