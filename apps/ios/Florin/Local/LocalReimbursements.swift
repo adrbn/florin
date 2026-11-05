@@ -39,6 +39,19 @@ enum LocalReimbursements {
         /// vient de la catégorie, pas du marchand.
         var category: String?
         var emoji: String?
+        /*
+         * Annoncée, pas encaissée.
+         *
+         * « Attendre un remboursement » écrit une ligne au statut
+         * `scheduled` : elle porte le montant entier, et elle est là le jour
+         * même. Sans ce drapeau, une dépense dont on attend encore tout
+         * l'argent se lisait « Remboursé » — la fiche affirmait un
+         * mouvement qui n'a pas eu lieu.
+         */
+        var pending = false
+
+        /// Arrivée pour de bon : comptabilisée, et pas datée en avant.
+        var settled: Bool { !pending && day <= Date() }
     }
 
     /// Ce qu'on a rendu sur cette dépense, la plus récente d'abord.
@@ -46,6 +59,7 @@ enum LocalReimbursements {
         try store.database.query(
             """
             SELECT t.id, t.payee, t.amount, substr(t.occurred_at, 1, 10) AS day,
+                   t.is_pending AS is_pending,
                    c.name AS category, c.emoji AS emoji
             FROM transactions t
             LEFT JOIN categories c ON c.id = t.category_id
@@ -145,7 +159,8 @@ enum LocalReimbursements {
         return Entry(
             id: id, payee: row.string("payee") ?? "", amount: amount,
             day: Dates.iso.date(from: day) ?? .distantPast,
-            category: row.string("category"), emoji: row.string("emoji")
+            category: row.string("category"), emoji: row.string("emoji"),
+            pending: row.bool("is_pending")
         )
     }
 }

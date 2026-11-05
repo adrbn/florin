@@ -649,9 +649,7 @@ struct TransactionDetailSheet: View {
                     Image(systemName: "arrow.uturn.left")
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(Florin.text3)
-                    Text(tx.amount > 0
-                        ? t("v2.detail.reimburses", "Remboursement de")
-                        : t("v2.detail.reimbursed", "Remboursé"))
+                    Text(reimbursementLabel)
                         .font(.system(size: 12.5))
                         .foregroundStyle(Florin.text3)
                     Text(reimbursementValue)
@@ -674,12 +672,43 @@ struct TransactionDetailSheet: View {
         return tx.amount > 0 ? true : !reimbursedBy.isEmpty
     }
 
+    /*
+     * « Remboursé » est un passé composé : il affirme que l'argent est revenu.
+     *
+     * « Attendre un remboursement » écrit une ligne annoncée du montant
+     * ENTIER, le jour même. La fiche additionnait tout ce qui pointait vers
+     * elle, annoncé comme encaissé, et lisait donc « Remboursé 50,31 € sur
+     * 50,31 € » sur une dépense dont pas un centime n'était rentré.
+     *
+     * Seul ce qui est comptabilisé compte. Le reste est une attente, et une
+     * attente se dit au présent : rien n'est revenu, ou une partie l'est.
+     */
+    private var reimbursementBack: Double {
+        reimbursedBy.filter(\.settled).reduce(0) { $0 + $1.amount }
+    }
+
+    private var reimbursementLabel: String {
+        guard tx.amount <= 0 else { return t("v2.detail.reimburses", "Remboursement de") }
+        // Au centime près : des sommes d'argent, pas des réels quelconques.
+        if reimbursementBack >= abs(tx.amount) - 0.005 {
+            return t("v2.detail.reimbursed", "Remboursé")
+        }
+        return reimbursementBack > 0.005
+            ? t("v2.detail.reimbursing", "En cours de remboursement")
+            : t("v2.detail.reimbursePending", "En attente de remboursement")
+    }
+
     private var reimbursementValue: String {
         if tx.amount > 0 {
             guard let reimburses else { return t("v2.detail.linkExpense", "Lier une dépense") }
             return PayeeText.title(reimburses.payee, category: nil)
         }
-        let back = reimbursedBy.reduce(0) { $0 + $1.amount }
+        let back = reimbursementBack
+        // Rien n'est encore rentré : « 0,00 € sur 50,31 € » n'apprend rien
+        // de plus que le montant attendu, et se lit deux fois plus mal.
+        guard back > 0.005 else {
+            return Money.string(abs(tx.amount), locale: locale, currency: currency)
+        }
         return t("v2.detail.reimbursedOf", "{back} sur {total}", [
             "back": Money.string(back, locale: locale, currency: currency),
             "total": Money.string(abs(tx.amount), locale: locale, currency: currency),
