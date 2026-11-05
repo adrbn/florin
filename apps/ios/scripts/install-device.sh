@@ -39,6 +39,13 @@ APP="${1:-}"
 DD="${DERIVED_DATA:-/tmp/florin-dd-rel}"
 if [ -z "$APP" ]; then
   cd "$(dirname "$0")/.."
+  # Le numéro de build vit dans project.yml, pas dans le .xcodeproj.
+  #
+  # Sans cette ligne, le projet généré garde l'ancien numéro : le script
+  # compile, exporte et annonce « installé » un build qui porte le numéro
+  # d'avant. On relit la version sur le tel, on la voit inchangée, et on
+  # cherche la panne dans le code au lieu de la chercher ici.
+  command -v xcodegen >/dev/null && xcodegen generate --quiet
   ARCH="$DD/Florin.xcarchive"
   OUT="$DD/export"
   rm -rf "$ARCH" "$OUT"
