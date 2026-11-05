@@ -189,6 +189,38 @@ enum LocalReceipts {
         return repaired
     }
 
+    /*
+     * Relire, c'est relire le texte — pas rephotographier le papier.
+     *
+     * Le ticket est à la poubelle bien avant qu'on remarque une ligne de
+     * travers, et la réparation automatique ne touche que les tickets qui
+     * comptent TROP : une lecture qui a manqué des articles reste manquante
+     * pour toujours. Le texte brut est gardé à l'enregistrement, donc une
+     * seconde lecture ne coûte ni appareil photo ni reconnaissance — juste
+     * l'analyseur d'aujourd'hui sur les mots d'hier, ce qui est exactement
+     * ce qu'on veut après l'avoir corrigé.
+     */
+    static func reread(store: LocalStore, receiptId: String) throws {
+        guard let row = try store.database.query(
+            """
+            SELECT r.transaction_id AS tx, r.raw_text AS text, t.amount AS amount
+            FROM receipts r JOIN transactions t ON t.id = r.transaction_id
+            WHERE r.id = ? AND r.raw_text IS NOT NULL
+            """,
+            [.text(receiptId)]
+        ).first, let tx = row.string("tx"), let text = row.string("text"),
+              let amount = row.double("amount") else { return }
+        let items = ReceiptParser.items(
+            from: text.components(separatedBy: .newlines), total: amount
+        )
+        try store.database.transaction {
+            try store.database.run(
+                "DELETE FROM receipt_items WHERE receipt_id = ?", [.text(receiptId)]
+            )
+            _ = try insert(store: store, receiptId: receiptId, transactionId: tx, items: items)
+        }
+    }
+
     static func delete(store: LocalStore, receiptId: String) throws {
         let path = try store.database.scalar(
             "SELECT image_path FROM receipts WHERE id = ?",

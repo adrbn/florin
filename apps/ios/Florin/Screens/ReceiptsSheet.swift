@@ -270,21 +270,44 @@ struct ReceiptsSheet: View {
              * mot, parce qu'un pictogramme seul ne dit pas ce qu'il efface,
              * et se range à droite, hors du chemin de lecture des prix.
              */
-            Button(role: .destructive) {
-                guard let store = LocalStore.shared else { return }
-                try? LocalReceipts.delete(store: store, receiptId: receipt.id)
-                load()
-                onChanged?()
-            } label: {
-                Text(t("v2.receipts.delete", "Supprimer ce ticket"))
-                    .font(.system(size: 13))
-                    .foregroundStyle(Florin.negative)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-                    .padding(.horizontal, Ed.gutter)
-                    .padding(.vertical, 10)
-                    .contentShape(Rectangle())
+            /*
+             * Relire est le geste doux, effacer le geste définitif.
+             *
+             * Ils partagent la même rangée parce qu'ils répondent à la même
+             * déception — « cette lecture ne vaut rien » — mais l'un rend la
+             * photo au néant et l'autre ne coûte rien. Celui qui ne coûte
+             * rien s'offre en premier, à gauche et à l'encre ordinaire.
+             */
+            HStack(spacing: 0) {
+                Button {
+                    guard let store = LocalStore.shared else { return }
+                    try? LocalReceipts.reread(store: store, receiptId: receipt.id)
+                    load()
+                    onChanged?()
+                } label: {
+                    Text(t("v2.receipts.reread", "Relire le ticket"))
+                        .font(.system(size: 13))
+                        .foregroundStyle(Florin.text2)
+                        .padding(.vertical, 10)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                Spacer(minLength: 12)
+                Button(role: .destructive) {
+                    guard let store = LocalStore.shared else { return }
+                    try? LocalReceipts.delete(store: store, receiptId: receipt.id)
+                    load()
+                    onChanged?()
+                } label: {
+                    Text(t("v2.receipts.delete", "Supprimer ce ticket"))
+                        .font(.system(size: 13))
+                        .foregroundStyle(Florin.negative)
+                        .padding(.vertical, 10)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
+            .padding(.horizontal, Ed.gutter)
         }
         .padding(.bottom, 20)
     }
@@ -571,6 +594,20 @@ struct ReceiptsSheet: View {
                 .padding(.horizontal, Florin.gutter)
                 .padding(.vertical, 11)
             }
+            Hairline()
+            Button {
+                guard let store = LocalStore.shared else { return }
+                try? LocalReceipts.reread(store: store, receiptId: receipt.id)
+                load()
+                onChanged?()
+            } label: {
+                Text(t("v2.receipts.reread", "Relire le ticket"))
+                    .font(.system(size: 14))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, Florin.gutter)
+                    .padding(.vertical, 12)
+            }
+            .tint(Florin.text2)
             Hairline()
             Button(role: .destructive) {
                 guard let store = LocalStore.shared else { return }
