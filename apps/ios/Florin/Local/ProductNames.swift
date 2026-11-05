@@ -146,35 +146,81 @@ enum ProductNames {
     /// de la clé : le service refuse la liste avant de refuser une génération,
     /// et pour rien — vérifier ne consomme pas de quota.
     static func availableModel(apiKey: String) async throws -> String {
-        var request = URLRequest(
-            url: URL(string: "https://generativelanguage.googleapis.com/v1beta/models")!
-        )
-        request.setValue(apiKey, forHTTPHeaderField: "x-goog-api-key")
-        request.timeoutInterval = 20
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-        if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
-            throw Failure.http(http.statusCode)
+        guard let first = try await availableModels(apiKey: apiKey).first else {
+            throw Failure.noModel
         }
-        guard let envelope = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let models = envelope["models"] as? [[String: Any]]
-        else { throw Failure.unreadable }
+        return first
+    }
 
-        let usable = models.compactMap { model -> String? in
-            guard let name = model["name"] as? String,
-                  let methods = model["supportedGenerationMethods"] as? [String],
-                  methods.contains("generateContent")
-            else { return nil }
-            return name.replacingOccurrences(of: "models/", with: "")
+    /*
+     * Tous les candidats, du meilleur au moins bon — pas seulement le premier.
+     *
+     * Figurer dans la liste avec `generateContent` ne garantit pas de
+     * répondre à l'appel : un modèle d'aperçu disparaît entre deux écrans, un
+     * autre n'accepte pas un schéma de sortie. Le premier nom rendait alors
+     * 404 à son tour, et c'est ce second 404 — celui du repli — qui
+     * s'affichait, en disant « aucun modèle disponible pour cette clé » alors
+     * qu'il en restait dix à essayer.
+     *
+     * La liste est AUSSI paginée : cinquante noms par page, et Google en
+     * publie davantage. Sans suivre `nextPageToken`, le classement se faisait
+     * sur une tranche arbitraire du catalogue.
+     */
+    static func availableModels(apiKey: String) async throws -> [String] {
+        var usable: [String] = []
+        var token: String?
+        // Borne haute : la pagination vient du service, pas de nous.
+        for _ in 0..<10 {
+            var components = URLComponents(
+                string: "https://generativelanguage.googleapis.com/v1beta/models"
+            )!
+            components.queryItems = [URLQueryItem(name: "pageSize", value: "100")]
+                + (token.map { [URLQueryItem(name: "pageToken", value: $0)] } ?? [])
+            var request = URLRequest(url: components.url!)
+            request.setValue(apiKey, forHTTPHeaderField: "x-goog-api-key")
+            request.timeoutInterval = 20
+
+            let (data, response) = try await URLSession.shared.data(for: request)
+            if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+                throw Failure.http(http.statusCode)
+            }
+            guard let envelope = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let models = envelope["models"] as? [[String: Any]]
+            else { throw Failure.unreadable }
+
+            usable += models.compactMap { model -> String? in
+                guard let name = model["name"] as? String,
+                      let methods = model["supportedGenerationMethods"] as? [String],
+                      methods.contains("generateContent")
+                else { return nil }
+                return name.replacingOccurrences(of: "models/", with: "")
+            }
+            token = envelope["nextPageToken"] as? String
+            if token == nil { break }
         }
-        // Un « flash » d'abord : c'est celui qui porte le quota gratuit, et
-        // lire vingt libellés ne demande pas le grand modèle. Sans « lite »,
-        // qui rend des noms de produits trop approximatifs pour servir.
-        guard let pick = usable.first(where: { $0.contains("flash") && !$0.contains("lite") })
-            ?? usable.first(where: { $0.contains("flash") })
-            ?? usable.first
-        else { throw Failure.noModel }
-        return pick
+        /*
+         * Un « flash » d'abord : c'est celui qui porte le quota gratuit, et
+         * lire vingt libellés ne demande pas le grand modèle. Sans « lite »,
+         * qui rend des noms de produits trop approximatifs pour servir.
+         *
+         * Écartés d'office, ceux qui annoncent `generateContent` sans savoir
+         * rendre du texte : la parole, l'image, la vidéo, l'intégration.
+         */
+        let refused = ["tts", "image", "audio", "video", "embedding", "live", "vision"]
+        let text = usable.filter { name in !refused.contains(where: name.contains) }
+        func rank(_ name: String) -> Int {
+            if name.contains("flash"), !name.contains("lite") { return 0 }
+            if name.contains("flash") { return 1 }
+            return 2
+        }
+        // Les aperçus en dernier de leur rang : ils s'évaporent sans préavis.
+        let ranked = text.enumerated().sorted { a, b in
+            let ka = (rank(a.element), a.element.contains("preview") ? 1 : 0, a.offset)
+            let kb = (rank(b.element), b.element.contains("preview") ? 1 : 0, b.offset)
+            return ka < kb
+        }.map(\.element)
+        guard !ranked.isEmpty else { throw Failure.noModel }
+        return ranked
     }
 
     // MARK: - Demander
@@ -184,6 +230,9 @@ enum ProductNames {
         case http(Int)
         case unreadable
         case noModel
+        /// Les modèles essayés, dans l'ordre : sans leurs noms, un échec de
+        /// bout en bout ne se diagnostique pas depuis un téléphone.
+        case noneAnswered([String])
 
         var errorDescription: String? {
             switch self {
@@ -197,6 +246,8 @@ enum ProductNames {
                 }
             case .unreadable: "Réponse illisible."
             case .noModel: "Cette clé ne donne accès à aucun modèle."
+            case let .noneAnswered(tried):
+                "Aucun modèle n'a répondu : \(tried.joined(separator: ", "))."
             }
         }
     }
@@ -223,13 +274,30 @@ enum ProductNames {
                 labels: asked, merchant: merchant, apiKey: apiKey, model: model(store: store)
             )
         } catch Failure.http(404) {
-            // Le nom retenu n'existe plus. On redemande la liste, on garde le
-            // nouveau, et le prochain ticket part directement au bon endroit.
-            let fresh = try await availableModel(apiKey: apiKey)
-            try? setModel(store: store, fresh)
-            readings = try await read(
-                labels: asked, merchant: merchant, apiKey: apiKey, model: fresh
-            )
+            /*
+             * Le nom retenu n'existe plus. On redemande la liste, et on
+             * descend les candidats jusqu'à ce que l'un réponde — un seul
+             * essai ne suffisait pas, le repli pouvait rendre 404 lui aussi
+             * et c'est ce second échec qui s'affichait. Le nom qui a marché
+             * est gardé : le prochain ticket part directement au bon endroit.
+             */
+            let candidates = try await availableModels(apiKey: apiKey)
+            var found: [String: Reading]?
+            var tried: [String] = []
+            for candidate in candidates.prefix(5) {
+                tried.append(candidate)
+                do {
+                    found = try await read(
+                        labels: asked, merchant: merchant, apiKey: apiKey, model: candidate
+                    )
+                    try? setModel(store: store, candidate)
+                    break
+                } catch Failure.http(404) {
+                    continue
+                }
+            }
+            guard let found else { throw Failure.noneAnswered(tried) }
+            readings = found
         }
         var learnt = 0
         for (label, reading) in readings {
