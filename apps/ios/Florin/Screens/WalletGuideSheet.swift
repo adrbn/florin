@@ -53,7 +53,9 @@ struct WalletGuideSheet: View {
         .task {
             await refreshPermission()
             lastPayment = Self.latestPayment()
-            if let store = LocalStore.shared { attempts = WalletLog.recent(store: store, limit: 3) }
+            if let store = LocalStore.realLedger {
+                attempts = WalletLog.recent(store: store, limit: 3)
+            }
         }
     }
 
@@ -438,8 +440,16 @@ struct WalletGuideSheet: View {
      * et l'aurait nommé encore des jours. Une ligne retirée ne témoigne plus
      * de rien qu'on veuille lire ici.
      */
+    /*
+     * Le vrai grand livre, pas celui qui est à l'écran.
+     *
+     * L'action de Wallet écrit dans `realLedger` ; cet écran lisait `shared`.
+     * Mode démonstration allumé, les deux ne sont pas le même fichier : le
+     * journal revenait vide, et un écran qui dit « rien ici n'a atteint
+     * Florin » accusait iOS d'une panne qui n'existait pas.
+     */
     private static func latestPayment() -> (payee: String, day: Date)? {
-        guard let store = LocalStore.shared,
+        guard let store = LocalStore.realLedger,
               let row = try? store.database.query(
                   """
                   SELECT payee, occurred_at FROM transactions
