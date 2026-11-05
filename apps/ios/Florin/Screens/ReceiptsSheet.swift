@@ -387,19 +387,43 @@ struct ReceiptsSheet: View {
         .padding(.bottom, 20)
     }
 
+    /*
+     * Pendant qu'il travaille, il TOURNE — il ne s'éteint pas.
+     *
+     * Éteindre un bouton en changeant son mot se lit « indisponible », pas
+     * « occupé » : l'appel dure dix à vingt secondes sans rien à l'écran, et
+     * un libellé gris immobile ne dit pas s'il se passe quelque chose ou si
+     * l'appui n'est pas passé. Le même contour, pleine encre, avec un
+     * indicateur à la place du pictogramme.
+     */
     private var edUnderstand: some View {
-        SheetAction(
-            label: explaining
-                ? t("v2.receipts.understanding", "Lecture des articles…")
-                : t("v2.receipts.understand", "Comprendre les articles"),
-            symbol: "sparkles"
-        ) {
-            Task { await explain() }
+        Group {
+            if explaining {
+                HStack(spacing: 9) {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(Florin.text)
+                    Text(t("v2.receipts.understanding", "Lecture des articles…"))
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Florin.text)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 15)
+                .overlay(Capsule().strokeBorder(Florin.text.opacity(0.22), lineWidth: 1))
+                .accessibilityAddTraits(.updatesFrequently)
+            } else {
+                SheetAction(
+                    label: t("v2.receipts.understand", "Comprendre les articles"),
+                    symbol: "sparkles"
+                ) {
+                    Task { await explain() }
+                }
+                .disabled(reading)
+                .opacity(reading ? 0.5 : 1)
+            }
         }
         .padding(.horizontal, Ed.gutter)
         .padding(.bottom, 14)
-        .disabled(explaining || reading)
-        .opacity(explaining || reading ? 0.5 : 1)
     }
 
     private func edFailure(_ message: String) -> some View {
