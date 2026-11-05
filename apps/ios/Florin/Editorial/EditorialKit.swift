@@ -929,10 +929,23 @@ extension EdSymbols {
  * onglet fait perdre où l'on est.
  */
 extension View {
+    /*
+     * `nested` est un parametre, et il l'est pour une raison de cout.
+     *
+     * Il a d'abord ete passe par l'environnement — le pere ecrivait, le fils
+     * lisait. Sauf que le pere ici enveloppe le `TabView` entier : ecrire dans
+     * l'environnement a cet endroit le reecrit a chaque changement de
+     * selection, et l'arbre invalide dessous est celui des cinq pages. Changer
+     * d'onglet prenait une a deux secondes.
+     *
+     * Il n'y a que deux `edSwipe` imbriques dans toute l'app ; celui du dedans
+     * peut le dire lui-meme en un mot, et ca ne coute rien.
+     */
     func edSwipe<Value: Hashable>(
-        _ order: [Value], selection: Binding<Value>, enabled: Bool = true
+        _ order: [Value], selection: Binding<Value>, enabled: Bool = true,
+        nested: Bool = false
     ) -> some View {
-        modifier(EdSwipe(order: order, selection: selection, enabled: enabled))
+        modifier(EdSwipe(order: order, selection: selection, enabled: enabled, nested: nested))
     }
 }
 
@@ -959,7 +972,7 @@ private struct EdSwipe<Value: Hashable>: ViewModifier {
     @Binding var selection: Value
     let enabled: Bool
 
-    @Environment(\.edSwipeNested) private var nested
+    let nested: Bool
 
     @State private var locked = false
 
@@ -972,7 +985,6 @@ private struct EdSwipe<Value: Hashable>: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .environment(\.edSwipeNested, true)
             .scrollDisabled(locked)
             .simultaneousGesture(
                 // Quatorze points pour OBSERVER, soixante pour décider : le
@@ -1004,7 +1016,7 @@ private struct EdSwipe<Value: Hashable>: ViewModifier {
                              * longtemps que ça n'est plus un balayage.
                              */
                             DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                                locked = false
+                                if locked { locked = false }
                             }
                         }
                     }
@@ -1156,17 +1168,6 @@ final class EdGesture: ObservableObject {
     }
 }
 
-/// Un `edSwipe` en porte-t-il un autre ? Pose par celui du dehors, lu par
-/// celui du dedans — l'environnement descend, et c'est le seul sens dont on a
-/// besoin : le pere se declare, le fils se reconnait.
-private struct EdSwipeNesting: EnvironmentKey { static let defaultValue = false }
-
-extension EnvironmentValues {
-    var edSwipeNested: Bool {
-        get { self[EdSwipeNesting.self] }
-        set { self[EdSwipeNesting.self] = newValue }
-    }
-}
 
 /// Ouvre, sauf si le doigt était en train de balayer.
 ///

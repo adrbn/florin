@@ -113,7 +113,10 @@ struct AnalysisScreen: View {
              * d'onglet. Le calendrier garde donc ses chips, qui sont juste
              * au-dessus.
              */
-            content.edSwipe(chips.map(\.value), selection: tabBinding, enabled: tab != .calendar)
+            content.edSwipe(
+                chips.map(\.value), selection: tabBinding,
+                enabled: tab != .calendar, nested: true
+            )
         }
         .fullScreenCover(item: $drill) { target in
             AccountDetailScreen(model: overview, route: target)
