@@ -41,6 +41,10 @@ struct ReceiptsSheet: View {
     /// Ce qu'on a compris des libellés, relu une fois par chargement — la
     /// vue se redessine souvent, la base pas.
     @State private var meanings: [String: ProductNames.Reading] = [:]
+    /// Le libellé de caisse dont le nom est en train d'être corrigé.
+    @State private var editing: String?
+    @State private var draft = ""
+    @FocusState private var editorFocused: Bool
     @State private var explaining = false
 
     private var items: [LocalReceipts.Item] { receipts.flatMap(\.items) }
@@ -371,10 +375,21 @@ struct ReceiptsSheet: View {
         let reading = meanings[ProductNames.key(item.label)]
         return HStack(alignment: .firstTextBaseline, spacing: 10) {
             VStack(alignment: .leading, spacing: 3) {
-                Text(reading?.name ?? item.label)
-                    .font(.system(size: 16))
-                    .foregroundStyle(Florin.text)
-                    .lineLimit(2)
+                if editing == item.label {
+                    TextField("", text: $draft)
+                        .font(.system(size: 16))
+                        .foregroundStyle(Florin.text)
+                        .focused($editorFocused)
+                        .submitLabel(.done)
+                        .onSubmit { commitEditing(item) }
+                } else {
+                    Text(titled(reading?.name ?? item.label))
+                        .font(.system(size: 16))
+                        .foregroundStyle(Florin.text)
+                        .lineLimit(2)
+                        .contentShape(Rectangle())
+                        .onTapGesture { beginEditing(item) }
+                }
                 if let reading {
                     Text([item.label, reading.category]
                         .compactMap { $0 }
@@ -637,10 +652,21 @@ struct ReceiptsSheet: View {
         let reading = meanings[ProductNames.key(item.label)]
         return HStack(spacing: 8) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(reading?.name ?? item.label)
-                    .font(.system(size: 15))
-                    .foregroundStyle(Florin.text)
-                    .lineLimit(2)
+                if editing == item.label {
+                    TextField("", text: $draft)
+                        .font(.system(size: 15))
+                        .foregroundStyle(Florin.text)
+                        .focused($editorFocused)
+                        .submitLabel(.done)
+                        .onSubmit { commitEditing(item) }
+                } else {
+                    Text(titled(reading?.name ?? item.label))
+                        .font(.system(size: 15))
+                        .foregroundStyle(Florin.text)
+                        .lineLimit(2)
+                        .contentShape(Rectangle())
+                        .onTapGesture { beginEditing(item) }
+                }
                 if reading != nil {
                     Text(item.label)
                         .font(.system(size: 11.5))
@@ -760,6 +786,47 @@ struct ReceiptsSheet: View {
     }
 
     // MARK: - Lire et ranger
+
+    /*
+     * Une majuscule, et le droit de corriger.
+     *
+     * Le modèle rend « provolone Valpadana » : juste, mais une ligne de
+     * liste commence par une majuscule, et la sienne ne venait jamais. Elle
+     * se met à l'affichage plutôt qu'à l'écriture — ce qui est gardé reste
+     * ce que le modèle a dit, et les noms déjà appris en profitent sans
+     * qu'on réécrive la table.
+     *
+     * Et il se trompe : « POLO » est un poulet chez le boucher, un polo chez
+     * le chemisier, et lui seul sait lequel. Un nom corrigé s'écrit avec
+     * `source: "manual"`, et comme `resolve` ne demande que les libellés
+     * encore inconnus, le modèle ne le réécrira jamais.
+     */
+    private func titled(_ text: String) -> String {
+        guard let first = text.first else { return text }
+        return first.uppercased() + text.dropFirst()
+    }
+
+    private func beginEditing(_ item: LocalReceipts.Item) {
+        let reading = meanings[ProductNames.key(item.label)]
+        draft = titled(reading?.name ?? item.label)
+        editing = item.label
+        editorFocused = true
+    }
+
+    private func commitEditing(_ item: LocalReceipts.Item) {
+        defer { editing = nil }
+        let name = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Un champ vidé n'efface rien : il annule la correction.
+        guard !name.isEmpty, let store = LocalStore.shared else { return }
+        let was = meanings[ProductNames.key(item.label)]
+        try? ProductNames.remember(
+            store: store, label: item.label,
+            ProductNames.Reading(name: name, category: was?.category),
+            source: "manual"
+        )
+        load()
+        onChanged?()
+    }
 
     private func load() {
         guard let store = LocalStore.shared else { return }
