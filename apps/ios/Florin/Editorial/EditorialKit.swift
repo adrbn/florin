@@ -959,10 +959,20 @@ private struct EdSwipe<Value: Hashable>: ViewModifier {
     @Binding var selection: Value
     let enabled: Bool
 
+    @Environment(\.edSwipeNested) private var nested
+
     @State private var locked = false
+
+    /// Dans quel sens le doigt est parti, lu au verrou — c'est ce qui dit si
+    /// le pagineur du dedans a quelque part a aller.
+    private func canMove(_ dx: Double) -> Bool {
+        guard let here = order.firstIndex(of: selection) else { return false }
+        return order.indices.contains(dx < 0 ? here + 1 : here - 1)
+    }
 
     func body(content: Content) -> some View {
         content
+            .environment(\.edSwipeNested, true)
             .scrollDisabled(locked)
             .simultaneousGesture(
                 // Quatorze points pour OBSERVER, soixante pour décider : le
@@ -980,6 +990,22 @@ private struct EdSwipe<Value: Hashable>: ViewModifier {
                             // d'être un appui : les rangées sous lui doivent
                             // le savoir avant qu'il se lève. Voir `edOpen`.
                             EdGesture.shared.swiping = true
+                            // Le fils se sert d'abord, s'il a où aller.
+                            if nested, canMove(dx) { EdGesture.shared.paging = true }
+                            /*
+                             * Le verrou rend la main tout seul.
+                             *
+                             * Il coupe le défilement de l'écran, et il n'était
+                             * baissé que dans `onEnded` — qui ne vient pas
+                             * quand le reconnaisseur est annulé. Un seul manque
+                             * et l'écran ne défilait plus du tout, pour de bon.
+                             * Deux secondes de garde : le chemin normal le
+                             * baisse bien avant, et un geste qui dure plus
+                             * longtemps que ça n'est plus un balayage.
+                             */
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                                locked = false
+                            }
                         }
                     }
                     .onEnded { move in
@@ -990,6 +1016,13 @@ private struct EdSwipe<Value: Hashable>: ViewModifier {
                             // au lever du doigt, pas avant.
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
                                 EdGesture.shared.swiping = false
+                            }
+                            // Au tour d'après : les deux `onEnded` tombent
+                            // dans le même tour de boucle et dans un ordre qui
+                            // n'est pas garanti, donc le père doit pouvoir
+                            // lire la réclamation du fils après lui.
+                            if nested {
+                                DispatchQueue.main.async { EdGesture.shared.paging = false }
                             }
                         }
                         /*
@@ -1006,7 +1039,8 @@ private struct EdSwipe<Value: Hashable>: ViewModifier {
                          * verrou, on changeait d'onglet sous un geste qui
                          * demandait le mois suivant.
                          */
-                        guard enabled, mine, !EdGesture.shared.scrubbing
+                        guard enabled, mine, !EdGesture.shared.scrubbing,
+                              nested || !EdGesture.shared.paging
                         else { return }
                         let dx = move.translation.width
                         let dy = move.translation.height
@@ -1051,7 +1085,33 @@ let edTabOrder: [TabRoute] = [.overview, .accounts, .plan, .activity, .analysis]
 @MainActor
 final class EdGesture: ObservableObject {
     static let shared = EdGesture()
-    @Published var scrubbing = false
+
+    /*
+     * Un drapeau qui se leve tout seul.
+     *
+     * Ils etaient baisses dans `onEnded`, et SwiftUI ne garantit pas
+     * `onEnded` : un reconnaisseur annule — parce que la vue qui le porte est
+     * demontee sous le doigt, ce qui arrive precisement quand un pagineur
+     * change de page pendant le geste — ne le recoit jamais. Un seul manque,
+     * et le drapeau restait leve POUR DE BON : plus un seul balayage d'onglet
+     * et plus une seule rangee qui s'ouvre, jusqu'au relancement de l'app.
+     *
+     * Chaque `onChanged` repose la date ; au-dela d'un delai de garde, le
+     * drapeau est lu comme baisse. Les baisses explicites restent — elles
+     * seules ont le bon tempo, 0,25 s apres le lever du doigt — et le delai
+     * n'est que le filet, quatre secondes de rien plutot que l'infini.
+     *
+     * Quatre et non deux : la courbe du patrimoine pose `scrubbing` depuis
+     * `chartXSelection`, qui ne renvoie rien tant que le doigt ne bouge pas.
+     * Un doigt arrete sur un point pour en lire le montant ne doit pas rendre
+     * la main au balayage d'onglets, et personne ne s'arrete quatre secondes
+     * au milieu d'un geste.
+     */
+    private static let ttl: TimeInterval = 4
+
+    private var scrubUntil = Date.distantPast
+    private var swipeUntil = Date.distantPast
+    private var pageUntil = Date.distantPast
 
     /*
      * Deux drapeaux, parce qu'ils ne sont pas lus par les mêmes.
@@ -1066,7 +1126,46 @@ final class EdGesture: ObservableObject {
      * train de balayer, ce toucher n'est pas un appui. Aucun geste ne le lit,
      * donc en poser un de plus n'arbitre rien et ne casse rien.
      */
-    var swiping = false
+    var swiping: Bool {
+        get { swipeUntil > Date() }
+        set { swipeUntil = newValue ? Date().addingTimeInterval(Self.ttl) : .distantPast }
+    }
+
+    var scrubbing: Bool {
+        get { scrubUntil > Date() }
+        set { scrubUntil = newValue ? Date().addingTimeInterval(Self.ttl) : .distantPast }
+    }
+
+    /*
+     * Le pagineur du dedans a pris ce doigt.
+     *
+     * Analyse porte un `edSwipe` a l'interieur de celui des onglets, et rien
+     * ne les arbitrait : un balayage vers la droite reculait le sous-onglet ET
+     * quittait l'ecran, du meme doigt. On arrivait sur Activite en ayant perdu
+     * le sous-onglet qu'on regardait.
+     *
+     * Celui du dedans se sert d'abord, et seulement s'il peut bouger : au bout
+     * de ses sous-onglets il ne reclame rien et le doigt passe au suivant, ce
+     * qui est exactement ce que fait un pagineur dans un pagineur partout
+     * ailleurs sur iOS. `scrubbing` ne pouvait pas servir a ca — les deux le
+     * lisent, et le premier a le poser aurait fait taire l'autre.
+     */
+    var paging: Bool {
+        get { pageUntil > Date() }
+        set { pageUntil = newValue ? Date().addingTimeInterval(Self.ttl) : .distantPast }
+    }
+}
+
+/// Un `edSwipe` en porte-t-il un autre ? Pose par celui du dehors, lu par
+/// celui du dedans — l'environnement descend, et c'est le seul sens dont on a
+/// besoin : le pere se declare, le fils se reconnait.
+private struct EdSwipeNesting: EnvironmentKey { static let defaultValue = false }
+
+extension EnvironmentValues {
+    var edSwipeNested: Bool {
+        get { self[EdSwipeNesting.self] }
+        set { self[EdSwipeNesting.self] = newValue }
+    }
 }
 
 /// Ouvre, sauf si le doigt était en train de balayer.
@@ -1099,8 +1198,21 @@ extension View {
     func edHoldsSwipe() -> some View {
         simultaneousGesture(
             DragGesture(minimumDistance: 6)
-                .onChanged { _ in
-                    if !EdGesture.shared.scrubbing { EdGesture.shared.scrubbing = true }
+                .onChanged { move in
+                    /*
+                     * Horizontal SEULEMENT, et ça manquait.
+                     *
+                     * Six points dans n'importe quel sens : le pouce posé sur
+                     * la rangée de pastilles pour faire défiler la page
+                     * VERTICALEMENT réclamait le doigt, et ce drapeau-là est
+                     * celui que lit `edOpen`. On faisait défiler l'écran et
+                     * plus aucune rangée ne s'ouvrait — alors que ce geste
+                     * n'avait rien à voir avec le défilement de côté qu'on
+                     * voulait protéger.
+                     */
+                    guard abs(move.translation.width) > abs(move.translation.height)
+                    else { return }
+                    EdGesture.shared.scrubbing = true
                 }
                 .onEnded { _ in
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {

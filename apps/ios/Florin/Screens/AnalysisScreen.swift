@@ -394,9 +394,19 @@ struct AnalysisScreen: View {
     @ViewBuilder
     private func sentence(_ data: AnalysisData) -> some View {
         let months = data.categorySeries.months
-        // Le mois en cours est incomplet : il se lit comme une chute.
+        /*
+         * Le mois en cours est OFFERT, mais pas pris par defaut.
+         *
+         * Il est incomplet — cinq jours de depenses et pas encore le salaire —
+         * donc l'ouvrir dessus ferait lire une chute a chaque debut de mois :
+         * la phrase part sur le dernier mois COMPLET, et c'est la bonne
+         * ouverture. Mais le refuser dans la liste repondait a une question
+         * qu'on ne pose pas : « ou j'en suis, la, maintenant » est la plus
+         * legitime des deux. Il y est, marque « en cours », et le choix tient.
+         */
         let complete = Array(months.dropLast())
-        let month = saidMonth.flatMap { complete.contains($0) ? $0 : nil } ?? complete.last
+        let running = months.last
+        let month = saidMonth.flatMap { months.contains($0) ? $0 : nil } ?? complete.last
         if let month, let index = months.firstIndex(of: month) {
             let rows = data.categorySeries.categories
             let pick = saidCategory.flatMap { name in rows.first { $0.categoryName == name } }
@@ -428,11 +438,23 @@ struct AnalysisScreen: View {
                     .foregroundStyle(Florin.text2)
                 EdWordPicker(
                     label: MonthLabel.long(month, locale: locale),
-                    options: complete.reversed().map {
-                        (value: $0, label: MonthLabel.long($0, locale: locale))
+                    options: months.reversed().map {
+                        (
+                            value: $0,
+                            label: MonthLabel.long($0, locale: locale)
+                                + ($0 == running
+                                   ? " · " + t("v2.analysis.running", "en cours") : "")
+                        )
                     }
                 ) { candidate in
                     saidMonth = candidate
+                }
+                // Le mois en cours le dit dans la phrase aussi : un chiffre
+                // arrete au 5 du mois ne doit pas se lire comme un mois entier.
+                if month == running {
+                    Text("· " + t("v2.analysis.running", "en cours"))
+                        .font(.system(size: 22))
+                        .foregroundStyle(Florin.text3)
                 }
             }
             .padding(.horizontal, Florin.gutter)
