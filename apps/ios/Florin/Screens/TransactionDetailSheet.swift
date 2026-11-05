@@ -693,9 +693,24 @@ struct TransactionDetailSheet: View {
         if reimbursementBack >= abs(tx.amount) - 0.005 {
             return t("v2.detail.reimbursed", "Remboursé")
         }
-        return reimbursementBack > 0.005
+        guard reimbursementBack > 0.005 else {
+            return t("v2.detail.reimbursePending", "En attente de remboursement")
+        }
+        /*
+         * « En cours » promet une suite ; seule une ligne encore attendue
+         * peut la promettre.
+         *
+         * Un repas partagé rendu à moitié est un compte clos : tout ce qui
+         * pointe vers la dépense est encaissé, et la fiche annonçait quand
+         * même un reste à venir qui n'existe nulle part. Tant qu'une ligne
+         * est annoncée ou datée en avant, l'attente est réelle et le mot
+         * juste ; sinon c'est un remboursement partiel, et la somme le dit.
+         * Un versement de plus ne fera qu'augmenter le total — ou atteindre
+         * la dépense, et le cas au-dessus écrit alors « Remboursé ».
+         */
+        return reimbursedBy.contains { !$0.settled }
             ? t("v2.detail.reimbursing", "En cours de remboursement")
-            : t("v2.detail.reimbursePending", "En attente de remboursement")
+            : t("v2.detail.reimbursedPartly", "Remboursé en partie")
     }
 
     private var reimbursementValue: String {
