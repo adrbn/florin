@@ -7451,3 +7451,29 @@ struct BasketTests {
         #expect(fromShares == fromSeries)
     }
 }
+
+/*
+ * Revenir dans l'app : la même règle vue de deux côtés.
+ *
+ * Trop court et on efface le scroll de quelqu'un qui est sorti payer ; trop
+ * permissif et on efface une saisie d'opération à moitié remplie.
+ */
+@Suite("Le retour dans l'app")
+struct ColdReturnTests {
+    @Test("une sortie courte ne remonte rien")
+    func shortTripKeepsEverything() {
+        #expect(ColdReturn.resets(afterAway: 20, sheetOpen: false) == false)
+        #expect(ColdReturn.resets(afterAway: ColdReturn.staleAfter, sheetOpen: false) == false)
+    }
+
+    @Test("une longue absence rouvre sur l'accueil")
+    func longTripResets() {
+        #expect(ColdReturn.resets(afterAway: ColdReturn.staleAfter + 1, sheetOpen: false))
+        #expect(ColdReturn.resets(afterAway: 8 * 3600, sheetOpen: false))
+    }
+
+    @Test("une feuille ouverte est un travail en cours, pas une vue périmée")
+    func anOpenSheetIsNeverDiscarded() {
+        #expect(ColdReturn.resets(afterAway: 8 * 3600, sheetOpen: true) == false)
+    }
+}

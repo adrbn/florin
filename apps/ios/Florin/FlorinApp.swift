@@ -162,6 +162,40 @@ private struct OrientationRefresher: View {
     }
 }
 
+/*
+ * Rouvrir l'app après une longue absence, c'est la rouvrir vraiment.
+ *
+ * iOS garde l'app en vie des heures : on la retrouve exactement où on l'avait
+ * laissée, Activité scrollé à septembre, l'Analyse au milieu d'un sous-onglet.
+ * C'est juste quand on sort vingt secondes pour payer ou lire un message, et
+ * c'est périmé le lendemain matin — la première chose qu'on demande en
+ * ouvrant Florin, c'est où on en est MAINTENANT.
+ *
+ * D'où un seuil plutôt qu'un choix entre les deux : sous dix minutes on ne
+ * touche à rien, au-delà on repart de l'Accueil, tous les onglets en haut.
+ *
+ * Avec une exception qui n'en est pas une : une feuille ouverte est un
+ * travail en cours. Remonter l'arbre sous une saisie d'opération à moitié
+ * remplie l'effacerait, et une absence de quinze minutes au milieu d'une
+ * saisie, c'est un appel téléphonique, pas une nouvelle journée.
+ */
+enum ColdReturn {
+    static let staleAfter: TimeInterval = 10 * 60
+
+    static func resets(afterAway away: TimeInterval, sheetOpen: Bool) -> Bool {
+        away > staleAfter && !sheetOpen
+    }
+
+    /// N'importe quelle feuille, sans que cent écrans aient à le signaler :
+    /// une feuille SwiftUI est un contrôleur présenté, et UIKit le sait.
+    @MainActor
+    static var sheetOpen: Bool {
+        UIApplication.shared.connectedScenes
+            .compactMap { ($0 as? UIWindowScene)?.keyWindow?.rootViewController }
+            .contains { $0.presentedViewController != nil }
+    }
+}
+
 struct RootView: View {
     @EnvironmentObject private var server: ServerStore
     @ObservedObject private var lock = AppLock.shared
@@ -239,6 +273,13 @@ struct RootView: View {
      */
     @AppStorage("florin.whatsNew.read") private var seenVersion = ""
     @State private var news: ReleaseNotes.Release?
+    @Environment(\.scenePhase) private var scenePhase
+    /// Quand l'app est passée en arrière-plan, pour savoir au retour si c'est
+    /// une sortie de vingt secondes ou une nouvelle journée. Voir `ColdReturn`.
+    @State private var leftAt: Date?
+    /// Change au retour d'une longue absence : c'est la clé d'identité des
+    /// onglets, donc elle les reconstruit tous, en haut, sur l'Accueil.
+    @State private var freshStart = UUID()
 
     private var appearance: Appearance { Appearance(rawValue: appearanceRaw) ?? .dark }
 
@@ -265,7 +306,7 @@ struct RootView: View {
                         initialTab: landingTab,
                         onRequestSettings: { showingSettings = true }
                     )
-                    .id("\(server.reloadToken)-\(landingTab.rawValue)-\(paletteRaw)")
+                    .id("\(server.reloadToken)-\(landingTab.rawValue)-\(paletteRaw)-\(freshStart)")
                 } else if source == .server {
                     SetupView(isFirstRun: true).id(paletteRaw)
                 } else if LocalOnboarding.isComplete {
@@ -276,7 +317,7 @@ struct RootView: View {
                         initialTab: landingTab,
                         onRequestSettings: { showingSettings = true }
                     )
-                    .id("\(onboarded)-\(landingTab.rawValue)-\(paletteRaw)")
+                    .id("\(onboarded)-\(landingTab.rawValue)-\(paletteRaw)-\(freshStart)")
                 } else if LocalStore.shared == nil {
                     /*
                      * Pas de comptes *et* pas de base : ce n'est pas un
@@ -320,6 +361,25 @@ struct RootView: View {
               */
             .id("\(onboarded)-\(accentRaw)-\(inksRaw)")
             .onChange(of: sourceRaw) { _, _ in switchedSource = true }
+            .onChange(of: scenePhase) { _, phase in
+                switch phase {
+                case .background:
+                    leftAt = Date()
+                case .active:
+                    guard let left = leftAt else { break }
+                    leftAt = nil
+                    guard ColdReturn.resets(
+                        afterAway: Date().timeIntervalSince(left),
+                        sheetOpen: ColdReturn.sheetOpen
+                    ) else { break }
+                    // L'atterrissage dans les réglages ne vaut que pour le
+                    // geste qui vient d'avoir lieu, pas pour le lendemain.
+                    switchedSource = false
+                    freshStart = UUID()
+                default:
+                    break
+                }
+            }
             .onChange(of: paletteRaw) { _, chosen in
                 // Le réglage écrit déjà la palette ; ceci rattrape le cas où
                 // elle a changé ailleurs (une restauration, un autre écran).
