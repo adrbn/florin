@@ -674,6 +674,12 @@ struct MainTabs: View {
 
     private func backHome() {
         if paths[selection] != nil { paths[selection] = nil }
+        // L'onglet visé, parce qu'ils sont tous montés en même temps : sans
+        // lui, remettre l'Analyse au début le ferait aussi depuis Comptes.
+        NotificationCenter.default.post(
+            name: .florinTabHome, object: nil,
+            userInfo: ["tab": selection.rawValue]
+        )
         BackToTop.run()
     }
 

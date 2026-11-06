@@ -7,6 +7,23 @@ import SwiftUI
 /// the money went, what is changing, income against spending, and what renews
 /// on its own. Each is a different question and stacking all four made a screen
 /// nobody reached the bottom of.
+/*
+ * Retaper l'onglet où l'on est : revenir au début de l'écran.
+ *
+ * `BackToTop` ferme ce qui est posé dessus et remonte le défilement, mais
+ * l'Analyse a un état à elle que personne ne voit depuis la barre : le
+ * sous-onglet, le mois et la catégorie de la phrase, la fenêtre, le filtre du
+ * calendrier. Remonter en haut d'Abonnements filtrés n'est pas revenir au
+ * début de l'Analyse.
+ *
+ * Par notification et pas par un chemin : le chemin d'un onglet EST
+ * l'identité de sa vue, donc l'écrire reconstruirait l'écran — un fondu pour
+ * un geste qui veut dire « remets-moi au début », pas « recharge tout ».
+ */
+extension Notification.Name {
+    static let florinTabHome = Notification.Name("florin.tabHome")
+}
+
 struct AnalysisScreen: View {
     @ObservedObject var overview: OverviewModel
     var route: (TabRoute, String) -> Void = { _, _ in }
@@ -217,6 +234,35 @@ struct AnalysisScreen: View {
         }
         .task { if model.data == nil { await model.load() } }
         .reloadsOnLedgerChange { await model.load() }
+        .onReceive(NotificationCenter.default.publisher(for: .florinTabHome)) { note in
+            // Les cinq onglets sont montés en même temps : sans ce test,
+            // retaper Comptes remettrait l'Analyse au début par-dessous.
+            guard note.userInfo?["tab"] as? Int == TabRoute.analysis.rawValue else { return }
+            backToStart()
+        }
+    }
+
+    /*
+     * L'écran comme on l'avait ouvert, pas comme on l'avait laissé.
+     *
+     * Tout y passe, y compris la fenêtre : elle se retient d'une ouverture à
+     * l'autre, mais elle bascule aussi TOUTE SEULE quand on choisit un mois
+     * dans la phrase, donc ce n'est plus tout à fait un choix au moment où
+     * l'on redemande le début. Le mois, lui, repart sur le dernier mois
+     * COMPLET — un mois entamé de cinq jours n'est pas une ouverture, c'est
+     * une chute.
+     */
+    private func backToStart() {
+        withAnimation(EdMotion.spring) {
+            tab = .where_
+            calendarWindow = false
+        }
+        saidMonth = nil
+        saidCategory = nil
+        pickedMonth = nil
+        expanded = nil
+        calendarMonth = ""
+        hidden = []
     }
 
     private var tabBinding: Binding<Tab> {
