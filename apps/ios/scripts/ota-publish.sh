@@ -14,6 +14,10 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 [ -f scripts/ota.env ] && . scripts/ota.env
 HOST="${FLORIN_OTA_HOST:?renseigne FLORIN_OTA_HOST dans scripts/ota.env}"
+# Le port TLS se lit dans le nom d'hôte (« machine.ts.net:8447 »). Servir sur
+# SON port et jamais sur le 443 partagé : `serve --set-path` sur le 443 d'une
+# machine de travail a effacé ce qu'un autre projet y servait.
+TLS="${HOST##*:}"; [ "$TLS" = "$HOST" ] && TLS=443
 TARGET="${FLORIN_OTA_SSH:?renseigne FLORIN_OTA_SSH dans scripts/ota.env}"
 DIR="${FLORIN_OTA_DIR:-/opt/florin-ota}"
 BASE="https://$HOST/florin"
@@ -99,13 +103,13 @@ if [ "$TARGET" = local ]; then
     cd "$DIR" && nohup python3 -m http.server "$PORT" --bind 127.0.0.1 \
       >"${TMPDIR:-/tmp}/florin-ota-http.log" 2>&1 &
   )
-  "$TS" serve --bg --set-path /florin "$PORT" >/dev/null
+  "$TS" serve --bg --https="$TLS" --set-path /florin "$PORT" >/dev/null
 else
   echo "→ envoi vers $TARGET:$DIR"
   ssh -o ConnectTimeout=20 "$TARGET" "mkdir -p '$DIR'"
   scp -q "$STAGE"/Florin.ipa "$STAGE"/manifest.plist "$STAGE"/icon-512.png \
          "$STAGE"/icon-57.png "$STAGE"/index.html "$TARGET:$DIR/"
-  ssh "$TARGET" "tailscale serve --bg --set-path /florin '$DIR'" >/dev/null
+  ssh "$TARGET" "tailscale serve --bg --https=$TLS --set-path /florin '$DIR'" >/dev/null
 fi
 
 code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "$BASE/manifest.plist")
