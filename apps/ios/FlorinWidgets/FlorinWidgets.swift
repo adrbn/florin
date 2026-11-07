@@ -418,7 +418,30 @@ struct LeftToSpendView: View {
                         .minimumScaleFactor(0.7)
                 }
             }
+        } else if let spent = snapshot.dailySpent, spent > 0 {
+            overspending(snapshot, spent: spent)
         }
+    }
+
+    /*
+     * Le tiers bas ne reste pas vide le jour où il a le plus à dire.
+     *
+     * Le rythme autorisé n'existe plus quand le reste à vivre passe sous zéro
+     * — `dailyBudgetRemaining` est alors négatif — et toute la section
+     * disparaissait : une tuile avec trois lignes en haut et la moitié de sa
+     * hauteur en blanc, précisément au moment du mois où elle devrait alerter.
+     * Il n'y a plus de rapport à montrer, mais il reste un fait : le rythme
+     * tenu. Pas de barre, faute d'une référence à laquelle la comparer.
+     */
+    private func overspending(_ snapshot: WidgetSnapshot, spent: Double) -> some View {
+        Text(t("v2.widget.spentPerDay", "vous dépensez {amount} par jour",
+               ["amount": money(spent, snapshot, decimals: false)]))
+            .font(.system(size: 12.5, weight: .medium))
+            .foregroundStyle(Florin.negative)
+            .monospacedDigit()
+            .lineLimit(2)
+            .minimumScaleFactor(0.7)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     /// La pastille de contexte de la maquette : un filet, jamais un fond — un
@@ -537,6 +560,10 @@ struct LeftToSpendView: View {
                         .minimumScaleFactor(0.7)
                 }
             }
+        } else if let spent = snapshot.dailySpent, spent > 0 {
+            // Même raison que `overspending` : sous zéro il n'y a plus de
+            // rythme autorisé, et le vide n'est pas une réponse.
+            overspending(snapshot, spent: spent)
         }
     }
 

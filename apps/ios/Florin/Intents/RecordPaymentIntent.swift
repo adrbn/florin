@@ -153,6 +153,20 @@ struct RecordPaymentIntent: AppIntent {
             card: card,
             accountId: account?.id
         )
+        /*
+         * La tuile suit, même app fermée.
+         *
+         * L'instantané du widget n'était écrit qu'au passage de l'app au
+         * premier plan : un paiement dicté à Siri laissait l'écran d'accueil
+         * sur le reste à vivre d'avant, jusqu'à la prochaine ouverture. Le
+         * grand livre est déjà ouvert ici, c'est le moment de le relire.
+         */
+        if let data = try? LocalQueries.overview(
+            store: store, locale: Strings.preferredShortLocale
+        ) {
+            await OverviewModel.publishWidgetSnapshot(data)
+        }
+
         // The name the merchant was given in Florin, when it has one.
         let name = PayeeText.humanize(recorded.payee)
         // A payment, so no minus sign: the sentence already says which way.

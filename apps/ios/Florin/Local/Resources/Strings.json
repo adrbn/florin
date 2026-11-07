@@ -970,6 +970,7 @@
     "v2.widget.owed": "Owed",
     "v2.widget.owned": "Owned",
     "v2.widget.perDay": "{amount} a day",
+    "v2.widget.spentPerDay": "you spend {amount} a day",
     "v2.widget.youSpend": "you spend {amount}"
   },
   "fr": {
@@ -1943,6 +1944,7 @@
     "v2.widget.owed": "Dû",
     "v2.widget.owned": "Possédé",
     "v2.widget.perDay": "{amount} par jour",
+    "v2.widget.spentPerDay": "vous dépensez {amount} par jour",
     "v2.widget.youSpend": "vous dépensez {amount}"
   },
   "nl": {
@@ -2916,6 +2918,7 @@
     "v2.widget.owed": "Schuld",
     "v2.widget.owned": "Bezit",
     "v2.widget.perDay": "{amount} per dag",
+    "v2.widget.spentPerDay": "je geeft {amount} per dag uit",
     "v2.widget.youSpend": "je geeft {amount} uit"
   },
   "it": {
@@ -3889,6 +3892,7 @@
     "v2.widget.owed": "Dovuto",
     "v2.widget.owned": "Posseduto",
     "v2.widget.perDay": "{amount} al giorno",
+    "v2.widget.spentPerDay": "spendi {amount} al giorno",
     "v2.widget.youSpend": "spendi {amount}"
   },
   "es": {
@@ -4862,6 +4866,7 @@
     "v2.widget.owed": "Debido",
     "v2.widget.owned": "En propiedad",
     "v2.widget.perDay": "{amount} al día",
+    "v2.widget.spentPerDay": "gastas {amount} al día",
     "v2.widget.youSpend": "gastas {amount}"
   },
   "ca": {
@@ -5835,6 +5840,7 @@
     "v2.widget.owed": "Degut",
     "v2.widget.owned": "En propietat",
     "v2.widget.perDay": "{amount} al dia",
+    "v2.widget.spentPerDay": "gastes {amount} al dia",
     "v2.widget.youSpend": "gastes {amount}"
   },
   "de": {
@@ -6808,6 +6814,7 @@
     "v2.widget.owed": "Schulden",
     "v2.widget.owned": "Besitz",
     "v2.widget.perDay": "{amount} pro Tag",
+    "v2.widget.spentPerDay": "du gibst {amount} pro Tag aus",
     "v2.widget.youSpend": "du gibst {amount} aus"
   },
   "pt": {
@@ -7781,6 +7788,7 @@
     "v2.widget.owed": "Devido",
     "v2.widget.owned": "Detido",
     "v2.widget.perDay": "{amount} por dia",
+    "v2.widget.spentPerDay": "gasta {amount} por dia",
     "v2.widget.youSpend": "gasta {amount}"
   },
   "tr": {
@@ -8754,6 +8762,7 @@
     "v2.widget.owed": "Borç",
     "v2.widget.owned": "Sahip olunan",
     "v2.widget.perDay": "günde {amount}",
+    "v2.widget.spentPerDay": "günde {amount} harcıyorsunuz",
     "v2.widget.youSpend": "{amount} harcıyorsunuz"
   }
 }

@@ -372,10 +372,18 @@ final class OverviewModel: ObservableObject {
     /// Called when the app comes to the foreground. Refreshes the figures every
     /// time — that is free — but only reaches out to the banks when the last
     /// attempt is stale.
-    /// Leave the home screen the two figures it shows. Silent when there is no
-    /// shared container, which is every install signed with a free Apple ID.
-    private func publishSnapshot() {
-        guard let data = overview else { return }
+    /*
+     * Leave the home screen the two figures it shows. Silent when there is no
+     * shared container, which is every install signed with a free Apple ID.
+     *
+     * Appelé partout où les chiffres changent, et non plus seulement au
+     * passage au premier plan et après une synchro bancaire : une opération
+     * écrite sans ouvrir l'app — par l'action Raccourcis — laissait la tuile
+     * sur les chiffres de la veille, et une tuile posée sur l'écran d'accueil
+     * affichait « Ouvrez Florin » jusqu'à la prochaine ouverture. Statique
+     * parce que l'action Raccourcis n'a pas de client : elle a le grand livre.
+     */
+    static func publishWidgetSnapshot(_ data: Overview) {
         WidgetSnapshot.write(
             WidgetSnapshot(
                 netWorth: data.netWorth.net,
@@ -407,7 +415,6 @@ final class OverviewModel: ObservableObject {
 
     func onForeground() async {
         await load(showSpinner: overview == nil)
-        publishSnapshot()
         // Nothing to reach. `sync` would say so, but only after spending a
         // timeout per account — see `Reachability`.
         guard Reachability.shared.online else { return }
@@ -475,7 +482,6 @@ final class OverviewModel: ObservableObject {
         do {
             let result = try await client.sync()
             await load(showSpinner: false)
-            publishSnapshot()
             let inserted = result.transactionsInserted
             if (announce && (inserted > 0 || confirmCurrent)) || (announceOnlyIfNew && inserted > 0) {
                 toast = ToastMessage(
@@ -562,6 +568,7 @@ final class OverviewModel: ObservableObject {
             let data = try await client.overview()
             staleSince = nil
             state = .loaded(data)
+            Self.publishWidgetSnapshot(data)
         } catch {
             // Same reasoning as sync: a cancelled read is not an outage, and
             // replacing a loaded screen with "Florin est injoignable" because
