@@ -112,6 +112,15 @@ export function mapCategories(groups: CategoryGroupWithCategories[]): V2Category
        */
       groupKind: g.kind,
       /*
+       * Le même raisonnement que `groupKind`, pour la même raison.
+       *
+       * Sans ce drapeau une copie locale du grand livre range le loyer avec
+       * les courses : « charges fixes » reste à zéro, le quotidien porte un
+       * mois de loyer, et la projection étale sur trente jours ce qui est
+       * tombé le cinq.
+       */
+      isFixed: c.isFixed,
+      /*
        * The loan this category mirrors, when it mirrors one.
        *
        * Filing a repayment here is what tells a ledger the debt moved — the

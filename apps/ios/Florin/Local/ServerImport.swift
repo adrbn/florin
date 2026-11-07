@@ -190,13 +190,14 @@ enum ServerImport {
                 let id = UUID().uuidString
                 try db.run(
                     """
-                    INSERT INTO categories (id, group_id, name, emoji, display_order)
-                    VALUES (?, ?, ?, ?,
+                    INSERT INTO categories (id, group_id, name, emoji, is_fixed, display_order)
+                    VALUES (?, ?, ?, ?, ?,
                             (SELECT coalesce(max(display_order) + 1, 0) FROM categories))
                     """,
                     [
                         .text(id), .text(groupId), .text(category.name),
                         category.emoji.map { SQLiteValue.text($0) } ?? .null,
+                        .integer(category.isFixed == true ? 1 : 0),
                     ]
                 )
                 categoryIds[category.name.lowercased()] = id

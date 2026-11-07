@@ -189,8 +189,28 @@ struct EdMonthSplit: View {
         let total = max(lts.monthIncome > 0 ? lts.monthIncome : variable + fixed + rest, 1)
         let days = Double(lts.daysElapsed + lts.daysRemaining)
         let budget = max(lts.expectedMonthlySpend, 1)
-        // Où la dépense devrait en être, posée sur le même axe que les parts.
-        let pace = days > 0 ? (Double(lts.daysElapsed) / days) * budget / total : 0
+        /*
+         * Une charge ne s'étale pas : elle tombe.
+         *
+         * Le repère disait « un trentième du budget par jour écoulé », donc
+         * au septième jour il annonçait un petit quart — alors qu'un loyer
+         * payé le cinq a déjà pris sa part entière, et qu'il n'en restera
+         * rien à payer les vingt-trois jours suivants. Le mois lisait donc
+         * « très en avance sur la dépense » tous les débuts de mois et
+         * « rattrapé » ensuite, sans que rien n'ait changé dans les
+         * habitudes.
+         *
+         * La référence porte donc les charges en entier — celles déjà
+         * tombées, ou celles qu'un mois ordinaire apporte, comme la
+         * projection de fin de mois — et n'étale que le quotidien. C'est
+         * alors la même grammaire que la barre juste au-dessus, qui sépare
+         * déjà les deux.
+         */
+        let charges = MonthForecast(lts).fixedComponent
+        let daily = max(0, budget - charges)
+        let pace = days > 0
+            ? (charges + Double(lts.daysElapsed) / days * daily) / total
+            : 0
 
         return VStack(alignment: .leading, spacing: 14) {
             EdSection(

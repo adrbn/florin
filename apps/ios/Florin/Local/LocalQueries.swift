@@ -553,7 +553,8 @@ enum LocalQueries {
     static func readCategories(_ db: SQLiteDatabase) throws -> [Category] {
         try db.query(
             """
-            SELECT c.id, c.name, c.emoji, g.kind AS group_kind, g.name AS group_name
+            SELECT c.id, c.name, c.emoji, c.is_fixed, g.kind AS group_kind,
+                   g.name AS group_name
             FROM categories c
             JOIN category_groups g ON g.id = c.group_id
             WHERE c.is_archived = 0
@@ -565,7 +566,8 @@ enum LocalQueries {
                 name: row.string("name") ?? "",
                 emoji: row.string("emoji"),
                 groupName: row.string("group_name") ?? "",
-                groupKind: row.string("group_kind")
+                groupKind: row.string("group_kind"),
+                isFixed: (row.int("is_fixed") ?? 0) == 1
             )
         }
     }

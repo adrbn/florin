@@ -94,6 +94,13 @@ export interface V2Category {
    * transaction here is what moves that loan's remaining debt.
    */
   linkedLoanAccountId: string | null
+  /**
+   * Une charge qui tombe que l'on veuille ou non : loyer, assurance,
+   * abonnement. Un client qui garde sa propre copie du grand livre ne peut
+   * pas le deviner d'après le nom, et sans lui « charges fixes » vaut zéro
+   * chez lui — le loyer est alors compté comme de la dépense quotidienne.
+   */
+  isFixed: boolean
 }
 
 export interface V2Holding {

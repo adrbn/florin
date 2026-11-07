@@ -201,6 +201,21 @@ struct Category: Decodable, Sendable, Identifiable {
      * asking the plan which groups are expenses — everything else is income.
      */
     let groupKind: String?
+    /*
+     * Une charge qui tombe de toute façon — loyer, assurance, abonnement.
+     *
+     * Optionnel pour la même raison que `groupKind` : un serveur plus ancien
+     * ne l'envoie pas. Absent de l'import, il valait toujours faux, donc
+     * « charges fixes » restait à zéro sur l'appareil et un loyer de fin de
+     * semaine était compté comme de la dépense quotidienne — la moitié du
+     * mois dépensée au septième jour, et un repère de rythme qui étalait sur
+     * trente jours ce qui était tombé le cinq.
+     *
+     * `var`, comme `linkedLoanAccountId` : une propriété optionnelle déclarée
+     * ainsi vaut nil par défaut dans l'initialiseur, donc l'ajouter ne casse
+     * aucun appelant qui ne la connaît pas.
+     */
+    var isFixed: Bool?
 }
 
 /// What the phone posts back to record a transaction.
