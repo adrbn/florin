@@ -743,20 +743,20 @@ struct EdEnter: ViewModifier {
             content
         } else {
             content
+                /*
+                 * LES DEUX BORDS, ET C'EST VOULU.
+                 *
+                 * `isIdentity` est faux en haut comme en bas, donc une vue
+                 * s'efface aussi en sortant par le haut. Ça ressemble à un
+                 * oubli — le commentaire de `edEnter` ne parle que du bas —
+                 * et ça n'en est pas un : c'est l'effet lui-même, celui qui
+                 * donne à la page son fondu aux deux extrémités. Ne pas le
+                 * restreindre au bord bas.
+                 */
                 .scrollTransition(axis: .vertical) { view, phase in
-                    /*
-                     * Par le bas seulement, comme annoncé plus haut.
-                     *
-                     * `isIdentity` est faux aux DEUX bords : ce qui sortait
-                     * par le haut s'effaçait donc aussi, d'un coup et en
-                     * entier. Une journée est un bloc, pas une ligne — la
-                     * voilà effacée sous l'en-tête, et un pan de blanc à sa
-                     * place le temps qu'on la repousse.
-                     */
-                    let entering = armed && phase.value > 0
-                    return view
-                        .opacity(entering ? 0 : 1)
-                        .offset(y: entering ? 12 : 0)
+                    view
+                        .opacity(!armed || phase.isIdentity ? 1 : 0)
+                        .offset(y: !armed || phase.isIdentity ? 0 : 12)
                 }
                 .environment(\.edEnterApplied, true)
                 .task {

@@ -217,6 +217,7 @@ struct EdMonthSplit: View {
                  */
                 mark: pace > 0 ? min(pace, 0.985) : nil
             )
+            legend
             /*
              * Les deux premiers chiffres sont ce qui est SORTI — du rouge le
              * dirait trois fois (le signe, la part de barre, la couleur) et
@@ -238,6 +239,53 @@ struct EdMonthSplit: View {
                     tone: lts.leftToSpend >= 0 ? Florin.positive : Florin.negative
                 ),
             ])
+        }
+    }
+
+    /*
+     * Deux mots, parce qu'une barre et un trait ne se présentent pas.
+     *
+     * L'encre et le trait occupent le même axe — des euros — et rien ne
+     * disait lequel est le fait et lequel est la référence : on pouvait
+     * aussi bien lire le trait comme « on en est là dans le mois » et
+     * l'encre comme ce qui reste à dépenser, soit l'inverse exact. Les deux
+     * se lisent alors à contresens sans jamais se contredire, donc sans
+     * jamais se trahir.
+     *
+     * Chaque mot porte son propre repère, dessiné comme sur la barre : le
+     * pavé noir dit l'encre, le trait d'accent dit le trait. Pas de chiffre
+     * — ils sont déjà juste en dessous.
+     */
+    private var legend: some View {
+        HStack(spacing: 14) {
+            item(
+                mark: AnyView(
+                    RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                        .fill(Florin.text)
+                        .frame(width: 9, height: 9)
+                ),
+                text: t("v2.ed.legendSpent", "dépensé")
+            )
+            item(
+                mark: AnyView(
+                    Capsule().fill(Florin.accent).frame(width: 2, height: 11)
+                ),
+                text: t("v2.ed.legendPace", "rythme habituel")
+            )
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func item(mark: AnyView, text: String) -> some View {
+        HStack(spacing: 6) {
+            // Une largeur fixe pour les deux repères : sans elle, le pavé et
+            // le trait ne commencent pas sur la même colonne et les deux
+            // mots se décalent l'un par rapport à l'autre.
+            mark.frame(width: 9)
+            Text(text)
+                .font(.system(size: 12))
+                .foregroundStyle(Florin.text2)
+                .lineLimit(1)
         }
     }
 
