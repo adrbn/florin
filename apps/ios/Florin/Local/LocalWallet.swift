@@ -58,6 +58,29 @@ enum LocalWallet {
      * sign is ours to set.
      */
     static func parseAmount(_ text: String) -> Double? {
+        /*
+         * « quatorze euros quatre-vingt-dix-neuf » arrive en « 14 € 99 ».
+         *
+         * Dicté à Siri, un montant n'a pas toujours sa virgule : la monnaie
+         * ou une simple espace tient la place du séparateur. Filtrer les
+         * caractères non numériques recollait alors les deux groupes, et un
+         * café de 14,99 € entrait à 1499 €.
+         *
+         * Deux groupes de chiffres dont le dernier en compte exactement DEUX,
+         * sans virgule ni point ailleurs : ce sont des centimes. Un groupe de
+         * milliers en compte toujours trois — « 1 234 € » ne peut pas se
+         * confondre avec ça — donc la règle ne touche pas au format que
+         * l'automatisation Wallet fournit, qui porte de toute façon sa
+         * virgule.
+         */
+        if !text.contains(","), !text.contains(".") {
+            let runs = text.split { !$0.isNumber }
+            if runs.count == 2, runs[1].count == 2,
+               let units = Double(runs[0]), let cents = Double(runs[1]) {
+                let value = units + cents / 100
+                return value > 0 ? (value * 100).rounded() / 100 : nil
+            }
+        }
         var cleaned = text.filter { $0.isNumber || $0 == "," || $0 == "." }
         guard !cleaned.isEmpty else { return nil }
         if let comma = cleaned.lastIndex(of: ","), let dot = cleaned.lastIndex(of: ".") {

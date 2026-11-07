@@ -3167,6 +3167,18 @@ struct WalletPaymentTests {
         #expect(LocalWallet.parseAmount(text) == expected)
     }
 
+    /// Dicté, un montant perd souvent sa virgule : la monnaie ou une espace
+    /// tient sa place, et les deux groupes se recollaient en un seul nombre.
+    /// Un groupe de milliers compte toujours trois chiffres, donc les formats
+    /// groupés restent lus comme avant.
+    @Test("a dictated amount keeps its cents", arguments: [
+        ("14 € 99", 14.99), ("14 euros 99", 14.99), ("3 50", 3.50),
+        ("1 234 €", 1234.0), ("1 500", 1500.0), ("12 €", 12.0),
+    ])
+    func dictated(_ text: String, _ expected: Double) {
+        #expect(LocalWallet.parseAmount(text) == expected)
+    }
+
     @Test("an unreadable amount is refused, not recorded as zero")
     func unreadable() throws {
         let (store, _, _) = try ledger()
