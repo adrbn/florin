@@ -44,7 +44,7 @@ struct AttachTransferSheet: View {
                             t(
                                 "v2.attach.lead", "Sorti de {account} le {date}",
                                 [
-                                    "account": transaction.accountName ?? "—",
+                                    "account": transaction.accountName,
                                     "date": DayLabel.string(
                                         transaction.day, locale: locale, t: t
                                     ),

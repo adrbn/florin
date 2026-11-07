@@ -2,7 +2,7 @@ import Foundation
 
 /// Le même format que le grand livre écrit — `yyyy-MM-dd`, hors fuseau.
 enum Dates {
-    nonisolated(unsafe) static let iso: DateFormatter = {
+    static let iso: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         formatter.timeZone = TimeZone(secondsFromGMT: 0)

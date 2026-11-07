@@ -627,7 +627,7 @@ struct AccountDetailScreen: View {
         guard let account, let store = LocalStore.shared else { return false }
         return ((try? store.database.scalar(
             "SELECT loan_original_principal FROM accounts WHERE id = ?", [.text(account.id)]
-        )?.double) as? Double ?? 0) ?? 0 > 0
+        )?.double) ?? 0) > 0
     }
 
     /*

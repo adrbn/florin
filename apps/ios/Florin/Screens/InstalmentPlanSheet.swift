@@ -444,8 +444,11 @@ struct InstalmentPlanSheet: View {
     @ViewBuilder
     private var forgetButtons: some View {
         Button(t("v2.common.delete", "Supprimer"), role: .destructive) {
-            guard let store = LocalStore.shared else { return }
-            try? LocalInstalments.forget(store: store, planId: plan.id)
+            // Écriture d'abord : une suppression qui échoue ne doit pas
+            // refermer la feuille en disant que c'est fait.
+            guard let store = LocalStore.shared,
+                  (try? LocalInstalments.forget(store: store, planId: plan.id)) != nil
+            else { return }
             onForget?()
             dismiss()
         }
@@ -509,8 +512,9 @@ struct InstalmentPlanSheet: View {
             isPresented: $confirming, titleVisibility: .visible
         ) {
             Button(t("v2.common.delete", "Supprimer"), role: .destructive) {
-                guard let store = LocalStore.shared else { return }
-                try? LocalInstalments.forget(store: store, planId: plan.id)
+                guard let store = LocalStore.shared,
+                      (try? LocalInstalments.forget(store: store, planId: plan.id)) != nil
+                else { return }
                 onForget?()
                 dismiss()
             }

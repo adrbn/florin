@@ -1778,14 +1778,14 @@ enum LocalQueries {
         (value * 100).rounded() / 100
     }
 
-    nonisolated(unsafe) static let dayFormatter: DateFormatter = {
+    static let dayFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
         f.locale = Locale(identifier: "en_US_POSIX")
         return f
     }()
 
-    nonisolated(unsafe) static let monthFormatter: DateFormatter = {
+    static let monthFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM"
         f.locale = Locale(identifier: "en_US_POSIX")

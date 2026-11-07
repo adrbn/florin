@@ -122,8 +122,7 @@ enum BackgroundRefresh {
     /// app to ask: what came in, and what does it come to.
     private static func notify(_ count: Int, store: LocalStore) async {
         let centre = UNUserNotificationCenter.current()
-        guard let settings = try? await centre.notificationSettings(),
-              settings.authorizationStatus == .authorized
+        guard await centre.notificationSettings().authorizationStatus == .authorized
         else { return }
 
         let total = (try? store.database.scalar(
@@ -170,9 +169,9 @@ enum BackgroundRefresh {
 
     @MainActor
     static func readiness() async -> Readiness {
-        let settings = try? await UNUserNotificationCenter.current().notificationSettings()
+        let settings = await UNUserNotificationCenter.current().notificationSettings()
         return Readiness(
-            notificationsAllowed: settings?.authorizationStatus == .authorized,
+            notificationsAllowed: settings.authorizationStatus == .authorized,
             backgroundAllowed: UIApplication.shared.backgroundRefreshStatus == .available
         )
     }

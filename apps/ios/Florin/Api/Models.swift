@@ -64,7 +64,7 @@ struct PatrimonyPoint: Decodable, Sendable, Identifiable {
     var id: String { date }
     var day: Date { PatrimonyPoint.parser.date(from: String(date.prefix(10))) ?? .distantPast }
 
-    nonisolated(unsafe) private static let parser: DateFormatter = {
+    private static let parser: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
         f.timeZone = TimeZone(secondsFromGMT: 0)
@@ -485,7 +485,7 @@ struct Transaction: Decodable, Sendable, Identifiable {
             ?? .distantPast
     }
 
-    nonisolated(unsafe) private static let plain: DateFormatter = {
+    private static let plain: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd HH:mm:ss"
         f.timeZone = TimeZone(secondsFromGMT: 0)
@@ -493,7 +493,7 @@ struct Transaction: Decodable, Sendable, Identifiable {
         return f
     }()
 
-    nonisolated(unsafe) private static let dayOnly: DateFormatter = {
+    private static let dayOnly: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
         f.timeZone = TimeZone(secondsFromGMT: 0)
@@ -539,7 +539,7 @@ enum Timestamp {
         return sqlite.date(from: value)
     }
 
-    private nonisolated(unsafe) static let sqlite: DateFormatter = {
+    private static let sqlite: DateFormatter = {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
         f.timeZone = TimeZone(identifier: "UTC")

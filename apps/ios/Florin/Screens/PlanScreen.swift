@@ -195,19 +195,6 @@ struct PlanScreen: View {
                     )
                 }
 
-            case let .remove(category, count):
-                CategoryRemovalSheet(
-                    category: category,
-                    count: count,
-                    candidates: (model.plan?.groups.flatMap(\.categories) ?? [])
-                        .filter { $0.id != category.id },
-                    t: t
-                ) { how in
-                    await model.removeCategory(
-                        category.id, named: category.name, how: how, t: t
-                    )
-                }
-
             case let .shape(draft):
                 CategoryEditorSheet(draft: draft, t: t) { name, emoji, isFixed in
                     if let existing = draft.category {

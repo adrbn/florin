@@ -63,6 +63,7 @@ Nothing to sign up for, anywhere. Want to look around first? The iPhone app has 
 | What's left to spend this month, and the daily pace it allows | ✅ | ✅ | ✅ |
 | Month-end projection that narrows as the month fills | ✅ | ✅ | ✅ |
 | Monthly plan in category groups, carried over from last month | ✅ | ✅ | ✅ |
+| Mark a category a fixed charge: rent and subscriptions fall whole in the projection instead of being spread over the month, and stay out of the daily pace | ✅ | ✅ | ✅ |
 | Review queue that learns from your own filing | ✅ | ✅ | ✅ |
 | Suggested category offered wherever a row is filed, ranked by your own history | ✅ | — | — |
 | Create, rename and remove categories; a removal reassigns what it held | ✅ | ✅ | ✅ |

@@ -752,11 +752,17 @@ struct EdEnter: ViewModifier {
                  * et ça n'en est pas un : c'est l'effet lui-même, celui qui
                  * donne à la page son fondu aux deux extrémités. Ne pas le
                  * restreindre au bord bas.
+                 *
+                 * `isArmed` est la VALEUR, pas la propriété : la fermeture de
+                 * `scrollTransition` est `@Sendable` et ne peut pas lire un
+                 * `@State` isolé au main actor — une erreur en Swift 6. Lue
+                 * ici, elle est relue à chaque réévaluation du corps, donc
+                 * quand `armed` change : même effet, même instant.
                  */
-                .scrollTransition(axis: .vertical) { view, phase in
+                .scrollTransition(axis: .vertical) { [isArmed = armed] view, phase in
                     view
-                        .opacity(!armed || phase.isIdentity ? 1 : 0)
-                        .offset(y: !armed || phase.isIdentity ? 0 : 12)
+                        .opacity(!isArmed || phase.isIdentity ? 1 : 0)
+                        .offset(y: !isArmed || phase.isIdentity ? 0 : 12)
                 }
                 .environment(\.edEnterApplied, true)
                 .task {

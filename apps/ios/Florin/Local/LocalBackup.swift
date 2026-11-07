@@ -134,9 +134,9 @@ enum LocalBackup {
         var out = Summary()
         out.transactions = (try? db.scalar(
             "SELECT count(*) FROM transactions WHERE deleted_at IS NULL"
-        )?.int) as? Int ?? 0
-        out.accounts = (try? db.scalar("SELECT count(*) FROM accounts")?.int) as? Int ?? 0
-        out.categories = (try? db.scalar("SELECT count(*) FROM categories")?.int) as? Int ?? 0
+        )?.int) ?? 0
+        out.accounts = (try? db.scalar("SELECT count(*) FROM accounts")?.int) ?? 0
+        out.categories = (try? db.scalar("SELECT count(*) FROM categories")?.int) ?? 0
         if let row = try? db.query(
             "SELECT min(occurred_at) a, max(occurred_at) b FROM transactions WHERE deleted_at IS NULL"
         ).first {

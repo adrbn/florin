@@ -499,10 +499,10 @@ struct LoanMirrorTests {
     }
 
     private func mirrors(_ store: LocalStore, on loan: String) -> Int {
-        ((try? store.database.scalar(
+        (try? store.database.scalar(
             "SELECT count(*) FROM transactions WHERE account_id = ? AND deleted_at IS NULL",
             [.text(loan)]
-        )?.int) as? Int ?? -1) ?? -1
+        )?.int) ?? -1
     }
 
     @Test("filing the instalment writes the other half on the loan")
@@ -1106,7 +1106,7 @@ struct BackupTests {
     }
 
     private func count(_ store: LocalStore, _ table: String) -> Int {
-        ((try? store.database.scalar("SELECT count(*) FROM \(table)")?.int) as? Int ?? -1) ?? -1
+        (try? store.database.scalar("SELECT count(*) FROM \(table)")?.int) ?? -1
     }
 
     @Test("an exported file can actually be opened again")
@@ -1200,10 +1200,10 @@ struct RelabelledDuplicateTests {
     }
 
     private func live(_ store: LocalStore, on account: String) -> Int {
-        ((try? store.database.scalar(
+        (try? store.database.scalar(
             "SELECT count(*) FROM transactions WHERE account_id = ? AND deleted_at IS NULL",
             [.text(account)]
-        )?.int) as? Int ?? -1) ?? -1
+        )?.int) ?? -1
     }
 
     @Test("a positional reference is not an identity")
@@ -1393,10 +1393,10 @@ struct CorrectedBankRowTests {
     }
 
     private func live(_ store: LocalStore, on account: String) -> Int {
-        ((try? store.database.scalar(
+        (try? store.database.scalar(
             "SELECT count(*) FROM transactions WHERE account_id = ? AND deleted_at IS NULL",
             [.text(account)]
-        )?.int) as? Int ?? -1) ?? -1
+        )?.int) ?? -1
     }
 
     private func read(_ store: LocalStore, _ id: String, _ column: String) throws -> String? {

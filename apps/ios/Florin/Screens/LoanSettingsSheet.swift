@@ -202,13 +202,13 @@ struct LoanSettingsSheet: View {
 
     private var paymentsMade: Int {
         guard let store = LocalStore.shared else { return 0 }
-        return ((try? store.database.scalar(
+        return (try? store.database.scalar(
             """
             SELECT count(*) FROM transactions
             WHERE account_id = ? AND transfer_pair_id IS NOT NULL AND deleted_at IS NULL
             """,
             [.text(account.id)]
-        )?.int) as? Int ?? 0) ?? 0
+        )?.int) ?? 0
     }
 
     private var computed: LocalLoan.Liability? {

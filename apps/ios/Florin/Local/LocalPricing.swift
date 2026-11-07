@@ -74,7 +74,7 @@ enum LocalPricing {
             )?.double) ?? 0
             try? store.database.run(
                 "UPDATE accounts SET market_value = ?, updated_at = datetime('now') WHERE id = ?",
-                [.real(((value ?? 0) * 100).rounded() / 100), .text(account)]
+                [.real((value * 100).rounded() / 100), .text(account)]
             )
         }
         if updated > 0 {

@@ -180,7 +180,7 @@ final class MerchantLogos: ObservableObject {
 
     /// Le côté du carré conservé : trois fois la plus grande bulle, de quoi
     /// rester net sur un écran à trois points par pixel.
-    static let pictureSide: CGFloat = 180
+    nonisolated static let pictureSide: CGFloat = 180
 
     /// Recadre au centre, réduit, puis encode. Nil si l'image est illisible.
     nonisolated static func thumbnail(_ image: UIImage) -> Data? {
