@@ -3172,7 +3172,7 @@ struct WalletPaymentTests {
     /// Un groupe de milliers compte toujours trois chiffres, donc les formats
     /// groupés restent lus comme avant.
     @Test("a dictated amount keeps its cents", arguments: [
-        ("14 € 99", 14.99), ("14 euros 99", 14.99), ("3 50", 3.50),
+        ("14 99", 14.99), ("14 € 99", 14.99), ("14 euros 99", 14.99), ("3 50", 3.50),
         ("1 234 €", 1234.0), ("1 500", 1500.0), ("12 €", 12.0),
     ])
     func dictated(_ text: String, _ expected: Double) {
