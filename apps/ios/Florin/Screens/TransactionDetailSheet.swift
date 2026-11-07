@@ -490,6 +490,18 @@ struct TransactionDetailSheet: View {
             value: tx.amount, locale: locale, currency: currency,
             signed: true, tone: .auto, size: edFigureSize, weight: .medium
         )
+        /*
+         * Un montant tient sur UNE ligne, quoi qu'il arrive.
+         *
+         * L'échelle ci-dessous compte les caractères, et compter n'est pas
+         * mesurer : un loyer à quatre chiffres tombait dans la tranche la
+         * plus grande, dépassait la gouttière et renvoyait son « € » à la
+         * ligne suivante, tout seul. La mesure, elle, c'est le rendu qui la
+         * fait — l'échelle garde les montants courants bien gras, le repli
+         * rattrape les autres.
+         */
+        .lineLimit(1)
+        .minimumScaleFactor(0.5)
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, Ed.gutter)
         .padding(.top, 12)
@@ -858,6 +870,8 @@ struct TransactionDetailSheet: View {
                 signed: true, tone: editorial ? .neutral : .auto,
                 size: editorial ? 56 : 40, weight: editorial ? .medium : .light
             )
+            .lineLimit(1)
+            .minimumScaleFactor(0.5)
 
             Text(fullDate)
                 .font(.system(size: 14))

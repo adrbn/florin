@@ -744,9 +744,19 @@ struct EdEnter: ViewModifier {
         } else {
             content
                 .scrollTransition(axis: .vertical) { view, phase in
-                    view
-                        .opacity(!armed || phase.isIdentity ? 1 : 0)
-                        .offset(y: !armed || phase.isIdentity ? 0 : 12)
+                    /*
+                     * Par le bas seulement, comme annoncé plus haut.
+                     *
+                     * `isIdentity` est faux aux DEUX bords : ce qui sortait
+                     * par le haut s'effaçait donc aussi, d'un coup et en
+                     * entier. Une journée est un bloc, pas une ligne — la
+                     * voilà effacée sous l'en-tête, et un pan de blanc à sa
+                     * place le temps qu'on la repousse.
+                     */
+                    let entering = armed && phase.value > 0
+                    return view
+                        .opacity(entering ? 0 : 1)
+                        .offset(y: entering ? 12 : 0)
                 }
                 .environment(\.edEnterApplied, true)
                 .task {

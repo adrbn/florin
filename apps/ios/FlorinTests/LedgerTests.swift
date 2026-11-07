@@ -7477,3 +7477,56 @@ struct ColdReturnTests {
         #expect(ColdReturn.resets(afterAway: 8 * 3600, sheetOpen: true) == false)
     }
 }
+
+/*
+ * Une journée ne s'ouvre qu'une fois.
+ *
+ * La requête trie sur le texte de l'horodatage, lu en TU ; l'écran groupe
+ * sur la journée locale. Les deux ne tombent pas toujours d'accord, et le
+ * découpage par tranches consécutives ouvrait alors un second
+ * « Aujourd'hui » plus bas — deux sections de même identité, que SwiftUI
+ * rend en blocs blancs et en sections fantômes.
+ */
+@MainActor
+struct ActivityGroupingTests {
+    private func row(_ payee: String, on day: String) -> Transaction {
+        Transaction(
+            id: UUID().uuidString, date: day, amount: -12.40, payee: payee, memo: nil,
+            categoryName: nil, categoryEmoji: nil, accountName: "Compte courant",
+            isTransfer: false, needsReview: false, isPending: false, isScheduled: false
+        )
+    }
+
+    @Test("une journée qui revient plus bas rejoint son groupe, elle n'en ouvre pas un second")
+    func oneGroupPerDay() {
+        let rows = [
+            row("Boulangerie du Parc", on: "2026-11-07"),
+            row("Kiosque de la Gare", on: "2026-11-06"),
+            // Celle-ci arrive après la veille, et appartient pourtant au 7.
+            row("Café des Sports", on: "2026-11-07"),
+            row("Épicerie Centrale", on: "2026-11-06"),
+        ]
+
+        let days = ActivityModel.grouped(rows, excluding: [])
+
+        #expect(days.count == 2)
+        #expect(days[0].rows.count == 2)
+        #expect(days[1].rows.count == 2)
+        // Le plus récent en tête, quel que soit l'ordre d'arrivée.
+        #expect(days[0].day > days[1].day)
+        #expect(days[0].rows.contains { $0.payee == "Café des Sports" })
+    }
+
+    @Test("ce qui est annoncé plus haut ne se compte pas aussi dans sa journée")
+    func announcedStaysOut() {
+        let folded = row("Abonnement Exemple", on: "2026-11-07")
+        let days = ActivityModel.grouped(
+            [folded, row("Boulangerie du Parc", on: "2026-11-07")],
+            excluding: [folded.id]
+        )
+
+        #expect(days.count == 1)
+        #expect(days[0].rows.count == 1)
+        #expect(days[0].rows[0].payee == "Boulangerie du Parc")
+    }
+}

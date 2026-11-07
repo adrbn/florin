@@ -276,22 +276,41 @@ final class ActivityModel: ObservableObject {
         announced.formUnion(instalments.lazy.map(\.id))
         announced.formUnion(pending.lazy.map(\.id))
 
+        days = ActivityModel.grouped(rows, excluding: announced)
+    }
+
+    /*
+     * Un jour, un groupe — et pas un par tranche consécutive.
+     *
+     * Le découpage suivait l'ordre d'arrivée et ouvrait un groupe chaque fois
+     * que la journée changeait, en pariant que la requête les rend déjà
+     * rangées. Elle les range sur `substr(occurred_at, 1, 10)`, du texte lu
+     * en TU ; l'écran, lui, les range sur la journée LOCALE. Une ligne
+     * horodatée à 23 h TU appartient au lendemain ici et arrive pourtant au
+     * milieu de la veille : le pari tombe, et « Aujourd'hui » s'ouvre deux
+     * fois.
+     *
+     * Deux sections de même identité dans un même `ForEach`, SwiftUI ne sait
+     * pas les rendre — d'où les blocs blancs, les sections qui se répètent au
+     * défilement, et les lignes qu'on cherchait en vain dans la première
+     * journée alors qu'elles attendaient dans la seconde.
+     *
+     * Le rangement fait donc foi : on classe par journée, puis on trie.
+     */
+    nonisolated static func grouped(
+        _ rows: [Transaction], excluding announced: Set<String>
+    ) -> [(day: Date, rows: [Transaction])] {
         // `Calendar.current` rend une COPIE à chaque lecture : la prendre
         // dans la boucle, c'est trois mille calendriers pour trois mille
         // lignes.
         let calendar = Calendar.current
-        var out: [(day: Date, rows: [Transaction])] = []
-        // Le serveur les rend déjà triées, donc ce découpage n'a rien à
-        // retrier.
+        var buckets: [Date: [Transaction]] = [:]
         for row in rows where !announced.contains(row.id) {
-            let day = calendar.startOfDay(for: row.day)
-            if out.last?.day == day {
-                out[out.count - 1].rows.append(row)
-            } else {
-                out.append((day, [row]))
-            }
+            buckets[calendar.startOfDay(for: row.day), default: []].append(row)
         }
-        days = out.map { ($0.day, TransferPairs.collapsed($0.rows)) }
+        return buckets.keys.sorted(by: >).map {
+            ($0, TransferPairs.collapsed(buckets[$0] ?? []))
+        }
     }
 
     /// The phone's own books. The edit sheet asks: two of its rows are writes
