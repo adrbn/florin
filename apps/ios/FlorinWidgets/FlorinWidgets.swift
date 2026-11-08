@@ -22,7 +22,20 @@ struct FlorinWidgets: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "FlorinLeftToSpend", provider: Provider()) { entry in
             LeftToSpendView(entry: entry)
-                .containerBackground(for: .widget) { WidgetGround() }
+                /*
+                 * Le fond reçoit le choix LUI AUSSI, et c'est tout le défaut.
+                 *
+                 * WidgetKit sort le contenu de `containerBackground` du reste
+                 * de l'arbre : un `.environment` posé au-dehors ne l'atteint
+                 * pas. Le texte obéissait donc au réglage de l'app pendant que
+                 * le fond suivait le téléphone — en Éditorial, dont les deux
+                 * faces sont du noir et du blanc purs, « app en clair,
+                 * téléphone en sombre » donnait l'encre 0x0A0A0A sur un fond
+                 * 0x000000. La tuile était bien dessinée, et illisible.
+                 */
+                .containerBackground(for: .widget) {
+                    WidgetGround().appearance(scheme(entry))
+                }
                 /*
                  * The app's choice, not the phone's.
                  *
