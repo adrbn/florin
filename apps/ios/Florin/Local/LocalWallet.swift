@@ -248,21 +248,30 @@ enum LocalWallet {
      */
     static func recordUpcoming(store: LocalStore, _ tx: NewTransaction) throws {
         /*
-         * Deux fois « Ajouter », une seule dépense.
+         * Ici, « Ajouter » ajoute. Sans filet du même achat écrit deux fois,
+         * et c'est voulu.
          *
-         * Le filet du même achat écrit deux fois était posé sur l'action et
-         * sur le fichier de l'automatisation, pas sur la feuille de saisie —
-         * qui écrit pourtant la même sorte de ligne. Deux envois à dix-sept
-         * secondes d'intervalle ont donc donné deux fois le même sandwich,
-         * dont un seul pouvait être repris par la ligne de la banque :
-         * l'autre est resté « en prévision » pour toujours.
+         * Il y en a eu un, posé là parce que deux envois à dix-sept secondes
+         * d'intervalle avaient donné deux fois le même sandwich. Il demandait
+         * « la même somme chez le même marchand à moins de cinq minutes de la
+         * date dite ». Or la date dite d'une saisie à la main est MIDI, une
+         * constante par jour : la fenêtre valait la journée entière, et un
+         * deuxième passage chez le même marchand au même prix — deux courses
+         * de 1,50 € à l'Atac le même jour — était refusé en silence.
          *
-         * Une échéance n'est pas concernée : les mensualités d'un même achat
-         * sont à un mois l'une de l'autre, très loin de la fenêtre.
+         * Aucune colonne ne distingue le double envoi des deux courses : même
+         * compte, même libellé, même montant, même jour. L'heure d'inscription
+         * les séparerait de dix-sept secondes contre quelques minutes, mais
+         * personne ne retape à la même vitesse qu'il corrige, et la fenêtre
+         * qui sauve l'un refuse l'autre.
+         *
+         * Alors c'est au geste de trancher, pas à une requête : la feuille
+         * refuse déjà le deuxième envoi d'une même présentation (`saving`), et
+         * une ligne en trop se voit et s'efface. Le chemin de Wallet garde son
+         * filet, lui : il inscrit la seconde de la tape, trois chemins mènent à
+         * la même carte présentée une fois, et cinq minutes y sont vraiment
+         * cinq minutes.
          */
-        if alreadyRecorded(
-            store: store, amount: -tx.amount, payee: tx.payee, at: tx.occurredAt
-        ) { return }
         try insertUpcoming(
             store: store, accountId: tx.accountId, occurredAt: tx.occurredAt,
             amount: tx.amount, payee: tx.payee, memo: tx.memo,

@@ -4796,6 +4796,38 @@ struct InstalmentTests {
         ).count == 1)
     }
 
+    /// Deux courses de 1,50 € le même jour sont deux courses : la date dite
+    /// d'une saisie est midi, une constante, et un filet posé dessus refusait
+    /// la seconde quelle que soit l'heure. La tape de Wallet, elle, porte sa
+    /// seconde et garde son filet.
+    @Test("two identical entries the same day both survive, one tap stays one tap")
+    func twoIdenticalEntriesSameDay() throws {
+        let (store, account) = try ledger()
+        for _ in 0..<2 {
+            try LocalWallet.recordUpcoming(store: store, NewTransaction(
+                accountId: account, amount: -1.5, payee: "Atac",
+                occurredAt: "2027-03-10T12:00:00Z", memo: nil, categoryId: nil,
+                upcoming: true
+            ))
+        }
+        #expect(try store.database.scalar(
+            "SELECT count(*) FROM transactions WHERE normalized_payee = 'atac'"
+        )?.int == 2)
+
+        var parts = DateComponents()
+        parts.year = 2027; parts.month = 3; parts.day = 11; parts.hour = 9
+        let tap = try #require(calendar.date(from: parts))
+        for _ in 0..<2 {
+            _ = try LocalWallet.record(
+                store: store, amountText: "4,20", merchant: "Le Comptoir",
+                card: nil, accountId: account, on: tap
+            )
+        }
+        #expect(try store.database.scalar(
+            "SELECT count(*) FROM transactions WHERE normalized_payee = 'le comptoir'"
+        )?.int == 1)
+    }
+
     @Test("the instalments of one purchase share a plan, and nothing else has one")
     func instalmentsShareAPlan() throws {
         let (store, account) = try ledger()
