@@ -19,10 +19,6 @@ import WidgetKit
  * before the month does.
  */
 struct FlorinWidgets: Widget {
-    /// What WidgetKit already gave us. Read so that "follow the phone" can be
-    /// passed straight back rather than replaced by a guess.
-    @Environment(\.colorScheme) private var systemScheme
-
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "FlorinLeftToSpend", provider: Provider()) { entry in
             LeftToSpendView(entry: entry)
@@ -34,9 +30,9 @@ struct FlorinWidgets: Widget {
                  * iOS in light with the app set to dark had a pale tile sitting
                  * under a dark app — the one comparison a home screen makes for
                  * you. The snapshot carries the choice; nil means they asked to
-                 * follow the phone, and then so does this.
+                 * follow the phone, and then nothing is imposed.
                  */
-                .environment(\.colorScheme, scheme(entry) ?? systemScheme)
+                .appearance(scheme(entry))
         }
         // Named for the app rather than for one of its two faces: the tile
         // starts on the patrimoine and turns over on a tap, so a gallery entry
@@ -44,6 +40,28 @@ struct FlorinWidgets: Widget {
         .configurationDisplayName("Florin")
         .description("Votre patrimoine, et d'un toucher ce qu'il vous reste pour le mois.")
         .supportedFamilies([.systemSmall, .systemMedium])
+    }
+}
+
+private extension View {
+    /*
+     * Une apparence imposée, ou aucune — et « aucune » n'est pas une valeur.
+     *
+     * Ce choix passait par `@Environment(\.colorScheme)` lu sur le `Widget`
+     * lui-même, et un `Widget` n'est pas une `View` : la propriété ne reçoit
+     * rien et vaut `.light`. Surtout, la configuration est construite UNE
+     * fois alors que WidgetKit dessine la tuile DEUX fois, une par apparence
+     * — une valeur capturée ne peut pas être juste des deux côtés.
+     *
+     * Le fond de conteneur, lui, suit la vraie apparence. Côté sombre, la
+     * tuile se retrouvait donc avec son fond sombre et l'encre claire :
+     * en Papier comme en Éditorial, du noir pur sur du noir.
+     *
+     * « Suivre le téléphone » se dit en ne disant rien.
+     */
+    @ViewBuilder
+    func appearance(_ chosen: ColorScheme?) -> some View {
+        if let chosen { environment(\.colorScheme, chosen) } else { self }
     }
 }
 
