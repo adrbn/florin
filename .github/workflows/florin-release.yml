@@ -17,11 +17,15 @@ permissions:
 
 jobs:
   build-mac:
-    # Pinned to macos-14 (arm64): macos-latest rolled to a newer image where
-    # electron-builder's bundled dmgbuild/hdiutil fails to detach the DMG volume
-    # (".background/background.tiff" + "hdiutil detach" errors). v1.2.2 built
-    # fine on macos-14; keep it until electron-builder ships a dmgbuild fix.
-    runs-on: macos-14
+    # Was pinned to macos-14 (arm64) because a newer image broke
+    # electron-builder's bundled dmgbuild/hdiutil when detaching the DMG volume
+    # (".background/background.tiff" + "hdiutil detach" errors), and v1.2.2 had
+    # built fine there. GitHub has since retired that image: the 1.3.8 tag got
+    # "The configuration 'macos-14-arm64-us-default' is not supported" and the
+    # job died in 0s, so the release shipped without a DMG at all. A dead pin
+    # protects nothing — if dmgbuild misbehaves here, fix it rather than aim at
+    # an image that no longer exists.
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
         with:
