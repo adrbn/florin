@@ -95,7 +95,23 @@ struct EditorialActivity: View {
                 // ligne pour dire le nom de l'onglet qu'on vient d'ouvrir et
                 // un nombre dont on ne fait rien.
                 narrowing.edEnter()
-                waiting.edEnter()
+                /*
+                 * Les volets d'attente se fondent ligne par ligne.
+                 *
+                 * `edEnter()` était posé sur `waiting`, donc sur les TROIS
+                 * volets d'un bloc. Un `edEnter` n'est à pleine opacité que
+                 * quand la vue qui le porte tient entièrement dans le cadre :
+                 * « 21 en prévision » dépliées font le double de l'écran, le
+                 * bloc n'était donc JAMAIS entier, donc jamais franc. On
+                 * voyait « en prévision », « en plusieurs fois » et « à
+                 * vérifier » à demi transparents ensemble, s'éclaircissant en
+                 * défilant puis s'effaçant nettement avant d'avoir quitté
+                 * l'écran. Même piège que `ScreenSection` et que les groupes
+                 * de comptes : le fondu se prend sur ce qui est plus court que
+                 * le cadre — ici chaque ligne, comme dans `rows(_:)`, et les
+                 * en-têtes de volet se fondent déjà seuls par `EdInk`.
+                 */
+                waiting
 
                 if let first = days.first {
                     // Le haut de la liste sort de la vue comme le reste : il
@@ -555,6 +571,7 @@ struct EditorialActivity: View {
                                     request: $menuRequest,
                                     isLocalLedger: model.isLocalLedger
                                 )
+                                .edEnter()
                         }
                     }
                 }
@@ -576,6 +593,7 @@ struct EditorialActivity: View {
                                 }
                             } label: { planRow(plan) }
                                 .buttonStyle(.edPress)
+                                .edEnter()
                         }
                     }
                 }
@@ -601,6 +619,7 @@ struct EditorialActivity: View {
                                     request: $menuRequest,
                                     isLocalLedger: model.isLocalLedger
                                 )
+                                .edEnter()
                         }
                         EdRule()
                         HStack {
@@ -624,6 +643,7 @@ struct EditorialActivity: View {
                             .buttonStyle(.edPress)
                         }
                         .padding(.top, 14)
+                        .edEnter()
                     }
                 }
             }
