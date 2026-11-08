@@ -531,7 +531,24 @@ final class LocalStore {
                 if old.hasPrefix(MerchantNames.seriesSign)
                     || old.hasPrefix(MerchantNames.planSign) { continue }
                 let fresh = MerchantNames.key(old)
-                guard fresh != old, !fresh.isEmpty else { continue }
+                guard fresh != old else { continue }
+                /*
+                 * Une clé devenue vide s'efface, elle ne se laisse pas là.
+                 *
+                 * `MerchantNames.key` ne fait plus de clé d'un libellé qui ne
+                 * nomme personne (« VIREMENT INSTANTANE CREDIT » → « credit »,
+                 * autrefois). Laissée en table, une telle clé n'est plus
+                 * jamais demandée — mais la règle de troncature de `resolve`
+                 * compare les PRÉFIXES : « credit » resterait à portée du
+                 * premier marchand dont la clé commence par là, et lui
+                 * collerait un nom venu d'ailleurs.
+                 */
+                if fresh.isEmpty {
+                    try database.run(
+                        "DELETE FROM \(table) WHERE match_key = ?", [.text(old)]
+                    )
+                    continue
+                }
                 try database.run(
                     "UPDATE OR REPLACE \(table) SET match_key = ? WHERE match_key = ?",
                     [.text(fresh), .text(old)]

@@ -38,8 +38,33 @@ final class MerchantNames: ObservableObject {
      *   PRELEVEMENT DE TELECOM SA REF : 9876543210…            → telecom sa
      *   VIREMENT INSTANTANE DE PAYPAL 12345678901234567 …      → paypal
      */
+    /*
+     * Et un libellé qui ne nomme personne n'a PAS de clé.
+     *
+     * « VIREMENT INSTANTANE CREDIT » est ce que la banque écrit pour tout
+     * virement reçu : le rail, le mode, le sens. Personne dedans. Le rognage
+     * en tirait pourtant « credit », donc une clé de marchand comme une
+     * autre — et renommer un seul de ces virements renommait TOUS les
+     * virements reçus, puisqu'ils portent le même libellé au mot près. Un
+     * remboursement entre amis, un retour de Revolut et un versement d'un
+     * client finissaient sous le même nom, celui du dernier renommé. Le nom
+     * faux ne se voit pas : il a l'air d'un nom.
+     *
+     * Rendue vide, la clé ne peut plus ni se lire (`resolve` rend nil) ni
+     * s'écrire (`rename` refuse) : ces lignes gardent le libellé de la
+     * banque, et se renomment UNE PAR UNE par la feuille de modification.
+     * C'est la vérité de la donnée : rien dans ces libellés ne distingue un
+     * virement d'un autre.
+     *
+     * Les mots de rail sont ceux que `LocalLedger.boilerplate` connaît déjà
+     * pour comparer deux libellés — une seule liste, un seul endroit à tenir.
+     */
     static func key(_ payee: String) -> String {
-        fold(merchantWords(payee))
+        let folded = fold(merchantWords(payee))
+        let named = folded.split(separator: " ").contains {
+            !LocalLedger.boilerplate.contains($0)
+        }
+        return named ? folded : ""
     }
 
     /*

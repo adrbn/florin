@@ -1610,6 +1610,26 @@ struct MerchantNameTests {
         ) == "paypal")
     }
 
+    /// Un libellé qui ne nomme personne n'a pas de clé : sans ça, renommer un
+    /// virement reçu renommait TOUS les virements reçus, qui portent le même
+    /// libellé au mot près.
+    @Test("a label that names nobody has no key", arguments: [
+        "VIREMENT INSTANTANE CREDIT",
+        "VIREMENT CREDIT",
+        "PRELEVEMENT SEPA",
+        "REMBOURSEMENT RECU",
+    ])
+    func railOnly(_ payee: String) {
+        #expect(MerchantNames.key(payee).isEmpty)
+    }
+
+    /// Et un mot de rail dans le nom n'enlève pas le nom.
+    @Test("one rail word beside a real name keeps the key")
+    func railBesideName() {
+        #expect(MerchantNames.key("VIREMENT INSTANTANE DE CREDIT MUTUEL") == "credit mutuel")
+        #expect(MerchantNames.key("PRELEVEMENT DE ASSURANCE CREDIT") == "assurance credit")
+    }
+
     /*
      * Ce que le registre du commerce ajoute au nom n'est pas le nom.
      *

@@ -1058,7 +1058,10 @@ enum LocalLedger {
         return !left.isDisjoint(with: right)
     }
 
-    private static let boilerplate: Set<Substring> = [
+    /// Les mots que le rail bancaire écrit et qui ne nomment personne. Lue
+    /// aussi par `MerchantNames.key`, qui refuse de faire une clé de marchand
+    /// d'un libellé qui n'en contient que — voir son commentaire.
+    static let boilerplate: Set<Substring> = [
         "achat", "carte", "numero", "prelevement", "prel", "virement", "instantane",
         "credit", "debit", "sepa", "retrait", "avoir", "remboursement", "recu", "emis",
         "from", "vers", "faveur", "paiement", "europeen", "permanent",

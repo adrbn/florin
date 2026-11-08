@@ -144,7 +144,7 @@ struct TransactionDetailSheet: View {
                  * dit qu'on peut.
                  */
                 ToolbarItem(placement: .principal) {
-                    Button { naming = true } label: {
+                    Button { nameMerchant() } label: {
                         HStack(spacing: 6) {
                             Text(PayeeText.title(tx.payee, category: tx.categoryName, plan: tx.instalmentPlanId))
                                 .font(.system(size: 16, weight: .semibold))
@@ -565,6 +565,20 @@ struct TransactionDetailSheet: View {
             : t("v2.detail.merchant", "Commerçant")
     }
 
+    /*
+     * Renommer le marchand quand il y a un marchand, sinon cette ligne-là.
+     *
+     * « VIREMENT INSTANTANE CREDIT » ne nomme personne, donc n'a pas de clé
+     * (voir `MerchantNames.key`) : la feuille de renommage s'y ouvrait et
+     * repartait sans rien écrire, `rename` refusant une clé vide. Un geste
+     * qui a l'air d'avoir marché et qui n'a rien fait. Le crayon ouvre alors
+     * la modification de l'opération, qui est le seul endroit où ce libellé
+     * peut effectivement changer — et ne change que lui.
+     */
+    private func nameMerchant() {
+        if MerchantNames.key(tx.payee).isEmpty { editing = true } else { naming = true }
+    }
+
     /// Les faits, dans la carte de rangées de l'ajout — bénéficiaire, compte,
     /// catégorie, note — et dans le même ordre, pour que passer de la lecture
     /// à la modification ne déplace rien sous le pouce.
@@ -573,7 +587,7 @@ struct TransactionDetailSheet: View {
             edFact(
                 symbol: "person.crop.circle", label: payeeLabel,
                 value: PayeeText.title(tx.payee, category: tx.categoryName, plan: tx.instalmentPlanId),
-                tap: { naming = true }
+                tap: { nameMerchant() }
             )
             Hairline()
             edFact(
