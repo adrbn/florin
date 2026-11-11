@@ -75,8 +75,21 @@ private struct ToastOverlay: ViewModifier {
 
     @State private var dragOffset: CGFloat = 0
 
+    /*
+     * En bas, au-dessus de la capsule, et plus par-dessus le titre.
+     *
+     * Elle descendait de sous la barre d'état : sur l'accueil elle se posait
+     * exactement sur « Bon après-midi », c'est-à-dire sur la première chose
+     * qu'on lit en ouvrant l'app. Aucun décalage ne marchait pour les cinq
+     * onglets à la fois — ils n'ont pas le même titre, et le salut fait deux
+     * lignes.
+     *
+     * En bas, elle ne couvre un titre nulle part, elle est à portée du pouce
+     * qui la chasse, et elle se glisse entre le contenu et la capsule de
+     * navigation. Le glissement vers le bas la renvoie.
+     */
     func body(content: Content) -> some View {
-        content.overlay(alignment: .top) {
+        content.overlay(alignment: .bottom) {
             if let message {
                 HStack(spacing: 9) {
                     Image(systemName: message.kind.symbol)
@@ -91,7 +104,9 @@ private struct ToastOverlay: ViewModifier {
                 .padding(.vertical, 11)
                 .florinGlass(in: Capsule())
                 .padding(.horizontal, 24)
-                .offset(y: min(0, dragOffset))
+                // Au-dessus de la capsule de navigation, pas derrière.
+                .padding(.bottom, 96)
+                .offset(y: max(0, dragOffset))
                 /*
                  * Coordonnées GLOBALES, et c'est tout le correctif.
                  *
@@ -107,7 +122,7 @@ private struct ToastOverlay: ViewModifier {
                     DragGesture(coordinateSpace: .global)
                         .onChanged { dragOffset = $0.translation.height }
                         .onEnded { drag in
-                            if drag.translation.height < -12 {
+                            if drag.translation.height > 12 {
                                 withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) {
                                     self.message = nil
                                 }
@@ -115,7 +130,7 @@ private struct ToastOverlay: ViewModifier {
                             dragOffset = 0
                         }
                 )
-                .transition(.move(edge: .top).combined(with: .opacity))
+                .transition(.move(edge: .bottom).combined(with: .opacity))
                 .accessibilityAddTraits(.isStaticText)
                 .task(id: message.id) {
                     try? await Task.sleep(for: .seconds(duration))

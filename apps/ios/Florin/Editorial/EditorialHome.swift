@@ -24,6 +24,8 @@ struct EditorialHome: View {
     @ObservedObject var model: OverviewModel
     let onOpenSettings: () -> Void
     let onOpenAccounts: () -> Void
+    /// Emmène à Activité, déjà filtré sur « À vérifier ».
+    let onOpenReview: () -> Void
     @ObservedObject var chrome: ChromeState
 
     /// Quelles cartes, dans quel ordre, de quelle couleur. Voir
@@ -184,6 +186,8 @@ struct EditorialHome: View {
                     // cartes au fil du défilement (voir `lift`), et un bloc
                     // qui apparaît en fondu cache le mouvement qu'il fait.
                     .padding(.bottom, 44)
+
+                    review(data)
 
                     EdMonthSplit(data: data)
                         .edEnter()
@@ -347,6 +351,90 @@ struct EditorialHome: View {
             .padding(.trailing, -10)
         }
         .padding(.top, 18)
+    }
+
+    // MARK: Ce que la banque vient de passer
+
+    /*
+     * Les opérations fraîchement détectées, sur l'accueil.
+     *
+     * Rien ne les y montrait : une pilule le disait deux secondes et demie
+     * après une synchro, puis plus rien — il fallait savoir qu'elles
+     * attendaient dans un autre onglet. L'ancien accueil avait sa section ;
+     * celui-ci ne l'avait jamais eue.
+     *
+     * Cinq au plus, et la section entière emmène à la liste complète : ce
+     * n'est pas un deuxième écran d'Activité, c'est un appel. Les lignes ne
+     * s'ouvrent pas ici — on les classe là où on les classe, et une fiche
+     * ouverte depuis l'accueil aurait demandé tout le gréement d'Activité
+     * pour le seul plaisir de l'avoir en double.
+     */
+    @ViewBuilder
+    private func review(_ data: Overview) -> some View {
+        let waiting = data.recent.filter(\.needsReview)
+        if !waiting.isEmpty {
+            Button(action: onOpenReview) {
+                VStack(alignment: .leading, spacing: 0) {
+                    EdSection(
+                        text: t(
+                            "v2.review.toCheckCount", "{count} à vérifier",
+                            // Le compte du registre, pas celui de la page :
+                            // l'accueil n'en porte que les cinq premières.
+                            ["count": max(data.reviewCount, waiting.count)]
+                        ),
+                        trailing: "›"
+                    )
+                    .padding(.bottom, 10)
+                    RowGroup {
+                        ForEach(Array(waiting.prefix(5).enumerated()), id: \.element.id) { index, tx in
+                            if index > 0 { EdRule() }
+                            reviewRow(tx, data)
+                        }
+                    }
+                }
+            }
+            .buttonStyle(.edPress)
+            .edEnter()
+            .padding(.bottom, 44)
+        }
+    }
+
+    private func reviewRow(_ tx: Transaction, _ data: Overview) -> some View {
+        let face = tx.isTransfer ? nil : MerchantLogos.shared.face(
+            for: tx.payee, plan: tx.instalmentPlanId
+        )
+        return HStack(spacing: 12) {
+            Bubble(
+                label: tx.categoryName ?? tx.payee,
+                name: tx.payee,
+                chosen: face?.emoji,
+                emoji: tx.categoryEmoji,
+                size: 38,
+                logo: face?.logo
+            )
+            VStack(alignment: .leading, spacing: 2) {
+                Text(PayeeText.title(tx.payee, category: tx.categoryName, plan: tx.instalmentPlanId))
+                    .font(.system(size: 17, weight: .medium))
+                    .foregroundStyle(Florin.text)
+                    .lineLimit(1)
+                Text(DayLabel.string(tx.day, locale: data.localeTag, t: t))
+                    .font(.system(size: 13))
+                    // L'accent : c'est la seule chose de l'accueil qui demande
+                    // quelque chose.
+                    .foregroundStyle(Florin.accent)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 8)
+            EdAmountPill(
+                text: Money.string(
+                    tx.amount, locale: data.localeTag, currency: data.currency, signed: true
+                ),
+                tone: tx.amount < 0 ? EdMoney.minus : EdMoney.plus
+            )
+        }
+        .frame(minHeight: 62)
+        .padding(.horizontal, 16)
+        .contentShape(Rectangle())
     }
 
     // MARK: Le patrimoine

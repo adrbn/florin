@@ -729,6 +729,9 @@ struct MainTabs: View {
                             model: model,
                             onOpenSettings: openSettings,
                             onOpenAccounts: { route(to: .accounts, path: TabRoute.accounts.rootPath) },
+                            onOpenReview: {
+                                route(to: .activity, path: TabRoute.activity.rootPath + "?needsReview")
+                            },
                             chrome: chrome
                         )
                     } else {
