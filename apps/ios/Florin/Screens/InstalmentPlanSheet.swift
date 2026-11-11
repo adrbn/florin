@@ -455,6 +455,16 @@ struct InstalmentPlanSheet: View {
             EdPill(text: t("v2.instalments.planTitle", "Paiement en plusieurs fois"))
             Spacer(minLength: 8)
         }
+        /*
+         * La hauteur du bandeau, pas seulement sa marge.
+         *
+         * Le bandeau d'une opération porte un bouton d'icône à droite : sa
+         * rangée fait 34 pt et la pastille s'y centre. Ici, une pastille
+         * seule donnait une rangée de 26 — le même `padding(.top, 8)` collait
+         * donc le titre sous la poignée, alors que l'autre feuille respirait.
+         * Ce n'était pas la marge qui différait, c'était ce qu'elle entourait.
+         */
+        .frame(height: 34)
         .environment(\.edEnterApplied, true)
         .padding(.horizontal, Ed.gutter)
         .padding(.top, 8)
@@ -716,6 +726,7 @@ struct InstalmentPlanSheet: View {
         height += 22 + 62
         height += 28 + 16
         if railCategory != nil { height += 14 + 64 }
+        height += 8  // le bandeau tient 34 pt, pas 26
         return min(height, 780)
     }
 

@@ -23,6 +23,7 @@ struct EditorialActivity: View {
     @State private var upcomingOpen = false
     @State private var instalmentsOpen = false
     @State private var reviewOpen = false
+    @State private var pastPlansOpen = false
     @State private var searching = false
     /// L'échéancier dont on regarde le détail — comme sur Obsidienne.
     @State private var openPlan: LocalInstalments.Schedule?
@@ -79,6 +80,8 @@ struct EditorialActivity: View {
      * paraissait posée de travers selon ce qui l'avait ouverte — alors que
      * c'est le même geste et le même écran qui recule.
      */
+    @Environment(\.colorScheme) private var scheme
+
     private var veiled: Bool { detail != nil || openPlan != nil || filtering }
 
     /*
@@ -97,9 +100,24 @@ struct EditorialActivity: View {
      * un jour par dizaines, c'est à l'onglet Analyse de les reprendre, pas à
      * ce pli de les empiler.
      */
+    /*
+     * En cours d'abord, soldés derrière une porte.
+     *
+     * Ils étaient tous dans la même liste, soldés en fin : le pli annonçait
+     * « 6 paiements en plusieurs fois » là où il en restait deux à payer, et
+     * son total ne parlait que de ces deux-là. Le compte et la somme ne
+     * répondaient plus à la même question.
+     *
+     * Le pli compte donc ce qui reste à payer. Les soldés ne disparaissent
+     * pas — c'est ce qu'on avait corrigé — ils attendent derrière une ligne
+     * qui les nomme et qui les ouvre.
+     */
     private var schedules: [LocalInstalments.Schedule] {
-        let shown = model.schedules.filter { $0.matches(model.filter) }
-        return shown.filter { !$0.isOver } + shown.filter(\.isOver)
+        model.schedules.filter { $0.matches(model.filter) && !$0.isOver }
+    }
+
+    private var pastPlans: [LocalInstalments.Schedule] {
+        model.schedules.filter { $0.matches(model.filter) && $0.isOver }
     }
 
     /*
@@ -192,12 +210,21 @@ struct EditorialActivity: View {
          * remplaçable : c'est donc l'écran DESSOUS qu'on floute. Le contenu
          * de la feuille vit hors de cette hiérarchie, il reste net.
          */
-        .blur(radius: veiled ? 7 : 0)
-        // C'est le voile du système qui assombrit, et il n'est pas
-        // débrayable : un blanc par-dessus le flou le compense, pour un
-        // dépoli plutôt qu'une pièce éteinte.
+        .blur(radius: veiled ? (scheme == .dark ? 7 : 10) : 0)
+        /*
+         * Le blanc de compensation ne vaut qu'en sombre.
+         *
+         * Il était là pour relever le voile du système, qui n'est pas
+         * débrayable : sur une page sombre, un dépoli plutôt qu'une pièce
+         * éteinte. Posé sur une page CLAIRE, il ajoute du blanc à du blanc —
+         * le dépoli disparaît, et la feuille a l'air collée sur rien.
+         *
+         * En clair on laisse donc le voile assombrir, et on floute un peu
+         * plus : c'est l'écart avec la feuille, pas le flou en soi, qui dit
+         * qu'il y a une page derrière.
+         */
         .overlay(
-            Color.white.opacity(veiled ? 0.16 : 0)
+            Color.white.opacity(veiled && scheme == .dark ? 0.16 : 0)
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
         )
@@ -613,11 +640,16 @@ struct EditorialActivity: View {
                         }
                     }
                 }
-                if !schedules.isEmpty {
+                if !schedules.isEmpty || !pastPlans.isEmpty {
                     fold(
-                        title: t("v2.activity.instalmentPlanCount",
-                                 "{count} en plusieurs fois",
-                                 ["count": schedules.count]),
+                        // Le pli compte ce qui reste à payer. S'il ne reste
+                        // rien, il compte ce qu'il garde — sinon « 0 ».
+                        title: schedules.isEmpty
+                            ? t("v2.instalments.pastCount", "{count} terminés",
+                                ["count": pastPlans.count])
+                            : t("v2.activity.instalmentPlanCount",
+                                "{count} en plusieurs fois",
+                                ["count": schedules.count]),
                         total: -schedules.reduce(0) { $0 + $1.remaining },
                         open: $instalmentsOpen,
                         inverse: true
@@ -632,6 +664,40 @@ struct EditorialActivity: View {
                             } label: { planRow(plan) }
                                 .buttonStyle(.edPress)
                                 .edEnter()
+                        }
+                        if !pastPlans.isEmpty {
+                            if !schedules.isEmpty { EdRule() }
+                            Button {
+                                withAnimation(EdMotion.spring) { pastPlansOpen.toggle() }
+                            } label: {
+                                HStack(spacing: 7) {
+                                    Text(t("v2.instalments.pastCount", "{count} terminés",
+                                           ["count": pastPlans.count]))
+                                        .font(.system(size: 13.5, weight: .medium))
+                                        .foregroundStyle(Florin.text2)
+                                    Image(systemName: "chevron.down")
+                                        .font(.system(size: 10, weight: .semibold))
+                                        .foregroundStyle(Florin.text3)
+                                        .rotationEffect(.degrees(pastPlansOpen ? 180 : 0))
+                                    Spacer(minLength: 0)
+                                }
+                                .padding(.horizontal, Ed.gutter)
+                                .padding(.vertical, 12)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.edPress)
+                            if pastPlansOpen {
+                                ForEach(pastPlans) { plan in
+                                    EdRule()
+                                    Button {
+                                        edOpen {
+                                            UISelectionFeedbackGenerator().selectionChanged()
+                                            openPlan = plan
+                                        }
+                                    } label: { planRow(plan) }
+                                        .buttonStyle(.edPress)
+                                }
+                            }
                         }
                     }
                 }

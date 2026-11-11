@@ -912,7 +912,7 @@ struct TransactionList<Banner: View>: View {
                                 title: t(
                                     "v2.activity.instalmentPlanCount",
                                     "{count} en plusieurs fois",
-                                    ["count": schedules.count]
+                                    ["count": livePlanCount]
                                 ),
                                 total: -schedules.reduce(0) { $0 + $1.remaining },
                                 locale: locale, currency: currency,
@@ -945,7 +945,7 @@ struct TransactionList<Banner: View>: View {
                                 caption: t(
                                     "v2.activity.instalmentPlanCount",
                                     "{count} paiements en plusieurs fois",
-                                    ["count": schedules.count]
+                                    ["count": livePlanCount]
                                 ),
                                 expanded: $instalmentsExpanded
                             ) { plan in
@@ -1311,6 +1311,14 @@ struct TransactionList<Banner: View>: View {
     private var schedules: [LocalInstalments.Schedule] {
         let shown = model.schedules.filter { $0.matches(model.filter) }
         return shown.filter { !$0.isOver } + shown.filter(\.isOver)
+    }
+
+    /// Ce que le pli annonce : ce qui reste à payer, puisque c'est de cela
+    /// que parle son total. Tout soldé, il compte ce qu'il garde plutôt que
+    /// d'annoncer zéro au-dessus de lignes bien présentes.
+    private var livePlanCount: Int {
+        let live = schedules.filter { !$0.isOver }.count
+        return live > 0 ? live : schedules.count
     }
 
     private var days: [Day] {

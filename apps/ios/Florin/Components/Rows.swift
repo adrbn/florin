@@ -77,7 +77,17 @@ struct Bubble: View {
      * on white, at the size it can bear.
      */
     private func logoFace(_ logo: UIImage) -> some View {
-        let shape = RoundedRectangle(cornerRadius: size * 0.33, style: .continuous)
+        /*
+         * Le logo prend la forme de la pastille, pas la sienne.
+         *
+         * Il était toujours découpé en carré arrondi — y compris en éditorial,
+         * où la pastille vide est un CERCLE et où l'anneau d'un achat étalé en
+         * est un aussi. Une ligne sur deux portait donc un carré, la suivante
+         * un rond, et l'anneau cerclait un carré.
+         */
+        let shape: AnyShape = flat
+            ? AnyShape(Circle())
+            : AnyShape(RoundedRectangle(cornerRadius: size * 0.33, style: .continuous))
         let full = LogoFetcher.pixels(logo) >= LogoFetcher.crisp
         return Image(uiImage: logo)
             .resizable()
