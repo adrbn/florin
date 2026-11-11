@@ -68,6 +68,16 @@ struct EditorialActivity: View {
      * achats. On se souvient de l'achat, pas de sa troisième mensualité —
      * c'est le raisonnement d'Obsidienne, et c'est le même modèle qui sert.
      */
+    /*
+     * Le dépoli vaut pour TOUTE feuille, pas pour une seule.
+     *
+     * Il était conditionné à la fiche d'une opération. Un échéancier et le
+     * filtre s'ouvraient donc sur une liste restée nette, et la même feuille
+     * paraissait posée de travers selon ce qui l'avait ouverte — alors que
+     * c'est le même geste et le même écran qui recule.
+     */
+    private var veiled: Bool { detail != nil || openPlan != nil || filtering }
+
     private var schedules: [LocalInstalments.Schedule] {
         model.schedules.filter { !$0.isOver && $0.matches(model.filter) }
     }
@@ -162,16 +172,16 @@ struct EditorialActivity: View {
          * remplaçable : c'est donc l'écran DESSOUS qu'on floute. Le contenu
          * de la feuille vit hors de cette hiérarchie, il reste net.
          */
-        .blur(radius: detail != nil ? 7 : 0)
+        .blur(radius: veiled ? 7 : 0)
         // C'est le voile du système qui assombrit, et il n'est pas
         // débrayable : un blanc par-dessus le flou le compense, pour un
         // dépoli plutôt qu'une pièce éteinte.
         .overlay(
-            Color.white.opacity(detail != nil ? 0.16 : 0)
+            Color.white.opacity(veiled ? 0.16 : 0)
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
         )
-        .animation(.easeOut(duration: 0.28), value: detail != nil)
+        .animation(.easeOut(duration: 0.28), value: veiled)
         .sheet(item: $detail) { tx in
             TransactionDetailSheet(
                 tx: tx,
