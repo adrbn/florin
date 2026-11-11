@@ -191,6 +191,18 @@ struct EditorialActivity: View {
         ) { note in
             guard note.object as? TabRoute == .activity else { return }
             closeSearch()
+            /*
+             * Retaper l'onglet rend l'écran NEUF, pas seulement son haut.
+             *
+             * Il remontait et fermait la recherche, mais laissait les filtres
+             * posés : on retombait en haut d'une liste amputée, sans rien à
+             * l'écran pour dire pourquoi. Un filtre est un état invisible une
+             * fois le volet refermé — le geste qui remet l'écran à zéro doit
+             * l'emporter avec le reste.
+             */
+            guard model.filter != TxFilter() else { return }
+            model.filter = TxFilter()
+            Task { await model.reload() }
         }
         .scrollIndicators(.hidden)
         .edPlainEdges()

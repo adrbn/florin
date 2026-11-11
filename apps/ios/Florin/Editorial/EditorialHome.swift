@@ -105,6 +105,22 @@ struct EditorialHome: View {
                     VStack(alignment: .leading, spacing: 0) {
                         header
                         .id(edTopAnchor)
+                        /*
+                         * Ce qui attend une réponse se voit SANS descendre.
+                         *
+                         * Posé plus bas, il n'existait que pour qui défilait —
+                         * or c'est la seule chose de l'accueil qui demande
+                         * quelque chose, et une demande qu'il faut aller
+                         * chercher n'est pas une demande.
+                         *
+                         * Deux lignes, pas cinq : la place qu'il prend, il la
+                         * prend à la pile de cartes, qui absorbe le reste.
+                         * Le compte dit combien il y en a vraiment, et la
+                         * section entière s'ouvre sur l'Activité filtrée.
+                         * Rien à vérifier, rien ne s'affiche — et l'accueil
+                         * est exactement celui d'avant.
+                         */
+                        review(data)
                         // Chaque bloc du premier écran sort de la vue pour son
                         // propre compte : le chiffre, la courbe et la ligne des
                         // comptes ne partent pas d'un seul tenant.
@@ -186,8 +202,6 @@ struct EditorialHome: View {
                     // cartes au fil du défilement (voir `lift`), et un bloc
                     // qui apparaît en fondu cache le mouvement qu'il fait.
                     .padding(.bottom, 44)
-
-                    review(data)
 
                     EdMonthSplit(data: data)
                         .edEnter()
@@ -379,14 +393,14 @@ struct EditorialHome: View {
                         text: t(
                             "v2.review.toCheckCount", "{count} à vérifier",
                             // Le compte du registre, pas celui de la page :
-                            // l'accueil n'en porte que les cinq premières.
+                            // l'accueil n'en porte que les deux premières.
                             ["count": max(data.reviewCount, waiting.count)]
                         ),
                         trailing: "›"
                     )
                     .padding(.bottom, 10)
                     RowGroup {
-                        ForEach(Array(waiting.prefix(5).enumerated()), id: \.element.id) { index, tx in
+                        ForEach(Array(waiting.prefix(2).enumerated()), id: \.element.id) { index, tx in
                             if index > 0 { EdRule() }
                             reviewRow(tx, data)
                         }
@@ -395,7 +409,7 @@ struct EditorialHome: View {
             }
             .buttonStyle(.edPress)
             .edEnter()
-            .padding(.bottom, 44)
+            .padding(.bottom, 20)
         }
     }
 
