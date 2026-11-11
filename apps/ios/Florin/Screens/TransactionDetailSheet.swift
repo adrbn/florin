@@ -448,7 +448,8 @@ struct TransactionDetailSheet: View {
         }
         height += 18 + 68                              // la rangée de trois
         height += 10 + 62                              // l'action principale
-        if reimbursementRow { height += 18 + 34 }      // la note de remboursement
+        // la note de remboursement, ou la proposition d'en attendre un
+        if reimbursementRow || canExpectRefund { height += 18 + 34 }
         height += 28 + 16                              // marge basse et poignée
         return min(height, 760)
     }
@@ -690,12 +691,61 @@ struct TransactionDetailSheet: View {
             .disabled(!tappable)
             .padding(.horizontal, Ed.gutter)
             .padding(.top, 18)
+        } else if canExpectRefund {
+            /*
+             * Le geste était invisible.
+             *
+             * « Attendre un remboursement » n'existait que dans le menu d'appui
+             * long sur la ligne — un geste que rien n'annonce. Or c'est la
+             * fiche qu'on ouvre quand on vient de se faire rembourser, et on y
+             * cherchait « Lier », qui n'a de sens que de l'autre côté : une
+             * rentrée désigne sa dépense, une dépense n'a encore rien à
+             * désigner.
+             *
+             * Même rangée, donc, même flèche : ce que la fiche RÉCITE une fois
+             * l'attente posée, elle le PROPOSE tant qu'il n'y en a pas.
+             */
+            Button { expectRefund() } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "arrow.uturn.left")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Florin.text3)
+                    Text(t("v2.refund.add", "Attendre un remboursement"))
+                        .font(.system(size: 12.5, weight: .medium))
+                        .foregroundStyle(Florin.accent)
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, Ed.gutter)
+            .padding(.top, 18)
         }
     }
 
     private var reimbursementRow: Bool {
         guard !tx.isTransfer, !tx.isMovementOnly else { return false }
         return tx.amount > 0 ? true : !reimbursedBy.isEmpty
+    }
+
+    /// Une dépense du grand livre de l'appareil dont on n'attend encore rien.
+    /// Une ligne annoncée n'a pas eu lieu : il n'y a rien à se faire rendre.
+    private var canExpectRefund: Bool {
+        isLocalLedger && tx.amount < 0 && !tx.isTransfer && !tx.isMovementOnly
+            && !tx.isScheduled && reimbursedBy.isEmpty
+    }
+
+    /// La même écriture que le menu d'appui long — voir `LocalWallet.recordRefund`.
+    private func expectRefund() {
+        guard let store = LocalStore.shared else { return }
+        do {
+            try LocalWallet.recordRefund(store: store, of: tx)
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            LedgerStamp.touch()
+            readLinks()
+        } catch {
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
+        }
     }
 
     /*

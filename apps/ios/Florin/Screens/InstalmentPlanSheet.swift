@@ -49,9 +49,12 @@ struct InstalmentPlanRow: View {
             }
             Spacer(minLength: 8)
             VStack(alignment: .trailing, spacing: 6) {
+                // Soldé, « 0,00 € » ne dit rien : ce qu'on relit alors, c'est
+                // ce que l'achat a coûté en tout.
                 AmountText(
-                    value: plan.remaining, locale: locale, currency: currency,
-                    tone: .neutral
+                    value: plan.isOver ? plan.total : plan.remaining,
+                    locale: locale, currency: currency,
+                    tone: plan.isOver ? .muted : .neutral
                 )
                 InstalmentProgress(count: plan.count, paid: plan.paidCount)
             }
@@ -152,6 +155,9 @@ struct InstalmentPlanSheet: View {
     let locale: String
     let currency: String
     let t: Strings
+    /// Une échéance prélevée a été touchée. L'appelant ferme cette feuille
+    /// puis ouvre la fiche : voir `openTapped`.
+    var onOpen: ((Transaction) -> Void)?
     /// Appelé quand l'échéancier vient d'être oublié : la page dessous ne
     /// sait pas toute seule qu'elle a une ligne de moins.
     var onForget: (() -> Void)?
@@ -164,6 +170,26 @@ struct InstalmentPlanSheet: View {
     private var title: String { PayeeText.title(plan.payee, category: plan.categoryName, plan: plan.id) }
 
     private var editorial: Bool { FlorinPalette.selected == .editorial }
+
+    /*
+     * Une échéance prélevée EST une opération, et s'ouvre.
+     *
+     * Elle porte le même identifiant que la ligne de la banque ; il n'y a donc
+     * rien à retrouver. Ce qui manquait n'était pas la donnée mais le geste :
+     * une ligne « Prélevée » était un cul-de-sac là où tout le reste s'ouvre.
+     *
+     * Deux feuilles dans la même image, SwiftUI en escamote une : on ferme
+     * d'abord, et c'est l'appelant qui ouvre la fiche une fois celle-ci
+     * refermée. Une échéance « Prévu » reste fermée — c'est une prévision,
+     * pas une opération, et sa fiche parlerait d'autre chose.
+     */
+    private func openTapped(_ tx: Transaction) {
+        guard !tx.isScheduled, let onOpen else { return }
+        dismiss()
+        onOpen(tx)
+    }
+
+    private func opens(_ tx: Transaction) -> Bool { !tx.isScheduled && onOpen != nil }
 
     var body: some View {
         Group {
@@ -385,7 +411,12 @@ struct InstalmentPlanSheet: View {
             RowGroup {
                 ForEach(Array(plan.instalments.enumerated()), id: \.element.id) { index, tx in
                     if index > 0 { Hairline() }
-                    edStep(tx, rank: index + 1)
+                    if opens(tx) {
+                        Button { openTapped(tx) } label: { edStep(tx, rank: index + 1) }
+                            .buttonStyle(.plain)
+                    } else {
+                        edStep(tx, rank: index + 1)
+                    }
                 }
             }
             .padding(.horizontal, Ed.gutter)
@@ -427,9 +458,15 @@ struct InstalmentPlanSheet: View {
                 ),
                 tone: tx.isScheduled ? EdMoney.minus : Florin.text3
             )
+            if opens(tx) {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Florin.text3)
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 11)
+        .contentShape(.rect)
     }
 
     private var edPrimary: some View {
@@ -646,19 +683,14 @@ struct InstalmentPlanSheet: View {
         VStack(alignment: .leading, spacing: 10) {
             Eyebrow(text: t("v2.instalments.schedule", "Échéances"))
             RowGroup {
-                /*
-                 * Lues, pas ouvertes.
-                 *
-                 * Une échéance est une opération du grand livre et se modifie
-                 * là où on modifie une opération — dans la liste, par sa
-                 * fiche. Lui donner un chevron ici obligerait à refermer cette
-                 * sheet pour en ouvrir une autre dans la même image, ce que
-                 * SwiftUI escamote une fois sur deux ; et l'échéancier est
-                 * fait pour être relu, pas retouché.
-                 */
                 ForEach(Array(plan.instalments.enumerated()), id: \.element.id) { index, tx in
                     if index > 0 { Hairline() }
-                    step(tx, rank: index + 1)
+                    if opens(tx) {
+                        Button { openTapped(tx) } label: { step(tx, rank: index + 1) }
+                            .buttonStyle(.plain)
+                    } else {
+                        step(tx, rank: index + 1)
+                    }
                 }
             }
         }
@@ -689,9 +721,15 @@ struct InstalmentPlanSheet: View {
                 value: abs(tx.amount), locale: locale, currency: currency,
                 tone: tx.isScheduled ? .neutral : .muted
             )
+            if opens(tx) {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Florin.text3)
+            }
         }
         .padding(.horizontal, Florin.gutter)
         .padding(.vertical, 12)
+        .contentShape(.rect)
         .background(isNext ? Florin.accent.opacity(0.07) : .clear)
     }
 }

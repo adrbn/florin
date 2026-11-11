@@ -26,6 +26,9 @@ struct EditorialActivity: View {
     @State private var searching = false
     /// L'échéancier dont on regarde le détail — comme sur Obsidienne.
     @State private var openPlan: LocalInstalments.Schedule?
+    /// L'échéance qu'on vient de toucher, ouverte une fois l'échéancier
+    /// refermé — deux feuilles à la fois, SwiftUI en escamote une.
+    @State private var stepAfterPlan: Transaction?
     /*
      * Ce qu'un appui long sur une ligne a demandé — voir `TransactionMenu`.
      *
@@ -78,8 +81,25 @@ struct EditorialActivity: View {
      */
     private var veiled: Bool { detail != nil || openPlan != nil || filtering }
 
+    /*
+     * Les soldés aussi, en queue de liste.
+     *
+     * Un achat fini sortait des deux listes d'un coup : avec lui partaient ce
+     * qu'il a coûté, ses frais et son taux annuel — le seul chiffre que ce
+     * module calcule, et qu'on ne vient relire qu'une fois l'achat derrière
+     * soi. Il ne réclame plus rien, donc il ne monte pas : il attend sous
+     * ceux qui courent, dans l'ordre où ils arrivent.
+     *
+     * Le compte du pli est celui des lignes qu'il contient : un en-tête qui
+     * annonce trois et en déplie cinq se lit comme une erreur.
+     *
+     * ponytail: tous les soldés, sans borne d'ancienneté. S'ils se comptent
+     * un jour par dizaines, c'est à l'onglet Analyse de les reprendre, pas à
+     * ce pli de les empiler.
+     */
     private var schedules: [LocalInstalments.Schedule] {
-        model.schedules.filter { !$0.isOver && $0.matches(model.filter) }
+        let shown = model.schedules.filter { $0.matches(model.filter) }
+        return shown.filter { !$0.isOver } + shown.filter(\.isOver)
     }
 
     /*
@@ -206,9 +226,15 @@ struct EditorialActivity: View {
             )
             .edSheet()
         }
-        .sheet(item: $openPlan) { plan in
+        .sheet(item: $openPlan, onDismiss: {
+            if let step = stepAfterPlan {
+                stepAfterPlan = nil
+                detail = step
+            }
+        }) { plan in
             InstalmentPlanSheet(
-                plan: plan, locale: locale, currency: currency, t: t
+                plan: plan, locale: locale, currency: currency, t: t,
+                onOpen: { stepAfterPlan = $0 }
             ) {
                 Task {
                     await model.reload()
