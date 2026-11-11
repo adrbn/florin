@@ -384,71 +384,40 @@ struct EditorialHome: View {
      * pour le seul plaisir de l'avoir en double.
      */
     @ViewBuilder
+    /*
+     * Une pastille, pas une carte.
+     *
+     * Le bloc posé ici était un encadré de lignes avec vignettes et montants :
+     * le premier écran n'a AUCUNE carte avant la pile des comptes, et il
+     * tenait par le type seul — un salut, un chiffre, une courbe, une
+     * pastille « Comptes · 5 › ». Un encadré glissé entre le salut et le
+     * chiffre parlait une autre langue que l'écran qui l'accueille, et il
+     * prenait cent cinquante points à la pile pour dire ce qu'une ligne dit.
+     *
+     * L'accueil ÉNONCE, l'Activité détaille. Ce qui attend une réponse se
+     * dit donc exactement comme les comptes se disent, au même endroit et
+     * avec le même composant — mais pleine, à l'accent : c'est la seule
+     * chose du premier écran qui demande quelque chose, et une ponctuation
+     * ne vaut que si elle sert une fois.
+     */
     private func review(_ data: Overview) -> some View {
-        let waiting = data.recent.filter(\.needsReview)
-        if !waiting.isEmpty {
-            Button(action: onOpenReview) {
-                VStack(alignment: .leading, spacing: 0) {
-                    EdSection(
-                        text: t(
-                            "v2.review.toCheckCount", "{count} à vérifier",
-                            // Le compte du registre, pas celui de la page :
-                            // l'accueil n'en porte que les deux premières.
-                            ["count": max(data.reviewCount, waiting.count)]
-                        ),
-                        trailing: "›"
+        // Le compte du registre d'abord : la page n'en porte que les
+        // dernières, et le plus petit des deux mentirait.
+        let count = max(data.reviewCount, data.recent.filter(\.needsReview).count)
+        return Group {
+            if count > 0 {
+                Button(action: onOpenReview) {
+                    EdPill(
+                        text: t("v2.review.toCheckCount", "{count} à vérifier",
+                                ["count": count]) + " ›",
+                        tone: Florin.accent,
+                        filled: true
                     )
-                    .padding(.bottom, 10)
-                    RowGroup {
-                        ForEach(Array(waiting.prefix(2).enumerated()), id: \.element.id) { index, tx in
-                            if index > 0 { EdRule() }
-                            reviewRow(tx, data)
-                        }
-                    }
                 }
+                .buttonStyle(.edPress)
+                .padding(.top, 8)
             }
-            .buttonStyle(.edPress)
-            .edEnter()
-            .padding(.bottom, 20)
         }
-    }
-
-    private func reviewRow(_ tx: Transaction, _ data: Overview) -> some View {
-        let face = tx.isTransfer ? nil : MerchantLogos.shared.face(
-            for: tx.payee, plan: tx.instalmentPlanId
-        )
-        return HStack(spacing: 12) {
-            Bubble(
-                label: tx.categoryName ?? tx.payee,
-                name: tx.payee,
-                chosen: face?.emoji,
-                emoji: tx.categoryEmoji,
-                size: 38,
-                logo: face?.logo
-            )
-            VStack(alignment: .leading, spacing: 2) {
-                Text(PayeeText.title(tx.payee, category: tx.categoryName, plan: tx.instalmentPlanId))
-                    .font(.system(size: 17, weight: .medium))
-                    .foregroundStyle(Florin.text)
-                    .lineLimit(1)
-                Text(DayLabel.string(tx.day, locale: data.localeTag, t: t))
-                    .font(.system(size: 13))
-                    // L'accent : c'est la seule chose de l'accueil qui demande
-                    // quelque chose.
-                    .foregroundStyle(Florin.accent)
-                    .lineLimit(1)
-            }
-            Spacer(minLength: 8)
-            EdAmountPill(
-                text: Money.string(
-                    tx.amount, locale: data.localeTag, currency: data.currency, signed: true
-                ),
-                tone: tx.amount < 0 ? EdMoney.minus : EdMoney.plus
-            )
-        }
-        .frame(minHeight: 62)
-        .padding(.horizontal, 16)
-        .contentShape(Rectangle())
     }
 
     // MARK: Le patrimoine
