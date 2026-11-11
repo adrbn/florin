@@ -199,6 +199,19 @@ enum LocalInstalments {
                 ).prefix(10))),
             ]
         )
+        /*
+         * L'achat porte son nom dès qu'il est saisi.
+         *
+         * Le relevé d'un paiement en plusieurs fois ne nomme jamais le
+         * marchand : il nomme l'encaisseur, et le même libellé sert à toutes
+         * ses boutiques. Les premières échéances s'affichaient donc sous le
+         * nom tapé et les suivantes — celles que la banque a comptabilisées —
+         * sous « PAYPAL *Paieme », le même achat avec deux marchands à
+         * l'écran. Le nom existe pourtant : c'est celui qu'on vient de taper.
+         * Il s'écrit sur la clé de l'achat, que l'affichage préfère déjà au
+         * rail (voir `MerchantNames.planKey` et `PayeeText.title`).
+         */
+        try? MerchantNames.shared.rename(key: MerchantNames.planKey(plan), to: payee)
         for (index, amount) in instalments.enumerated() {
             let note = Strings.device(
                 "v2.instalments.memo", "En {count} fois ({index}/{count})",

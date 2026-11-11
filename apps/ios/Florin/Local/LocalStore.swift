@@ -242,6 +242,7 @@ final class LocalStore {
         try adoptOlderInstalmentPlans()
         try carryPlansThroughSettlement()
         try priceOlderPlansAtWhatTheyCharged()
+        try nameOlderPlansAfterTheirMerchant()
         /*
          * Le détail d'une dépense, tel que le ticket de caisse le dit.
          *
@@ -690,6 +691,41 @@ final class LocalStore {
              WHERE t.instalment_plan_id IS NOT NULL AND t.deleted_at IS NULL
              GROUP BY t.instalment_plan_id
             """
+        )
+    }
+
+    /*
+     * Les échéanciers d'avant retrouvent le nom de leur achat.
+     *
+     * Le nom n'était écrit nulle part : seules les lignes le portaient, et
+     * seulement tant que la banque ne les avait pas comptabilisées. Un achat
+     * en quatre fois affichait donc le nom de la boutique sur ses deux
+     * premières échéances et « ACHAT CB PAYPAL *Paieme » sur les suivantes.
+     *
+     * Le nom est celui que PLUSIEURS lignes du même échéancier partagent :
+     * chaque libellé de banque est unique — il porte sa date — alors que le
+     * nom tapé est répété sur toutes les échéances annoncées d'un coup. Un
+     * échéancier dont aucun nom ne revient deux fois n'a rien à retrouver et
+     * reste tel quel.
+     *
+     * `INSERT OR IGNORE` : un achat déjà nommé à la main ne se fait jamais
+     * renommer, et la reprise peut rejouer à chaque lancement.
+     */
+    private func nameOlderPlansAfterTheirMerchant() throws {
+        try database.run(
+            """
+            INSERT OR IGNORE INTO payee_aliases (id, match_key, display_name)
+            SELECT lower(hex(randomblob(16))), ? || plan, payee
+              FROM (SELECT plan, payee, max(n) AS top
+                      FROM (SELECT instalment_plan_id AS plan, payee, count(*) AS n
+                              FROM transactions
+                             WHERE instalment_plan_id IS NOT NULL
+                               AND deleted_at IS NULL
+                             GROUP BY instalment_plan_id, payee)
+                     GROUP BY plan
+                    HAVING top > 1)
+            """,
+            [.text(MerchantNames.planSign)]
         )
     }
 
