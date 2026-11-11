@@ -108,7 +108,37 @@ final class MerchantLogos: ObservableObject {
         for twin in MerchantNames.shared.keysSharingName(with: key) {
             if let found = marked(twin) { return found }
         }
-        return nil
+        // Le nom donné EST un libellé. Le terminal encaisse sous un nom, la
+        // ligne tapée à la main en porte un autre, et c'est celle-là qui a
+        // reçu la photo — mais elle n'a jamais été renommée, donc elle ne
+        // figure dans aucune liste de jumeaux. La chercher sous son nom la
+        // retrouve.
+        if let name = MerchantNames.shared.name(forKey: key),
+           let found = marked(MerchantNames.key(name)) { return found }
+        return sameSite(key)
+    }
+
+    /*
+     * Deux libellés que la liste des grandes enseignes envoie sur le même
+     * site sont le même marchand.
+     *
+     * Un abonnement et une commande arrivent sous deux libellés différents du
+     * même commerçant. Sans cela, la photo choisie pour l'un ne vaut que pour
+     * lui, et l'autre retombe sur l'icône que le site publie — souvent pâle à
+     * côté d'une marque posée à la main.
+     *
+     * Seules une photo et un emoji s'héritent : un site hérité n'apporterait
+     * rien de plus que celui qu'on vient d'y lire.
+     */
+    private func sameSite(_ key: String) -> (key: String, mark: Mark)? {
+        guard let site = KnownMerchants.domain(forKey: key) else { return nil }
+        var best: (key: String, mark: Mark)?
+        for (other, mark) in table() where other != key {
+            guard mark.hasPicture || mark.emoji?.isEmpty == false else { continue }
+            guard KnownMerchants.domain(forKey: other) == site else { continue }
+            if best == nil || other.count > best!.key.count { best = (other, mark) }
+        }
+        return best
     }
 
     /// Sous sa clé, ou sous une troncature de celle-ci. La plus longue gagne :
@@ -184,26 +214,36 @@ final class MerchantLogos: ObservableObject {
 
     /// Recadre au centre, réduit, puis encode. Nil si l'image est illisible.
     nonisolated static func thumbnail(_ image: UIImage) -> Data? {
-        let side = min(image.size.width, image.size.height)
-        guard side > 0 else { return nil }
-        let square = CGRect(
-            x: (image.size.width - side) / 2, y: (image.size.height - side) / 2,
-            width: side, height: side
-        )
+        let width = image.size.width, height = image.size.height
+        guard width > 0, height > 0 else { return nil }
         let format = UIGraphicsImageRendererFormat.default()
         format.scale = 1
         format.opaque = true
         let box = CGSize(width: pictureSide, height: pictureSide)
+        /*
+         * Un logo est un MOT, et un mot est plus large que haut.
+         *
+         * Recadré au carré depuis son centre, il en perdait les deux bouts :
+         * une marque de cinq lettres n'en montrait plus que trois, sans que
+         * rien ne dise que le reste existait. Une photo, elle, se recadre très
+         * bien — d'où un partage sur la FORME et non sur l'usage : au-delà
+         * d'un quart de différence entre les côtés, l'image entre entière dans
+         * le carré et le blanc comble ce qui reste ; en deçà, on recadre comme
+         * avant. Dans les deux cas le rapport est gardé : les bulles sont
+         * rondes, une image déformée s'y verrait tout de suite.
+         */
+        let oblong = max(width, height) / min(width, height) > 1.25
+        let ratio = oblong
+            ? min(box.width / width, box.height / height)
+            : max(box.width / width, box.height / height)
         let drawn = UIGraphicsImageRenderer(size: box, format: format).image { context in
             UIColor.white.setFill()
             context.fill(CGRect(origin: .zero, size: box))
-            // Le carré central étiré à la boîte : même rapport, donc pas de
-            // déformation, et l'image remplit la bulle.
+            let drawnSize = CGSize(width: width * ratio, height: height * ratio)
             image.draw(in: CGRect(
-                x: -square.origin.x * box.width / side,
-                y: -square.origin.y * box.height / side,
-                width: image.size.width * box.width / side,
-                height: image.size.height * box.height / side
+                x: (box.width - drawnSize.width) / 2,
+                y: (box.height - drawnSize.height) / 2,
+                width: drawnSize.width, height: drawnSize.height
             ))
         }
         return drawn.jpegData(compressionQuality: 0.82)

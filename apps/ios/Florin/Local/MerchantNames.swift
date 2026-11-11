@@ -310,13 +310,45 @@ final class MerchantNames: ObservableObject {
          */
         if let given = table.values.filter({ fold($0) == key }).min() { return given }
 
-        guard key.count >= truncationFloor else { return nil }
         var best: (key: String, name: String)?
-        for (other, name) in table where other.count >= truncationFloor {
-            guard other.hasPrefix(key) || key.hasPrefix(other) else { continue }
+        for (other, name) in table {
+            guard covers(other, key) || covers(key, other) else { continue }
             if best == nil || other.count > best!.key.count { best = (other, name) }
         }
         return best?.name
+    }
+
+    /*
+     * Un nom entier suivi d'un mot de plus est le même marchand.
+     *
+     * Le plancher ne protégeait pas que des mots courts : il s'appliquait
+     * AUSSI au nom donné, si bien qu'une enseigne de sept lettres ne pouvait
+     * couvrir aucune de ses variantes. Renommée depuis la ligne saisie, elle
+     * restait sous le libellé du relevé dès que la banque y ajoutait sa forme
+     * juridique — « Pastafiore » d'un côté, « PASTAFIORE SRL » de l'autre,
+     * deux marchands dans l'analyse pour une seule pizzeria. La vignette, elle,
+     * passait : le nom et la tête ne se cherchaient pas de la même façon,
+     * donc la ligne portait le bon logo sous le mauvais nom.
+     *
+     * Deux formes de recouvrement, donc. La TRONCATURE, que le relevé coupe
+     * n'importe où, garde son plancher : rien ne la distingue d'un mot court
+     * qui ferait autorité. L'AJOUT, lui, n'est admis que pour une FORME
+     * JURIDIQUE, et c'est ce qui le rend sûr.
+     *
+     * « Un mot de plus après une espace » avait d'abord suffi, et c'était
+     * faux : rejoué sur un vrai grand livre, l'encaisseur d'un rail — dont
+     * le libellé s'écrit « PAYPAL *boutique » — avalait d'un coup les treize
+     * boutiques qu'il encaisse, toutes renommées du nom du rail. Un mot
+     * quelconque ajouté à un nom désigne souvent QUELQU'UN D'AUTRE ; une
+     * forme juridique ne désigne jamais personne d'autre.
+     */
+    private static func covers(_ short: String, _ long: String) -> Bool {
+        guard long.hasPrefix(short) else { return false }
+        if short.count >= truncationFloor { return true }
+        guard short.count >= 4 else { return false }
+        let rest = long.dropFirst(short.count)
+        guard rest.hasPrefix(" ") else { return false }
+        return legalForms.contains(fold(String(rest.dropFirst()).filter { !punctuation.contains($0) }))
     }
 
     /// Deux libellés qui désignent le même marchand — la même règle que
