@@ -514,6 +514,7 @@ struct RootView: View {
         .onChange(of: lock.locked) { _, _ in considerNews(after: 0.3) }
         .sheet(item: $news, onDismiss: { seenVersion = ReleaseNotes.current }) { release in
             WhatsNewSheet(release: release, t: Strings.device)
+                .edSheet()
         }
     }
 

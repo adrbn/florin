@@ -240,6 +240,7 @@ final class LocalStore {
             """
         )
         try adoptOlderInstalmentPlans()
+        try disownGroupsThatAreNotPlans()
         try carryPlansThroughSettlement()
         try priceOlderPlansAtWhatTheyCharged()
         try nameOlderPlansAfterTheirMerchant()
@@ -630,10 +631,57 @@ final class LocalStore {
                         AND o.account_id = t.account_id
                         AND o.normalized_payee = t.normalized_payee
                         AND o.recorded_at = t.recorded_at
-                        AND o.occurred_at <> t.occurred_at
+                        AND abs(julianday(o.occurred_at) - julianday(t.occurred_at)) >= 20
                    )
             """
         )
+    }
+
+    /*
+     * Deux lignes du même jour ne sont pas un achat en deux fois.
+     *
+     * `adoptOlderInstalmentPlans` reconnaissait un échéancier à deux lignes
+     * écrites dans la même seconde et tombant à des dates différentes, en
+     * s'appuyant sur une phrase qui s'est révélée fausse : « une automatisation
+     * Wallet écrit une ligne, pas plusieurs ». Quand sa garde anti-doublon
+     * manque, elle en écrit deux — dans la même seconde, et à des `occurred_at`
+     * qui diffèrent, le fichier datant à la minute et l'action à la seconde.
+     * Le regroupement lisait donc un doublon de 35 € comme un achat de 70 € en
+     * deux fois, les deux « échéances » tombant le même jour. Un achat jamais
+     * demandé, au prix doublé.
+     *
+     * Le test porte maintenant sur l'écart : une mensualité suit la
+     * précédente d'un mois, donc d'au moins vingt jours. Deux lignes du même
+     * jour n'en sont pas.
+     *
+     * Reste à défaire ce que l'ancienne règle a rattaché. On ne touche qu'aux
+     * identifiants reconstruits (`legacy:`) — ceux-là sont une déduction, pas
+     * une saisie — et seulement quand ce qu'ils regroupent n'a pas la forme
+     * d'un échéancier : des lignes trop serrées, ou une seule, qui n'est un
+     * paiement en plusieurs fois dans aucune lecture. Les lignes gardent leur
+     * montant et leur date, elles cessent seulement d'être présentées comme un
+     * achat étalé.
+     */
+    private func disownGroupsThatAreNotPlans() throws {
+        let doomed = try database.query(
+            """
+            SELECT instalment_plan_id AS id FROM transactions
+             WHERE instalment_plan_id LIKE 'legacy:%' AND deleted_at IS NULL
+             GROUP BY instalment_plan_id
+            HAVING count(*) < 2
+                OR julianday(max(occurred_at)) - julianday(min(occurred_at)) < 20
+            """
+        ).compactMap { $0.string("id") }
+        for id in doomed {
+            try database.run(
+                """
+                UPDATE transactions SET instalment_plan_id = NULL, updated_at = datetime('now')
+                 WHERE instalment_plan_id = ?
+                """,
+                [.text(id)]
+            )
+            try database.run("DELETE FROM instalment_plans WHERE id = ?", [.text(id)])
+        }
     }
 
     /*
