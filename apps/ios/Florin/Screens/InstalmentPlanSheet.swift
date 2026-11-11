@@ -480,16 +480,47 @@ struct InstalmentPlanSheet: View {
 
     @ViewBuilder
     private var forgetButtons: some View {
-        Button(t("v2.common.delete", "Supprimer"), role: .destructive) {
-            // Écriture d'abord : une suppression qui échoue ne doit pas
-            // refermer la feuille en disant que c'est fait.
-            guard let store = LocalStore.shared,
-                  (try? LocalInstalments.forget(store: store, planId: plan.id)) != nil
-            else { return }
-            onForget?()
-            dismiss()
+        Button(t("v2.common.delete", "Supprimer"), role: .destructive) { forgetPlan(expecting: false) }
+        /*
+         * On supprime un échéancier parce qu'on se fait rembourser.
+         *
+         * Pas « lier » : au moment où l'on supprime, le crédit n'est pas
+         * arrivé, il n'y a rien à lier. Ce qui existe, c'est l'attente — la
+         * même qu'une fiche de dépense propose — et elle porte ici la somme
+         * de ce qui a DÉJÀ été prélevé, puisque c'est tout ce qu'on peut se
+         * faire rendre.
+         *
+         * Proposé, jamais fait d'office : on supprime aussi un échéancier
+         * parce qu'on l'a mal saisi, et une attente de plus serait alors une
+         * rentrée qui n'arrivera pas.
+         */
+        if plan.paidCount > 0, plan.accountId != nil {
+            Button(
+                t("v2.instalments.forgetAndExpect", "Supprimer et attendre {amount}", [
+                    "amount": Money.string(
+                        abs(plan.paid), locale: locale, currency: currency
+                    ),
+                ]),
+                role: .destructive
+            ) { forgetPlan(expecting: true) }
         }
         Button(t("v2.common.cancel", "Annuler"), role: .cancel) {}
+    }
+
+    private func forgetPlan(expecting: Bool) {
+        // Écriture d'abord : une suppression qui échoue ne doit pas
+        // refermer la feuille en disant que c'est fait.
+        guard let store = LocalStore.shared,
+              (try? LocalInstalments.forget(store: store, planId: plan.id)) != nil
+        else { return }
+        if expecting, let accountId = plan.accountId {
+            try? LocalWallet.recordRefund(
+                store: store, accountId: accountId, amount: abs(plan.paid),
+                payee: plan.payee, categoryId: plan.instalments.first?.categoryId
+            )
+        }
+        onForget?()
+        dismiss()
     }
 
     private var forgetMessage: some View {

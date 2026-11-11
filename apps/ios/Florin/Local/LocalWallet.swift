@@ -310,38 +310,70 @@ enum LocalWallet {
      */
     static func recordRefund(store: LocalStore, of tx: Transaction) throws {
         guard let accountId = tx.accountId else { throw Failure.noAccount }
+        /*
+         * L'attente DÉSIGNE sa dépense.
+         *
+         * Elle ne le faisait pas, et le lien est ce qui dit à la fiche qu'une
+         * attente est déjà posée : sans lui, « Attendre un remboursement »
+         * restait proposé sur une dépense où l'on venait de le taper, et deux
+         * tapes écrivaient deux lignes. Le montant est celui de la dépense au
+         * centime près, donc rien ne peut dépasser ce qui a été avancé.
+         *
+         * `settle` reporte déjà le lien sur la ligne de la banque le jour où
+         * elle passe — voir son commentaire.
+         */
+        try recordRefund(
+            store: store, accountId: accountId, amount: abs(tx.amount),
+            payee: tx.payee, categoryId: tx.categoryId, of: tx.id
+        )
+    }
+
+    /*
+     * Ce qu'on attend d'un achat étalé : UNE ligne, pas une par mensualité.
+     *
+     * Un encaisseur rend l'achat, pas ses mensualités : deux attentes de
+     * 10,00 € ne rencontrent jamais le crédit unique de 20,00 € qui arrive, et
+     * la fiche resterait en attente de deux remboursements que personne ne
+     * fera. L'attente porte donc la somme de ce qui a déjà été prélevé.
+     *
+     * Et elle ne désigne aucune échéance : elle les rembourse toutes, alors
+     * que le lien dit « cette dépense-là ». Posée sur la dernière, la fiche
+     * d'une mensualité de 35,00 € aurait annoncé 70,00 €.
+     */
+    static func recordRefund(
+        store: LocalStore, accountId: String, amount: Double,
+        payee: String, categoryId: String?, of expense: String? = nil
+    ) throws {
         let today = Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: Date())
             ?? Date()
         let note = Strings.device("v2.refund.memo", "Remboursement attendu")
-        try recordUpcoming(store: store, NewTransaction(
-            accountId: accountId,
-            amount: abs(tx.amount),
-            payee: tx.payee,
+        try insertUpcoming(
+            store: store, accountId: accountId,
             occurredAt: ISO8601DateFormatter.florinNoFraction.string(from: today),
-            memo: note,
-            categoryId: tx.categoryId,
-            upcoming: true
-        ))
+            amount: abs(amount), payee: payee, memo: note,
+            categoryId: categoryId, reimburses: expense
+        )
     }
 
     private static func insertUpcoming(
         store: LocalStore, accountId: String, occurredAt: String,
         amount: Double, payee: String, memo: String?, categoryId: String?,
-        instalmentPlanId: String? = nil
+        instalmentPlanId: String? = nil, reimburses: String? = nil
     ) throws {
         try store.database.run(
             """
             INSERT INTO transactions
                 (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
-                 memo, category_id, source, instalment_plan_id,
+                 memo, category_id, source, instalment_plan_id, reimburses_tx_id,
                  status, is_pending, needs_review)
-            VALUES (?, ?, ?, ?, 'EUR', ?, ?, ?, ?, ?, ?, 'scheduled', 1, 0)
+            VALUES (?, ?, ?, ?, 'EUR', ?, ?, ?, ?, ?, ?, ?, 'scheduled', 1, 0)
             """,
             [
                 .text(UUID().uuidString), .text(accountId), .text(occurredAt),
                 .real(amount), .text(payee), .text(LocalLedger.normalize(payee)),
                 memo.map { .text($0) } ?? .null, categoryId.map { .text($0) } ?? .null,
                 .text(source), instalmentPlanId.map { .text($0) } ?? .null,
+                reimburses.map { .text($0) } ?? .null,
             ]
         )
         // Filed from history straight away, so the upcoming row already says
