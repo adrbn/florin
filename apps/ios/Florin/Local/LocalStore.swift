@@ -708,14 +708,13 @@ final class LocalStore {
      * échéancier dont aucun nom ne revient deux fois n'a rien à retrouver et
      * reste tel quel.
      *
-     * `INSERT OR IGNORE` : un achat déjà nommé à la main ne se fait jamais
+     * `DO NOTHING` : un achat déjà nommé à la main ne se fait jamais
      * renommer, et la reprise peut rejouer à chaque lancement.
      */
     private func nameOlderPlansAfterTheirMerchant() throws {
-        try database.run(
+        let winners = try database.query(
             """
-            INSERT OR IGNORE INTO payee_aliases (id, match_key, display_name)
-            SELECT lower(hex(randomblob(16))), ? || plan, payee
+            SELECT plan, payee
               FROM (SELECT plan, payee, max(n) AS top
                       FROM (SELECT instalment_plan_id AS plan, payee, count(*) AS n
                               FROM transactions
@@ -724,9 +723,35 @@ final class LocalStore {
                              GROUP BY instalment_plan_id, payee)
                      GROUP BY plan
                     HAVING top > 1)
-            """,
-            [.text(MerchantNames.planSign)]
+            """
         )
+        for row in winners {
+            guard let plan = row.string("plan"), let payee = row.string("payee") else { continue }
+            /*
+             * Le nom MONTRÉ, jamais le libellé brut.
+             *
+             * Le nom de l'achat passe devant celui du marchand : écrire le
+             * libellé de la ligne défaisait donc les renommages. Un
+             * échéancier d'avion chez un voyagiste s'appelait du nom de sa
+             * centrale de réservation, celui écrit sur le relevé — alors que
+             * l'écran montrait la compagnie depuis des mois, parce qu'un nom
+             * avait été donné au marchand. La reprise doit reprendre CE
+             * nom-là, pas celui qu'il remplace.
+             */
+            let given = (try? database.scalar(
+                "SELECT display_name FROM payee_aliases WHERE match_key = ?",
+                [.text(MerchantNames.key(payee))]
+            )?.string) ?? nil
+            let display = (given ?? payee).trimmingCharacters(in: .whitespaces)
+            guard !display.isEmpty else { continue }
+            try database.run(
+                """
+                INSERT INTO payee_aliases (id, match_key, display_name) VALUES (?, ?, ?)
+                ON CONFLICT(match_key) DO NOTHING
+                """,
+                [.text(UUID().uuidString), .text(MerchantNames.planKey(plan)), .text(display)]
+            )
+        }
     }
 
     private func repairOpeningBalances() throws {

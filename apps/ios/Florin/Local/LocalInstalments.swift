@@ -211,7 +211,12 @@ enum LocalInstalments {
          * Il s'écrit sur la clé de l'achat, que l'affichage préfère déjà au
          * rail (voir `MerchantNames.planKey` et `PayeeText.title`).
          */
-        try? MerchantNames.shared.rename(key: MerchantNames.planKey(plan), to: payee)
+        try? MerchantNames.shared.rename(
+            key: MerchantNames.planKey(plan),
+            // Le nom donné au marchand s'il en a un : le nom de l'achat passe
+            // devant, donc y recopier le libellé tapé défairait le renommage.
+            to: MerchantNames.shared.name(for: payee) ?? payee
+        )
         for (index, amount) in instalments.enumerated() {
             let note = Strings.device(
                 "v2.instalments.memo", "En {count} fois ({index}/{count})",
