@@ -742,6 +742,7 @@ struct EditorialActivity: View {
                 size: 38,
                 logo: face?.logo
             )
+            .instalmentRing(count: plan.count, paid: plan.paidCount)
             VStack(alignment: .leading, spacing: 2) {
                 Text(PayeeText.title(plan.payee, category: plan.categoryName, plan: plan.id))
                     .font(.system(size: 17, weight: .medium))
@@ -753,16 +754,15 @@ struct EditorialActivity: View {
                     .lineLimit(1)
             }
             Spacer(minLength: 8)
-            VStack(alignment: .trailing, spacing: 5) {
-                EdAmountPill(
-                    text: Money.string(
-                        -plan.remaining, locale: locale, currency: currency, signed: true
-                    ),
-                    tone: EdMoney.minus
-                )
-                InstalmentProgress(count: plan.count, paid: plan.paidCount)
-                    .hiddenWhenPrivate()
-            }
+            // Soldé, le reste à payer vaut zéro et n'apprend rien : la ligne
+            // montre alors ce que l'achat a coûté, en gris.
+            EdAmountPill(
+                text: Money.string(
+                    plan.isOver ? -plan.total : -plan.remaining,
+                    locale: locale, currency: currency, signed: true
+                ),
+                tone: plan.isOver ? Florin.text3 : EdMoney.minus
+            )
         }
         .frame(minHeight: 62)
         .contentShape(Rectangle())

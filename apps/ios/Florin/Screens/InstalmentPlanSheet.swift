@@ -37,6 +37,7 @@ struct InstalmentPlanRow: View {
                 emoji: plan.categoryEmoji,
                 logo: face?.logo
             )
+            .instalmentRing(count: plan.count, paid: plan.paidCount)
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
                     .font(.system(size: 15, weight: .medium))
@@ -48,16 +49,13 @@ struct InstalmentPlanRow: View {
                     .lineLimit(1)
             }
             Spacer(minLength: 8)
-            VStack(alignment: .trailing, spacing: 6) {
-                // Soldé, « 0,00 € » ne dit rien : ce qu'on relit alors, c'est
-                // ce que l'achat a coûté en tout.
-                AmountText(
-                    value: plan.isOver ? plan.total : plan.remaining,
-                    locale: locale, currency: currency,
-                    tone: plan.isOver ? .muted : .neutral
-                )
-                InstalmentProgress(count: plan.count, paid: plan.paidCount)
-            }
+            // Soldé, « 0,00 € » ne dit rien : ce qu'on relit alors, c'est
+            // ce que l'achat a coûté en tout.
+            AmountText(
+                value: plan.isOver ? plan.total : plan.remaining,
+                locale: locale, currency: currency,
+                tone: plan.isOver ? .muted : .neutral
+            )
         }
         .padding(.horizontal, Florin.gutter)
         .padding(.vertical, 12)
@@ -73,6 +71,64 @@ struct InstalmentPlanRow: View {
         )
         guard let next = plan.next else { return progress }
         return progress + " · " + DayLabel.string(next.day, locale: locale, t: t)
+    }
+}
+
+/*
+ * L'avancement AUTOUR du marchand, pas à l'autre bout de la ligne.
+ *
+ * Les tirets disaient la même chose, mais posés sous le montant : l'œil
+ * lisait l'enseigne à gauche, le reste à payer à droite, puis redescendait
+ * chercher où en était l'achat. Un arc autour de la tête réunit les deux —
+ * c'est le geste de PayPal, et c'est le bon : l'avancement appartient à
+ * l'achat, et l'achat c'est le marchand.
+ *
+ * L'arc de PayPal est vert. Sous Éditorial, la couleur est une ponctuation
+ * qu'on dépense pour ce qui alerte ; un achat qui se paie comme prévu
+ * n'alerte pas. L'arc y est donc de l'encre, posé sur le filet que la bulle
+ * dessine déjà — le filet EST la piste, il n'y en a pas deux. Ailleurs, la
+ * bulle est un carré arrondi : l'anneau passe à l'extérieur et porte sa
+ * propre piste.
+ */
+struct InstalmentRing: View {
+    let count: Int
+    let paid: Int
+
+    private var editorial: Bool { FlorinPalette.selected == .editorial }
+
+    private var fraction: Double {
+        guard count > 0 else { return 0 }
+        return min(1, max(0, Double(paid) / Double(count)))
+    }
+
+    var body: some View {
+        ZStack {
+            if !editorial {
+                Circle().stroke(Florin.text.opacity(0.12), lineWidth: 2)
+            }
+            Circle()
+                .trim(from: 0, to: fraction)
+                .stroke(
+                    editorial ? Florin.text : Florin.accent,
+                    style: StrokeStyle(lineWidth: 2, lineCap: .round)
+                )
+                // Midi, comme une horloge : zéro en haut, et dans le sens où
+                // le temps tourne.
+                .rotationEffect(.degrees(-90))
+        }
+    }
+}
+
+extension View {
+    /// L'anneau d'avancement posé autour d'une bulle. Il ne prend aucune
+    /// place : la ligne garde exactement la hauteur qu'elle avait.
+    func instalmentRing(count: Int, paid: Int) -> some View {
+        overlay {
+            InstalmentRing(count: count, paid: paid)
+                // Collé au filet en éditorial, trois points dehors ailleurs —
+                // la bulle y est un carré arrondi, pas un cercle.
+                .padding(FlorinPalette.selected == .editorial ? 0 : -3)
+        }
     }
 }
 
