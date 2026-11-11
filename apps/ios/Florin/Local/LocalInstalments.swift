@@ -255,6 +255,28 @@ enum LocalInstalments {
      * Rendu : le nombre d'échéances jetées.
      */
     @discardableResult
+    /*
+     * Reclasser l'achat, ses quatre échéances d'un coup.
+     *
+     * Une seule suffirait à changer ce que la fiche affiche et ne changerait
+     * rien à l'analyse : chaque échéance pèse dans son propre mois, et trois
+     * quarts de l'achat resteraient dans l'ancien seau. L'échéancier est
+     * l'unité ici, pas la ligne — c'est l'achat qu'on catégorise.
+     *
+     * Les lignes encore annoncées comptent : elles seront prélevées, et une
+     * prévision rangée ailleurs que son achat fausse le mois d'après.
+     */
+    static func setCategory(store: LocalStore, planId: String, categoryId: String?) throws {
+        try store.database.run(
+            """
+            UPDATE transactions
+            SET category_id = ?, updated_at = datetime('now')
+            WHERE instalment_plan_id = ? AND deleted_at IS NULL
+            """,
+            [categoryId.map { .text($0) } ?? .null, .text(planId)]
+        )
+    }
+
     static func forget(store: LocalStore, planId: String) throws -> Int {
         let due = try store.database.query(
             """

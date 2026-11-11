@@ -217,11 +217,16 @@ struct InstalmentPlanSheet: View {
     /// Appelé quand l'échéancier vient d'être oublié : la page dessous ne
     /// sait pas toute seule qu'elle a une ligne de moins.
     var onForget: (() -> Void)?
+    /// Pour reclasser l'achat sans quitter sa feuille. Vide, la note qui le
+    /// propose ne s'affiche pas — il n'y aurait rien à choisir.
+    var categories: [Category] = []
 
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var logos = MerchantLogos.shared
     @State private var confirming = false
     @State private var renaming = false
+    @State private var filing = false
+    @State private var filed: String?
 
     private var title: String { PayeeText.title(plan.payee, category: plan.categoryName, plan: plan.id) }
 
@@ -246,6 +251,96 @@ struct InstalmentPlanSheet: View {
     }
 
     private func opens(_ tx: Transaction) -> Bool { !tx.isScheduled && onOpen != nil }
+
+    /*
+     * Une catégorie qui dit COMMENT on a payé, pas QUOI on a acheté.
+     *
+     * « PayPal 4x » fait doublon dès qu'un échéancier existe : l'app sait déjà
+     * que c'est en quatre fois, elle le dessine en haut de cette feuille. Ce
+     * que la catégorie ne dit plus, c'est la nature — et l'analyse y perd le
+     * plus : un vol, un parfum et une console tombent dans le même seau, qui
+     * ne répond à aucune question qu'on se pose sur son argent.
+     *
+     * Signalé, jamais fait d'office. La catégorie porte un historique, et
+     * c'est lui qui décidera si on la garde.
+     *
+     * Reconnaître le rail par son nom est un pari assumé : les enseignes de
+     * paiement fractionné sont peu nombreuses et se nomment, et « 4x » ou
+     * « en 3 fois » dans un nom de catégorie ne veut rien dire d'autre. Un
+     * chiffre collé à un x, pas un x isolé, sinon « Box internet » rentrerait.
+     */
+    private static let rails: Set<String> = [
+        "paypal", "klarna", "alma", "scalapay", "oney", "floa", "cofidis",
+        "younited", "cetelem", "sofinco", "cofinoga", "pledg", "sequra",
+        "afterpay", "affirm", "clearpay", "zip",
+    ]
+
+    private static func namesTheRail(_ name: String) -> Bool {
+        let folded = name.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: nil)
+        let words = folded.split(whereSeparator: { !$0.isLetter && !$0.isNumber })
+        for word in words {
+            if rails.contains(String(word)) { return true }
+            // « 4x », « 12x » : un chiffre collé au x.
+            if word.count >= 2, word.hasSuffix("x"), word.dropLast().allSatisfy(\.isNumber) {
+                return true
+            }
+        }
+        // « en 3 fois », « plusieurs fois ».
+        if words.contains("fois") { return true }
+        return false
+    }
+
+    private var railCategory: String? {
+        guard !categories.isEmpty, filed == nil,
+              let name = plan.categoryName, Self.namesTheRail(name)
+        else { return nil }
+        return name
+    }
+
+    /// Une note, pas une alerte : rien n'est cassé, c'est l'analyse qui sera
+    /// plus juste après. Elle disparaît dès qu'on a reclassé.
+    @ViewBuilder
+    private var railNote: some View {
+        if let name = railCategory {
+            Button { filing = true } label: {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(t(
+                        "v2.instalments.railCategory",
+                        "« {category} » dit comment tu as payé, pas ce que tu as acheté.",
+                        ["category": name]
+                    ))
+                    .font(.system(size: 13.5, weight: .medium))
+                    .foregroundStyle(Florin.text)
+                    .multilineTextAlignment(.leading)
+                    Text(t(
+                        "v2.instalments.railCategoryAction",
+                        "Reclasser cet achat et ses {count} échéances",
+                        ["count": plan.count]
+                    ))
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(Florin.accent)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
+                .background(Florin.text.opacity(0.05), in: RoundedRectangle(cornerRadius: 14))
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func file(_ categoryId: String?) {
+        guard let store = LocalStore.shared else { return }
+        do {
+            try LocalInstalments.setCategory(store: store, planId: plan.id, categoryId: categoryId)
+            // Elle ne reviendra pas d'elle-même : la feuille tient un `plan`
+            // lu avant l'écriture, et c'est la page dessous qui recharge.
+            filed = categories.first { $0.id == categoryId }?.name ?? ""
+            LedgerStamp.touch()
+            onForget?()
+        } catch {}
+        filing = false
+    }
 
     var body: some View {
         Group {
@@ -273,6 +368,14 @@ struct InstalmentPlanSheet: View {
                 )
             )
         }
+        .sheet(isPresented: $filing) {
+            CategoryPicker(
+                categories: categories,
+                selected: plan.categoryName,
+                t: t,
+                onPick: { file($0) }
+            )
+        }
     }
 
 
@@ -291,6 +394,11 @@ struct InstalmentPlanSheet: View {
             VStack(alignment: .leading, spacing: 0) {
                 edFigure
                 edStatus
+                if railCategory != nil {
+                    railNote
+                        .padding(.horizontal, Ed.gutter)
+                        .padding(.top, 14)
+                }
                 edFacts
                 edSchedule
                 edPrimary
@@ -316,6 +424,7 @@ struct InstalmentPlanSheet: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
                         header
+                        railNote
                         summary
                         schedule
                         forget
@@ -606,6 +715,7 @@ struct InstalmentPlanSheet: View {
         height += CGFloat(plan.count) * 56 + CGFloat(max(0, plan.count - 1))
         height += 22 + 62
         height += 28 + 16
+        if railCategory != nil { height += 14 + 64 }
         return min(height, 780)
     }
 

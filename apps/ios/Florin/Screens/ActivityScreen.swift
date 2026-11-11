@@ -387,7 +387,8 @@ struct TransactionList<Banner: View>: View {
                         text: t("v2.instalments.forgotten", "Échéancier supprimé"), kind: .success
                     )
                     Task { await model.reload() }
-                }
+                },
+                categories: model.categories
             )
         }
         .sheet(item: $movement, onDismiss: {

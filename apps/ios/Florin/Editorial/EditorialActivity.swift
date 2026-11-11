@@ -234,13 +234,15 @@ struct EditorialActivity: View {
         }) { plan in
             InstalmentPlanSheet(
                 plan: plan, locale: locale, currency: currency, t: t,
-                onOpen: { stepAfterPlan = $0 }
-            ) {
-                Task {
-                    await model.reload()
-                    await overview.load(showSpinner: false)
-                }
-            }
+                onOpen: { stepAfterPlan = $0 },
+                onForget: {
+                    Task {
+                        await model.reload()
+                        await overview.load(showSpinner: false)
+                    }
+                },
+                categories: model.categories
+            )
             .edSheet()
         }
         .sheet(isPresented: $filtering) {
