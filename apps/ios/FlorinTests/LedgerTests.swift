@@ -3776,6 +3776,24 @@ struct MerchantPunctuationTests {
     func displayKeepsPunctuation() {
         #expect(MerchantNames.merchantWords(wallet) == wallet)
     }
+
+    @Test("Le relevé retire le tiret, le marchand reste le même")
+    func punctuationDropDoesNotCreateAStranger() {
+        // La banque a écrit « LE PETRIN - RIVE GAUCHE » un an, puis sans tiret.
+        let dashed = MerchantNames.key("ACHAT CB LE PETRIN - RIVE GAUCHE 11.11.26 EUR 9,40 CARTE NO 123")
+        let plain = MerchantNames.key("ACHAT CB LE PETRIN RIVE GAUCHE 11.11.26 EUR 9,40 CARTE NO 123")
+        #expect(dashed != plain)
+        #expect(MerchantNames.sameMerchant(dashed, plain))
+        #expect(MerchantNames.resolve(plain, in: [dashed: "Le Pétrin"]) == "Le Pétrin")
+    }
+
+    @Test("Un mot de plus ne désigne pas quelqu'un d'autre sous la barre")
+    func compactComparisonKeepsItsFloor() {
+        // « Le Bar » seul est trop court pour faire autorité sur ce qui
+        // commence pareil : le plancher tient, la ponctuation n'y change rien.
+        #expect(!MerchantNames.sameMerchant("petrin", "petrin rive gauche"))
+        #expect(!MerchantNames.sameMerchant("le bar", "le bar - tabac du coin"))
+    }
 }
 
 /*

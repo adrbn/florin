@@ -342,7 +342,29 @@ final class MerchantNames: ObservableObject {
      * quelconque ajouté à un nom désigne souvent QUELQU'UN D'AUTRE ; une
      * forme juridique ne désigne jamais personne d'autre.
      */
-    private static func covers(_ short: String, _ long: String) -> Bool {
+    /*
+     * Comparer deux clés sans la ponctuation que la banque bouge.
+     *
+     * Le relevé a écrit « LE PETRIN - RIVE GAUCHE » pendant un an, puis
+     * « LE PETRIN RIVE GAUCHE » du jour au lendemain. Un tiret n'est pas un marchand. La clé
+     * reste écrite telle quelle en base — rien à re-cléer, aucun historique
+     * déplacé — mais la COMPARAISON l'ignore, comme `fold` ignore déjà le
+     * point et l'étoile. Sans cela le marchand de la veille devient un
+     * inconnu, et il perd son nom, sa tête ET sa catégorie du même coup,
+     * puisque les trois se cherchent par cette règle-ci.
+     *
+     * Deux clés qui ne diffèrent QUE par leur ponctuation sont le même
+     * marchand quelle que soit leur longueur : le plancher ne protège que du
+     * recouvrement, et là il n'y a rien à recouvrir.
+     */
+    static func compact(_ key: String) -> String {
+        key.filter { !$0.isPunctuation && !$0.isSymbol }
+            .split(whereSeparator: \.isWhitespace)
+            .joined(separator: " ")
+    }
+
+    private static func covers(_ rawShort: String, _ rawLong: String) -> Bool {
+        let short = compact(rawShort), long = compact(rawLong)
         guard long.hasPrefix(short) else { return false }
         if short.count >= truncationFloor { return true }
         guard short.count >= 4 else { return false }
@@ -353,7 +375,9 @@ final class MerchantNames: ObservableObject {
 
     /// Deux libellés qui désignent le même marchand — la même règle que
     /// `resolve`, pour compter les opérations qu'un renommage atteindra.
-    static func sameMerchant(_ a: String, _ b: String) -> Bool {
+    static func sameMerchant(_ rawA: String, _ rawB: String) -> Bool {
+        if rawA == rawB { return !rawA.isEmpty }
+        let a = compact(rawA), b = compact(rawB)
         if a == b { return !a.isEmpty }
         guard a.count >= truncationFloor, b.count >= truncationFloor else { return false }
         return a.hasPrefix(b) || b.hasPrefix(a)

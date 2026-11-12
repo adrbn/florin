@@ -141,17 +141,38 @@ final class MerchantLogos: ObservableObject {
         return best
     }
 
-    /// Sous sa clé, ou sous une troncature de celle-ci. La plus longue gagne :
-    /// c'est la plus précise.
+    /*
+     * Sous sa clé, ou sous une troncature de celle-ci.
+     *
+     * La plus longue gagnait, comme étant la plus précise — mais la précision
+     * de la clé n'est pas celle de la marque. Le relevé s'est allongé d'un
+     * mot, la nouvelle clé a donc trouvé la variante la plus longue, qui ne
+     * portait qu'un emoji : la photo posée à la main sur la clé courte était
+     * là, trouvable, et l'app affichait l'emoji. La marque la plus DÉLIBÉRÉE
+     * passe donc devant, dans le même ordre que `face(forKey:)` les
+     * départage — photo, puis emoji, puis site — et la longueur ne tranche
+     * plus qu'à marque égale.
+     */
     private func marked(_ key: String) -> (key: String, mark: Mark)? {
         let table = table()
         if let exact = table[key] { return (key, exact) }
         guard key.count >= MerchantNames.truncationFloor else { return nil }
         var best: (key: String, mark: Mark)?
         for (other, mark) in table where MerchantNames.sameMerchant(other, key) {
-            if best == nil || other.count > best!.key.count { best = (other, mark) }
+            guard let found = best else { best = (other, mark); continue }
+            if (Self.deliberation(mark), other.count)
+                > (Self.deliberation(found.mark), found.key.count) {
+                best = (other, mark)
+            }
         }
         return best
+    }
+
+    /// Ce qu'une marque doit à un geste plutôt qu'à un annuaire.
+    private static func deliberation(_ mark: Mark) -> Int {
+        if mark.hasPicture { return 2 }
+        if mark.emoji?.isEmpty == false { return 1 }
+        return 0
     }
 
     /// L'image choisie pour ce marchand, lue une fois puis gardée.
