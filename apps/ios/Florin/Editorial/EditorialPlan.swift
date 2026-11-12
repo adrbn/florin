@@ -453,6 +453,16 @@ struct EditorialPlan: View {
                     .font(.system(size: 17, weight: .medium))
                     .foregroundStyle(Florin.text)
                     .lineLimit(1)
+                /*
+                 * Un seul chiffre décide, les autres situent.
+                 *
+                 * La ligne portait « dépensé / assigné » au même poids que le
+                 * nom, plus la pastille du disponible : trois nombres pour
+                 * une décision, qui est toujours « faut-il remettre dedans ».
+                 * Le disponible y répond seul — les deux autres ne font que
+                 * dire d'où il vient, et passent en petit. Le détail complet
+                 * est dans la feuille, à une tape.
+                 */
                 PrivateText(
                     Money.string(
                         category.spent, locale: locale, currency: currency, decimals: false
@@ -460,8 +470,8 @@ struct EditorialPlan: View {
                         category.assigned, locale: locale, currency: currency, decimals: false
                     )
                 )
-                .font(.system(size: 13))
-                .foregroundStyle(over ? Florin.negative : Florin.text2)
+                .font(.system(size: 11.5))
+                .foregroundStyle(over ? Florin.negative : Florin.text3)
             }
             Spacer(minLength: 8)
             EdAmountPill(

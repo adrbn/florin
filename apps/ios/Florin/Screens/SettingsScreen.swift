@@ -64,6 +64,7 @@ struct SettingsScreen: View {
     @State private var showingBanking = false
     @State private var showingCategories = false
     @State private var showingMerchants = false
+    @State private var showingFiling = false
     @State private var showingPlaces = false
     @State private var placesOn = LocalPlaces.enabled
     @State private var showingTrash = false
@@ -145,6 +146,13 @@ struct SettingsScreen: View {
             .sheet(isPresented: $showingBanking) { BankingSettings() }
             .sheet(isPresented: $showingCategories) { CategoriesScreen(t: t) }
             .sheet(isPresented: $showingMerchants) { MerchantsScreen(t: t) }
+            .sheet(isPresented: $showingFiling) {
+                FilingScreen(
+                    locale: model.overview?.localeTag ?? "fr-FR",
+                    currency: model.overview?.currency ?? "EUR",
+                    t: t
+                )
+            }
             .sheet(isPresented: $showingPlaces) {
                 PlacesScreen(
                     locale: model.overview?.localeTag ?? "fr-FR",
@@ -1501,6 +1509,18 @@ struct SettingsScreen: View {
                     label: t("v2.settings.manageCategories", "Gérer les catégories"),
                     symbol: "tag",
                     action: { showingCategories = true }
+                )
+                Hairline()
+                /*
+                 * Juste sous les catégories, parce qu'on arrive ici après en
+                 * avoir créé une : une catégorie neuve est vide, et la
+                 * remplir ligne à ligne est le travail que cet écran existe
+                 * pour éviter.
+                 */
+                SettingsRow(
+                    label: t("v2.filing.title", "Classer par marchand"),
+                    symbol: "tray.full",
+                    action: { showingFiling = true }
                 )
                 Hairline()
             }

@@ -339,7 +339,7 @@ enum LocalPlan {
     struct Carryover {
         /// Ce que chaque catégorie apporte en entrant dans le mois.
         var opening: [String: Double] = [:]
-        /// Les dépassements que les mois précédents ont absorbés.
+        /// Les dépassements du dernier mois clos, à solder sur celui-ci.
         var absorbed: Double = 0
     }
 
@@ -386,13 +386,17 @@ enum LocalPlan {
         months.formUnion(spent.values.flatMap(\.keys))
         let ordered = months.filter { $0 >= first && $0 < key }.sorted()
 
+        let previous = ordered.last
+
         var result = Carryover()
         for id in Set(assigned.keys).union(spent.keys) {
             var balance = 0.0
             for month in ordered {
                 balance += (assigned[id]?[month] ?? 0) - (spent[id]?[month] ?? 0)
                 if balance < 0 {
-                    result.absorbed += -balance
+                    // Seul le mois qui précède immédiatement se solde ici :
+                    // les plus anciens l'ont déjà été, en leur temps.
+                    if month == previous { result.absorbed += -balance }
                     balance = 0
                 }
             }

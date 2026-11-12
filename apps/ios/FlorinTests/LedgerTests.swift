@@ -7871,6 +7871,30 @@ struct CarryoverTests {
     }
 
     /*
+     * Un dépassement se solde UNE FOIS, contre le mois qui suit.
+     *
+     * Cumulés depuis toujours, ils faisaient payer en novembre ce qui avait
+     * déjà été payé en mai : le reste à répartir annonçait moins deux mille
+     * trois cent quatre-vingt-seize euros là où six cent sept étaient
+     * disponibles.
+     */
+    @Test("un vieux dépassement ne se repaie pas tous les mois")
+    func onlyTheLastMonthSettles() throws {
+        let store = try freshStore()
+        _ = try plan(store, category: "Essai vieux", month: "2026-01",
+                     assigned: 10, spent: 60)
+        _ = try plan(store, category: "Essai vieux", month: "2026-02",
+                     assigned: 10, spent: 10)
+        // Le dépassement de janvier s'est soldé contre février ; mars ne le
+        // revoit pas.
+        let carried = try LocalPlan.carryover(store.database, before: "2026-03")
+        #expect(carried.absorbed == 0)
+
+        let february = try LocalPlan.carryover(store.database, before: "2026-02")
+        #expect(february.absorbed == 50)
+    }
+
+    /*
      * Le report part du premier mois BUDGÉTÉ, pas de la première opération.
      * Une dépense d'avant n'avait pas d'enveloppe à vider ; la compter ferait
      * porter à la première enveloppe toute une vie de dépenses — sur le grand
