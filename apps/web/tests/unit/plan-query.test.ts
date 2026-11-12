@@ -110,6 +110,27 @@ describe('getMonthPlanQuery', () => {
     expect(rent.spent).toBeCloseTo(915 + 135.91, 2)
   })
 
+  it('counts a filed transfer to a portfolio, and ignores an unfiled one', () => {
+    const ctx = makeTestDb()
+    const ids = seedPlanFixture(ctx)
+    ctx.raw.exec(`
+      INSERT INTO accounts (id, name, kind, current_balance) VALUES
+        ('acct-pf', 'Portfolio', 'broker_portfolio', 0);
+      INSERT INTO transactions (id, account_id, occurred_at, amount, category_id, source, payee, transfer_pair_id) VALUES
+        ('tx-save-out', '${ids.accountId}', '2026-04-12', -200.00, '${ids.catRentId}', 'manual', 'Pay yourself', 'pair-save'),
+        ('tx-save-in', 'acct-pf', '2026-04-12', 200.00, NULL, 'manual', 'Pay yourself', 'pair-save'),
+        ('tx-drift-out', '${ids.accountId}', '2026-04-13', -50.00, NULL, 'manual', 'Unfiled', 'pair-drift'),
+        ('tx-drift-in', 'acct-pf', '2026-04-13', 50.00, NULL, 'manual', 'Unfiled', 'pair-drift');
+    `)
+
+    const plan = getMonthPlanQuery(ctx.db, 2026, 4)
+    const rent = plan.groups[0].categories.find((c) => c.id === ids.catRentId)!
+    // Filing it is what turns paying yourself into a budgeted outflow. The
+    // one left unfiled stays invisible, as every transfer used to be, and
+    // the leg landing in the portfolio never counts.
+    expect(rent.spent).toBeCloseTo(915 + 200, 2)
+  })
+
   it('excludes soft-deleted transactions', () => {
     const ctx = makeTestDb()
     const ids = seedPlanFixture(ctx)

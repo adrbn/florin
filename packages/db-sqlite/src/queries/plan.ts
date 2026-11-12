@@ -82,7 +82,7 @@ export function getMonthPlanQuery(db: SqliteDB, year: number, month: number): Mo
              SELECT 1 FROM transactions p
              JOIN accounts pa ON pa.id = p.account_id
              WHERE p.transfer_pair_id = t.transfer_pair_id
-               AND p.id <> t.id AND pa.kind = 'loan')))
+               AND p.id <> t.id AND pa.kind IN ('loan', 'savings', 'broker_portfolio'))))
   `
 
   // Access the underlying better-sqlite3 instance via drizzle's public $client property.

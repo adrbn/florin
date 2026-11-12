@@ -295,12 +295,21 @@ enum LocalPlan {
                * dépensé 0 €" for a bill paid every month without fail — the
                * real leg is paired too.
                *
-               * What decides is the account on the other side, not whether
-               * someone filed the row: settling a debt is a bill you budget
-               * for, feeding your own savings is not, and a savings transfer
-               * with a category on it is still a savings transfer. Only
-               * outflows qualify, so the leg landing against the debt can
-               * never count as well.
+               * What decides is the account on the other side, and then
+               * the filing. Settling a debt is a bill you budget for, and so
+               * is paying yourself: a standing transfer to savings or to a
+               * portfolio is the most deliberate outflow of the month, and
+               * the plan described it as nothing at all. Leaving it out of
+               * what remains to assign promised money that was already
+               * spoken for, every single month.
+               *
+               * So a transfer whose other leg is a debt, a savings account
+               * or a portfolio MAY be budgeted; the category on it is what
+               * says that it is. Leave one unfiled and it stays invisible,
+               * exactly as before — nothing already recorded changes
+               * meaning. Only outflows qualify, so the leg landing in the
+               * portfolio can never count as well, and a transfer between
+               * two current accounts still never does.
                */
               AND (t.transfer_pair_id IS NULL
                    OR (t.amount < 0 AND EXISTS (
@@ -308,7 +317,7 @@ enum LocalPlan {
                      JOIN accounts pa ON pa.id = p.account_id
                      WHERE p.transfer_pair_id = t.transfer_pair_id
                        AND p.id <> t.id AND p.deleted_at IS NULL
-                       AND pa.kind = 'loan')))
+                       AND pa.kind IN ('loan', 'savings', 'broker_portfolio'))))
     """
 
     /*

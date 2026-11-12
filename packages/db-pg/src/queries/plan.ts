@@ -77,17 +77,19 @@ export async function getMonthPlanQuery(
         lt(transactions.occurredAt, end),
         isNull(transactions.deletedAt),
         // A leg of a transfer is not spending — unless the money is settling
-        // a debt. Feeding your own savings is not a bill; a loan repayment is
-        // one you budget for and watch leave every month, and excluding both
-        // legs reported "Réparti 136 €, dépensé 0 €" for it. The counterpart's
-        // account decides, not whether someone filed the row: a transfer to
-        // savings with a category on it is still a transfer.
+        // a debt, or is you paying yourself. Both are outflows you budget for
+        // and watch leave every month, and excluding both legs reported
+        // "Réparti 136 €, dépensé 0 €" for the loan. The counterpart's account
+        // says which transfers MAY be budgeted (debt, savings, portfolio); the
+        // category on the row says that one is. An unfiled transfer stays
+        // invisible, exactly as before.
         sql`(${transactions.transferPairId} IS NULL
              OR (${transactions.amount} < 0 AND EXISTS (
                SELECT 1 FROM ${transactions} AS p
                JOIN ${accounts} AS pa ON pa.id = p.account_id
                WHERE p.transfer_pair_id = ${transactions.transferPairId}
-                 AND p.id <> ${transactions.id} AND pa.kind = 'loan')))`,
+                 AND p.id <> ${transactions.id}
+                 AND pa.kind IN ('loan', 'savings', 'broker_portfolio'))))`,
       ),
     )
 
