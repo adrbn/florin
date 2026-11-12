@@ -113,6 +113,16 @@ enum LocalPlan {
 
             let groupAssigned = members.reduce(0) { $0 + $1.assigned }
             let groupSpent = round2(members.reduce(0) { $0 + $1.spent })
+            /*
+             * Le total d'un poste est la somme de ses enveloppes, rien d'autre.
+             *
+             * Il valait « réparti moins dépensé » du mois seul, donc il
+             * ignorait le report — et un poste annonçait quatre-vingts euros
+             * au-dessus d'enveloppes qui en portaient sept cents. Le chiffre
+             * du haut contredisait les pastilles du dessous, et c'est le
+             * chiffre du haut qu'on lit en premier.
+             */
+            let groupAvailable = round2(members.reduce(0) { $0 + $1.available })
             groups.append(
                 PlanGroup(
                     id: groupId,
@@ -122,7 +132,7 @@ enum LocalPlan {
                     categories: members,
                     assigned: groupAssigned,
                     spent: groupSpent,
-                    available: round2(groupAssigned - groupSpent),
+                    available: groupAvailable,
                     overspentCount: members.filter { $0.assigned > 0 && $0.available < 0 }.count
                 )
             )

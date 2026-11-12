@@ -8,12 +8,12 @@ import SwiftUI
  * ceux de `PlanScreen` — même `PlanModel`, même feuille d'affectation : seule
  * la façon de le dire change.
  *
- * C'est aussi d'ici qu'on atteint Analyse, qui n'a plus d'onglet : le total
- * dépensé du mois est un lien, souligné pour qu'on voie qu'il en est un.
+ * L'écran ne porte que ses propres chiffres : ce qu'il reste à répartir, ce
+ * qui reste dans chaque poste, ce qui reste dans chaque enveloppe. Le
+ * dépensé est la question d'Analyse, qui a son onglet dans la barre.
  */
 struct EditorialPlan: View {
     @ObservedObject var overview: OverviewModel
-    var route: (TabRoute, String) -> Void = { _, _ in }
     var onOpenSettings: () -> Void = {}
     @ObservedObject var chrome: ChromeState
 
@@ -46,12 +46,10 @@ struct EditorialPlan: View {
 
     init(
         overview: OverviewModel,
-        route: @escaping (TabRoute, String) -> Void = { _, _ in },
         onOpenSettings: @escaping () -> Void = {},
         chrome: ChromeState
     ) {
         self.overview = overview
-        self.route = route
         self.onOpenSettings = onOpenSettings
         self.chrome = chrome
         _model = StateObject(wrappedValue: PlanModel(base: overview.base))
@@ -304,43 +302,42 @@ struct EditorialPlan: View {
         .padding(.top, 28)
     }
 
-    // MARK: Les dépenses, et la porte d'Analyse
+    // MARK: Ce qui reste, et la porte d'Analyse
 
     /*
-     * Une ligne, plus un graphique.
+     * Un plan répond « combien me reste-t-il », pas « combien est parti ».
      *
-     * Quatre barres sur deux cent vingt points tenaient le tiers haut de
-     * l'écran pour dire ce qu'Analyse dit déjà mieux : son onglet « Où »
-     * classe les douze premiers postes, les rend tapables et ouvre les
-     * opérations. Ici elles n'étaient que quatre, muettes au doigt, et
-     * repoussaient les enveloppes — la seule chose qu'on vienne faire sur
-     * cette page — sous la ligne de flottaison.
+     * La page ouvrait sur le dépensé du mois, en quatre barres de deux cent
+     * vingt points : la question d'Analyse, posée sur l'écran des
+     * enveloppes, et répondue moins bien que par son onglet « Où », qui
+     * classe douze postes et les ouvre au doigt. Elle repoussait les
+     * enveloppes — la seule chose qu'on vienne faire ici — sous la ligne de
+     * flottaison.
      *
-     * Reste le total, souligné : c'est la porte, et une porte n'a pas
-     * besoin d'un dessin.
+     * Reste le total de ce qui n'est pas encore dépensé, qui est la somme
+     * exacte des pastilles plus bas.
+     *
+     * Il ne mène plus nulle part. Le souligné disait « touche-moi, ça ouvre
+     * Analyse », ce qui se tenait quand la ligne annonçait le dépensé ;
+     * depuis qu'elle annonce le restant, elle pointerait vers l'écran d'une
+     * autre question. Et un titre souligné sans destination se lit comme une
+     * faute. Analyse a son onglet dans la barre.
      */
     private func spending(_ plan: MonthPlan) -> some View {
-        let total = plan.groups.reduce(0) { $0 + $1.spent }
+        let remaining = plan.groups.reduce(0) { $0 + $1.available }
 
         return VStack(alignment: .leading, spacing: 14) {
             EdPill(text: t("v2.plan.thisMonth", "Ce mois"))
-            Button {
-                edOpen { route(.analysis, TabRoute.analysis.rootPath) }
-            } label: {
-                HStack(alignment: .lastTextBaseline) {
-                    EdSection(text: t("v2.plan.spent", "Dépensé"))
-                    Spacer(minLength: 8)
-                    PrivateText(Money.string(
-                        total, locale: locale, currency: currency, decimals: false
-                    ))
-                    .font(.system(size: 18, weight: .medium))
-                    .monospacedDigit()
-                    .foregroundStyle(Florin.text)
-                    .underline()
-                }
+            HStack(alignment: .lastTextBaseline) {
+                EdSection(text: t("v2.plan.remaining", "Restant"))
+                Spacer(minLength: 8)
+                PrivateText(Money.string(
+                    remaining, locale: locale, currency: currency, decimals: false
+                ))
+                .font(.system(size: 18, weight: .medium))
+                .monospacedDigit()
+                .foregroundStyle(EdMoney.balanceTone(remaining))
             }
-            .buttonStyle(.plain)
-            .accessibilityHint(Text(t("v2.analysis.title", "Analyse")))
         }
         .padding(.top, 34)
     }
@@ -350,12 +347,7 @@ struct EditorialPlan: View {
     private func envelopes(_ plan: MonthPlan) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(plan.groups) { group in
-                EdSection(
-                    text: group.name,
-                    trailing: Money.string(
-                        group.available, locale: locale, currency: currency, decimals: false
-                    )
-                )
+                EdSection(text: group.name)
                 .padding(.top, 34)
                 .padding(.bottom, 6)
                 .contextMenu {
@@ -416,9 +408,36 @@ struct EditorialPlan: View {
                             }
                         }
                 }
-                EdRule()
+                groupTotal(group)
             }
         }
+    }
+
+    /*
+     * Le reste d'un poste, en pied — comme le total d'une journée.
+     *
+     * Il vivait à droite du nom du poste, au-dessus des enveloppes qui le
+     * composent : à cet endroit-là on le lit avant ses parties, donc il ne
+     * veut encore rien dire. En pied, dans la colonne des pastilles, il
+     * clôt — et on voit qu'il en est bien la somme. Même raisonnement que
+     * `dayTotal` dans Activité, même dessin.
+     */
+    @ViewBuilder
+    private func groupTotal(_ group: PlanGroup) -> some View {
+        EdRule()
+        HStack(spacing: 12) {
+            Text(t("v2.plan.remaining", "Restant"))
+                .font(.system(size: 13))
+                .foregroundStyle(Florin.text3)
+            Spacer(minLength: 8)
+            EdAmountPill(
+                text: Money.string(
+                    group.available, locale: locale, currency: currency, decimals: false
+                ),
+                tone: EdMoney.balanceTone(group.available)
+            )
+        }
+        .frame(minHeight: 48)
     }
 
     private func row(_ category: PlanCategory) -> some View {
@@ -454,7 +473,7 @@ struct EditorialPlan: View {
                 text: Money.string(
                     category.available, locale: locale, currency: currency, decimals: false
                 ),
-                tone: over ? Florin.negative : Florin.text
+                tone: EdMoney.balanceTone(category.available)
             )
         }
         .frame(minHeight: 62)

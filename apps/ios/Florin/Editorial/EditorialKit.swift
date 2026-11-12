@@ -1598,6 +1598,23 @@ enum EdMoney {
 
     /// L'encre d'un mouvement, par son sens.
     static func tone(_ amount: Double) -> Color { amount < 0 ? minus : plus }
+
+    /*
+     * L'encre d'un SOLDE : trois états, pas deux.
+     *
+     * Un mouvement est toujours d'un sens ou de l'autre ; un solde peut
+     * n'être rien, et « rien » n'est pas une bonne nouvelle à peindre en
+     * vert. Une enveloppe vide est juste vide. Le gris le dit, et laisse la
+     * couleur aux deux cas où elle veut dire quelque chose.
+     *
+     * Les jetons du thème, pas les encres fixes au-dessus : ceux-là suivent
+     * la palette choisie et son clair/sombre.
+     */
+    static func balanceTone(_ amount: Double) -> Color {
+        if amount < -0.005 { return Florin.negative }
+        if amount > 0.005 { return Florin.positive }
+        return Florin.text3
+    }
 }
 
 /*

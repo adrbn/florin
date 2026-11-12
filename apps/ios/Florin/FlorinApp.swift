@@ -761,7 +761,7 @@ struct MainTabs: View {
                 Group {
                     if editorial {
                         EditorialPlan(
-                            overview: model, route: route,
+                            overview: model,
                             onOpenSettings: openSettings, chrome: chrome
                         )
                     } else {
