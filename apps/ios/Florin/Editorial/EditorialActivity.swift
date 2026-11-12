@@ -39,6 +39,19 @@ struct EditorialActivity: View {
      * déclenche aussi — ni l'un ni l'autre n'est réécrit ici.
      */
     @State private var menuRequest: TxActionRequest?
+    /*
+     * Cocher plusieurs lignes, les valider d'un geste.
+     *
+     * `nil` = pas de sélection en cours ; un ensemble vide = le mode est
+     * ouvert et rien n'est coché. L'ancienne liste avait tout cela et ne le
+     * proposait QUE sur les lignes à vérifier — ici n'importe quelle ligne se
+     * coche, parce que ranger dix courses déjà passées est le même geste que
+     * vider la file.
+     */
+    @State private var selection: Set<String>?
+    /// Les lignes cochées auxquelles il manque une catégorie : on la demande
+    /// avant de valider, sinon « vérifié » voudrait dire « classé nulle part ».
+    @State private var filing: (ids: [String], missing: [Transaction])?
     @State private var draft = ""
     @FocusState private var searchFocused: Bool
     /// Les têtes de marchands. `Bubble` sait déjà se tenir en Éditorial —
@@ -207,6 +220,16 @@ struct EditorialActivity: View {
         .scrollIndicators(.hidden)
         .edPlainEdges()
         .background(Florin.bg)
+        /*
+         * La barre flotte, elle ne descend pas avec la liste.
+         *
+         * L'en-tête défile — c'est lui qui OUVRE la sélection, et c'est très
+         * bien : on l'ouvre une fois. Mais l'action, elle, se tape après avoir
+         * coché dix lignes, donc en bas de course. Posée dans l'en-tête, il
+         * aurait fallu remonter pour valider ce qu'on vient de cocher.
+         */
+        .overlay(alignment: .bottom) { selectionBar }
+        .animation(.snappy(duration: 0.24), value: selection == nil)
         .refreshable { await model.reload() }
         .task {
             if startNeedsReview { model.filter.needsReview = true }
@@ -284,6 +307,31 @@ struct EditorialActivity: View {
             )
             .edSheet()
         }
+        .sheet(isPresented: Binding(
+            get: { filing != nil },
+            set: { if !$0 { filing = nil } }
+        )) {
+            if let batch = filing {
+                ReviewCategorySheet(
+                    transactions: batch.missing,
+                    categories: model.categories,
+                    locale: locale,
+                    currency: currency,
+                    t: t,
+                    onAssign: { id, categoryId in
+                        await model.apply(TxPatch(categoryId: .some(categoryId)), to: id, t: t)
+                    },
+                    onFinish: {
+                        let ids = batch.ids
+                        filing = nil
+                        Task {
+                            await model.approve(ids, t: t)
+                            await overview.load(showSpinner: false)
+                        }
+                    }
+                )
+            }
+        }
         .sheet(isPresented: $filtering) {
             FilterSheet(
                 filter: $model.filter,
@@ -340,6 +388,18 @@ struct EditorialActivity: View {
             }
         } trailing: {
             HStack(spacing: 0) {
+                EdIconButton(
+                    symbol: selection == nil
+                        ? "checkmark.circle" : "checkmark.circle.fill",
+                    label: selection == nil
+                        ? t("v2.review.selectMany", "Sélectionner")
+                        : t("v2.review.selectDone", "Désélectionner")
+                ) {
+                    UISelectionFeedbackGenerator().selectionChanged()
+                    withAnimation(.snappy(duration: 0.2)) {
+                        selection = selection == nil ? [] : nil
+                    }
+                }
                 EdIconButton(
                     // Un point sur la loupe des filtres : on doit voir qu'une
                     // liste est tronquée sans avoir à ouvrir la feuille.
@@ -501,6 +561,87 @@ struct EditorialActivity: View {
             calendar.isDate(day, equalTo: .now, toGranularity: .year) ? "dMMMM" : "dMMMMy"
         )
         return f.string(from: day)
+    }
+
+    // MARK: Cocher, puis valider
+
+    @ViewBuilder
+    private var selectionBar: some View {
+        if let picked = selection {
+            // Ce qui est À L'ÉCRAN, pas tout ce qui est chargé : « Tout »
+            // ramasserait sinon les lignes repliées dans les volets du haut —
+            // à venir, en plusieurs fois — qu'on ne voit pas et qu'on ne
+            // pensait pas cocher.
+            let all = days.flatMap { $0.rows }.map(\.id)
+            HStack(spacing: 10) {
+                Button {
+                    UISelectionFeedbackGenerator().selectionChanged()
+                    withAnimation(.snappy(duration: 0.2)) {
+                        selection = picked.count == all.count ? [] : Set(all)
+                    }
+                } label: {
+                    Text(
+                        picked.count == all.count
+                            ? t("v2.review.selectNone", "Aucune")
+                            : t("v2.review.selectAll", "Tout")
+                    )
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Florin.text)
+                    .frame(width: 104, height: 54)
+                    .florinGlass(in: Capsule())
+                }
+                .buttonStyle(.plain)
+
+                Button { approvePicked(picked) } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 16, weight: .bold))
+                        Text(t(
+                            "v2.review.approveCount", "Valider {count}",
+                            ["count": picked.count]
+                        ))
+                        .font(.system(size: 17, weight: .semibold))
+                    }
+                    .foregroundStyle(Florin.onAccent)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 54)
+                    .background(Florin.positive, in: Capsule())
+                    .shadow(color: .black.opacity(0.4), radius: 14, y: 6)
+                }
+                .buttonStyle(.plain)
+                .disabled(picked.isEmpty)
+                .opacity(picked.isEmpty ? 0.4 : 1)
+            }
+            .padding(.horizontal, Ed.gutter)
+            .padding(.bottom, 86)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
+    }
+
+    /*
+     * « Vérifié » ne peut pas vouloir dire « classé nulle part ».
+     *
+     * Une ligne cochée sans catégorie passe d'abord par la feuille qui en
+     * demande une. Les virements internes en sont exclus : de l'argent qui
+     * passe d'un de ses comptes à l'autre n'est pas une dépense et n'a pas de
+     * catégorie par construction — en réclamer une serait inventer un
+     * problème puis le lui faire résoudre.
+     */
+    private func approvePicked(_ picked: Set<String>) {
+        let ids = Array(picked)
+        guard !ids.isEmpty else { return }
+        let missing = model.rows.filter {
+            picked.contains($0.id) && $0.categoryName == nil && !$0.isTransfer
+        }
+        withAnimation(.snappy(duration: 0.2)) { selection = nil }
+        guard missing.isEmpty else {
+            filing = (ids, missing)
+            return
+        }
+        Task {
+            await model.approve(ids, t: t)
+            await overview.load(showSpinner: false)
+        }
     }
 
     // MARK: Ce qui réduit la liste
@@ -877,7 +1018,17 @@ struct EditorialActivity: View {
     private func rows(_ list: [Transaction]) -> some View {
         ForEach(list) { tx in
             EdRule()
-            Button { edOpen { detail = tx } } label: { row(tx) }
+            Button {
+                guard selection != nil else { return edOpen { detail = tx } }
+                UISelectionFeedbackGenerator().selectionChanged()
+                withAnimation(.snappy(duration: 0.18)) {
+                    if selection?.contains(tx.id) == true {
+                        selection?.remove(tx.id)
+                    } else {
+                        selection?.insert(tx.id)
+                    }
+                }
+            } label: { row(tx) }
                 .buttonStyle(.edPress)
                 .transactionMenu(
                     tx, t: t, locale: locale, currency: currency,
@@ -913,6 +1064,13 @@ struct EditorialActivity: View {
 
     private func row(_ tx: Transaction) -> some View {
         HStack(spacing: 12) {
+            if selection != nil {
+                let on = selection?.contains(tx.id) == true
+                Image(systemName: on ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 21))
+                    .foregroundStyle(on ? Florin.positive : Florin.text3)
+                    .transition(.scale.combined(with: .opacity))
+            }
             // Un virement entre ses propres comptes n'a pas de marchand : le
             // « marchand », là, c'est soi.
             let face = tx.isTransfer ? nil : logos.face(for: tx.payee, plan: tx.instalmentPlanId)
