@@ -1019,6 +1019,18 @@ extension LocalStore {
              * launch is mirrored by the categoriser itself rather than waiting
              * for the next one.
              */
+            /*
+             * Les deux jambes d'un virement importé, remises face à face.
+             *
+             * Une réparation de lancement et pas seulement de l'import :
+             * le mal est déjà dans les bases posées, et c'est au
+             * lancement que tout le monde le voit.
+             */
+            let stitched = try ServerImport.pairImportedTransfers(store.database)
+            if stitched > 0 {
+                log.notice("stitched \(stitched, privacy: .public) imported transfer legs")
+            }
+
             // Before adding any, take back the ones a broken catch-up added.
             let undone = try LocalLedger.dropDuplicateLoanMirrors(store: store)
             if undone > 0 {

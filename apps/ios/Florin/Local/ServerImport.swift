@@ -12,6 +12,82 @@ import OSLog
 /// Idempotent: rows are keyed by their server id, so importing twice updates
 /// rather than duplicates, and an interrupted run can simply be run again.
 enum ServerImport {
+
+    /// Recoud les jambes d'un virement importé, séparées par le flux.
+    @discardableResult
+    static func pairImportedTransfers(_ db: SQLiteDatabase) throws -> Int {
+        /*
+         * Recoudre les deux jambes d'un virement.
+         *
+         * Le flux dit qu'une ligne est un virement, jamais avec quelle
+         * autre. Chaque jambe recevait donc un marqueur tiré de son
+         * propre identifiant : deux valeurs différentes pour un seul
+         * mouvement. Tant que tout le monde demandait « est-ce un
+         * virement ? », cela passait. Le Plan demande maintenant « qu'y
+         * a-t-il en face ? », et un remboursement de prêt importé n'avait
+         * personne à montrer : la mensualité disparaissait de son
+         * enveloppe, prélevée chaque mois sans faute.
+         *
+         * Le même jour, le même montant au signe près, deux comptes
+         * différents : c'est le mouvement, et une jambe sans réplique
+         * garde son marqueur, donc rien de ce qui tenait ne bouge.
+         *
+         * MATERIALIZED n'est pas décoratif : la liste se lit sur les
+         * lignes encore marquées « imported: », et c'est cette marque
+         * que la mise à jour efface. Recalculée en cours de route, elle
+         * perd la sortie dont l'identifiant sert de lien, et il ne reste
+         * qu'une moitié de virement appariée à rien.
+         */
+        let before = try db.scalar(
+            """
+            SELECT count(*) FROM transactions
+            WHERE transfer_pair_id LIKE 'imported:%' AND deleted_at IS NULL
+            """
+        )?.int ?? 0
+        guard before > 1 else { return 0 }
+
+        try db.run(
+            """
+            WITH sortie AS (
+              SELECT id, occurred_at, amount, account_id FROM transactions
+              WHERE transfer_pair_id LIKE 'imported:%'
+                AND deleted_at IS NULL AND amount < 0
+            ),
+            entree AS (
+              SELECT id, occurred_at, amount, account_id FROM transactions
+              WHERE transfer_pair_id LIKE 'imported:%'
+                AND deleted_at IS NULL AND amount > 0
+            ),
+            candidate AS (
+              SELECT sortie.id AS sortie_id, entree.id AS entree_id
+              FROM sortie JOIN entree
+                ON entree.occurred_at = sortie.occurred_at
+               AND entree.amount = -sortie.amount
+               AND entree.account_id <> sortie.account_id
+            ),
+            paire AS MATERIALIZED (
+              SELECT sortie_id, entree_id FROM candidate
+              WHERE sortie_id IN (
+                    SELECT sortie_id FROM candidate GROUP BY sortie_id HAVING count(*) = 1)
+                AND entree_id IN (
+                    SELECT entree_id FROM candidate GROUP BY entree_id HAVING count(*) = 1)
+            )
+            UPDATE transactions SET transfer_pair_id = (
+              SELECT sortie_id FROM paire
+              WHERE sortie_id = transactions.id OR entree_id = transactions.id
+            )
+            WHERE id IN (SELECT sortie_id FROM paire)
+               OR id IN (SELECT entree_id FROM paire)
+            """
+        )
+        return before - (try db.scalar(
+            """
+            SELECT count(*) FROM transactions
+            WHERE transfer_pair_id LIKE 'imported:%' AND deleted_at IS NULL
+            """
+        )?.int ?? before)
+    }
+
     private static let log = Logger(subsystem: "com.adrbn.florin", category: "server-import")
 
     struct Progress {
@@ -318,6 +394,8 @@ enum ServerImport {
                     ]
                 )
             }
+
+            try pairImportedTransfers(db)
 
             // Put the bank back on the accounts it was attached to, now that
             // they have been rewritten with fresh server ids.

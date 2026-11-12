@@ -849,6 +849,58 @@ struct LoanMirrorTests {
         #expect(mirrors(store, on: loan) == 1)
     }
 
+    @Test("the two legs of an imported transfer find each other again")
+    func importedPairsAreStitched() throws {
+        let (store, ccp, loan, category) = try ledger()
+        // Chaque jambe arrive avec un marqueur tiré de son propre identifiant,
+        // donc les deux moitiés d'un seul mouvement ne se désignent pas. Le
+        // Plan demande ce qu'il y a en face : sans réponse, une mensualité
+        // prélevée chaque mois disparaissait de son enveloppe.
+        let out = try payment(store, on: ccp)
+        try store.database.run(
+            "UPDATE transactions SET category_id = ?, transfer_pair_id = ? WHERE id = ?",
+            [.text(category), .text("imported:a"), .text(out)]
+        )
+        let back = UUID().uuidString
+        try store.database.run(
+            """
+            INSERT INTO transactions
+                (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
+                 source, status, needs_review, transfer_pair_id)
+            VALUES (?, ?, '2026-08-05', 165.13, 'EUR', '↳ x', 'x', 'server', 'cleared', 0, 'imported:b')
+            """,
+            [.text(back), .text(loan)]
+        )
+
+        try ServerImport.pairImportedTransfers(store.database)
+
+        let left = try store.database.scalar(
+            "SELECT transfer_pair_id FROM transactions WHERE id = ?", [.text(out)])?.string
+        let right = try store.database.scalar(
+            "SELECT transfer_pair_id FROM transactions WHERE id = ?", [.text(back)])?.string
+        #expect(left != nil && left == right)
+        #expect(left?.hasPrefix("imported:") == false)
+    }
+
+    @Test("a leg with no counterpart keeps its marker")
+    func importedLonerKeepsItsMarker() throws {
+        let (store, ccp, _, _) = try ledger()
+        // Une sortie dont la réplique est datée du lendemain : le lien reste
+        // introuvable, et c'est exactement ce qui se passait avant — rien de
+        // ce qui tenait déjà ne doit bouger.
+        let out = try payment(store, on: ccp)
+        try store.database.run(
+            "UPDATE transactions SET transfer_pair_id = 'imported:seul' WHERE id = ?",
+            [.text(out)]
+        )
+
+        try ServerImport.pairImportedTransfers(store.database)
+
+        #expect(try store.database.scalar(
+            "SELECT transfer_pair_id FROM transactions WHERE id = ?", [.text(out)]
+        )?.string == "imported:seul")
+    }
+
     @Test("a payment on the 30th is not a second instalment for the 1st")
     func acrossAMonthBoundary() throws {
         let (store, ccp, loan, _) = try ledger()
@@ -7816,6 +7868,21 @@ struct CarryoverTests {
             )
         }
         if spent != 0 {
+            /*
+             * Un compte, sinon la clé étrangère refuse la ligne et la
+             * dépense n'existe pas. Le départ d'une base neuve n'en crée
+             * aucun : ces cinq épreuves échouaient toutes au même endroit,
+             * et le report qu'elles décrivent n'était vérifié nulle part.
+             */
+            if try db.scalar("SELECT id FROM accounts LIMIT 1")?.string == nil {
+                try db.run(
+                    """
+                    INSERT INTO accounts (id, name, kind, currency, created_at)
+                    VALUES (?, 'Compte d''essai', 'checking', 'EUR', datetime('now'))
+                    """,
+                    [.text(UUID().uuidString)]
+                )
+            }
             let account = try db.scalar("SELECT id FROM accounts LIMIT 1")?.string ?? ""
             try db.run(
                 """
