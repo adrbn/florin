@@ -306,17 +306,21 @@ struct EditorialPlan: View {
 
     // MARK: Les dépenses, et la porte d'Analyse
 
-    /// Les quatre premiers postes du mois, en barres. La plus haute prend
-    /// l'accent — pas parce qu'elle va mal, parce que c'est elle qu'on
-    /// cherchait du regard.
+    /*
+     * Une ligne, plus un graphique.
+     *
+     * Quatre barres sur deux cent vingt points tenaient le tiers haut de
+     * l'écran pour dire ce qu'Analyse dit déjà mieux : son onglet « Où »
+     * classe les douze premiers postes, les rend tapables et ouvre les
+     * opérations. Ici elles n'étaient que quatre, muettes au doigt, et
+     * repoussaient les enveloppes — la seule chose qu'on vienne faire sur
+     * cette page — sous la ligne de flottaison.
+     *
+     * Reste le total, souligné : c'est la porte, et une porte n'a pas
+     * besoin d'un dessin.
+     */
     private func spending(_ plan: MonthPlan) -> some View {
-        let top = plan.groups
-            .flatMap(\.categories)
-            .filter { $0.spent > 0 }
-            .sorted { $0.spent > $1.spent }
-            .prefix(4)
         let total = plan.groups.reduce(0) { $0 + $1.spent }
-        let ceiling = top.first?.spent ?? 1
 
         return VStack(alignment: .leading, spacing: 14) {
             EdPill(text: t("v2.plan.thisMonth", "Ce mois"))
@@ -337,36 +341,8 @@ struct EditorialPlan: View {
             }
             .buttonStyle(.plain)
             .accessibilityHint(Text(t("v2.analysis.title", "Analyse")))
-
-            if !top.isEmpty {
-                HStack(alignment: .bottom, spacing: 10) {
-                    ForEach(Array(top.enumerated()), id: \.element.id) { index, category in
-                        bar(category, share: ceiling > 0 ? category.spent / ceiling : 0,
-                            leading: index == 0)
-                    }
-                }
-                .frame(height: 220)
-                .animation(EdMotion.enter, value: plan.key)
-            }
         }
         .padding(.top, 34)
-    }
-
-    private func bar(_ category: PlanCategory, share: Double, leading: Bool) -> some View {
-        VStack(spacing: 8) {
-            // Un plancher de 24 pt : une barre invisible ne dit pas « peu »,
-            // elle dit « rien », ce qui est faux.
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(leading ? Florin.accent : Florin.surface2)
-                .frame(maxWidth: .infinity)
-                .frame(height: max(24, 180 * share))
-            Text(category.name)
-                .font(.system(size: 11))
-                .foregroundStyle(Florin.text2)
-                .lineLimit(1)
-                .truncationMode(.tail)
-        }
-        .frame(maxWidth: .infinity, alignment: .bottom)
     }
 
     // MARK: Les enveloppes
