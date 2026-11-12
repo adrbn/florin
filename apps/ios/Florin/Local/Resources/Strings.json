@@ -975,7 +975,16 @@
     "v2.widget.owned": "Owned",
     "v2.widget.perDay": "{amount} a day",
     "v2.widget.spentPerDay": "you spend {amount} a day",
-    "v2.widget.youSpend": "you spend {amount}"
+    "v2.widget.youSpend": "you spend {amount}",
+    "v2.places.title": "Merchant map",
+    "v2.settings.places": "Merchant places",
+    "v2.places.here": "I'm here",
+    "v2.places.noFix": "No location available here.",
+    "v2.places.visits": "{count} visits",
+    "v2.places.empty": "No places yet.",
+    "v2.places.emptyHint": "At a merchant, open one of its transactions and tap “I'm here”: the pin covers its whole history.",
+    "v2.places.footer": "Every pin comes from this device's GPS. No merchant name is sent anywhere.",
+    "v2.common.ok": "OK"
   },
   "fr": {
     "v2.a11y.back": "Retour",
@@ -1953,7 +1962,16 @@
     "v2.widget.owned": "Possédé",
     "v2.widget.perDay": "{amount} par jour",
     "v2.widget.spentPerDay": "vous dépensez {amount} par jour",
-    "v2.widget.youSpend": "vous dépensez {amount}"
+    "v2.widget.youSpend": "vous dépensez {amount}",
+    "v2.places.title": "Carte des marchands",
+    "v2.settings.places": "Lieux des marchands",
+    "v2.places.here": "J'y suis",
+    "v2.places.noFix": "Position indisponible ici.",
+    "v2.places.visits": "{count} passages",
+    "v2.places.empty": "Aucun lieu encore.",
+    "v2.places.emptyHint": "Chez un marchand, ouvrez son opération et touchez « J'y suis » : son point vaudra pour tout son historique.",
+    "v2.places.footer": "Chaque point vient du GPS de cet appareil. Aucun nom de marchand n'est envoyé nulle part.",
+    "v2.common.ok": "OK"
   },
   "nl": {
     "v2.a11y.back": "Terug",
@@ -2931,7 +2949,16 @@
     "v2.widget.owned": "Bezit",
     "v2.widget.perDay": "{amount} per dag",
     "v2.widget.spentPerDay": "je geeft {amount} per dag uit",
-    "v2.widget.youSpend": "je geeft {amount} uit"
+    "v2.widget.youSpend": "je geeft {amount} uit",
+    "v2.places.title": "Kaart van winkeliers",
+    "v2.settings.places": "Locaties van winkeliers",
+    "v2.places.here": "Ik ben hier",
+    "v2.places.noFix": "Geen locatie beschikbaar hier.",
+    "v2.places.visits": "{count} bezoeken",
+    "v2.places.empty": "Nog geen locaties.",
+    "v2.places.emptyHint": "Open bij een winkelier een van zijn transacties en tik op ‘Ik ben hier’: de speld geldt voor zijn hele geschiedenis.",
+    "v2.places.footer": "Elke speld komt van de gps van dit apparaat. Geen enkele winkeliersnaam wordt verstuurd.",
+    "v2.common.ok": "OK"
   },
   "it": {
     "v2.a11y.back": "Indietro",
@@ -3909,7 +3936,16 @@
     "v2.widget.owned": "Posseduto",
     "v2.widget.perDay": "{amount} al giorno",
     "v2.widget.spentPerDay": "spendi {amount} al giorno",
-    "v2.widget.youSpend": "spendi {amount}"
+    "v2.widget.youSpend": "spendi {amount}",
+    "v2.places.title": "Mappa dei commercianti",
+    "v2.settings.places": "Luoghi dei commercianti",
+    "v2.places.here": "Sono qui",
+    "v2.places.noFix": "Posizione non disponibile qui.",
+    "v2.places.visits": "{count} passaggi",
+    "v2.places.empty": "Ancora nessun luogo.",
+    "v2.places.emptyHint": "Da un commerciante, apri una sua operazione e tocca «Sono qui»: il punto vale per tutta la sua cronologia.",
+    "v2.places.footer": "Ogni punto viene dal GPS di questo dispositivo. Nessun nome di commerciante viene inviato.",
+    "v2.common.ok": "OK"
   },
   "es": {
     "v2.a11y.back": "Atrás",
@@ -4887,7 +4923,16 @@
     "v2.widget.owned": "En propiedad",
     "v2.widget.perDay": "{amount} al día",
     "v2.widget.spentPerDay": "gastas {amount} al día",
-    "v2.widget.youSpend": "gastas {amount}"
+    "v2.widget.youSpend": "gastas {amount}",
+    "v2.places.title": "Mapa de comercios",
+    "v2.settings.places": "Lugares de los comercios",
+    "v2.places.here": "Estoy aquí",
+    "v2.places.noFix": "Ubicación no disponible aquí.",
+    "v2.places.visits": "{count} visitas",
+    "v2.places.empty": "Aún no hay lugares.",
+    "v2.places.emptyHint": "En un comercio, abre una de sus operaciones y toca «Estoy aquí»: el punto vale para todo su historial.",
+    "v2.places.footer": "Cada punto viene del GPS de este dispositivo. Ningún nombre de comercio se envía a ninguna parte.",
+    "v2.common.ok": "OK"
   },
   "ca": {
     "v2.a11y.back": "Enrere",
@@ -5865,7 +5910,16 @@
     "v2.widget.owned": "En propietat",
     "v2.widget.perDay": "{amount} al dia",
     "v2.widget.spentPerDay": "gastes {amount} al dia",
-    "v2.widget.youSpend": "gastes {amount}"
+    "v2.widget.youSpend": "gastes {amount}",
+    "v2.places.title": "Mapa de comerços",
+    "v2.settings.places": "Llocs dels comerços",
+    "v2.places.here": "Hi sóc",
+    "v2.places.noFix": "Ubicació no disponible aquí.",
+    "v2.places.visits": "{count} visites",
+    "v2.places.empty": "Encara cap lloc.",
+    "v2.places.emptyHint": "En un comerç, obre una de les seves operacions i toca «Hi sóc»: el punt val per a tot el seu historial.",
+    "v2.places.footer": "Cada punt ve del GPS d'aquest dispositiu. Cap nom de comerç s'envia enlloc.",
+    "v2.common.ok": "D'acord"
   },
   "de": {
     "v2.a11y.back": "Zurück",
@@ -6843,7 +6897,16 @@
     "v2.widget.owned": "Besitz",
     "v2.widget.perDay": "{amount} pro Tag",
     "v2.widget.spentPerDay": "du gibst {amount} pro Tag aus",
-    "v2.widget.youSpend": "du gibst {amount} aus"
+    "v2.widget.youSpend": "du gibst {amount} aus",
+    "v2.places.title": "Karte der Händler",
+    "v2.settings.places": "Orte der Händler",
+    "v2.places.here": "Ich bin hier",
+    "v2.places.noFix": "Hier ist kein Standort verfügbar.",
+    "v2.places.visits": "{count} Besuche",
+    "v2.places.empty": "Noch keine Orte.",
+    "v2.places.emptyHint": "Öffne bei einem Händler eine seiner Buchungen und tippe auf „Ich bin hier“: Die Markierung gilt für seine gesamte Historie.",
+    "v2.places.footer": "Jede Markierung stammt vom GPS dieses Geräts. Kein Händlername wird irgendwohin gesendet.",
+    "v2.common.ok": "OK"
   },
   "pt": {
     "v2.a11y.back": "Voltar",
@@ -7821,7 +7884,16 @@
     "v2.widget.owned": "Detido",
     "v2.widget.perDay": "{amount} por dia",
     "v2.widget.spentPerDay": "gasta {amount} por dia",
-    "v2.widget.youSpend": "gasta {amount}"
+    "v2.widget.youSpend": "gasta {amount}",
+    "v2.places.title": "Mapa dos comerciantes",
+    "v2.settings.places": "Locais dos comerciantes",
+    "v2.places.here": "Estou aqui",
+    "v2.places.noFix": "Localização indisponível aqui.",
+    "v2.places.visits": "{count} visitas",
+    "v2.places.empty": "Ainda sem locais.",
+    "v2.places.emptyHint": "Num comerciante, abra uma das suas operações e toque em «Estou aqui»: o ponto vale para todo o histórico.",
+    "v2.places.footer": "Cada ponto vem do GPS deste aparelho. Nenhum nome de comerciante é enviado.",
+    "v2.common.ok": "OK"
   },
   "tr": {
     "v2.a11y.back": "Geri",
@@ -8799,6 +8871,15 @@
     "v2.widget.owned": "Sahip olunan",
     "v2.widget.perDay": "günde {amount}",
     "v2.widget.spentPerDay": "günde {amount} harcıyorsunuz",
-    "v2.widget.youSpend": "{amount} harcıyorsunuz"
+    "v2.widget.youSpend": "{amount} harcıyorsunuz",
+    "v2.places.title": "Satıcı haritası",
+    "v2.settings.places": "Satıcı konumları",
+    "v2.places.here": "Buradayım",
+    "v2.places.noFix": "Burada konum alınamadı.",
+    "v2.places.visits": "{count} ziyaret",
+    "v2.places.empty": "Henüz konum yok.",
+    "v2.places.emptyHint": "Bir satıcıdayken işlemlerinden birini açıp “Buradayım”a dokunun: iğne tüm geçmişi kapsar.",
+    "v2.places.footer": "Her iğne bu cihazın GPS'inden gelir. Hiçbir satıcı adı hiçbir yere gönderilmez.",
+    "v2.common.ok": "Tamam"
   }
 }

@@ -524,7 +524,7 @@ final class LocalStore {
     }
 
     private func rekeyMerchantNames() throws {
-        for table in ["payee_aliases", "merchant_marks"] {
+        for table in ["payee_aliases", "merchant_marks", "merchant_places"] {
             let rows = try database.query("SELECT match_key FROM \(table) ORDER BY updated_at ASC")
             for row in rows {
                 guard let old = row.string("match_key") else { continue }

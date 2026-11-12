@@ -64,6 +64,8 @@ struct SettingsScreen: View {
     @State private var showingBanking = false
     @State private var showingCategories = false
     @State private var showingMerchants = false
+    @State private var showingPlaces = false
+    @State private var placesOn = LocalPlaces.enabled
     @State private var showingTrash = false
     @State private var showingWalletGuide = false
     @State private var showingSyncLog = false
@@ -143,6 +145,13 @@ struct SettingsScreen: View {
             .sheet(isPresented: $showingBanking) { BankingSettings() }
             .sheet(isPresented: $showingCategories) { CategoriesScreen(t: t) }
             .sheet(isPresented: $showingMerchants) { MerchantsScreen(t: t) }
+            .sheet(isPresented: $showingPlaces) {
+                PlacesScreen(
+                    locale: model.overview?.localeTag ?? "fr-FR",
+                    currency: model.overview?.currency ?? "EUR",
+                    t: t
+                )
+            }
             .sheet(isPresented: $showingTrash) {
                 TrashScreen(
                     t: t,
@@ -1500,6 +1509,45 @@ struct SettingsScreen: View {
                 symbol: "storefront",
                 action: { showingMerchants = true }
             )
+            Hairline()
+            /*
+             * Le réglage d'abord, la carte ensuite.
+             *
+             * La carte n'a de points que si le réglage est allumé, et
+             * l'allumer sans savoir ce qu'il fait serait exactement ce que
+             * l'app promet de ne pas faire. L'interrupteur demande
+             * l'autorisation système au moment où on le bascule — pas plus
+             * tôt, parce qu'une question posée sans raison se refuse.
+             */
+            Toggle(isOn: Binding(
+                get: { placesOn },
+                set: { on in
+                    placesOn = on
+                    LocalPlaces.setEnabled(on)
+                    if on { Task { _ = await PlaceFinder().fix() } }
+                }
+            )) {
+                HStack(spacing: 11) {
+                    Image(systemName: "mappin.and.ellipse")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(Florin.accent)
+                        .frame(width: 20)
+                    Text(t("v2.settings.places", "Lieux des marchands"))
+                        .font(.system(size: 15.5))
+                        .foregroundStyle(Florin.text)
+                }
+            }
+            .tint(Florin.control)
+            .padding(.horizontal, Florin.gutter)
+            .padding(.vertical, 11)
+            if placesOn {
+                Hairline()
+                SettingsRow(
+                    label: t("v2.places.title", "Carte des marchands"),
+                    symbol: "map",
+                    action: { showingPlaces = true }
+                )
+            }
             Hairline()
             if local {
                 SettingsRow(

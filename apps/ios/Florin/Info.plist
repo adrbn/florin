@@ -79,6 +79,8 @@
 	<!-- Le scanner de tickets de caisse. Sans cette clé le système ne demande
 	     rien et l'appareil photo ne s'ouvre pas : l'app plante à l'ouverture
 	     du scanner. Les photos restent dans le conteneur de l'app. -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Pour poser le point d'un marchand sur votre carte, pendant que vous y êtes. La position reste sur cet appareil : rien n'est envoyé, et le réglage est éteint tant que vous ne l'allumez pas.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Florin ouvre l'appareil photo pour lire tes tickets de caisse. Les photos restent sur ton téléphone.</string>
 	<!-- « Enregistrer dans Photos » depuis la visionneuse de ticket. Lire la

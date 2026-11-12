@@ -44,6 +44,7 @@ enum LocalBackup {
         "category_groups", "accounts", "categories", "transactions",
         "holdings", "monthly_budgets", "categorization_rules",
         "recurring_rules", "balance_snapshots", "payee_aliases", "merchant_marks",
+        "merchant_places",
     ]
 
     // MARK: - Writing one

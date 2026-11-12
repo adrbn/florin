@@ -262,6 +262,13 @@ enum LocalSchema {
               image BLOB,
               updated_at TEXT NOT NULL DEFAULT (datetime('now'))
             );
+        CREATE TABLE IF NOT EXISTS merchant_places (
+              match_key TEXT PRIMARY KEY NOT NULL,
+              lat REAL NOT NULL,
+              lon REAL NOT NULL,
+              accuracy REAL,
+              updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
         CREATE TABLE IF NOT EXISTS wallet_attempts (
               id TEXT PRIMARY KEY NOT NULL,
               started_at TEXT NOT NULL DEFAULT (datetime('now')),

@@ -154,6 +154,19 @@ struct RecordPaymentIntent: AppIntent {
             accountId: account?.id
         )
         /*
+         * On est à la caisse : c'est maintenant ou jamais.
+         *
+         * L'automatisation tourne pendant que la carte est présentée, et
+         * c'est le seul instant où l'appareil est au bon endroit — la ligne
+         * de la banque, elle, arrive des heures plus tard. Le point GARDÉ
+         * par le système suffit : en demander un frais ferait patienter un
+         * paiement pour quelques mètres.
+         *
+         * Éteint par défaut, et silencieux : une épingle manquée ne doit
+         * jamais empêcher une dépense d'entrer.
+         */
+        LocalPlaces.remember(store: store, payee: recorded.payee, at: LocalPlaces.lastKnown)
+        /*
          * La tuile suit, même app fermée.
          *
          * L'instantané du widget n'était écrit qu'au passage de l'app au

@@ -293,7 +293,8 @@ enum LocalDemo {
             try db.exec("PRAGMA defer_foreign_keys = ON")
             for table in [
                 "transactions", "holdings", "monthly_budgets", "balance_snapshots",
-                "recurring_rules", "categorization_rules", "payee_aliases", "merchant_marks", "accounts",
+                "recurring_rules", "categorization_rules", "payee_aliases", "merchant_marks",
+                "merchant_places", "accounts",
             ] {
                 try db.exec("DELETE FROM \(table)")
             }

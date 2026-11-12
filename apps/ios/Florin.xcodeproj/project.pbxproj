@@ -114,6 +114,7 @@
 		9F70EE4441BACBA144150223 /* LocalCategoriser.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3F2754AF1FEBB2278A3EEBF /* LocalCategoriser.swift */; };
 		A216024B009501059D290009 /* LocalBackup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E3252C271F4E969AE64E84C /* LocalBackup.swift */; };
 		A245B073A9F74D0CF883D13D /* Privacy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 053C4FF9EB60FEF2D22C6F7A /* Privacy.swift */; };
+		A2739B7CC05B4B5319CB7B5B /* PlacesScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4B7A6215462FFD8E9539241 /* PlacesScreen.swift */; };
 		A4E880D341778B721BADC441 /* ReceiptsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3101B3B62BD8E0C9CB8E1811 /* ReceiptsSheet.swift */; };
 		A636000FF8D12DAA4D6FF8BC /* LoanSettingsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCA4B188AFA3350AE1C4604E /* LoanSettingsSheet.swift */; };
 		A6534357A58B3944CAAB747B /* ServerImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E9EB2FEBA4192B0854EB8D1 /* ServerImport.swift */; };
@@ -144,6 +145,7 @@
 		D4E019863964058D703761CE /* BottomScrim.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1DD2E38FDF8F23D07715D59 /* BottomScrim.swift */; };
 		D54AEBA180187C6F00BD7E69 /* ProductNames.swift in Sources */ = {isa = PBXBuildFile; fileRef = C817EE35E708179DA13C49D8 /* ProductNames.swift */; };
 		D5D6AB1AB9D03C62B8A127F6 /* WebContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACED395A385ABE8191A28BB7 /* WebContainer.swift */; };
+		D85413B6003B56CEC73E0A9C /* LocalPlaces.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76BDC2A716FCE16DAFA9E81A /* LocalPlaces.swift */; };
 		D87635608BCCB448BAF63048 /* AssetSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA76A9953A1F010EE69114BD /* AssetSearch.swift */; };
 		D8C4A835B901DE7371E70C4D /* AccountsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA33E1BDF4ED187D578701D0 /* AccountsScreen.swift */; };
 		D8E717E2EFA4C2614DF87DA8 /* LedgerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39F2BEAF49AC9AD5ADF0E624 /* LedgerTests.swift */; };
@@ -272,6 +274,7 @@
 		73E0B715B359D07A69D20D17 /* InstalmentPlanSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstalmentPlanSheet.swift; sourceTree = "<group>"; };
 		754B34C99EE06AC065034351 /* ReviewCategorySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewCategorySheet.swift; sourceTree = "<group>"; };
 		75D28CE358FB2C14BF840725 /* AmountText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmountText.swift; sourceTree = "<group>"; };
+		76BDC2A716FCE16DAFA9E81A /* LocalPlaces.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalPlaces.swift; sourceTree = "<group>"; };
 		76CA1CFB8511041ECFF89905 /* LocalReimbursements.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalReimbursements.swift; sourceTree = "<group>"; };
 		772EFF8D3DF1CE1E2F3D2ADA /* CategoryRemovalSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryRemovalSheet.swift; sourceTree = "<group>"; };
 		7AB3BB28F5C79A6CA7BB503F /* BankingTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankingTypes.swift; sourceTree = "<group>"; };
@@ -359,6 +362,7 @@
 		F1421BBC48DC0E954266148F /* WhatsNewSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhatsNewSheet.swift; sourceTree = "<group>"; };
 		F2C17878447D95C0266AFAEB /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		F3AFD81B650F2340FC3E4131 /* FlorinClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlorinClient.swift; sourceTree = "<group>"; };
+		F4B7A6215462FFD8E9539241 /* PlacesScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlacesScreen.swift; sourceTree = "<group>"; };
 		F5378D6C5F5ED9C6CD9C5D73 /* ReceiptParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptParser.swift; sourceTree = "<group>"; };
 		F7F95DD6330EBDDFAB0097E7 /* LedgerStamp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LedgerStamp.swift; sourceTree = "<group>"; };
 		F9FF9CB03E7CF5B13778FE51 /* SubscriptionsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionsSection.swift; sourceTree = "<group>"; };
@@ -395,6 +399,7 @@
 				A3A99F69BD4F0DE7DFD05513 /* MerchantsScreen.swift */,
 				66F1D402B59275D5B9FBD544 /* MovementSheet.swift */,
 				6CF3F5843E841E89E60775AB /* OverviewScreen.swift */,
+				F4B7A6215462FFD8E9539241 /* PlacesScreen.swift */,
 				EB3F998CC237E7B9ECD2FEF8 /* PlanCopySheet.swift */,
 				22D62DF409CF3CE35918326F /* PlanScreen.swift */,
 				3101B3B62BD8E0C9CB8E1811 /* ReceiptsSheet.swift */,
@@ -581,6 +586,7 @@
 				C5F276D31E91FBE8D753978A /* LocalImport.swift */,
 				1C54A8FE0AA745036059FFDD /* LocalInstalments.swift */,
 				932CA5B579432866CCF8ED11 /* LocalLoan.swift */,
+				76BDC2A716FCE16DAFA9E81A /* LocalPlaces.swift */,
 				869B56AA7F60C1AA6E636346 /* LocalPlan.swift */,
 				93B3D703EE8199BC49EFE5C2 /* LocalPricing.swift */,
 				37EF623AEA746C7A66D35F6B /* LocalQueries.swift */,
@@ -861,6 +867,7 @@
 				187569791E2C90645F27493E /* LocalInstalments.swift in Sources */,
 				78E07C461F16F08FEBC1BE92 /* LocalLoan.swift in Sources */,
 				C52FA928565DF7E67D100AB6 /* LocalOnboarding.swift in Sources */,
+				D85413B6003B56CEC73E0A9C /* LocalPlaces.swift in Sources */,
 				4F54575E6AAF15D53BA5E8CA /* LocalPlan.swift in Sources */,
 				F3DB702B3016719C3D372D3E /* LocalPricing.swift in Sources */,
 				570B14EAF8BA2BB76436B76C /* LocalQueries.swift in Sources */,
@@ -883,6 +890,7 @@
 				E4D2995C390903037F10DDB7 /* OverviewScreen.swift in Sources */,
 				9216C90004CCCCC085D856E1 /* OwnAccounts.swift in Sources */,
 				D160FFCDEF913CD06DD8BE6F /* Palette.swift in Sources */,
+				A2739B7CC05B4B5319CB7B5B /* PlacesScreen.swift in Sources */,
 				F08D86FB9DC99E6E39A3FBFC /* PlanCopySheet.swift in Sources */,
 				0BD9FE3CFA72A3F04F4ED9F8 /* PlanModel.swift in Sources */,
 				C60EFBFFBE284311AA77BAE3 /* PlanScreen.swift in Sources */,
@@ -982,7 +990,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Florin/Florin.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 675;
+				CURRENT_PROJECT_VERSION = 676;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Florin/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;
@@ -1003,7 +1011,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = FlorinWidgets/FlorinWidgets.entitlements;
-				CURRENT_PROJECT_VERSION = 675;
+				CURRENT_PROJECT_VERSION = 676;
 				INFOPLIST_FILE = FlorinWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1108,7 +1116,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = FlorinWidgets/FlorinWidgets.entitlements;
-				CURRENT_PROJECT_VERSION = 675;
+				CURRENT_PROJECT_VERSION = 676;
 				INFOPLIST_FILE = FlorinWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1191,7 +1199,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Florin/Florin.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 675;
+				CURRENT_PROJECT_VERSION = 676;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Florin/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;

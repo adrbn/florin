@@ -9,6 +9,9 @@ import SwiftUI
 /// told to move out of its way.
 struct TransactionDetailSheet: View {
     let tx: Transaction
+    @State private var pinning = false
+    @State private var pinned = false
+    @State private var pinFailure: String?
     let categories: [Category]
     /// Where the money could have gone, for the transfer question below.
     let accounts: [Account]
@@ -160,6 +163,34 @@ struct TransactionDetailSheet: View {
                     .accessibilityHint(t("v2.merchant.title", "Renommer le marchand"))
                 }
                 /*
+                 * « J'y suis » — le seul moment où l'appareil peut témoigner.
+                 *
+                 * La banque livre sa ligne des heures après le paiement,
+                 * quand on n'y est plus : l'app ne peut pas deviner le lieu
+                 * toute seule. Ici, la fiche est ouverte parce qu'on est
+                 * devant le comptoir, et une tape pose le point. Il vaut
+                 * pour le MARCHAND, donc pour tout son historique d'un coup,
+                 * et il n'y a plus jamais à y revenir.
+                 *
+                 * Rien ne s'affiche tant que le réglage est éteint : une
+                 * icône qui demande l'accès au GPS sans avoir été appelée
+                 * est exactement ce que cette app ne fait pas.
+                 */
+                if isLocalLedger, LocalPlaces.enabled, !MerchantNames.key(tx.payee).isEmpty {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button { markPlace() } label: {
+                            Image(systemName: pinned ? "mappin.circle.fill" : "mappin.and.ellipse")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(pinned ? Florin.positive : Florin.text2)
+                                .frame(width: 32, height: 32)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(pinning)
+                        .accessibilityLabel(t("v2.places.here", "J'y suis"))
+                    }
+                }
+                /*
                  * Le ticket de caisse, en petit.
                  *
                  * Une rangée pleine largeur de plus le mettait au même rang
@@ -242,6 +273,15 @@ struct TransactionDetailSheet: View {
     private func plumbed(_ shell: some View) -> some View {
         shell
         .task { countReceipts() }
+        .task { readPin() }
+        .alert(
+            t("v2.places.here", "J'y suis"),
+            isPresented: Binding(get: { pinFailure != nil }, set: { if !$0 { pinFailure = nil } })
+        ) {
+            Button(t("v2.common.ok", "OK"), role: .cancel) { pinFailure = nil }
+        } message: {
+            Text(pinFailure ?? "")
+        }
         .task { readLinks() }
         .sheet(isPresented: $picking, onDismiss: {
             if wantsTransfer {
@@ -576,6 +616,29 @@ struct TransactionDetailSheet: View {
      * la modification de l'opération, qui est le seul endroit où ce libellé
      * peut effectivement changer — et ne change que lui.
      */
+    /*
+     * Un relevé frais, puis l'épingle — et le bouton dit laquelle des deux
+     * a manqué, parce que « rien ne s'est passé » est la pire réponse.
+     */
+    private func readPin() {
+        guard LocalPlaces.enabled, let store = LocalStore.shared else { return }
+        pinned = LocalPlaces.pinned(store: store, payee: tx.payee)
+    }
+
+    private func markPlace() {
+        guard let store = LocalStore.shared, !pinning else { return }
+        pinning = true
+        Task {
+            let fix = await PlaceFinder().fix()
+            let done = LocalPlaces.remember(store: store, payee: tx.payee, at: fix)
+            pinning = false
+            pinned = done || LocalPlaces.pinned(store: store, payee: tx.payee)
+            // Le succès se voit : l'épingle devient pleine et verte. L'échec
+            // ne se voit pas, donc il se dit.
+            if !done { pinFailure = t("v2.places.noFix", "Position indisponible ici.") }
+        }
+    }
+
     private func nameMerchant() {
         if MerchantNames.key(tx.payee).isEmpty { editing = true } else { naming = true }
     }
