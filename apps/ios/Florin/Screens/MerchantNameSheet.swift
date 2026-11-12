@@ -37,6 +37,10 @@ struct MerchantNameSheet: View {
     @State private var picture: UIImage?
     @State private var picked: PhotosPickerItem?
     @State private var pictureChanged = false
+    /// Une adresse d'image collée, et le téléchargement en cours.
+    @State private var askingURL = false
+    @State private var pastedURL = ""
+    @State private var fetching = false
     @FocusState private var focused: Bool
     /// Les noms déjà donnés à des libellés voisins — voir
     /// `MerchantNames.neighbours(of:)`.
@@ -192,6 +196,27 @@ struct MerchantNameSheet: View {
                             }
                             .buttonStyle(.plain)
 
+                            /*
+                             * Une image se trouve plus souvent sur le web que
+                             * dans la photothèque : on tombe sur le logo d'un
+                             * commerçant en le cherchant, et le faire passer
+                             * par une capture d'écran puis un recadrage, pour
+                             * une bulle de trente-quatre points, est un détour
+                             * que rien ne justifie. Même destination que la
+                             * photothèque — `setPicture` ne sait pas d'où
+                             * l'image vient et n'a pas à le savoir.
+                             */
+                            Button { askingURL = true } label: {
+                                Image(systemName: fetching ? "arrow.down.circle" : "link")
+                                    .font(.system(size: 15, weight: .medium))
+                                    .foregroundStyle(Florin.text)
+                                    .frame(width: 46, height: 46)
+                                    .florinGlass(in: Circle())
+                                    .symbolEffect(.pulse, isActive: fetching)
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(fetching)
+
                             if picture != nil {
                                 Button {
                                     picture = nil
@@ -290,6 +315,22 @@ struct MerchantNameSheet: View {
             picture = image
             pictureChanged = true
         }
+        .alert(
+            t("v2.merchant.pictureURL", "Adresse de l'image"),
+            isPresented: $askingURL
+        ) {
+            TextField("https://…", text: $pastedURL)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .keyboardType(.URL)
+            Button(t("v2.common.cancel", "Annuler"), role: .cancel) { pastedURL = "" }
+            Button(t("v2.merchant.pictureFetch", "Charger")) { Task { await fetchPicture() } }
+        } message: {
+            Text(t(
+                "v2.merchant.pictureURLHint",
+                "Colle l'adresse d'une image. Elle est téléchargée une fois puis gardée sur l'appareil."
+            ))
+        }
         .task(id: typedSite) {
             try? await Task.sleep(for: .milliseconds(600))
             guard !Task.isCancelled else { return }
@@ -341,6 +382,42 @@ struct MerchantNameSheet: View {
         }
         .padding(14)
         .florinSurface()
+    }
+
+    /*
+     * Télécharger l'image d'une adresse collée.
+     *
+     * Une seule requête, et ce qui en revient doit être une image : un lien
+     * vers une PAGE qui montre une image rend du HTML, que `UIImage` refuse —
+     * d'où le message plutôt qu'une bulle restée vide sans explication. Rien
+     * n'est gardé de l'adresse : l'image est copiée sur l'appareil et le lien
+     * oublié, sinon la bulle dépendrait d'un serveur tiers pour s'afficher.
+     */
+    private func fetchPicture() async {
+        let text = pastedURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        pastedURL = ""
+        guard var url = URL(string: text), url.host() != nil else {
+            failure = t("v2.merchant.pictureBadURL", "Cette adresse n'est pas valide.")
+            return
+        }
+        if url.scheme == nil { url = URL(string: "https://" + text) ?? url }
+        guard url.scheme == "https" || url.scheme == "http" else {
+            failure = t("v2.merchant.pictureBadURL", "Cette adresse n'est pas valide.")
+            return
+        }
+        fetching = true
+        defer { fetching = false }
+        guard let (data, _) = try? await URLSession.shared.data(from: url),
+              let image = UIImage(data: data)
+        else {
+            failure = t(
+                "v2.merchant.pictureNotImage",
+                "Rien d'affichable à cette adresse. Vérifie que le lien pointe sur l'image elle-même."
+            )
+            return
+        }
+        picture = image
+        pictureChanged = true
     }
 
     private func save(name reset: String? = nil) {

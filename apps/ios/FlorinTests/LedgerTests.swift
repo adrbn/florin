@@ -7761,3 +7761,130 @@ struct SyncFailureWordingTests {
         #expect(said.contains("GATEWAY"))
     }
 }
+
+/*
+ * Le report d'une enveloppe sur le mois suivant.
+ *
+ * L'arithmétique qui se casse sans rien dire : une somme qui bute sur zéro,
+ * et dont la part butée doit ressortir ailleurs sous peine de disparaître.
+ */
+@Suite("Le report des enveloppes", .serialized)
+struct CarryoverTests {
+    private func freshStore() throws -> LocalStore {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("florin-carry-\(UUID().uuidString).db")
+        let store = try LocalStore(url: url)
+        _ = try LocalBootstrap.run(on: store, locale: "fr_FR")
+        return store
+    }
+
+    /// Une catégorie de dépense, son budget d'un mois, et une dépense dessus.
+    private func plan(
+        _ store: LocalStore, category: String, month: String,
+        assigned: Double, spent: Double
+    ) throws -> String {
+        let db = store.database
+        let existing = try db.scalar(
+            "SELECT id FROM categories WHERE name = ?", [.text(category)]
+        )?.string
+        let id: String
+        if let existing {
+            id = existing
+        } else {
+            id = UUID().uuidString
+            let group = try db.scalar(
+                "SELECT id FROM category_groups WHERE kind = 'expense' LIMIT 1"
+            )?.string ?? ""
+            try db.run(
+                """
+                INSERT INTO categories (id, group_id, name, display_order, created_at)
+                VALUES (?, ?, ?, 0, datetime('now'))
+                """,
+                [.text(id), .text(group), .text(category)]
+            )
+        }
+        let year = Int(month.prefix(4)) ?? 0
+        let no = Int(month.suffix(2)) ?? 0
+        if assigned != 0 {
+            try db.run(
+                """
+                INSERT INTO monthly_budgets (id, year, month, category_id, assigned, created_at)
+                VALUES (?, ?, ?, ?, ?, datetime('now'))
+                """,
+                [.text(UUID().uuidString), .integer(Int64(year)),
+                 .integer(Int64(no)), .text(id), .real(assigned)]
+            )
+        }
+        if spent != 0 {
+            let account = try db.scalar("SELECT id FROM accounts LIMIT 1")?.string ?? ""
+            try db.run(
+                """
+                INSERT INTO transactions
+                  (id, account_id, occurred_at, amount, currency, payee, category_id,
+                   source, status, created_at, updated_at)
+                VALUES (?, ?, ?, ?, 'EUR', 'ESSAI BOUTIQUE', ?, 'manual', 'cleared',
+                        datetime('now'), datetime('now'))
+                """,
+                [.text(UUID().uuidString), .text(account),
+                 .text("\(month)-05T10:00:00Z"), .real(-spent), .text(id)]
+            )
+        }
+        return id
+    }
+
+    @Test("ce qui reste suit l'enveloppe au mois suivant")
+    func surplusFollows() throws {
+        let store = try freshStore()
+        let id = try plan(store, category: "Essai report", month: "2026-01",
+                          assigned: 60, spent: 20)
+        let carried = try LocalPlan.carryover(store.database, before: "2026-02")
+        #expect(carried.opening[id] == 40)
+        #expect(carried.absorbed == 0)
+    }
+
+    /*
+     * La règle qui compte : un dépassement ne condamne pas l'enveloppe.
+     * Reporté en négatif, il la garderait rouge des mois durant pour un
+     * débordement unique. Il est absorbé, et ressort à part.
+     */
+    @Test("un dépassement ne se reporte pas, il est absorbé")
+    func overspendDoesNotFollow() throws {
+        let store = try freshStore()
+        let id = try plan(store, category: "Essai dépassement", month: "2026-01",
+                          assigned: 50, spent: 80)
+        let carried = try LocalPlan.carryover(store.database, before: "2026-02")
+        #expect(carried.opening[id] == nil)
+        #expect(carried.absorbed == 30)
+    }
+
+    /// Et il n'efface pas ce que les mois d'avant avaient mis de côté.
+    @Test("le surplus d'avant amortit le dépassement d'après")
+    func surplusAbsorbsTheOverspend() throws {
+        let store = try freshStore()
+        let id = try plan(store, category: "Essai coussin", month: "2026-01",
+                          assigned: 100, spent: 10)
+        _ = try plan(store, category: "Essai coussin", month: "2026-02",
+                     assigned: 100, spent: 150)
+        let carried = try LocalPlan.carryover(store.database, before: "2026-03")
+        #expect(carried.opening[id] == 40)
+        #expect(carried.absorbed == 0)
+    }
+
+    /*
+     * Le report part du premier mois BUDGÉTÉ, pas de la première opération.
+     * Une dépense d'avant n'avait pas d'enveloppe à vider ; la compter ferait
+     * porter à la première enveloppe toute une vie de dépenses — sur le grand
+     * livre réel, huit catégories sur dix-neuf ouvraient dans le rouge.
+     */
+    @Test("ce qui précède le premier budget ne compte pas")
+    func spendingBeforeTheFirstBudgetIsIgnored() throws {
+        let store = try freshStore()
+        _ = try plan(store, category: "Essai passé", month: "2025-06",
+                     assigned: 0, spent: 900)
+        let id = try plan(store, category: "Essai passé", month: "2026-01",
+                          assigned: 70, spent: 0)
+        let carried = try LocalPlan.carryover(store.database, before: "2026-02")
+        #expect(carried.opening[id] == 70)
+        #expect(carried.absorbed == 0)
+    }
+}

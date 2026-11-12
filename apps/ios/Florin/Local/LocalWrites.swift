@@ -126,7 +126,9 @@ enum LocalLedger {
     private static func searchClause(
         _ query: String, into values: inout [SQLiteValue]
     ) -> String? {
-        let tokens = query.lowercased().split(whereSeparator: \.isWhitespace).map(String.init)
+        // Plié des deux côtés : la colonne par `unaccent`, le mot tapé ici.
+        // Ne plier qu'un côté revient à ne rien plier.
+        let tokens = TxSearch.tokens(query)
         guard !tokens.isEmpty else { return nil }
 
         return tokens.map { token -> String in
@@ -149,7 +151,7 @@ enum LocalLedger {
                 values.append(.real(range.low))
                 values.append(.real(range.high))
                 return """
-                (' ' || t.normalized_payee || ' ' LIKE ?
+                (' ' || unaccent(t.normalized_payee) || ' ' LIKE ?
                  OR (abs(t.amount) >= ? AND abs(t.amount) < ?)
                  OR EXISTS (SELECT 1 FROM receipt_items ri
                              WHERE ri.transaction_id = t.id
@@ -158,20 +160,20 @@ enum LocalLedger {
             }
 
             let branches = [
-                "lower(t.payee) LIKE ?",
-                "t.normalized_payee LIKE ?",
-                "lower(coalesce(t.memo,'')) LIKE ?",
+                "unaccent(t.payee) LIKE ?",
+                "unaccent(t.normalized_payee) LIKE ?",
+                "unaccent(coalesce(t.memo,'')) LIKE ?",
                 """
                 EXISTS (SELECT 1 FROM payee_aliases a
-                        WHERE lower(a.display_name) LIKE ?
+                        WHERE unaccent(a.display_name) LIKE ?
                           AND instr(\(Self.unpunctuatedPayee), a.match_key) > 0)
                 """,
-                "EXISTS (SELECT 1 FROM categories c WHERE c.id = t.category_id AND lower(c.name) LIKE ?)",
-                "EXISTS (SELECT 1 FROM accounts ac WHERE ac.id = t.account_id AND lower(ac.name) LIKE ?)",
+                "EXISTS (SELECT 1 FROM categories c WHERE c.id = t.category_id AND unaccent(c.name) LIKE ?)",
+                "EXISTS (SELECT 1 FROM accounts ac WHERE ac.id = t.account_id AND unaccent(ac.name) LIKE ?)",
                 // Le nom d'un article lu sur un ticket de caisse.
                 """
                 EXISTS (SELECT 1 FROM receipt_items ri
-                        WHERE ri.transaction_id = t.id AND lower(ri.label) LIKE ?)
+                        WHERE ri.transaction_id = t.id AND unaccent(ri.label) LIKE ?)
                 """,
             ]
             values.append(contentsOf: Array(

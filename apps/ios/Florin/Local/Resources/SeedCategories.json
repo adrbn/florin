@@ -38,6 +38,11 @@
           "name": "Subscriptions",
           "emoji": "🔄",
           "isFixed": true
+        },
+        {
+          "name": "Taxes",
+          "emoji": "🏛️",
+          "isFixed": true
         }
       ]
     },
@@ -51,8 +56,16 @@
           "emoji": "🛒"
         },
         {
+          "name": "Meals",
+          "emoji": "🍽️"
+        },
+        {
           "name": "Transport",
           "emoji": "🚈"
+        },
+        {
+          "name": "Health",
+          "emoji": "💊"
         }
       ]
     },
@@ -134,6 +147,11 @@
           "name": "Abonnements",
           "emoji": "🔄",
           "isFixed": true
+        },
+        {
+          "name": "Impôts",
+          "emoji": "🏛️",
+          "isFixed": true
         }
       ]
     },
@@ -147,8 +165,16 @@
           "emoji": "🛒"
         },
         {
+          "name": "Repas",
+          "emoji": "🍽️"
+        },
+        {
           "name": "Transports",
           "emoji": "🚈"
+        },
+        {
+          "name": "Santé",
+          "emoji": "💊"
         }
       ]
     },
@@ -230,6 +256,11 @@
           "name": "Abonnementen",
           "emoji": "🔄",
           "isFixed": true
+        },
+        {
+          "name": "Belastingen",
+          "emoji": "🏛️",
+          "isFixed": true
         }
       ]
     },
@@ -243,8 +274,16 @@
           "emoji": "🛒"
         },
         {
+          "name": "Maaltijden",
+          "emoji": "🍽️"
+        },
+        {
           "name": "Vervoer",
           "emoji": "🚈"
+        },
+        {
+          "name": "Gezondheid",
+          "emoji": "💊"
         }
       ]
     },
@@ -326,6 +365,11 @@
           "name": "Abbonamenti",
           "emoji": "🔄",
           "isFixed": true
+        },
+        {
+          "name": "Tasse",
+          "emoji": "🏛️",
+          "isFixed": true
         }
       ]
     },
@@ -339,8 +383,16 @@
           "emoji": "🛒"
         },
         {
+          "name": "Pasti",
+          "emoji": "🍽️"
+        },
+        {
           "name": "Trasporti",
           "emoji": "🚈"
+        },
+        {
+          "name": "Salute",
+          "emoji": "💊"
         }
       ]
     },
@@ -422,6 +474,11 @@
           "name": "Suscripciones",
           "emoji": "🔄",
           "isFixed": true
+        },
+        {
+          "name": "Impuestos",
+          "emoji": "🏛️",
+          "isFixed": true
         }
       ]
     },
@@ -435,8 +492,16 @@
           "emoji": "🛒"
         },
         {
+          "name": "Comidas",
+          "emoji": "🍽️"
+        },
+        {
           "name": "Transporte",
           "emoji": "🚈"
+        },
+        {
+          "name": "Salud",
+          "emoji": "💊"
         }
       ]
     },
@@ -518,6 +583,11 @@
           "name": "Subscripcions",
           "emoji": "🔄",
           "isFixed": true
+        },
+        {
+          "name": "Impostos",
+          "emoji": "🏛️",
+          "isFixed": true
         }
       ]
     },
@@ -531,8 +601,16 @@
           "emoji": "🛒"
         },
         {
+          "name": "Àpats",
+          "emoji": "🍽️"
+        },
+        {
           "name": "Transport",
           "emoji": "🚈"
+        },
+        {
+          "name": "Salut",
+          "emoji": "💊"
         }
       ]
     },
@@ -614,6 +692,11 @@
           "name": "Abos",
           "emoji": "🔄",
           "isFixed": true
+        },
+        {
+          "name": "Steuern",
+          "emoji": "🏛️",
+          "isFixed": true
         }
       ]
     },
@@ -627,8 +710,16 @@
           "emoji": "🛒"
         },
         {
+          "name": "Mahlzeiten",
+          "emoji": "🍽️"
+        },
+        {
           "name": "Verkehr",
           "emoji": "🚈"
+        },
+        {
+          "name": "Gesundheit",
+          "emoji": "💊"
         }
       ]
     },
@@ -710,6 +801,11 @@
           "name": "Subscrições",
           "emoji": "🔄",
           "isFixed": true
+        },
+        {
+          "name": "Impostos",
+          "emoji": "🏛️",
+          "isFixed": true
         }
       ]
     },
@@ -723,8 +819,16 @@
           "emoji": "🛒"
         },
         {
+          "name": "Refeições",
+          "emoji": "🍽️"
+        },
+        {
           "name": "Transportes",
           "emoji": "🚈"
+        },
+        {
+          "name": "Saúde",
+          "emoji": "💊"
         }
       ]
     },
@@ -806,6 +910,11 @@
           "name": "Abonelikler",
           "emoji": "🔄",
           "isFixed": true
+        },
+        {
+          "name": "Vergiler",
+          "emoji": "🏛️",
+          "isFixed": true
         }
       ]
     },
@@ -819,8 +928,16 @@
           "emoji": "🛒"
         },
         {
+          "name": "Yemek",
+          "emoji": "🍽️"
+        },
+        {
           "name": "Ulaşım",
           "emoji": "🚈"
+        },
+        {
+          "name": "Sağlık",
+          "emoji": "💊"
         }
       ]
     },

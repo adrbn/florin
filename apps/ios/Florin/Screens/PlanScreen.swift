@@ -775,6 +775,26 @@ struct AssignSheet: View {
                     .font(.system(size: 13))
                     .foregroundStyle(Florin.text2)
                     .hiddenWhenPrivate()
+
+                    /*
+                     * Ce que le mois dernier a laissé dans l'enveloppe.
+                     *
+                     * Le disponible compte désormais ce report, donc il
+                     * dépasse parfois ce qu'on vient d'assigner — et un solde
+                     * qui ne s'explique pas par ce qu'on voit à l'écran est
+                     * pire qu'un solde absent. La ligne ne paraît que
+                     * lorsqu'il y a réellement quelque chose de reporté.
+                     */
+                    if let carried = category.carried, carried > 0 {
+                        Text(
+                            t("v2.plan.carried", "Reporté du mois dernier") + " "
+                                + Money.string(carried, locale: locale,
+                                               currency: currency, decimals: false)
+                        )
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Florin.positive)
+                        .hiddenWhenPrivate()
+                    }
                 }
                 .padding(.top, 6)
 

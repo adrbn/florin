@@ -12,6 +12,10 @@ struct PlanCategory: Decodable, Sendable, Identifiable {
     /// server's plan feed, so optional: an edit sheet must not silently clear
     /// a flag it was never told about.
     var isFixed: Bool?
+
+    /// Ce que l'enveloppe apportait en entrant dans le mois. Absent du flux
+    /// du serveur, donc optionnel : un plan sans report vaut un report nul.
+    var carried: Double?
 }
 
 struct PlanGroup: Decodable, Sendable, Identifiable {
@@ -47,6 +51,11 @@ struct MonthPlan: Decodable, Sendable {
     let totalAssigned: Double
     let readyToAssign: Double
     let overspentCount: Int
+
+    /// Les dépassements que les mois passés ont absorbés — retranchés de ce
+    /// qu'il reste à répartir, faute de quoi le report ne montrerait que les
+    /// bonnes nouvelles.
+    var absorbed: Double?
 
     var key: String { String(format: "%04d-%02d", year, month) }
 

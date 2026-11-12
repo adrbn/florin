@@ -10,7 +10,20 @@ import Foundation
 enum TxSearch {
     /// Les mots d'une recherche. Tous doivent se retrouver, l'ordre ne compte pas.
     static func tokens(_ query: String) -> [String] {
-        query.lowercased().split(whereSeparator: \.isWhitespace).map(String.init)
+        fold(query).split(whereSeparator: \.isWhitespace).map(String.init)
+    }
+
+    /*
+     * Minuscules et sans accent, comme la fonction `unaccent` greffée dans
+     * SQLite. Les deux chemins doivent plier pareil : sinon « impots » trouve
+     * « Impôts » dans la liste et pas dans l'échéancier, et l'écran ment sur
+     * ce qu'il contient.
+     */
+    static func fold(_ text: String) -> String {
+        text.folding(
+            options: [.diacriticInsensitive, .caseInsensitive],
+            locale: Locale(identifier: "en_US_POSIX")
+        )
     }
 
     /*
@@ -40,9 +53,9 @@ enum TxSearch {
         if let range = amountRange(token) {
             if let amount, abs(amount) >= range.low, abs(amount) < range.high { return true }
             return texts.contains { text in
-                (text ?? "").lowercased().split(whereSeparator: \.isWhitespace).contains(token[...])
+                fold(text ?? "").split(whereSeparator: \.isWhitespace).contains(token[...])
             }
         }
-        return texts.contains { ($0 ?? "").lowercased().contains(token) }
+        return texts.contains { fold($0 ?? "").contains(token) }
     }
 }

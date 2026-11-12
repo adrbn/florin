@@ -20,14 +20,17 @@ const L = {
   income: { en: 'Income', fr: 'Revenus', nl: 'Inkomsten' },
   wages: { en: 'Wages', fr: 'Salaires', nl: 'Salaris' },
   sideIncome: { en: 'Side Income', fr: 'Gains additionnels', nl: 'Bijverdiensten' },
-  readyToAssign: { en: 'Ready to Assign', fr: 'Ready to Assign', nl: 'Klaar om te verdelen' },
+  readyToAssign: { en: 'Ready to Assign', fr: 'À répartir', nl: 'Klaar om te verdelen' },
   bills: { en: 'Bills', fr: 'Factures', nl: 'Vaste lasten' },
   rent: { en: 'Rent', fr: 'Loyer', nl: 'Huur' },
   insurance: { en: 'Insurance', fr: 'Assurances', nl: 'Verzekeringen' },
   subscriptions: { en: 'Subscriptions', fr: 'Abonnements', nl: 'Abonnementen' },
+  taxes: { en: 'Taxes', fr: 'Impôts', nl: 'Belastingen' },
   needs: { en: 'Needs', fr: 'Besoins', nl: 'Basisbehoeften' },
   groceries: { en: 'Groceries', fr: 'Courses', nl: 'Boodschappen' },
+  meals: { en: 'Meals', fr: 'Repas', nl: 'Maaltijden' },
   transport: { en: 'Transport', fr: 'Transports', nl: 'Vervoer' },
+  health: { en: 'Health', fr: 'Santé', nl: 'Gezondheid' },
   wants: { en: 'Wants', fr: 'Envies', nl: "Extra's" },
   diningOut: { en: 'Dining Out', fr: 'Sorties & Restos', nl: 'Uit eten' },
   travel: { en: 'Travel', fr: 'Voyages', nl: 'Reizen' },
@@ -60,6 +63,7 @@ export function getSeedCategories(locale: string): SeedCategoryGroup[] {
         { name: s(L.rent), emoji: '🏠', isFixed: true },
         { name: s(L.insurance), emoji: '☂️', isFixed: true },
         { name: s(L.subscriptions), emoji: '🔄', isFixed: true },
+        { name: s(L.taxes), emoji: '🏛️', isFixed: true },
       ],
     },
     {
@@ -68,7 +72,12 @@ export function getSeedCategories(locale: string): SeedCategoryGroup[] {
       color: '#06b6d4',
       categories: [
         { name: s(L.groceries), emoji: '🛒' },
+        // Manger dehors au quotidien — la boulangerie du midi, le café du
+        // matin — n'est pas une sortie : c'est un besoin, et le confondre
+        // avec les restos rend les deux illisibles.
+        { name: s(L.meals), emoji: '🍽️' },
         { name: s(L.transport), emoji: '🚈' },
+        { name: s(L.health), emoji: '💊' },
       ],
     },
     {

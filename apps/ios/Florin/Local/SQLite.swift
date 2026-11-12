@@ -1,4 +1,10 @@
 import Foundation
+
+/// SQLite définit ce marqueur par une macro, que l'import C ne traduit pas :
+/// il dit « copie la chaîne, je la libère en sortant ».
+private let SQLITE_TRANSIENT = unsafeBitCast(
+    -1, to: sqlite3_destructor_type.self
+)
 import SQLite3
 
 /// A thin, honest wrapper over the SQLite that ships with iOS.
@@ -66,6 +72,43 @@ final class SQLiteDatabase {
         if !readOnly { try exec("PRAGMA journal_mode = WAL") }
         try exec("PRAGMA busy_timeout = 5000")
         try exec("PRAGMA foreign_keys = ON")
+        installUnaccent()
+    }
+
+    /*
+     * `unaccent(texte)` : minuscules, sans signes diacritiques.
+     *
+     * Chercher « impots » ne trouvait pas « Impôts », ni « cafe » le Caffè,
+     * ni « vetements » les Vêtements — `lower()` descend la casse et laisse
+     * l'accent, donc le LIKE échouait sur une lettre que personne ne tape.
+     * SQLite n'a pas d'équivalent intégré : `lower()` lui-même n'est ASCII
+     * que par défaut.
+     *
+     * Greffée à l'ouverture plutôt que repliée dans chaque requête, parce que
+     * la recherche compare sept colonnes — libellé, mémo, alias, catégorie,
+     * compte, article de ticket — et qu'un pliage posé branche par branche
+     * finit toujours par en oublier une.
+     *
+     * DÉTERMINISTE : même entrée, même sortie, toujours. C'est ce qui permet
+     * à SQLite de s'en servir dans un index si l'on en pose un un jour.
+     */
+    private func installUnaccent() {
+        sqlite3_create_function_v2(
+            handle, "unaccent", 1,
+            SQLITE_UTF8 | SQLITE_DETERMINISTIC | SQLITE_INNOCUOUS,
+            nil,
+            { context, argc, argv in
+                guard argc == 1, let argv, let raw = sqlite3_value_text(argv[0]) else {
+                    sqlite3_result_null(context)
+                    return
+                }
+                let folded = String(cString: raw)
+                    .folding(options: [.diacriticInsensitive, .caseInsensitive],
+                             locale: Locale(identifier: "en_US_POSIX"))
+                sqlite3_result_text(context, folded, -1, SQLITE_TRANSIENT)
+            },
+            nil, nil, nil
+        )
     }
 
     deinit { sqlite3_close_v2(handle) }

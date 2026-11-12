@@ -72,36 +72,8 @@ enum LocalPlan {
              * bord. `status` écarte ce qui reste une prévision — saisie à la
              * main, ou devinée du Wallet.
              */
-            WHERE t.deleted_at IS NULL AND t.status = 'cleared'
-              AND substr(t.occurred_at, 1, 10) <= date('now')
+            \(spendingFilter)
               AND substr(t.occurred_at, 1, 7) = ?
-              /*
-               * Not the other half of a transfer.
-               *
-               * The server's plan excludes these and the port did not, so a
-               * transfer's inbound leg — if it carried a category — cancelled
-               * the outbound one it mirrors. A loan repayment is exactly that
-               * shape: 165,13 € leaves the current account and the same
-               * amount lands against the debt.
-               *
-               * But excluding both legs is what reported "Réparti 136 €,
-               * dépensé 0 €" for a bill paid every month without fail — the
-               * real leg is paired too.
-               *
-               * What decides is the account on the other side, not whether
-               * someone filed the row: settling a debt is a bill you budget
-               * for, feeding your own savings is not, and a savings transfer
-               * with a category on it is still a savings transfer. Only
-               * outflows qualify, so the leg landing against the debt can
-               * never count as well.
-               */
-              AND (t.transfer_pair_id IS NULL
-                   OR (t.amount < 0 AND EXISTS (
-                     SELECT 1 FROM transactions p
-                     JOIN accounts pa ON pa.id = p.account_id
-                     WHERE p.transfer_pair_id = t.transfer_pair_id
-                       AND p.id <> t.id AND p.deleted_at IS NULL
-                       AND pa.kind = 'loan')))
             """,
             [.text(key)]
         ) {
@@ -114,6 +86,8 @@ enum LocalPlan {
             }
         }
 
+        let carried = try carryover(db, before: key)
+
         var groups: [PlanGroup] = []
         for groupRow in groupRows {
             guard let groupId = groupRow.string("id") else { continue }
@@ -123,15 +97,17 @@ enum LocalPlan {
                     let id = row.string("id") ?? ""
                     let given = assigned[id] ?? 0
                     let used = round2(spent[id] ?? 0)
+                    let opening = carried.opening[id] ?? 0
                     return PlanCategory(
                         id: id,
                         name: row.string("name") ?? "",
                         emoji: row.string("emoji"),
                         assigned: given,
                         spent: used,
-                        available: round2(given - used),
+                        available: round2(opening + given - used),
                         note: notes[id],
-                        isFixed: (row.int("is_fixed") ?? 0) == 1
+                        isFixed: (row.int("is_fixed") ?? 0) == 1,
+                        carried: opening
                     )
                 }
 
@@ -183,8 +159,9 @@ enum LocalPlan {
             expectedIncome: expected,
             incomeIsEstimated: estimated,
             totalAssigned: round2(totalAssigned),
-            readyToAssign: round2(expected - totalAssigned),
-            overspentCount: groups.reduce(0) { $0 + $1.overspentCount }
+            readyToAssign: round2(expected - totalAssigned - carried.absorbed),
+            overspentCount: groups.reduce(0) { $0 + $1.overspentCount },
+            absorbed: carried.absorbed
         )
     }
 
@@ -292,6 +269,137 @@ enum LocalPlan {
                 ]
             )
         }
+    }
+
+    /*
+     * Ce qui compte comme dépensé, écrit une fois.
+     *
+     * Le mois courant et le report lisent les mêmes opérations : si les deux
+     * filtres vivaient côte à côte, l'un finirait par compter ce que l'autre
+     * écarte, et une enveloppe afficherait un report qui ne colle pas à la
+     * somme des mois qui le composent. Le mois à retenir reste à l'appelant.
+     */
+    static let spendingFilter = """
+            WHERE t.deleted_at IS NULL AND t.status = 'cleared'
+              AND substr(t.occurred_at, 1, 10) <= date('now')
+              /*
+               * Not the other half of a transfer.
+               *
+               * The server's plan excludes these and the port did not, so a
+               * transfer's inbound leg — if it carried a category — cancelled
+               * the outbound one it mirrors. A loan repayment is exactly that
+               * shape: 165,13 € leaves the current account and the same
+               * amount lands against the debt.
+               *
+               * But excluding both legs is what reported "Réparti 136 €,
+               * dépensé 0 €" for a bill paid every month without fail — the
+               * real leg is paired too.
+               *
+               * What decides is the account on the other side, not whether
+               * someone filed the row: settling a debt is a bill you budget
+               * for, feeding your own savings is not, and a savings transfer
+               * with a category on it is still a savings transfer. Only
+               * outflows qualify, so the leg landing against the debt can
+               * never count as well.
+               */
+              AND (t.transfer_pair_id IS NULL
+                   OR (t.amount < 0 AND EXISTS (
+                     SELECT 1 FROM transactions p
+                     JOIN accounts pa ON pa.id = p.account_id
+                     WHERE p.transfer_pair_id = t.transfer_pair_id
+                       AND p.id <> t.id AND p.deleted_at IS NULL
+                       AND pa.kind = 'loan')))
+    """
+
+    /*
+     * Ce qui reste dans l'enveloppe en entrant dans le mois.
+     *
+     * Sans report, « disponible » valait assigné moins dépensé du mois seul,
+     * et chaque 1er du mois remettait tout à zéro. Une enveloppe ne pouvait
+     * donc pas servir à mettre de côté : soixante euros par mois dans Voyages
+     * ne faisaient jamais quatre cent quatre-vingts euros au départ, le mois
+     * du voyage était forcément un dépassement, et les sept mois sans voyage
+     * s'évaporaient. Le plan ne décrivait que les dépenses mensuelles
+     * régulières — les seules qu'on connaît déjà par cœur.
+     *
+     * UN NÉGATIF NE SE REPORTE PAS. C'est la règle de YNAB et ce n'est pas un
+     * adoucissement : un dépassement est une dette envers le mois suivant
+     * tout entier, pas envers cette enveloppe-là. La reporter en négatif
+     * condamnerait la catégorie à rester rouge des mois durant pour un
+     * débordement unique — sur ce grand livre, huit catégories sur dix-neuf
+     * ouvraient dans le rouge, Transports à moins neuf cent onze euros. Le
+     * dépassement est rendu à part, par `absorbed`, et retranché de ce qu'il
+     * reste à répartir : sans cela le report ne montrerait que les bonnes
+     * nouvelles.
+     *
+     * Le report part du PREMIER MOIS BUDGÉTÉ, pas de la première opération.
+     * Les dépenses d'avant n'ont jamais eu d'enveloppe à vider ; les compter
+     * ferait porter à la première enveloppe toute une vie de dépenses.
+     */
+    struct Carryover {
+        /// Ce que chaque catégorie apporte en entrant dans le mois.
+        var opening: [String: Double] = [:]
+        /// Les dépassements que les mois précédents ont absorbés.
+        var absorbed: Double = 0
+    }
+
+    static func carryover(_ db: SQLiteDatabase, before key: String) throws -> Carryover {
+        guard let first = try db.scalar(
+            "SELECT min(printf('%04d-%02d', year, month)) FROM monthly_budgets"
+        )?.string, first < key else { return Carryover() }
+
+        var assigned: [String: [String: Double]] = [:]
+        for row in try db.query(
+            """
+            SELECT category_id AS id, printf('%04d-%02d', year, month) AS k, assigned
+            FROM monthly_budgets WHERE printf('%04d-%02d', year, month) < ?
+            """,
+            [.text(key)]
+        ) {
+            guard let id = row.string("id"), let k = row.string("k") else { continue }
+            assigned[id, default: [:]][k] = row.double("assigned") ?? 0
+        }
+
+        var spent: [String: [String: Double]] = [:]
+        for row in try db.query(
+            """
+            SELECT t.category_id AS id, substr(t.occurred_at, 1, 7) AS k,
+                   sum(t.amount) AS total
+            FROM transactions t
+            JOIN categories c ON c.id = t.category_id
+            JOIN category_groups g ON g.id = c.group_id
+            \(spendingFilter)
+              AND g.kind = 'expense'
+              AND substr(t.occurred_at, 1, 7) >= ?
+              AND substr(t.occurred_at, 1, 7) < ?
+            GROUP BY t.category_id, substr(t.occurred_at, 1, 7)
+            """,
+            [.text(first), .text(key)]
+        ) {
+            guard let id = row.string("id"), let k = row.string("k") else { continue }
+            spent[id, default: [:]][k] = -(row.double("total") ?? 0)
+        }
+
+        // Les mois se parcourent dans l'ordre : un report est une somme qui
+        // bute sur zéro, et une somme qui bute ne se calcule pas en bloc.
+        var months = Set(assigned.values.flatMap(\.keys))
+        months.formUnion(spent.values.flatMap(\.keys))
+        let ordered = months.filter { $0 >= first && $0 < key }.sorted()
+
+        var result = Carryover()
+        for id in Set(assigned.keys).union(spent.keys) {
+            var balance = 0.0
+            for month in ordered {
+                balance += (assigned[id]?[month] ?? 0) - (spent[id]?[month] ?? 0)
+                if balance < 0 {
+                    result.absorbed += -balance
+                    balance = 0
+                }
+            }
+            if balance != 0 { result.opening[id] = round2(balance) }
+        }
+        result.absorbed = round2(result.absorbed)
+        return result
     }
 
     private static func round2(_ value: Double) -> Double { (value * 100).rounded() / 100 }
