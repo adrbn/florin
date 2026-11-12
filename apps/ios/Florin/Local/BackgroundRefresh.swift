@@ -54,7 +54,16 @@ enum BackgroundRefresh {
     static func schedule() {
         let request = BGAppRefreshTaskRequest(identifier: taskId)
         request.earliestBeginDate = nextMorning()
-        try? BGTaskScheduler.shared.submit(request)
+        do {
+            try BGTaskScheduler.shared.submit(request)
+        } catch {
+            // Le seul maillon de la chaîne qui pouvait casser sans laisser de
+            // trace : un `try?` ici et l'app ne demande plus jamais à être
+            // réveillée, en silence, sans que rien nulle part ne le dise.
+            log.error(
+                "wake-up refused: \(error.localizedDescription, privacy: .public)"
+            )
+        }
     }
 
     /// The next 07:15 that is at least an hour away — so a run at 07:00 does

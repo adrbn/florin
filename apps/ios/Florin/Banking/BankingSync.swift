@@ -145,7 +145,18 @@ enum BankingSync {
                             ]
                         )
                     } catch {
-                        result.failures.append("\(uid): \(error.localizedDescription)")
+                        /*
+                         * Le message, pas l'identifiant du compte.
+                         *
+                         * La ligne commençait par les 36 caractères de l'uid,
+                         * qui tenaient à eux seuls toute la largeur : le
+                         * journal affichait un identifiant tronqué là où la
+                         * seule chose à lire est « la banque a refusé ». Et
+                         * l'uid est déjà sur sa propre ligne juste en dessous,
+                         * dans `bank_sync_account_results`, que l'écran
+                         * déplie.
+                         */
+                        result.failures.append(error.localizedDescription)
                         try? store.database.run(
                             """
                             INSERT INTO bank_sync_account_results
@@ -177,6 +188,13 @@ enum BankingSync {
                 let settledWallet = try LocalWallet.settle(store: store)
                 if settledWallet > 0 {
                     log.notice("settled \(settledWallet, privacy: .public) wallet payments")
+                }
+
+                // Avant le classeur, pas après : une ligne qu'on remet dans la
+                // file est justement une ligne qu'il sait nommer.
+                let rescued = try Self.enqueueAnnouncedArrivals(store: store)
+                if rescued > 0 {
+                    log.notice("re-queued \(rescued, privacy: .public) announced arrivals")
                 }
 
                 let named = try LocalCategoriser.backfill(store: store)
@@ -244,9 +262,18 @@ enum BankingSync {
                     .text(Timestamp.now()), .text(status),
                     .integer(Int64(accountsTotal)), .integer(Int64(accountsOk)),
                     .integer(Int64(result.inserted)),
+                    // Dédoublonné : deux comptes que la même panne a refusés
+                    // disaient deux fois la même phrase, l'uid n'étant plus là
+                    // pour les distinguer — et ne distinguant rien d'utile.
                     result.failures.isEmpty
                         ? .null
-                        : .text(result.failures.joined(separator: " · ")),
+                        : .text(
+                            result.failures
+                                .reduce(into: [String]()) {
+                                    if !$0.contains($1) { $0.append($1) }
+                                }
+                                .joined(separator: " · ")
+                        ),
                     .integer(Int64(Date().timeIntervalSince(startedAt) * 1000)),
                     .text(runId),
                 ]
@@ -734,6 +761,9 @@ enum BankingSync {
             return payee.contains(needle) || needle.contains(payee)
         }
 
+        let bookedToday = LocalQueries.dayFormatter.string(from: Date())
+        let upcoming = transaction.status == "PDNG" || String(date.prefix(10)) > bookedToday
+
         if let twin = match?.string("id") {
             adopted.insert(twin)
             /*
@@ -744,6 +774,16 @@ enum BankingSync {
              * fuel pump releases the hold. And a row parked outside the review
              * queue while it was unsettled has to enter it once it is real,
              * or it is filed away having never been looked at.
+             *
+             * Deux façons d'être provisoire, et le test n'en connaissait
+             * qu'une. Un prélèvement que La Banque Postale annonce pour le 30
+             * arrive sans drapeau « pending » : il entre donc avec
+             * `is_pending = 0`, hors file parce que sa date n'est pas venue.
+             * Le jour où il passe vraiment, la condition `is_pending = 1`
+             * était fausse depuis le début et ne pouvait plus devenir vraie —
+             * la ligne restait classée sans avoir jamais été regardée. Cinq
+             * prélèvements du ledger étaient dans ce cas. La date compte donc
+             * autant que le drapeau, des deux côtés de la comparaison.
              */
             let nowPending = transaction.status == "PDNG"
             try store.database.run(
@@ -753,7 +793,8 @@ enum BankingSync {
                     is_pending = ?, occurred_at = ?, amount = ?, booked_at = ?,
                     status = 'cleared',
                     needs_review = CASE
-                        WHEN is_pending = 1 AND ? = 0 THEN 1
+                        WHEN (is_pending = 1 OR substr(occurred_at, 1, 10) > ?)
+                            AND ? = 0 THEN 1
                         ELSE needs_review
                     END,
                     updated_at = datetime('now')
@@ -766,15 +807,14 @@ enum BankingSync {
                     .text(date),
                     .real(transaction.signedAmount),
                     transaction.bookingDate.map { SQLiteValue.text($0) } ?? .null,
-                    .integer(nowPending ? 1 : 0),
+                    .text(bookedToday),
+                    .integer(upcoming ? 1 : 0),
                     .text(twin),
                 ]
             )
             return false
         }
 
-        let bookedToday = LocalQueries.dayFormatter.string(from: Date())
-        let upcoming = transaction.status == "PDNG" || String(date.prefix(10)) > bookedToday
         let payee = transaction.counterparty
         try store.database.run(
             """
@@ -1034,6 +1074,47 @@ extension BankingSync {
      * hold the same bank text: a renamed payee or a note written since is the
      * owner's word, and a tap's note ("Apple Pay") never named the merchant.
      */
+    /*
+     * Les lignes que le trou d'au-dessus a déjà avalées.
+     *
+     * Le test corrigé empêche les prochaines d'y tomber, il ne ressort pas
+     * celles qui y sont. Elles se reconnaissent sans ambiguïté : annoncées
+     * avant leur date (`created_at` d'un jour antérieur à `occurred_at`),
+     * échues depuis, hors de la file et sans catégorie. Ce portrait ne vise
+     * que les prélèvements annoncés — un virement apparié le même jour n'est
+     * pas sans catégorie par accident, c'est un virement, et il n'entre pas
+     * dans la file pour se faire poser une question qui n'a pas de réponse.
+     *
+     * Une seule fois, marquée dans `settings` : relancée à chaque synchro
+     * elle remettrait dans la file, indéfiniment, toute ligne que son
+     * propriétaire a choisi de laisser sans catégorie.
+     */
+    @discardableResult
+    static func enqueueAnnouncedArrivals(store: LocalStore) throws -> Int {
+        let marker = "review_rescue_announced_at"
+        guard try store.database.scalar(
+            "SELECT value FROM settings WHERE key = ?", [.text(marker)]
+        )?.string == nil else { return 0 }
+
+        let before = store.database.changes
+        try store.database.run(
+            """
+            UPDATE transactions
+            SET needs_review = 1, updated_at = datetime('now')
+            WHERE deleted_at IS NULL AND source = 'enable_banking'
+              AND needs_review = 0 AND is_pending = 0 AND category_id IS NULL
+              AND substr(created_at, 1, 10) < substr(occurred_at, 1, 10)
+              AND substr(occurred_at, 1, 10) <= date('now', 'localtime')
+            """
+        )
+        let moved = store.database.changes - before
+        try store.database.run(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+            [.text(marker), .text(Timestamp.now())]
+        )
+        return moved
+    }
+
     @discardableResult
     static func restoreBankLabels(store: LocalStore) throws -> Int {
         let rows = try store.database.query(

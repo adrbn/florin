@@ -7623,3 +7623,141 @@ struct ActivityGroupingTests {
         #expect(days[0].rows[0].payee == "Boulangerie du Parc")
     }
 }
+
+// MARK: - Ce qui était annoncé et qui est passé
+
+/*
+ * Une ligne hors de la file n'y revenait jamais.
+ *
+ * Un prélèvement que la banque annonce pour le 30 entre sans drapeau
+ * « pending » : il est donc écrit avec `is_pending = 0`, et laissé hors de la
+ * file de vérification parce que sa date n'est pas venue. Le jour où il passe
+ * vraiment, la seule condition qui pouvait le ramener — « il était en
+ * attente » — était fausse depuis le début et ne pouvait plus devenir vraie.
+ * La ligne finissait classée sans avoir jamais été regardée, ni catégorisée.
+ */
+@Suite("Les prélèvements annoncés rejoignent la file")
+struct AnnouncedArrivalsTests {
+    private func ledger() throws -> (LocalStore, account: String) {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("florin-announced-\(UUID().uuidString).db")
+        let store = try LocalStore(url: url)
+        let account = UUID().uuidString
+        try store.database.exec("""
+        INSERT INTO accounts (id, name, kind, currency)
+          VALUES ('\(account)', 'Compte courant', 'checking', 'EUR');
+        """)
+        return (store, account)
+    }
+
+    /// `announcedOn` est le jour où la banque a prévenu, `due` celui du débit.
+    @discardableResult
+    private func debit(
+        _ store: LocalStore, on account: String,
+        announcedOn: String, due: String, label: String
+    ) throws -> String {
+        let id = UUID().uuidString
+        try store.database.run(
+            """
+            INSERT INTO transactions
+                (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
+                 source, status, needs_review, is_pending, created_at)
+            VALUES (?, ?, ?, -12.40, 'EUR', ?, ?, 'enable_banking', 'cleared', 0, 0, ?)
+            """,
+            [
+                .text(id), .text(account), .text(due), .text(label),
+                .text(LocalLedger.normalize(label)), .text(announcedOn),
+            ]
+        )
+        return id
+    }
+
+    private func needsReview(_ store: LocalStore, _ id: String) throws -> Bool {
+        (try store.database.scalar(
+            "SELECT needs_review FROM transactions WHERE id = ?", [.text(id)]
+        )?.int ?? 0) == 1
+    }
+
+    @Test("annoncé avant sa date, passé depuis : il revient dans la file")
+    func settledAnnouncedDebitRejoinsTheQueue() throws {
+        let (store, account) = try ledger()
+        let id = try debit(
+            store, on: account, announcedOn: "2026-09-10", due: "2026-09-15",
+            label: "PREL DE EXEMPLE SERVICES"
+        )
+
+        #expect(try BankingSync.enqueueAnnouncedArrivals(store: store) == 1)
+        #expect(try needsReview(store, id))
+    }
+
+    @Test("un virement apparié le jour même n'est pas sans catégorie par accident")
+    func sameDayRowIsLeftAlone() throws {
+        let (store, account) = try ledger()
+        let id = try debit(
+            store, on: account, announcedOn: "2026-09-15", due: "2026-09-15",
+            label: "VIREMENT VERS LIVRET EXEMPLE"
+        )
+
+        #expect(try BankingSync.enqueueAnnouncedArrivals(store: store) == 0)
+        #expect(try needsReview(store, id) == false)
+    }
+
+    @Test("ce qui n'est pas encore passé attend son jour")
+    func whatHasNotHappenedYetStaysOut() throws {
+        let (store, account) = try ledger()
+        let far = Calendar(identifier: .gregorian)
+            .date(byAdding: .day, value: 30, to: Date()) ?? Date()
+        let id = try debit(
+            store, on: account, announcedOn: "2026-09-10",
+            due: LocalQueries.dayFormatter.string(from: far),
+            label: "PREL DE EXEMPLE SERVICES"
+        )
+
+        #expect(try BankingSync.enqueueAnnouncedArrivals(store: store) == 0)
+        #expect(try needsReview(store, id) == false)
+    }
+
+    @Test("une seule fois : ce qu'on a choisi de laisser sans catégorie y reste")
+    func itRunsOnlyOnce() throws {
+        let (store, account) = try ledger()
+        let id = try debit(
+            store, on: account, announcedOn: "2026-09-10", due: "2026-09-15",
+            label: "PREL DE EXEMPLE SERVICES"
+        )
+        #expect(try BankingSync.enqueueAnnouncedArrivals(store: store) == 1)
+
+        // Vérifiée puis laissée sans catégorie : c'est une réponse, pas un oubli.
+        try store.database.run(
+            "UPDATE transactions SET needs_review = 0 WHERE id = ?", [.text(id)]
+        )
+
+        #expect(try BankingSync.enqueueAnnouncedArrivals(store: store) == 0)
+        #expect(try needsReview(store, id) == false)
+    }
+}
+
+// MARK: - Ce que le journal de synchro donne à lire
+
+@Suite("La panne de la banque, dite en mots")
+struct SyncFailureWordingTests {
+    @Test("ASPSP_ERROR devient une phrase, pas un bloc de JSON")
+    func bankOutageReadsAsASentence() {
+        let body = """
+            {"code":400,"message":"Error interacting with ASPSP",\
+            "detail":"Unknown error","error":"ASPSP_ERROR"}
+            """
+        let said = EnableBanking.Failure.http(400, body).localizedDescription
+
+        #expect(!said.contains("{"))
+        #expect(!said.contains("ASPSP"))
+        #expect(said.count < 120)
+    }
+
+    @Test("une panne qu'on n'a pas prévue reste brute plutôt que mal traduite")
+    func anUnknownFailureStaysVerbatim() {
+        let said = EnableBanking.Failure.http(503, "{\"error\":\"GATEWAY\"}")
+            .localizedDescription
+
+        #expect(said.contains("GATEWAY"))
+    }
+}

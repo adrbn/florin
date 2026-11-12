@@ -48,13 +48,7 @@ enum EnableBanking {
                     "Ouvre les Réglages pour renseigner ton App ID Enable Banking."
                 )
             case let .http(code, body):
-                body.isEmpty
-                    ? Strings.device(
-                        "v2.connect.providerStatus",
-                        "Enable Banking a répondu {code}.",
-                        ["code": code]
-                    )
-                    : "Enable Banking: \(body)"
+                Failure.describe(code: code, body: body)
             case .malformed:
                 Strings.device(
                     "v2.connect.providerUnreadable",
@@ -63,6 +57,37 @@ enum EnableBanking {
             case let .rejected(message):
                 message
             }
+        }
+
+        /*
+         * La panne la plus fréquente, dite en français.
+         *
+         * `ASPSP_ERROR` est le code qu'Enable Banking renvoie quand la banque,
+         * derrière lui, répond mal — 184 passes de suite l'ont reçu. Le
+         * journal les écrivait telles quelles :
+         *
+         *     Enable Banking: {"code":400,"message":"Error interacting with
+         *     ASPSP","detail":"Unknown error","error":"ASPSP_ERROR"}
+         *
+         * De quoi lire deux fois sans rien apprendre, alors que la seule chose
+         * à savoir est qu'il n'y a rien à corriger ici. Le corps brut reste la
+         * réponse par défaut : une panne qu'on n'a pas prévue vaut mieux
+         * illisible que traduite de travers.
+         */
+        static func describe(code: Int, body: String) -> String {
+            if body.contains("ASPSP_ERROR") {
+                return Strings.device(
+                    "v2.connect.bankRefused",
+                    "La banque n'a pas répondu correctement. Rien à corriger ici : réessaie plus tard."
+                )
+            }
+            return body.isEmpty
+                ? Strings.device(
+                    "v2.connect.providerStatus",
+                    "Enable Banking a répondu {code}.",
+                    ["code": code]
+                )
+                : "Enable Banking: \(body)"
         }
     }
 
