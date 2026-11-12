@@ -1100,7 +1100,7 @@ struct BackupTests {
         INSERT INTO categories (id, group_id, name, linked_loan_account_id)
           VALUES ('\(UUID().uuidString)', '\(group)', 'Remboursement', '\(loan)');
         INSERT INTO transactions (id, account_id, occurred_at, amount, currency, payee, source)
-          VALUES ('\(UUID().uuidString)', '\(ccp)', '2026-08-27', -4.50, 'EUR', 'Forno', 'manual');
+          VALUES ('\(UUID().uuidString)', '\(ccp)', '2026-08-27', -4.50, 'EUR', 'Le Pétrin', 'manual');
         """)
         return store
     }
