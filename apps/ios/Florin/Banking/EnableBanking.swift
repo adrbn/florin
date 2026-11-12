@@ -63,8 +63,9 @@ enum EnableBanking {
          * La panne la plus fréquente, dite en français.
          *
          * `ASPSP_ERROR` est le code qu'Enable Banking renvoie quand la banque,
-         * derrière lui, répond mal — 184 passes de suite l'ont reçu. Le
-         * journal les écrivait telles quelles :
+         * derrière lui, répond mal. Une panne de La Banque Postale en a rempli
+         * 41 passes d'affilée sur deux jours. Le journal les écrivait
+         * telles quelles :
          *
          *     Enable Banking: {"code":400,"message":"Error interacting with
          *     ASPSP","detail":"Unknown error","error":"ASPSP_ERROR"}
