@@ -845,6 +845,29 @@ enum EdSymbols {
     }
 }
 
+/*
+ * La pastille d'une catégorie, et rien du tout quand il n'y en a pas.
+ *
+ * `EdSymbols.bullet` rend déjà la chaîne vide en Éditorial — ce thème ne met
+ * pas d'emoji. Mais un `Text("")` garde la gouttière que son appelant lui a
+ * réservée, et l'écran des catégories affichait une colonne de 24 points vide
+ * devant chaque nom, sur toute la liste. Une pastille absente ne doit pas
+ * occuper de place : pas de `Text` vide, pas de vue du tout, et le `spacing`
+ * de la pile ne s'applique pas autour d'une vue qui n'est pas là.
+ */
+struct EdBullet: View {
+    let emoji: String?
+    var size: CGFloat = 19
+    var width: CGFloat?
+
+    var body: some View {
+        let mark = EdSymbols.bullet(emoji)
+        if !mark.isEmpty {
+            Text(mark).font(.system(size: size)).frame(width: width)
+        }
+    }
+}
+
 /// La peau d'un pli : en négatif pour le second, au filet pour le premier.
 /// La maquette alterne les deux afin qu'on les distingue d'un coup d'œil sans
 /// avoir à les lire.

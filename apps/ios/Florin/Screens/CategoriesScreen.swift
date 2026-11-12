@@ -130,9 +130,7 @@ struct CategoriesScreen: View {
 
     private func row(_ category: PlanCategory, in group: Group) -> some View {
         HStack(spacing: 12) {
-            Text(EdSymbols.bullet(category.emoji))
-                .font(.system(size: 19))
-                .frame(width: 24)
+            EdBullet(emoji: category.emoji, width: 24)
             VStack(alignment: .leading, spacing: 1) {
                 Text(category.name)
                     .font(.system(size: 15, weight: .medium))
@@ -162,9 +160,12 @@ struct CategoriesScreen: View {
             Button {
                 prepareRemoval(category)
             } label: {
+                // Au ton du crayon, pas en rouge : le rouge dit « attention »,
+                // et vingt-et-une alertes empilées n'alertent plus de rien.
+                // Il reprend sa valeur dans la feuille qui demande confirmation.
                 Image(systemName: "trash")
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(Florin.negative)
+                    .foregroundStyle(Florin.text3)
                     .frame(width: 34, height: 34)
                     .contentShape(Rectangle())
             }

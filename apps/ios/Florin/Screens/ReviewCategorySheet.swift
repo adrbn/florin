@@ -190,7 +190,7 @@ struct ReviewCategorySheet: View {
             }
         } label: {
             HStack(spacing: 6) {
-                Text(EdSymbols.bullet(category.emoji)).font(.system(size: 14))
+                EdBullet(emoji: category.emoji, size: 14)
                 Text(category.name)
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(Florin.text)
