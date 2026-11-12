@@ -52,6 +52,7 @@ struct EditorialActivity: View {
     /// Les lignes cochées auxquelles il manque une catégorie : on la demande
     /// avant de valider, sinon « vérifié » voudrait dire « classé nulle part ».
     @State private var filing: (ids: [String], missing: [Transaction])?
+    @State private var confirmingDelete = false
     @State private var draft = ""
     @FocusState private var searchFocused: Bool
     /// Les têtes de marchands. `Bubble` sait déjà se tenir en Éditorial —
@@ -565,57 +566,146 @@ struct EditorialActivity: View {
 
     // MARK: Cocher, puis valider
 
+    /*
+     * Tout ce que la sélection permet tient dans cette barre.
+     *
+     * Y compris en sortir : l'icône du bandeau ouvre le mode, mais le bandeau
+     * défile et on coche en descendant. Un mode dont la sortie est remontée
+     * hors de l'écran est un mode où l'on se sent coincé.
+     *
+     * Deux rangées plutôt qu'une : « Annuler », « Tout », la corbeille et
+     * « Valider » sur une seule ligne, ce sont quatre cibles qui se disputent
+     * 360 points. Les deux gestes secondaires prennent la ligne du haut, et
+     * l'action garde la largeur du pouce.
+     */
     @ViewBuilder
     private var selectionBar: some View {
         if let picked = selection {
+            let shown = days.flatMap { $0.rows }
             // Ce qui est À L'ÉCRAN, pas tout ce qui est chargé : « Tout »
             // ramasserait sinon les lignes repliées dans les volets du haut —
             // à venir, en plusieurs fois — qu'on ne voit pas et qu'on ne
             // pensait pas cocher.
-            let all = days.flatMap { $0.rows }.map(\.id)
-            HStack(spacing: 10) {
-                Button {
-                    UISelectionFeedbackGenerator().selectionChanged()
-                    withAnimation(.snappy(duration: 0.2)) {
-                        selection = picked.count == all.count ? [] : Set(all)
-                    }
-                } label: {
-                    Text(
+            let all = shown.map(\.id)
+            /*
+             * On ne valide que ce qui attend de l'être.
+             *
+             * Le bouton s'affichait quoi qu'on coche, et « Valider » sur une
+             * opération d'il y a trois semaines déjà vérifiée ne faisait
+             * rigoureusement rien — `needs_review` valait déjà 0. Un bouton
+             * qui ne fait rien ment sur ce qu'il y a à faire. Il ne paraît
+             * donc que si la sélection contient quelque chose à vérifier, et
+             * il en annonce le nombre, pas celui des lignes cochées.
+             */
+            let toApprove = shown.filter { picked.contains($0.id) && $0.needsReview }
+
+            VStack(spacing: 8) {
+                HStack(spacing: 10) {
+                    secondary(
                         picked.count == all.count
                             ? t("v2.review.selectNone", "Aucune")
                             : t("v2.review.selectAll", "Tout")
-                    )
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Florin.text)
-                    .frame(width: 104, height: 54)
-                    .florinGlass(in: Capsule())
-                }
-                .buttonStyle(.plain)
-
-                Button { approvePicked(picked) } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 16, weight: .bold))
-                        Text(t(
-                            "v2.review.approveCount", "Valider {count}",
-                            ["count": picked.count]
-                        ))
-                        .font(.system(size: 17, weight: .semibold))
+                    ) {
+                        selection = picked.count == all.count ? [] : Set(all)
                     }
-                    .foregroundStyle(Florin.onAccent)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 54)
-                    .background(Florin.positive, in: Capsule())
-                    .shadow(color: .black.opacity(0.4), radius: 14, y: 6)
+                    Spacer(minLength: 8)
+                    secondary(t("v2.common.cancel", "Annuler")) { selection = nil }
                 }
-                .buttonStyle(.plain)
-                .disabled(picked.isEmpty)
-                .opacity(picked.isEmpty ? 0.4 : 1)
+
+                if !picked.isEmpty {
+                    HStack(spacing: 10) {
+                        Button { confirmingDelete = true } label: {
+                            Image(systemName: "trash")
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundStyle(Florin.negative)
+                                .frame(width: 60, height: 54)
+                                .florinGlass(in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+
+                        if toApprove.isEmpty {
+                            action(
+                                symbol: "trash",
+                                text: t("v2.review.deleteCount", "Supprimer {count}",
+                                        ["count": picked.count]),
+                                tint: Florin.negative
+                            ) { confirmingDelete = true }
+                        } else {
+                            action(
+                                symbol: "checkmark",
+                                text: t("v2.review.approveCount", "Valider {count}",
+                                        ["count": toApprove.count]),
+                                tint: Florin.positive
+                            ) { approvePicked(toApprove.map(\.id)) }
+                        }
+                    }
+                }
             }
             .padding(.horizontal, Ed.gutter)
+            // Juste au-dessus de la capsule d'onglets : les deux ensemble se
+            // lisent comme une seule zone de commande.
             .padding(.bottom, 86)
             .transition(.move(edge: .bottom).combined(with: .opacity))
+            .confirmationDialog(
+                t("v2.review.deleteAsk", "Supprimer la sélection ?"),
+                isPresented: $confirmingDelete,
+                titleVisibility: .visible
+            ) {
+                Button(
+                    t("v2.review.deleteCount", "Supprimer {count}",
+                      ["count": picked.count]),
+                    role: .destructive
+                ) {
+                    let ids = Array(picked)
+                    withAnimation(.snappy(duration: 0.2)) { selection = nil }
+                    Task {
+                        await model.delete(ids, t: t)
+                        await overview.load(showSpinner: false)
+                    }
+                }
+            } message: {
+                Text(t(
+                    "v2.review.deleteBody",
+                    "Elles partent à la corbeille : rien n'est effacé pour de bon."
+                ))
+            }
         }
+    }
+
+    private func secondary(_ label: String, _ act: @escaping () -> Void) -> some View {
+        Button {
+            UISelectionFeedbackGenerator().selectionChanged()
+            withAnimation(.snappy(duration: 0.2)) { act() }
+        } label: {
+            Text(label)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Florin.text)
+                .frame(minWidth: 96)
+                .frame(height: 44)
+                .florinGlass(in: Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func action(
+        symbol: String, text: String, tint: Color, _ act: @escaping () -> Void
+    ) -> some View {
+        Button(action: act) {
+            HStack(spacing: 8) {
+                Image(systemName: symbol)
+                    .font(.system(size: 16, weight: .bold))
+                Text(text)
+                    .font(.system(size: 17, weight: .semibold))
+            }
+            .foregroundStyle(Florin.onAccent)
+            // Prend le reste de la rangée : c'est l'action, et un pouce qui
+            // descend en bas d'écran n'a pas à viser.
+            .frame(maxWidth: .infinity)
+            .frame(height: 54)
+            .background(tint, in: Capsule())
+            .shadow(color: .black.opacity(0.4), radius: 14, y: 6)
+        }
+        .buttonStyle(.plain)
     }
 
     /*
@@ -627,11 +717,11 @@ struct EditorialActivity: View {
      * catégorie par construction — en réclamer une serait inventer un
      * problème puis le lui faire résoudre.
      */
-    private func approvePicked(_ picked: Set<String>) {
-        let ids = Array(picked)
+    private func approvePicked(_ ids: [String]) {
         guard !ids.isEmpty else { return }
+        let marked = Set(ids)
         let missing = model.rows.filter {
-            picked.contains($0.id) && $0.categoryName == nil && !$0.isTransfer
+            marked.contains($0.id) && $0.categoryName == nil && !$0.isTransfer
         }
         withAnimation(.snappy(duration: 0.2)) { selection = nil }
         guard missing.isEmpty else {

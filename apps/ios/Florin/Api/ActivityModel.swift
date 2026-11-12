@@ -461,6 +461,48 @@ final class ActivityModel: ObservableObject {
         }
     }
 
+    /*
+     * Supprimer en lot, comme on valide en lot.
+     *
+     * Même optimisme que `approve(_:t:)` : les lignes quittent l'écran tout de
+     * suite, parce que le geste n'a d'intérêt que s'il est instantané. La
+     * suppression reste DOUCE — la ligne garde sa place avec un `deleted_at`,
+     * la corbeille la rend pendant trente jours, et une synchro qui la
+     * repêche chez la banque ne la ressuscite pas comme une nouveauté.
+     *
+     * Une boucle, pas un appel de masse : il n'y a pas de route en lot côté
+     * serveur, et on en supprime une poignée, pas mille.
+     */
+    func delete(_ ids: [String], t: Strings) async {
+        guard !ids.isEmpty else { return }
+        let marked = Set(ids)
+        let removed = rows.filter { marked.contains($0.id) }
+        withAnimation(.snappy(duration: 0.28)) {
+            rows.removeAll { marked.contains($0.id) }
+            total = max(0, total - ids.count)
+        }
+        reviewCount = max(0, reviewCount - removed.filter(\.needsReview).count)
+
+        var failed = 0
+        for id in ids {
+            do { try await client.delete(id) } catch { failed += 1 }
+        }
+        if failed > 0 {
+            toast = ToastMessage(
+                text: t("v2.common.error", "Une erreur est survenue"), kind: .failure
+            )
+            await reload()
+            return
+        }
+        toast = ToastMessage(
+            text: ids.count == 1
+                ? t("v2.activity.deleted", "Opération supprimée")
+                : t("v2.review.deletedCount", "{count} opérations supprimées",
+                    ["count": ids.count]),
+            kind: .success
+        )
+    }
+
     /// Pull just the edited row back rather than the whole list: reloading
     /// thirty rows to reflect one category change loses the scroll position.
     private func refreshRow(_ id: String) async {
