@@ -465,15 +465,34 @@ enum LocalCategoriser {
         return runnersUp(ranked.map { ($0.key, Double($0.value)) }, confidence: confidence)
     }
 
-    /// Ce que le passé a fait de ce marchand, où que la banque ait coupé son
-    /// nom — et seulement s'il n'en a jamais connu qu'une catégorie.
+    /*
+     * Ce que le passé a fait de ce marchand, où que la banque ait coupé son
+     * nom — et seulement s'il n'en a jamais connu qu'une catégorie.
+     *
+     * Deux paiements à la même caisse à une minute d'intervalle sont arrivés
+     * sous deux libellés : l'un déjà classé quatre fois, l'autre tout neuf
+     * parce que la caisse y avait ajouté un mot. Le nom et la tête
+     * franchissaient l'écart — l'écran annonçait le même marchand deux fois —
+     * et la catégorie restait vide, faute d'une lettre commune suffisante.
+     *
+     * Le libellé d'à côté est le premier endroit où chercher, mais pas le
+     * seul : leur avoir DONNÉ le même nom est la façon la plus délibérée
+     * qu'on ait de dire que c'est le même endroit, et le classement
+     * l'ignorait. L'unanimité exigée plus bas est ce qui le rend sûr —
+     * mesuré sur un vrai grand livre, l'intermédiaire de paiement renommé en
+     * bloc porte cinq catégories différentes, donc ne décide de rien, là où
+     * les neuf libellés d'un même marchand n'en portent qu'une.
+     */
     private static func merchant(
         _ memory: Memory, payee: String, amount: Double
     ) -> [Suggestion]? {
         let key = MerchantNames.key(payee)
         guard !key.isEmpty else { return nil }
+        let named = MerchantNames.shared.keysNaming(key)
         var counts: [String: Int] = [:]
-        for (other, filed) in memory.merchants where MerchantNames.sameMerchant(key, other) {
+        for (other, filed) in memory.merchants
+        where MerchantNames.sameMerchant(key, other)
+            || named.contains(where: { MerchantNames.sameMerchant($0, other) }) {
             for (categoryId, seen) in filed { counts[categoryId, default: 0] += seen }
         }
         guard let ranked = decide(counts, amount, memory.kinds), ranked.count == 1 else {

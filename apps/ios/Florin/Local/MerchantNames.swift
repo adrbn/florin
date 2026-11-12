@@ -432,12 +432,34 @@ final class MerchantNames: ObservableObject {
      * ne les rapproche — sauf le nom qu'on leur a donné à toutes les deux, qui
      * est précisément la façon dont on dit « c'est le même ».
      *
-     * Ce lien ne vaut que par le nom : il se défait en renommant, et il ne
-     * déborde pas sur la catégorie ni sur le rapprochement des doublons, qui
-     * ne se décident pas sur un nom d'affichage.
+     * Ce lien ne vaut que par le nom : il se défait en renommant. Il ne
+     * déborde pas sur le rapprochement des doublons, qui met deux fois le
+     * même argent au même endroit et ne se décide pas sur un nom d'affichage.
+     * Il atteint en revanche la CATÉGORIE, et c'est `keysNaming` qui l'y
+     * porte : une catégorie fausse se corrige d'une tape, et laisser l'écran
+     * annoncer le même marchand sous deux noms pendant que le classement
+     * l'ignore était le vrai mensonge.
      */
     func keysSharingName(with key: String) -> [String] {
         Self.keysSharing(nameOf: key, in: table())
+    }
+
+    /*
+     * Tous les libellés que leur propriétaire a nommés comme celui-ci —
+     * y compris celui qui EST ce nom, tapé à la main.
+     *
+     * Le renommage ne crée une clé que du côté renommé. La ligne saisie sous
+     * le nom qu'on lit n'en a pas : elle se reconnaît à ce que son libellé
+     * replié est ce nom-là, et c'est déjà ainsi que `resolve` la retrouve.
+     * L'oublier ici ferait du marchand le plus évident un étranger.
+     */
+    func keysNaming(_ key: String) -> [String] {
+        Self.keysNaming(key, in: table())
+    }
+
+    static func keysNaming(_ key: String, in names: [String: String]) -> [String] {
+        guard let name = resolve(key, in: names).map(fold), !name.isEmpty else { return [] }
+        return keysSharing(nameOf: key, in: names) + [name]
     }
 
     /// Le nom se résout comme partout ailleurs — une clé tronquée porte le

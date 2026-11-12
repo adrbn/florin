@@ -3787,6 +3787,17 @@ struct MerchantPunctuationTests {
         #expect(MerchantNames.resolve(plain, in: [dashed: "Le Pétrin"]) == "Le Pétrin")
     }
 
+    @Test("Le libellé tapé à la main figure parmi ceux qu'on a nommés pareil")
+    func keysNamingReachesTheHandTypedLabel() {
+        // « Le Pétrin » renommé depuis le libellé long ; la ligne saisie à la
+        // main porte le nom lui-même, et n'a donc aucune entrée à elle.
+        let table = ["le petrin - rive gauche": "Le Pétrin"]
+        let twins = MerchantNames.keysNaming("le petrin rive gauche", in: table)
+        #expect(twins.contains("le petrin"))
+        // Et un libellé que personne n'a nommé ne traîne personne avec lui.
+        #expect(MerchantNames.keysNaming("chez marco", in: table).isEmpty)
+    }
+
     @Test("Un mot de plus ne désigne pas quelqu'un d'autre sous la barre")
     func compactComparisonKeepsItsFloor() {
         // « Le Bar » seul est trop court pour faire autorité sur ce qui
