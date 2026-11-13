@@ -1209,8 +1209,29 @@ struct EditorialActivity: View {
         .contentShape(Rectangle())
     }
 
+    /*
+     * Une ligne à vérifier dit CE QU'ON LUI PROPOSE, pas qu'elle attend.
+     *
+     * Le classeur range déjà la ligne au-dessus de son seuil de confiance
+     * (`LocalCategoriser.backfill`) et la laisse dans la file : la question
+     * posée n'est pas « quelle catégorie ? » mais « celle-ci, oui ou non ? ».
+     * La réponse était pourtant la seule chose que la ligne ne montrait pas —
+     * il fallait ouvrir chacune des treize pour valider la file, et la
+     * sélection multiple ne servait à rien puisqu'on ne savait pas à quoi on
+     * disait oui.
+     *
+     * La proposition passe donc devant, et la mention derrière : d'une, c'est
+     * elle qu'on lit ; de deux, la ligne est coupée à une, donc ce qui est
+     * en trop doit être en bout. L'accent, lui, dit déjà qu'il y a à faire.
+     */
     private func subtitle(_ tx: Transaction) -> String {
-        if tx.needsReview { return t("v2.activity.needsReview", "À catégoriser") }
+        if tx.needsReview {
+            let flag = t("v2.activity.needsReview", "À vérifier")
+            guard let guess = tx.categoryName else {
+                return t("v2.activity.toCategorise", "À catégoriser")
+            }
+            return guess + " · " + flag.lowercased()
+        }
         if tx.isTransfer { return t("v2.activity.transfer", "Virement interne") }
         let category = tx.categoryName ?? tx.accountName
         return tx.isPending
