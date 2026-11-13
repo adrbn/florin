@@ -196,14 +196,15 @@ struct PlanScreen: View {
                 }
 
             case let .shape(draft):
-                CategoryEditorSheet(draft: draft, t: t) { name, emoji, isFixed in
+                CategoryEditorSheet(draft: draft, t: t) { name, emoji, isFixed, slot in
                     if let existing = draft.category {
                         await model.editCategory(
-                            existing.id, name: name, emoji: emoji, isFixed: isFixed
+                            existing.id, name: name, emoji: emoji, isFixed: isFixed, slot: slot
                         )
                     } else {
                         await model.addCategory(
-                            to: draft.groupId, name: name, emoji: emoji, isFixed: isFixed
+                            to: draft.groupId, name: name, emoji: emoji,
+                            isFixed: isFixed, slot: slot
                         )
                     }
                 }

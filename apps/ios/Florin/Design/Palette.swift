@@ -254,9 +254,22 @@ enum FlorinPalette: String, CaseIterable, Identifiable {
 
     private nonisolated(unsafe) static var cached: Palette?
 
+    /*
+     * Un verrou pour un seul mot.
+     *
+     * `resolved` LIT le bidon puis ÉCRIT ce qu'il y a trouvé. Deux fils qui
+     * démarrent ensemble — l'app et sa vignette, deux épreuves voisines —
+     * peuvent donc se croiser au milieu : l'un lit l'ancien choix, l'autre
+     * en pose un neuf, et le retardataire écrase le neuf avec l'ancien. Le
+     * thème affiché n'est alors celui de personne.
+     */
+    private static let gate = NSLock()
+
     /// La palette active, résolue une fois puis gardée. Les jetons de `Florin`
     /// passent par `Palette.current`, qui mène ici.
     static var resolved: Palette {
+        gate.lock()
+        defer { gate.unlock() }
         if let cached { return cached }
         let stored = UserDefaults(suiteName: suite)?.string(forKey: key)
             ?? UserDefaults.standard.string(forKey: key)
@@ -266,11 +279,17 @@ enum FlorinPalette: String, CaseIterable, Identifiable {
     }
 
     /// Jette la palette gardée : la prochaine lecture la recalcule.
-    static func forget() { cached = nil }
+    static func forget() {
+        gate.lock()
+        cached = nil
+        gate.unlock()
+    }
 
     /// Applique et retient le choix, des deux côtés de la cloison.
     static func use(_ choice: FlorinPalette) {
+        gate.lock()
         cached = choice.palette
+        gate.unlock()
         UserDefaults.standard.set(choice.rawValue, forKey: key)
         UserDefaults(suiteName: suite)?.set(choice.rawValue, forKey: key)
     }

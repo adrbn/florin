@@ -8065,3 +8065,216 @@ struct CarryoverTests {
         #expect(carried.absorbed == 0)
     }
 }
+
+/*
+ * La couleur qu'on choisit pour une enveloppe.
+ *
+ * Deux index pour une même table — l'identifiant pour l'éditeur, le nom
+ * replié pour les pastilles, qui ne reçoivent que lui. Tenir les deux
+ * d'accord est la seule chose à vérifier : une couleur posée et introuvable
+ * par son nom n'aurait l'air de rien, juste d'un réglage qui ne prend pas.
+ */
+@Suite("La couleur d'une catégorie")
+struct CategoryTintTests {
+    private func store() throws -> LocalStore {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("florin-tint-\(UUID().uuidString).db")
+        return try LocalStore(url: url)
+    }
+
+    private func tints(_ store: LocalStore) -> CategoryTints {
+        let fresh = CategoryTints()
+        fresh.ledger = store
+        return fresh
+    }
+
+    private func category(_ store: LocalStore, named name: String) throws -> String {
+        let group = UUID().uuidString
+        try store.database.run(
+            "INSERT INTO category_groups (id, name, kind, display_order) VALUES (?, ?, ?, 0)",
+            [.text(group), .text("Essai"), .text("expense")]
+        )
+        return try LocalCategories.create(
+            store: store, groupId: group, name: name, emoji: "🧾", isFixed: false
+        )
+    }
+
+    @Test("une couleur posée se retrouve par le nom comme par l'identifiant")
+    func writtenOnceFoundBothWays() throws {
+        let store = try store()
+        let id = try category(store, named: "Épicerie")
+        let book = tints(store)
+
+        #expect(book.slot(forId: id) == nil)
+        #expect(book.color(forName: "Épicerie") == nil)
+
+        book.set(3, forId: id)
+        #expect(book.slot(forId: id) == 3)
+        /*
+         * Le rang, jamais la couleur : `Florin.series` rend un `Color`
+         * dynamique neuf à chaque accès, donc deux teintes identiques ne
+         * sont pas égales. L'épreuve écrite ainsi échouait sur du code juste.
+         */
+        #expect(book.slot(forName: "Épicerie") == 3)
+        #expect(book.color(forName: "Épicerie") != nil)
+        // La pastille reçoit le nom tel qu'il s'affiche, pas tel qu'il se
+        // compare : la casse et les accents ne doivent pas la détacher.
+        #expect(book.slot(forName: "epicerie") == 3)
+    }
+
+    @Test("l'automatique efface le choix")
+    func clearingGoesBackToTheHash() throws {
+        let store = try store()
+        let id = try category(store, named: "Transports")
+        let book = tints(store)
+
+        book.set(5, forId: id)
+        book.set(nil, forId: id)
+        #expect(book.slot(forId: id) == nil)
+        #expect(book.slot(forName: "Transports") == nil)
+    }
+}
+
+/*
+ * Le remboursement qu'on devine au montant.
+ *
+ * Il n'y a rien à lire dans « CREDIT CARTE BANCAIRE » : la banque nomme le
+ * rail, jamais l'enseigne. Le seul indice est que la somme rendue est celle
+ * qui a été payée — un indice qui ne vaut que s'il désigne UNE dépense.
+ */
+@Suite("Les remboursements devinés")
+struct RefundMatchTests {
+    private func store() throws -> LocalStore {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("florin-refund-\(UUID().uuidString).db")
+        return try LocalStore(url: url)
+    }
+
+    private func account(_ store: LocalStore, kind: String = "checking") throws -> String {
+        let id = UUID().uuidString
+        try store.database.run(
+            """
+            INSERT INTO accounts (id, name, kind, currency, opening_balance, current_balance)
+            VALUES (?, 'Courant', ?, 'EUR', 0, 0)
+            """,
+            [.text(id), .text(kind)]
+        )
+        return id
+    }
+
+    private func category(_ store: LocalStore, named name: String) throws -> String {
+        let group = UUID().uuidString
+        try store.database.run(
+            "INSERT INTO category_groups (id, name, kind, display_order) VALUES (?, ?, ?, 0)",
+            [.text(group), .text("Essai"), .text("expense")]
+        )
+        return try LocalCategories.create(
+            store: store, groupId: group, name: name, emoji: "🧾", isFixed: false
+        )
+    }
+
+    @discardableResult
+    private func row(
+        _ store: LocalStore, _ account: String, _ amount: Double, _ payee: String,
+        daysAgo: Int, category: String? = nil, review: Bool = true
+    ) throws -> String {
+        let id = UUID().uuidString
+        let day = LocalQueries.dayFormatter.string(
+            from: Calendar(identifier: .gregorian)
+                .date(byAdding: .day, value: -daysAgo, to: Date()) ?? Date()
+        )
+        try store.database.run(
+            """
+            INSERT INTO transactions
+                (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
+                 category_id, source, status, needs_review, is_pending)
+            VALUES (?, ?, ?, ?, 'EUR', ?, ?, ?, 'enable_banking', 'cleared', ?, 0)
+            """,
+            [
+                .text(id), .text(account), .text(day), .real(amount), .text(payee),
+                .text(payee.lowercased()),
+                category.map { SQLiteValue.text($0) } ?? .null,
+                .integer(review ? 1 : 0),
+            ]
+        )
+        return id
+    }
+
+    private func linkOf(_ store: LocalStore, _ id: String) throws -> String? {
+        try store.database.scalar(
+            "SELECT reimburses_tx_id FROM transactions WHERE id = ?", [.text(id)]
+        )?.string
+    }
+
+    @Test("une seule dépense au même centime : le lien est posé, la catégorie suit")
+    func singleMatchLinksAndFiles() throws {
+        let store = try store()
+        let account = try account(store)
+        let shopping = try category(store, named: "Emplettes")
+        let expense = try row(store, account, -23.60, "Boutique", daysAgo: 20,
+                              category: shopping, review: false)
+        let credit = try row(store, account, 23.60, "CREDIT CARTE BANCAIRE", daysAgo: 2)
+
+        #expect(try LocalReimbursements.propose(store: store) == 1)
+        #expect(try linkOf(store, credit) == expense)
+        let filed = try store.database.scalar(
+            "SELECT category_id FROM transactions WHERE id = ?", [.text(credit)]
+        )?.string
+        #expect(filed == shopping)
+    }
+
+    @Test("deux dépenses au même centime : on ne devine pas")
+    func twoCandidatesLinkNothing() throws {
+        let store = try store()
+        let account = try account(store)
+        try row(store, account, -12.00, "Boutique", daysAgo: 20, review: false)
+        try row(store, account, -12.00, "Autre boutique", daysAgo: 9, review: false)
+        let credit = try row(store, account, 12.00, "CREDIT CARTE BANCAIRE", daysAgo: 1)
+
+        #expect(try LocalReimbursements.propose(store: store) == 0)
+        #expect(try linkOf(store, credit) == nil)
+    }
+
+    /// Un achat d'il y a six mois n'est pas ce qu'on vous rend aujourd'hui, et
+    /// un achat fait à la même somme un jour plus tard ne l'est pas non plus.
+    @Test("hors de la fenêtre, le même montant ne dit rien")
+    func oldExpenseIsNotARefund() throws {
+        let store = try store()
+        let account = try account(store)
+        try row(store, account, -80.00, "Boutique", daysAgo: 200, review: false)
+        let credit = try row(store, account, 80.00, "CREDIT CARTE BANCAIRE", daysAgo: 1)
+
+        #expect(try LocalReimbursements.propose(store: store) == 0)
+        #expect(try linkOf(store, credit) == nil)
+    }
+
+    /// Une rentrée qu'on a déjà approuvée est une décision prise : la deviner
+    /// par-dessus reviendrait à la défaire.
+    @Test("une rentrée déjà approuvée n'est pas reprise")
+    func approvedIncomeIsLeftAlone() throws {
+        let store = try store()
+        let account = try account(store)
+        try row(store, account, -15.50, "Boutique", daysAgo: 10, review: false)
+        let credit = try row(store, account, 15.50, "CREDIT CARTE BANCAIRE",
+                             daysAgo: 1, review: false)
+
+        #expect(try LocalReimbursements.propose(store: store) == 0)
+        #expect(try linkOf(store, credit) == nil)
+    }
+
+    /// Deux fois le même retour sur la même dépense serait deux fois le même
+    /// argent rendu : la deuxième rentrée n'a plus de cible.
+    @Test("une dépense déjà remboursée ne se rend pas deux fois")
+    func anExpenseIsRefundedOnce() throws {
+        let store = try store()
+        let account = try account(store)
+        try row(store, account, -9.90, "Boutique", daysAgo: 12, review: false)
+        let first = try row(store, account, 9.90, "CREDIT CARTE BANCAIRE", daysAgo: 3)
+        #expect(try LocalReimbursements.propose(store: store) == 1)
+        #expect(try linkOf(store, first) != nil)
+
+        let second = try row(store, account, 9.90, "CREDIT CARTE BANCAIRE", daysAgo: 1)
+        #expect(try LocalReimbursements.propose(store: store) == 0)
+        #expect(try linkOf(store, second) == nil)
+    }
+}

@@ -155,6 +155,7 @@
 		DECDD721A269F1B69DC71B0E /* EditorialAccounts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BCEFDE470DAE649D38425F7 /* EditorialAccounts.swift */; };
 		E08134F854EB187800CA46C7 /* MerchantsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3A99F69BD4F0DE7DFD05513 /* MerchantsScreen.swift */; };
 		E16667917102CE1271FB589A /* Strings.json in Resources */ = {isa = PBXBuildFile; fileRef = 4BE4F540065C6E543C0B8A5D /* Strings.json */; };
+		E3D168331905E80059DE0E13 /* CategoryTints.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFAEA32FB18B62C85D427926 /* CategoryTints.swift */; };
 		E4D2995C390903037F10DDB7 /* OverviewScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CF3F5843E841E89E60775AB /* OverviewScreen.swift */; };
 		E6EDD1F8D6A3563A3B9726DB /* AnalysisModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6987D1BE572CB37E2BDA92EB /* AnalysisModel.swift */; };
 		EEB484F10F89B2DA71DD8A12 /* ActivityScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57359F03A6215282B0FBF364 /* ActivityScreen.swift */; };
@@ -373,6 +374,7 @@
 		FA76A9953A1F010EE69114BD /* AssetSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssetSearch.swift; sourceTree = "<group>"; };
 		FAB80DF308FB7FBBFF1A0EDD /* SeedCategories.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = SeedCategories.json; sourceTree = "<group>"; };
 		FE0BA5FC009AF1C4E26FBB15 /* BackToTop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackToTop.swift; sourceTree = "<group>"; };
+		FFAEA32FB18B62C85D427926 /* CategoryTints.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryTints.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -577,6 +579,7 @@
 				FA76A9953A1F010EE69114BD /* AssetSearch.swift */,
 				D1D62499D2405CFC7C953ABE /* BackgroundRefresh.swift */,
 				1B83CFAFAEC1C87F5F7100F0 /* CategoryHint.swift */,
+				FFAEA32FB18B62C85D427926 /* CategoryTints.swift */,
 				8F00301AB25E1B51494EBAA7 /* KnownMerchants.swift */,
 				F7F95DD6330EBDDFAB0097E7 /* LedgerStamp.swift */,
 				72FE45643769E71AEFCDC7D4 /* LocalAnalysis.swift */,
@@ -836,6 +839,7 @@
 				211F039A166EC98CA363E7E8 /* CategoryHint.swift in Sources */,
 				713F23992E64EEBA0EFFFA4A /* CategoryPicker.swift in Sources */,
 				5B4111C7309CCDDA821AD38E /* CategoryRemovalSheet.swift in Sources */,
+				E3D168331905E80059DE0E13 /* CategoryTints.swift in Sources */,
 				BC3FB0255CBA4207B6992527 /* DataSource.swift in Sources */,
 				30EB900C687EDBBC94DEC3E7 /* DaySheet.swift in Sources */,
 				DECDD721A269F1B69DC71B0E /* EditorialAccounts.swift in Sources */,
@@ -998,7 +1002,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Florin/Florin.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 689;
+				CURRENT_PROJECT_VERSION = 690;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Florin/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;
@@ -1019,7 +1023,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = FlorinWidgets/FlorinWidgets.entitlements;
-				CURRENT_PROJECT_VERSION = 689;
+				CURRENT_PROJECT_VERSION = 690;
 				INFOPLIST_FILE = FlorinWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1124,7 +1128,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = FlorinWidgets/FlorinWidgets.entitlements;
-				CURRENT_PROJECT_VERSION = 689;
+				CURRENT_PROJECT_VERSION = 690;
 				INFOPLIST_FILE = FlorinWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1207,7 +1211,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Florin/Florin.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 689;
+				CURRENT_PROJECT_VERSION = 690;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Florin/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;

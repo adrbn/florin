@@ -1197,7 +1197,9 @@ struct AnalysisScreen: View {
          * Tendances étaient restés en dehors — le seul coloré d'une page à
          * l'encre, et c'est lui qu'on remarquait au lieu de sa forme.
          */
-        let tint = editorial ? Florin.text : Florin.seriesColor(for: row.categoryName)
+        // Une teinte choisie vaut dans tous les thèmes : voir `Bubble.ownTint`.
+        let tint = CategoryTints.shared.color(forName: row.categoryName)
+            ?? (editorial ? Florin.text : Florin.seriesColor(for: row.categoryName))
 
         /*
          * Stacked, not strung out.
@@ -2624,7 +2626,10 @@ struct RankBar: View {
                 ZStack(alignment: .leading) {
                     Capsule().fill(Florin.text.opacity(editorial ? 0.10 : 0.06))
                     Capsule()
-                        .fill(editorial ? Florin.text : Florin.seriesColor(for: label))
+                        .fill(
+                            CategoryTints.shared.color(forName: label)
+                                ?? (editorial ? Florin.text : Florin.seriesColor(for: label))
+                        )
                         .frame(width: width)
                 }
             }

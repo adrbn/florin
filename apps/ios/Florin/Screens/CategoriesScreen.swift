@@ -65,8 +65,8 @@ struct CategoriesScreen: View {
         .presentationDragIndicator(.visible)
         .task { load() }
         .sheet(item: $draft) { draft in
-            CategoryEditorSheet(draft: draft, t: t) { name, emoji, isFixed in
-                await save(draft, name: name, emoji: emoji, isFixed: isFixed)
+            CategoryEditorSheet(draft: draft, t: t) { name, emoji, isFixed, slot in
+                await save(draft, name: name, emoji: emoji, isFixed: isFixed, slot: slot)
             }
         }
         .sheet(item: $removing) { pending in
@@ -218,20 +218,25 @@ struct CategoriesScreen: View {
     // MARK: - Écritures
 
     private func save(
-        _ draft: CategoryDraft, name: String, emoji: String, isFixed: Bool
+        _ draft: CategoryDraft, name: String, emoji: String, isFixed: Bool, slot: Int?
     ) async {
         guard let store = LocalStore.shared else { return }
         do {
+            // La teinte est posée sur l'identifiant, donc après la création :
+            // une enveloppe qui n'existe pas encore n'a rien à peindre.
+            let id: String
             if let existing = draft.category {
                 try LocalCategories.update(
                     store: store, id: existing.id, name: name, emoji: emoji, isFixed: isFixed
                 )
+                id = existing.id
             } else {
-                _ = try LocalCategories.create(
+                id = try LocalCategories.create(
                     store: store, groupId: draft.groupId,
                     name: name, emoji: emoji, isFixed: isFixed
                 )
             }
+            CategoryTints.shared.set(slot, forId: id)
             load()
         } catch {
             failure = error.localizedDescription

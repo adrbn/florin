@@ -200,6 +200,12 @@ enum BankingSync {
                 let named = try LocalCategoriser.backfill(store: store)
                 if named > 0 { log.notice("categorised \(named, privacy: .public) rows") }
 
+                // Après le classeur : un remboursement de marchand n'a pas de
+                // mots à reconnaître, il a un montant — voir
+                // `LocalReimbursements.propose`.
+                let refunds = try LocalReimbursements.propose(store: store)
+                if refunds > 0 { log.notice("linked \(refunds, privacy: .public) refunds") }
+
                 /*
                  * A repayment that just arrived pays the loan now, not at the
                  * next launch. The month's instalment is the one transaction

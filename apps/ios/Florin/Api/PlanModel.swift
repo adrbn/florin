@@ -123,21 +123,29 @@ final class PlanModel: ObservableObject {
 
     private var store: LocalStore? { canEditCategories ? LocalStore.shared : nil }
 
-    func addCategory(to groupId: String, name: String, emoji: String, isFixed: Bool) async {
+    /// `slot` est le rang de teinte choisi, `nil` pour l'automatique — posé
+    /// après l'écriture, puisqu'il se range sous l'identifiant.
+    func addCategory(
+        to groupId: String, name: String, emoji: String, isFixed: Bool, slot: Int?
+    ) async {
         await mutate {
             guard let store = self.store else { return }
-            try LocalCategories.create(
+            let id = try LocalCategories.create(
                 store: store, groupId: groupId, name: name, emoji: emoji, isFixed: isFixed
             )
+            CategoryTints.shared.set(slot, forId: id)
         }
     }
 
-    func editCategory(_ id: String, name: String, emoji: String, isFixed: Bool) async {
+    func editCategory(
+        _ id: String, name: String, emoji: String, isFixed: Bool, slot: Int?
+    ) async {
         await mutate {
             guard let store = self.store else { return }
             try LocalCategories.update(
                 store: store, id: id, name: name, emoji: emoji, isFixed: isFixed
             )
+            CategoryTints.shared.set(slot, forId: id)
         }
     }
 

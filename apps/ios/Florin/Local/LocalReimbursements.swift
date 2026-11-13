@@ -142,6 +142,113 @@ enum LocalReimbursements {
         ).compactMap(entry)
     }
 
+    /*
+     * Le remboursement qu'on peut deviner tout seul.
+     *
+     * Un remboursement de marchand arrive sous un libellé qui ne nomme
+     * personne — « CREDIT CARTE BANCAIRE » — parce que c'est le RAIL qui est
+     * nommé, pas l'enseigne. Il n'y a donc rien à reconnaître dans les mots,
+     * et le classeur, qui ne travaille que sur eux, passe forcément à côté :
+     * un retour de marchand restait sans nom, sans catégorie, et c'est à la
+     * main qu'on lui apprenait d'où il venait.
+     *
+     * Le montant, lui, dit tout. Un retour rend exactement ce qu'on a payé,
+     * et le payer puis le reprendre au centime près est un hasard qui
+     * n'arrive pas deux fois dans un trimestre. Le lien est donc posé quand
+     * UNE SEULE dépense correspond : deux candidates, et on ne devine pas —
+     * se tromper de dépense, ce serait solder la mauvaise enveloppe.
+     *
+     * Posé, pas validé : la ligne reste dans la file à vérifier, qui montre
+     * désormais ce qu'on lui propose. La fiche, elle, dit « Remboursement de
+     * … » comme pour un lien fait à la main, puisque c'est le même lien.
+     *
+     * Les centimes sont comparés en entiers. Deux nombres à virgule égaux au
+     * centième ne sont pas égaux en machine, et une comparaison directe
+     * aurait raté une correspondance sur deux sans jamais le dire.
+     */
+    @discardableResult
+    static func propose(store: LocalStore) throws -> Int {
+        let credits = try store.database.query(
+            """
+            SELECT t.id, t.amount, substr(t.occurred_at, 1, 10) AS day, t.category_id
+            FROM transactions t
+            JOIN accounts a ON a.id = t.account_id
+            WHERE t.deleted_at IS NULL AND t.amount > 0
+              AND t.reimburses_tx_id IS NULL
+              AND t.transfer_pair_id IS NULL
+              AND a.kind <> 'loan'
+              /*
+               * Seulement ce sur quoi personne ne s'est prononcé — la même
+               * règle que `LocalCategoriser.backfill` : une rentrée approuvée
+               * telle quelle est une décision, pas un oubli à rattraper.
+               */
+              AND (t.needs_review = 1 OR t.is_pending = 1)
+            ORDER BY t.occurred_at DESC LIMIT 200
+            """
+        )
+        guard !credits.isEmpty else { return 0 }
+
+        var linked = 0
+        try store.database.transaction {
+            for credit in credits {
+                guard let id = credit.string("id"),
+                      let amount = credit.double("amount"),
+                      let day = credit.string("day")
+                else { continue }
+                let cents = Int64((amount * 100).rounded())
+                guard cents > 0 else { continue }
+
+                let matches = try store.database.query(
+                    """
+                    SELECT e.id, e.category_id
+                    FROM transactions e
+                    JOIN accounts a ON a.id = e.account_id
+                    WHERE e.deleted_at IS NULL
+                      AND CAST(round(-e.amount * 100) AS INTEGER) = ?
+                      AND e.transfer_pair_id IS NULL
+                      AND a.kind <> 'loan'
+                      AND e.id <> ?
+                      AND julianday(substr(e.occurred_at, 1, 10))
+                          BETWEEN julianday(?) - 90 AND julianday(?) + 7
+                      -- Une dépense déjà rendue ne se rend pas deux fois.
+                      AND NOT EXISTS (
+                          SELECT 1 FROM transactions r
+                          WHERE r.reimburses_tx_id = e.id AND r.deleted_at IS NULL
+                      )
+                    LIMIT 2
+                    """,
+                    [.integer(cents), .text(id), .text(day), .text(day)]
+                )
+                guard matches.count == 1, let expense = matches[0].string("id") else { continue }
+
+                try store.database.run(
+                    """
+                    UPDATE transactions SET reimburses_tx_id = ?, updated_at = datetime('now')
+                    WHERE id = ? AND reimburses_tx_id IS NULL
+                    """,
+                    [.text(expense), .text(id)]
+                )
+                /*
+                 * Et la catégorie de la dépense, pour que le poste se solde
+                 * net — c'est ce que le lien propose quand on l'établit à la
+                 * main. Jamais par-dessus un classement existant.
+                 */
+                if credit.string("category_id") == nil,
+                   let category = matches[0].string("category_id") {
+                    try store.database.run(
+                        """
+                        UPDATE transactions SET category_id = ?, updated_at = datetime('now')
+                        WHERE id = ? AND category_id IS NULL
+                        """,
+                        [.text(category), .text(id)]
+                    )
+                }
+                linked += 1
+            }
+        }
+        return linked
+    }
+
     /// Lier une rentrée à une dépense, ou défaire le lien avec `nil`.
     static func link(store: LocalStore, income: String, to expense: String?) throws {
         try store.database.run(

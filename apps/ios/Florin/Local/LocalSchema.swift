@@ -81,6 +81,7 @@ enum LocalSchema {
             display_order INTEGER NOT NULL DEFAULT 0,
             is_fixed INTEGER NOT NULL DEFAULT 0,
             is_archived INTEGER NOT NULL DEFAULT 0,
+            display_color TEXT,
             linked_loan_account_id TEXT REFERENCES accounts(id) ON DELETE SET NULL,
             created_at TEXT NOT NULL DEFAULT (datetime('now'))
           );

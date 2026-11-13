@@ -342,6 +342,10 @@ final class LocalStore {
         // Les noms appris avant les familles n'en ont pas : elle se remplit
         // au fil des lectures, et d'un coup par « Ranger les familles ».
         try addColumn("product_names", "family", "TEXT")
+        // La teinte choisie pour une enveloppe, du même rang que pour un
+        // compte (« series-3 ») — voir `CategoryTints`. Vide, c'est le
+        // hachage du nom qui décide, comme avant.
+        try addColumn("categories", "display_color", "TEXT")
         try rekeyMerchantNames()
         try healSettledRefundLinks()
         try healExpiredInstalments()
@@ -1045,6 +1049,11 @@ extension LocalStore {
             let named = try LocalCategoriser.backfill(store: store)
             if named > 0 {
                 log.notice("categorised \(named, privacy: .public) waiting rows")
+            }
+
+            let refunds = try LocalReimbursements.propose(store: store)
+            if refunds > 0 {
+                log.notice("linked \(refunds, privacy: .public) waiting refunds")
             }
 
             let count = try store.transactionCount()

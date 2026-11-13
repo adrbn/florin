@@ -19,7 +19,22 @@ struct Bubble: View {
     /// The merchant's own icon (`MerchantLogos`), over everything else.
     var logo: UIImage?
 
-    private var tint: Color { Florin.seriesColor(for: label) }
+    /// Observé pour qu'une couleur posée dans l'éditeur repeigne les listes
+    /// derrière la feuille, et non au prochain chargement.
+    @ObservedObject private var tints = CategoryTints.shared
+
+    /*
+     * La teinte choisie d'abord, le hachage du nom ensuite.
+     *
+     * Huit teintes pour trente enveloppes : le hachage en donne forcément
+     * deux pareilles, et il n'a jamais été demandé par personne. Celle qu'on
+     * est allé choisir (`CategoryTints`) passe donc devant — y compris en
+     * éditorial, qui n'en met aucune par principe : refuser une couleur
+     * nommée à la main, ce serait refuser le réglage, pas tenir le thème.
+     */
+    private var ownTint: Color? { tints.color(forName: label) }
+
+    private var tint: Color { ownTint ?? Florin.seriesColor(for: label) }
 
     /*
      * Éditorial ne met pas d'emoji dans ses listes.
@@ -49,7 +64,9 @@ struct Bubble: View {
     var body: some View {
         ZStack {
             if flat {
-                Circle().strokeBorder(Florin.text.opacity(0.28), lineWidth: 1)
+                Circle().strokeBorder(
+                    ownTint ?? Florin.text.opacity(0.28), lineWidth: ownTint == nil ? 1 : 1.5
+                )
             } else {
                 RoundedRectangle(cornerRadius: size * 0.33, style: .continuous)
                     .fill(tint.opacity(0.15))
@@ -61,11 +78,11 @@ struct Bubble: View {
             } else if let systemImage {
                 Image(systemName: systemImage)
                     .font(.system(size: size * 0.4, weight: .medium))
-                    .foregroundStyle(flat ? Florin.text : tint)
+                    .foregroundStyle(flat ? (ownTint ?? Florin.text) : tint)
             } else {
                 Text(Self.initials(name ?? label))
                     .font(.system(size: size * 0.36, weight: flat ? .medium : .semibold))
-                    .foregroundStyle(flat ? Florin.text : tint)
+                    .foregroundStyle(flat ? (ownTint ?? Florin.text) : tint)
             }
         }
         .frame(width: size, height: size)
