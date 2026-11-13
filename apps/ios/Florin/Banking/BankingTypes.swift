@@ -115,11 +115,21 @@ struct AccountDetails: Decodable {
         }
     }
 
-    /// What to call this account on screen, in the order a person would pick.
+    /*
+     * Comment appeler ce compte à l'écran.
+     *
+     * `product` D'ABORD, et `name` en dernier recours : sous la norme
+     * française, `name` est le nom du TITULAIRE en capitales, pas celui du
+     * compte. La Banque Postale, BNP, la Société Générale et les Arkéa le
+     * renvoient depuis octobre 2026 ; une liste de comptes affichait alors
+     * trois fois le même nom de personne au lieu de « CCP », « Livret A »,
+     * « PEA ». Le web et le bureau rangent ces mêmes champs dans cet ordre
+     * depuis le début — voir `apps/web/src/server/banking/sync.ts`.
+     */
     var displayName: String {
-        if let name, !name.isEmpty { return name }
         if let product, !product.isEmpty { return product }
         if let iban = accountId?.iban, iban.count > 4 { return "•••• " + String(iban.suffix(4)) }
+        if let name, !name.isEmpty { return name }
         return Strings.device("v2.account.unnamed", "Compte")
     }
 }

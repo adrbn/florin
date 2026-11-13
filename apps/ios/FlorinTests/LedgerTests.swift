@@ -8278,3 +8278,47 @@ struct RefundMatchTests {
         #expect(try linkOf(store, second) == nil)
     }
 }
+
+/*
+ * Le nom d'un compte, tel que la banque le livre.
+ *
+ * Sous la norme française, le champ `name` porte le nom du TITULAIRE. Depuis
+ * octobre 2026 la plupart des banques françaises le remplissent : une liste
+ * de comptes qui le préfère affiche trois fois la même personne au lieu des
+ * trois produits.
+ */
+@Suite("Le nom d'un compte bancaire")
+struct AccountDisplayNameTests {
+    private func details(name: String?, product: String?, iban: String?) throws
+        -> AccountDetails
+    {
+        var fields: [String] = []
+        if let name { fields.append("\"name\": \"\(name)\"") }
+        if let product { fields.append("\"product\": \"\(product)\"") }
+        if let iban { fields.append("\"account_id\": {\"iban\": \"\(iban)\"}") }
+        fields.append("\"uid\": \"u1\"")
+        fields.append("\"currency\": \"EUR\"")
+        let json = "{\(fields.joined(separator: ", "))}"
+        return try JSONDecoder().decode(
+            AccountDetails.self, from: Data(json.utf8)
+        )
+    }
+
+    @Test("le produit passe avant le nom du titulaire")
+    func productWinsOverHolder() throws {
+        let account = try details(name: "JEAN EXEMPLE", product: "Livret", iban: "FR7612345678901")
+        #expect(account.displayName == "Livret")
+    }
+
+    @Test("sans produit, les quatre derniers chiffres plutôt que la personne")
+    func ibanTailBeatsHolder() throws {
+        let account = try details(name: "JEAN EXEMPLE", product: nil, iban: "FR7612345678901")
+        #expect(account.displayName == "•••• 8901")
+    }
+
+    @Test("le nom reste le dernier recours")
+    func nameIsTheLastResort() throws {
+        let account = try details(name: "Compte commun", product: nil, iban: nil)
+        #expect(account.displayName == "Compte commun")
+    }
+}
