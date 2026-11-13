@@ -417,14 +417,11 @@ struct AddTransactionSheet: View {
             Text(kind == .income ? "+" : "−")
                 .font(.system(size: 40, weight: .medium))
                 .foregroundStyle(figureTint.opacity(magnitude > 0 ? 1 : 0.35))
-            TextField("0", text: $amount)
-                .keyboardType(.decimalPad)
-                .focused($amountFocused)
-                .font(.system(size: figureSize, weight: .medium))
-                .monospacedDigit()
-                .kerning(Ed.tracking(figureSize, 0.045))
-                .foregroundStyle(figureTint)
-                .fixedSize()
+            amountField(
+                font: .system(size: figureSize, weight: .medium),
+                kerning: Ed.tracking(figureSize, 0.045),
+                centred: false
+            )
             Text(Money.currencySymbol(locale: localeTag, currency: currency))
                 .font(.system(size: 40, weight: .medium))
                 .foregroundStyle(figureTint.opacity(0.4))
@@ -433,6 +430,40 @@ struct AddTransactionSheet: View {
         .padding(.horizontal, Ed.gutter)
         .padding(.top, 14)
         .padding(.bottom, 4)
+    }
+
+    /*
+     * Le chiffre tapé se dessine PAR-DESSUS le champ, jamais dedans.
+     *
+     * UIKit range la couleur dans les attributs du texte déjà saisi : quand
+     * le sens changeait, le signe et la devise viraient — ce sont des `Text`,
+     * ils se redessinent — et le montant restait de l'ancienne couleur
+     * jusqu'à la frappe suivante, qui seule réapplique les attributs de
+     * saisie. Un champ transparent ne porte plus que la saisie et le curseur ;
+     * la teinte est à un `Text` au-dessus, qui n'a pas cette mémoire.
+     *
+     * Le champ garde son « 0 » d'invite pour réserver sa largeur : sans texte,
+     * `fixedSize` le réduirait à rien et le zéro n'aurait plus où se poser.
+     */
+    private func amountField(font: Font, kerning: CGFloat, centred: Bool) -> some View {
+        TextField("0", text: $amount)
+            .keyboardType(.decimalPad)
+            .focused($amountFocused)
+            .multilineTextAlignment(centred ? .center : .leading)
+            .font(font)
+            .monospacedDigit()
+            .kerning(kerning)
+            .foregroundStyle(.clear)
+            .tint(figureTint)
+            .overlay {
+                Text(amount.isEmpty ? "0" : amount)
+                    .font(font)
+                    .monospacedDigit()
+                    .kerning(kerning)
+                    .foregroundStyle(figureTint.opacity(amount.isEmpty ? 0.25 : 1))
+                    .allowsHitTesting(false)
+            }
+            .fixedSize()
     }
 
     /*
@@ -622,14 +653,11 @@ struct AddTransactionSheet: View {
                 .font(.system(size: 34, weight: .light))
                 .foregroundStyle(figureTint)
                 .opacity(magnitude > 0 ? 1 : 0.25)
-            TextField("0", text: $amount)
-                .keyboardType(.decimalPad)
-                .focused($amountFocused)
-                .multilineTextAlignment(.center)
-                .font(.system(size: 52, weight: .light))
-                .monospacedDigit()
-                .foregroundStyle(figureTint)
-                .fixedSize()
+            amountField(
+                font: .system(size: 52, weight: .light),
+                kerning: 0,
+                centred: true
+            )
             Text(Money.currencySymbol(locale: localeTag, currency: currency))
                 .font(.system(size: 22, weight: .light))
                 .foregroundStyle(figureTint.opacity(0.45))
