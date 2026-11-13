@@ -1178,10 +1178,26 @@ enum LocalQueries {
                    coalesce(a.loan_interest_rate, 0) AS rate,
                    coalesce(a.loan_term_months, 0) AS term,
                    coalesce(a.loan_monthly_payment, 0) AS payment,
+                   /*
+                    * Le rang d'une échéance : les lignes jusqu'à elle, elle
+                    * comprise.
+                    *
+                    * Deux prélèvements du même jour se comptaient l'un
+                    * l'autre et prenaient donc le même rang : un mois de
+                    * rattrapage — mai sans rien, juin deux fois — voyait la
+                    * deuxième échéance porter les intérêts de la troisième,
+                    * la ligne de l'échéancier qui lui revenait n'être lue par
+                    * personne, et la même part d'intérêts s'afficher deux
+                    * fois. L'identifiant tranche l'égalité : il ne dit pas
+                    * laquelle des deux fut prélevée la première, mais il
+                    * leur donne deux rangs, et c'est tout ce que
+                    * l'échéancier demande.
+                    */
                    (SELECT count(*) FROM transactions x
                     WHERE x.account_id = t.account_id
                       AND x.transfer_pair_id IS NOT NULL AND x.deleted_at IS NULL
-                      AND x.occurred_at <= t.occurred_at) AS rank
+                      AND (x.occurred_at < t.occurred_at
+                           OR (x.occurred_at = t.occurred_at AND x.id <= t.id))) AS rank
             FROM transactions t JOIN accounts a ON a.id = t.account_id
             WHERE a.kind = 'loan' AND t.transfer_pair_id IS NOT NULL
               AND t.deleted_at IS NULL
@@ -1273,6 +1289,11 @@ enum LocalQueries {
     /// accordait ; à six mois, les deux moitiés du graphique se répondent.
     static let forecastMonths = 6
 
+    /// Les jours que la prévision dessine. Une seule définition, pour
+    /// que l'horizon ne se dise pas différemment au test et au tracé —
+    /// il est passé de douze mois à six sans que personne le voie.
+    static var forecastDays: Int { forecastMonths * 61 / 2 }  // 30,5 jours par mois
+
     /*
      * Le niveau d'aujourd'hui selon la tendance, pas selon le jour qu'on est.
      *
@@ -1312,7 +1333,7 @@ enum LocalQueries {
             ?? anchor.balance
         var day = calendar.startOfDay(for: now)
         var points: [PatrimonyPoint] = []
-        for _ in 1...(forecastMonths * 61 / 2) {  // 30,5 jours par mois
+        for _ in 1...forecastDays {
             guard let next = calendar.date(byAdding: .day, value: 1, to: day) else { break }
             day = next
             value += daily

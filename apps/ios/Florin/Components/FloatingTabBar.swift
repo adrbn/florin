@@ -90,7 +90,9 @@ final class ChromeState: ObservableObject {
  * de boucle suivant — après que le contrôle a eu le sien. Inchangée, c'est
  * qu'on était déjà là.
  */
-private final class TouchWatcher: UIGestureRecognizer {
+/// Visible aux épreuves : le contrôle porte déjà les reconnaisseurs d'UIKit,
+/// donc « le nôtre » se désigne par son type et jamais par son rang.
+final class TouchWatcher: UIGestureRecognizer {
     var onDown: (() -> Void)?
     var onUp: ((CGPoint) -> Void)?
 

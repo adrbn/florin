@@ -816,6 +816,7 @@ enum BankingSync {
         }
 
         let payee = transaction.counterparty
+        let fresh = UUID().uuidString
         try store.database.run(
             """
             INSERT INTO transactions
@@ -825,7 +826,7 @@ enum BankingSync {
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'enable_banking', ?, 'cleared', ?, ?, ?)
             """,
             [
-                .text(UUID().uuidString), .text(accountId), .text(date),
+                .text(fresh), .text(accountId), .text(date),
                 .real(transaction.signedAmount),
                 .text(transaction.transactionAmount?.currency ?? "EUR"),
                 .text(payee), .text(LocalLedger.normalize(payee)), .text(payee),
@@ -848,6 +849,18 @@ enum BankingSync {
                 transaction.bookingDate.map { SQLiteValue.text($0) } ?? .null,
             ]
         )
+        /*
+         * Une ligne que cette synchro vient d'écrire n'est pas à prendre.
+         *
+         * `adopted` retenait les lignes adoptées, jamais celles créées : le
+         * deuxième de deux achats identiques du même jour adoptait donc le
+         * premier, écrit quelques lignes plus haut, et l'un des deux
+         * paiements n'entrait jamais dans le grand livre. Le rang (« #2 »)
+         * lui donnait bien sa propre clé ; il ne le protégeait pas d'être
+         * confondu avec son jumeau. C'est exactement ce que le commentaire
+         * d'au-dessus promettait déjà : la correspondance reste une pour une.
+         */
+        adopted.insert(fresh)
         return true
     }
 

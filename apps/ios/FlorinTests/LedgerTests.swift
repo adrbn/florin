@@ -1973,9 +1973,19 @@ struct DemoLedgerTests {
                      WHERE t.account_id = a.id AND t.deleted_at IS NULL), 0) - a.current_balance) > 0.005
             """)
         #expect(broken == 0)
-        #expect(try store.database.scalar(
+        /*
+         * Un solde qui ressemble à un vrai compte : c'est ce que l'App Review
+         * n'avait pas vu, et la raison d'être de cette ligne.
+         *
+         * Le chiffre exact, lui, bouge dès qu'on ajoute un marchand à la
+         * démo. Figé au centime, il faisait échouer l'épreuve pour la
+         * présentation et non pour le solde — et l'égalité qui compte est
+         * au-dessus : elle se dérive, elle ne se recopie pas.
+         */
+        let checking = try store.database.scalar(
             "SELECT current_balance FROM accounts WHERE kind = 'checking'"
-        )?.double == 2418.63)
+        )?.double ?? 0
+        #expect(checking > 500 && checking < 10_000, "solde de demo : \(checking)")
     }
 
     @Test("leaving the demo empties the ledger and keeps the categories")
@@ -3524,14 +3534,35 @@ struct WalletPaymentTests {
         #expect(try live(store, source: LocalWallet.source) == 1)
     }
 
+    /*
+     * Des dates relatives, et pas de ligne postérieure au délai de grâce.
+     *
+     * Les deux pièges de cette épreuve, qui n'en étaient pas le jour où elle
+     * a été écrite. Ses dates de septembre étaient alors celles de la
+     * semaine ; deux mois plus tard la tape est vieille, et `settle` termine
+     * en abandonnant les tapes que le relevé a dépassées. La ligne « trop
+     * tard » était justement la preuve que la banque ne la porterait jamais :
+     * elle ne manquait pas la tape, elle la retirait — ce que `settle`
+     * rapportait comme zéro règlement, exactement ce qu'on vérifiait, mais la
+     * tape ne survivait pas pour le dire. Ce cas-là a son épreuve à lui, plus
+     * haut, et c'est là qu'il appartient.
+     */
     @Test("another amount, another account or an earlier row does not settle it")
     func noFalseMatch() throws {
         let (store, checking, other) = try ledger()
-        try LocalWallet.record(store: store, amountText: "4,10", merchant: "Café", card: nil, accountId: checking, on: day("2026-09-07"))
-        _ = try bankRow(store, checking, "2026-09-08", -4.20)   // different amount
-        _ = try bankRow(store, other, "2026-09-08", -4.10)      // different account
-        _ = try bankRow(store, checking, "2026-09-06", -4.10)   // the day before the tap
-        _ = try bankRow(store, checking, "2026-09-20", -4.10)   // too late
+        let calendar = Calendar(identifier: .gregorian)
+        func iso(_ daysAgo: Int) -> String {
+            LocalQueries.dayFormatter.string(
+                from: calendar.date(byAdding: .day, value: -daysAgo, to: Date()) ?? Date()
+            )
+        }
+        try LocalWallet.record(
+            store: store, amountText: "4,10", merchant: "Café", card: nil,
+            accountId: checking, on: calendar.date(byAdding: .day, value: -3, to: Date())!
+        )
+        _ = try bankRow(store, checking, iso(2), -4.20)   // different amount
+        _ = try bankRow(store, other, iso(2), -4.10)      // different account
+        _ = try bankRow(store, checking, iso(4), -4.10)   // the day before the tap
         #expect(try LocalWallet.settle(store: store) == 0)
         #expect(try live(store, source: LocalWallet.source) == 1)
     }
@@ -5409,19 +5440,26 @@ struct TabBarTests {
     @Test("Poser l'observateur deux fois n'en met qu'un")
     func watcherIsPostedOnce() {
         let control = ReselectableSegmentedControl(items: ["a", "b", "c"])
+        /*
+         * On compte LES NÔTRES, pas tous.
+         *
+         * Un `UISegmentedControl` arrive avec les reconnaisseurs d'UIKit déjà
+         * posés : compter la liste entière, c'était compter les siens, et
+         * prendre `.first` c'était interroger le sien. L'épreuve échouait sur
+         * un code juste, et elle aurait laissé passer un vrai doublon.
+         */
         control.watchTouches()
-        let after = control.gestureRecognizers?.count ?? 0
         control.watchTouches()
         control.watchTouches()
-        #expect(after == 1)
-        #expect(control.gestureRecognizers?.count == after)
+        let ours = control.gestureRecognizers?.filter { $0 is TouchWatcher } ?? []
+        #expect(ours.count == 1)
     }
 
     @Test("L'observateur ne vole pas la touche au contrôle")
     func watcherDoesNotStealTouches() {
         let control = ReselectableSegmentedControl(items: ["a", "b"])
         control.watchTouches()
-        let watcher = control.gestureRecognizers?.first
+        let watcher = control.gestureRecognizers?.first { $0 is TouchWatcher }
         // Un reconnaisseur qui annule la touche dans la vue empêcherait la
         // sélection elle-même : c'est ce qui avait cassé la barre autrefois.
         #expect(watcher?.cancelsTouchesInView == false)
@@ -5795,7 +5833,10 @@ struct ReceiptTests {
             .init(label: "ACQUA", amount: 1.50),
             .init(label: "SCONTO", amount: -3.10),
         ])
-        #expect(items.reduce(0) { $0 + $1.amount } == 14.50)
+        // 6,50 + 9,60 + 1,50 - 3,10 vaut 14,499999999999998 en binaire : le
+        // ticket tombe juste, l'égalité stricte entre flottants ne tombe
+        // jamais. La liste ci-dessus dit déjà chaque article au centime.
+        #expect(abs(items.reduce(0) { $0 + $1.amount } - 14.50) < 0.005)
     }
 
     /*
@@ -6600,15 +6641,24 @@ struct WalletSettleTests {
         }
     }
 
-    /// Deux fois « Ajouter » sur la même feuille, une seule dépense.
-    @Test("the same payment entered twice is written once")
-    func noDoubleSubmit() throws {
+    /*
+     * Deux saisies identiques du même jour sont deux dépenses.
+     *
+     * Un filet a existé ici, et il refusait deux courses de 1,50 € chez le
+     * même commerçant le même jour : la date d'une saisie à la main est midi,
+     * une constante, donc sa fenêtre valait la journée entière. C'est la
+     * feuille qui refuse le deuxième envoi d'une même présentation ; le grand
+     * livre, lui, écrit ce qu'on lui dit. Le chemin de Wallet garde son filet
+     * à la seconde, et il a ses propres épreuves.
+     */
+    @Test("deux saisies identiques du même jour font deux lignes")
+    func keepsBothOfTwoIdenticalEntries() throws {
         let (store, account) = try ledger()
         try tap(store, account, "2026-10-19")
         try tap(store, account, "2026-10-19")
         #expect(try store.database.scalar(
             "SELECT count(*) FROM transactions WHERE deleted_at IS NULL"
-        )?.int == 1)
+        )?.int == 2)
     }
 }
 
@@ -6621,6 +6671,19 @@ struct WalletSettleTests {
  * choses sont donc à tenir : le rythme — une moyenne, pas la somme — et le
  * refus de compter le mois en cours, qui a ses dépenses et pas son salaire.
  */
+/*
+ * La pente des pointillés, en euros par mois — mesurée SUR les pointillés.
+ *
+ * Et non depuis le dernier point réel : depuis que la droite passe au milieu
+ * des dents de scie au lieu de leur crête, son premier point n'est plus le
+ * solde du jour. Ce qui les sépare dit la forme du passé, pas le rythme, et
+ * toutes les épreuves d'ici le lisaient comme la pente.
+ */
+private func monthlyRise(_ ahead: [PatrimonyPoint]) -> Double {
+    guard ahead.count > 1, let first = ahead.first, let last = ahead.last else { return 0 }
+    return (last.balance - first.balance) / Double(ahead.count - 1) * 30.44
+}
+
 @Suite("La prévision du patrimoine")
 struct PatrimonyForecastTests {
     private func ledger() throws -> (LocalStore, account: String) {
@@ -6666,7 +6729,7 @@ struct PatrimonyForecastTests {
         )
     }
 
-    @Test("un an de pointillés, à la pente des mois complets")
+    @Test("l'horizon en pointillés, à la pente des mois complets")
     func projectsAYearAtTheAverageMargin() throws {
         let (store, account) = try ledger()
         for offset in 1...3 { try credit(store, account, 120, on: tenth(monthsAgo: offset)) }
@@ -6676,11 +6739,13 @@ struct PatrimonyForecastTests {
         let ahead = series.filter { $0.projected == true }
         let real = series.filter { $0.projected != true }
 
-        #expect(ahead.count == 365, "un an, jour par jour")
-        let today = real.last?.balance ?? 0
+        #expect(ahead.count == LocalQueries.forecastDays, "l'horizon, jour par jour")
         // Une moyenne de 120 par mois, étalée : la pente, pas trois marches.
-        #expect(abs((ahead.last?.balance ?? 0) - (today + 120 * 365 / 30.44)) < 1)
-        #expect(abs(ahead[11].balance - (today + 120 / 30.44 * 12)) < 0.1,
+        // L'horizon est celui du code : il est passé de douze mois à six le
+        // jour même où ces épreuves ont été écrites, et aucun simulateur
+        // n'était là pour le dire.
+        #expect(abs(monthlyRise(ahead) - 120) < 0.5)
+        #expect(abs(ahead[11].balance - ahead[0].balance - 120 / 30.44 * 11) < 0.1,
                 "le douzième jour vaut douze pas, pas un saut de fin de mois")
         #expect(real.allSatisfy { $0.projected != true }, "le passé reste du passé")
     }
@@ -6695,11 +6760,10 @@ struct PatrimonyForecastTests {
         let accounts = try LocalQueries.readAccounts(store.database)
         let series = try LocalQueries.netWorthSeries(store.database, accounts: accounts).net
         let ahead = series.filter { $0.projected == true }
-        let today = series.filter { $0.projected != true }.last?.balance ?? 0
 
-        #expect(ahead.count == 365)
+        #expect(ahead.count == LocalQueries.forecastDays)
         // 90 de moyenne, et non (90 + 90 - 600) / 3 = -140.
-        #expect(abs((ahead.last?.balance ?? 0) - (today + 90 * 365 / 30.44)) < 1,
+        #expect(abs(monthlyRise(ahead) - 90) < 0.5,
                 "la pente reste montante malgré le trou du mois courant")
     }
 
@@ -6724,13 +6788,12 @@ struct PatrimonyForecastTests {
         let accounts = try LocalQueries.readAccounts(store.database)
         let series = try LocalQueries.netWorthSeries(store.database, accounts: accounts).net
         let ahead = series.filter { $0.projected == true }
-        let today = series.filter { $0.projected != true }.last?.balance ?? 0
 
         // Trois cents sur quatre mois, et non sur les trois mois servis : ne
         // moyenner que les mois qui portent un mouvement donnait un rythme d'un
         // quart trop rapide, et douze fois trop rapide sur une mensualité dont
         // un seul mois manque.
-        #expect(abs((ahead.last?.balance ?? 0) - (today + 75 * 365 / 30.44)) < 1)
+        #expect(abs(monthlyRise(ahead) - 75) < 0.5)
     }
 
     @Test("un mois d'avant l'histoire ne dilue pas la pente")
@@ -6741,11 +6804,10 @@ struct PatrimonyForecastTests {
         let accounts = try LocalQueries.readAccounts(store.database)
         let series = try LocalQueries.netWorthSeries(store.database, accounts: accounts).net
         let ahead = series.filter { $0.projected == true }
-        let today = series.filter { $0.projected != true }.last?.balance ?? 0
 
         // Cent, et non deux cents sur douze : les dix mois d'avant l'ouverture
         // du compte ne sont pas dix mois sans marge.
-        #expect(abs((ahead.last?.balance ?? 0) - (today + 100 * 365 / 30.44)) < 1)
+        #expect(abs(monthlyRise(ahead) - 100) < 0.5)
     }
 }
 
@@ -6862,7 +6924,12 @@ struct PatrimonyGrossSeriesTests {
          * fois. Six mensualités de cent séparent le début de la fin.
          */
         let gapThen = (gross.first?.balance ?? 0) - (net.first?.balance ?? 0)
-        #expect(gapThen > gapToday + 500, "la dette était plus lourde avant d'être remboursée")
+        /*
+         * Cinq mensualités séparent les deux bouts, pas six : le premier jour
+         * dessiné est celui de la première échéance, et il la porte déjà.
+         */
+        #expect(abs((gapThen - gapToday) - 500) < 0.02,
+                "la dette était plus lourde avant d'être remboursée")
     }
 
     @Test("le capital remboursé fait monter le net, pas le brut")
@@ -6876,16 +6943,14 @@ struct PatrimonyGrossSeriesTests {
         let curves = try LocalQueries.netWorthSeries(
             store.database, accounts: try LocalQueries.readAccounts(store.database)
         )
-        func rise(_ points: [PatrimonyPoint]) -> Double {
-            let real = points.filter { $0.projected != true }
-            let ahead = points.filter { $0.projected == true }
-            return (ahead.last?.balance ?? 0) - (real.last?.balance ?? 0)
+        func rhythm(_ points: [PatrimonyPoint]) -> Double {
+            monthlyRise(points.filter { $0.projected == true })
         }
 
         // Trois cents d'actifs par mois pour le brut ; quatre cents pour le
         // net, parce que la dette fond de cent de plus chaque mois.
-        #expect(abs(rise(curves.gross) - 300 * 365 / 30.44) < 1)
-        #expect(abs(rise(curves.net) - 400 * 365 / 30.44) < 1)
+        #expect(abs(rhythm(curves.gross) - 300) < 0.5)
+        #expect(abs(rhythm(curves.net) - 400) < 0.5)
     }
 
     @Test("un prêt presque soldé ne rend pas plus qu'il ne doit")
@@ -6904,19 +6969,18 @@ struct PatrimonyGrossSeriesTests {
         let debtToday = accounts
             .filter(\.isLoan)
             .reduce(0) { $0 + abs($1.debt ?? $1.total) }
-        let real = curves.net.filter { $0.projected != true }
         let ahead = curves.net.filter { $0.projected == true }
-        let rise = (ahead.last?.balance ?? 0) - (real.last?.balance ?? 0)
 
         // L'année ne peut pas rendre plus que le capital restant. Sans le
         // déroulé qui s'arrête au zéro, douze mensualités de cent auraient fait
         // monter le net de mille deux cents là où le prêt n'en doit plus que
         // cent — onze fois trop.
-        let fromAssets = 300 * 365 / 30.44
+        // Tout ce que l'horizon ajoute au-delà des actifs, à la pente mesurée.
+        let fromLoan = (monthlyRise(ahead) - 300)
+            * Double(LocalQueries.forecastDays) / 30.44
         #expect(debtToday < 150, "l'échéancier doit être presque soldé")
-        #expect(rise - fromAssets <= debtToday + 0.5,
-                "le prêt soldé ne rembourse plus rien")
-        #expect(rise - fromAssets > debtToday - 5, "mais il rend bien ce qu'il doit encore")
+        #expect(fromLoan <= debtToday + 0.5, "le prêt soldé ne rembourse plus rien")
+        #expect(fromLoan > debtToday - 5, "mais il rend bien ce qu'il doit encore")
     }
 
     /*
@@ -6965,16 +7029,23 @@ struct PatrimonyGrossSeriesTests {
         let curves = try LocalQueries.netWorthSeries(
             store.database, accounts: try LocalQueries.readAccounts(store.database)
         )
-        func rise(_ points: [PatrimonyPoint]) -> Double {
-            let real = points.filter { $0.projected != true }
-            let ahead = points.filter { $0.projected == true }
-            return (ahead.last?.balance ?? 0) - (real.last?.balance ?? 0)
+        func rhythm(_ points: [PatrimonyPoint]) -> Double {
+            monthlyRise(points.filter { $0.projected == true })
         }
-        let fromLoan = (rise(curves.net) - rise(curves.gross)) / (365 / 30.44)
+        let fromLoan = rhythm(curves.net) - rhythm(curves.gross)
 
         #expect(fromLoan < 150, "la part d'intérêts n'enrichit personne")
-        #expect(abs(fromLoan - 133.04) < 1,
-                "cent trente-trois de capital par mois, pas les cent cinquante versés")
+        /*
+         * 131,47 € de capital par mois, pas les 150 € prélevés.
+         *
+         * Le reste part en intérêts, et des intérêts n'enrichissent personne.
+         * Le chiffre dépend de l'horizon : la prévision amortit sur les mois
+         * qu'elle dessine, et la part de capital d'un début d'échéancier monte
+         * à mesure qu'on avance. Sur douze mois c'était 133,04 — l'horizon est
+         * passé à six sans que ces épreuves le sachent.
+         */
+        #expect(abs(fromLoan - 131.47) < 0.5,
+                "capital par mois mesuré : \(fromLoan)")
     }
 }
 
@@ -7250,7 +7321,10 @@ struct RepaymentSplitTests {
         try move(store, loan, 150, on: dayString(monthsAgo: 1), pair: "rattrapage")
 
         let shares = Set(try split(store).compactMap(\.repaymentInterest))
-        #expect(shares.count == 3)  // trois échéances distinctes, aucun doublon
+        // Trois échéances distinctes, aucun doublon. Avec le rang qui
+        // comptait les ex æquo, il n'y en avait que deux — 46,21 et 44,60,
+        // soit les rangs un et trois, le deuxième jamais lu.
+        #expect(shares.count == 3, "parts d'intérêts distinctes : \(shares.sorted())")
     }
 }
 
@@ -7341,6 +7415,16 @@ struct AnnouncedNotBookedTests {
     @Test("une vieille ligne au même libellé reste défaite")
     func anOldOneIsStillUndone() throws {
         let (store, cash) = try ledger(balance: 1_200)
+        /*
+         * Une ligne plus vieille encore, pour qu'il y ait une veille à lire.
+         *
+         * La courbe part du premier mouvement du grand livre — elle n'invente
+         * pas de jour avant lui, et une autre épreuve l'exige. Sans ce
+         * mouvement-là, le trente-et-unième jour n'existait pas, et ce que
+         * cette épreuve voulait voir n'avait nulle part où se voir. Dix euros
+         * dix jours plus tôt ne changent rien aux deux niveaux vérifiés.
+         */
+        try move(store, cash, -10, payee: "Boulangerie", on: dayString(daysAgo: 40))
         // Trente jours : la banque l'a comptée depuis longtemps, et le solde
         // d'aujourd'hui la contient — la remontée doit la retrancher.
         try move(store, cash, 3_000, payee: "\(Self.iban) DUPONT", on: dayString(daysAgo: 30))
@@ -7355,6 +7439,8 @@ struct AnnouncedNotBookedTests {
     @Test("un libellé qui n'est pas un numéro de compte ne change rien")
     func aNormalPayeeIsUndoneAsBefore() throws {
         let (store, cash) = try ledger(balance: 1_200)
+        // De quoi avoir une veille : la courbe commence au premier mouvement.
+        try move(store, cash, -10, payee: "Boulangerie", on: dayString(daysAgo: 10))
         try move(store, cash, 3_000, payee: "ACME PAIE OCTOBRE", on: dayString(daysAgo: 0))
 
         let points = try series(store)
