@@ -42,7 +42,7 @@ extension View {
         // épouse la ligne plutôt que le rectangle de ses mots.
         contentShape(Rectangle())
         .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .contextMenu {
+        .contextMenu(menuItems: {
             // Checked only once it says what it is; an unfiled row is filed first.
             if tx.needsReview, tx.categoryName != nil || tx.isTransfer {
                 Button { request.wrappedValue = TxActionRequest(action: .approve, tx: tx) } label: {
@@ -122,7 +122,30 @@ extension View {
             } label: {
                 Label(t("v2.common.delete", "Supprimer"), systemImage: "trash")
             }
-        }
+        }, preview: {
+            /*
+             * La ligne soulevée, sur quelque chose.
+             *
+             * Sans aperçu à elle, iOS pose la ligne telle quelle sur son
+             * plateau translucide : une ligne de liste n'a pas de fond à
+             * elle, donc il ne restait que les mots et la pastille, posés
+             * sur le flou de ce qu'il y a derrière. Ce qu'on tient sous le
+             * pouce doit être un objet.
+             *
+             * `surface` et non `bg` : en sombre, le fond de page est le
+             * même noir que le voile du menu, et la carte y disparaîtrait
+             * comme elle disparaît aujourd'hui.
+             *
+             * La largeur est donnée parce qu'un aperçu se dimensionne sur
+             * son contenu : sans elle, le `Spacer` de la ligne se réduit à
+             * huit points et le nom vient toucher le montant.
+             */
+            self
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .frame(width: UIScreen.main.bounds.width - Florin.gutter * 2)
+                .background(Florin.surface)
+        })
     }
 
     /// Attached once per screen: the sheets and the confirmation the menu opens.
