@@ -567,6 +567,13 @@ struct TransactionDetailSheet: View {
                 .foregroundStyle(Florin.text)
                 .lineLimit(2)
 
+            if let bankLabel {
+                Text(bankLabel)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Florin.text3)
+                    .lineLimit(1)
+            }
+
             Text(fullDate)
                 .font(.system(size: 14))
                 .foregroundStyle(Florin.text2)
@@ -637,6 +644,31 @@ struct TransactionDetailSheet: View {
             // ne se voit pas, donc il se dit.
             if !done { pinFailure = t("v2.places.noFix", "Position indisponible ici.") }
         }
+    }
+
+    /*
+     * Ce que la banque a écrit, quand ce n'est plus ce qu'on lit.
+     *
+     * Le bénéficiaire d'une ligne se modifie — c'est ainsi qu'on nomme un
+     * encaissement passé par un intermédiaire : le nom de celui qui a reçu
+     * l'argent, à la place de celui du rail qui l'a transporté.
+     * Le libellé d'origine n'était alors lisible nulle part, et plus rien ne
+     * rattachait la ligne au relevé qu'on a sous les yeux.
+     *
+     * Rendu seulement s'il dit autre chose que le nom affiché : sur la
+     * quasi-totalité des lignes, les deux se valent et une seconde ligne
+     * grise ne répéterait que du bruit.
+     */
+    private var bankLabel: String? {
+        guard let raw = tx.bankPayee, !raw.isEmpty else { return nil }
+        let bank = PayeeText.bankName(raw)
+        guard !bank.isEmpty else { return nil }
+        let shown = PayeeText.title(
+            tx.payee, category: tx.categoryName, plan: tx.instalmentPlanId
+        )
+        let same = bank.compare(shown, options: [.caseInsensitive, .diacriticInsensitive])
+            == .orderedSame
+        return same ? nil : bank
     }
 
     private func nameMerchant() {

@@ -331,6 +331,22 @@ struct Transaction: Decodable, Sendable, Identifiable {
      */
     var accountKind: String?
 
+    /*
+     * Ce que la banque, elle, a écrit sur la ligne.
+     *
+     * Le bénéficiaire d'une ligne se modifie — c'est ainsi qu'on nomme un
+     * encaissement passé par un intermédiaire : le nom de celui qui a reçu
+     * l'argent, à la place de celui du rail qui l'a transporté.
+     * Mais alors le libellé d'origine n'était plus lisible nulle part, et
+     * rien ne rattachait plus la ligne au relevé qu'on a sous les yeux.
+     * Posé ici, il reste sous le nom donné, en plus petit.
+     *
+     * Seules les lignes venues d'une banque en ont un. La synchro l'écrit à
+     * chaque passage et ne touche jamais au bénéficiaire : les deux ne se
+     * marchent pas dessus.
+     */
+    var bankPayee: String?
+
     /// Le lien entre les deux jambes d'un virement, tel que le grand livre
     /// l'écrit. `isTransfer` dit seulement qu'il y en a un ; celui-ci dit
     /// lequel, ce qu'il faut pour retrouver l'autre bout dans une liste.

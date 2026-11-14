@@ -695,7 +695,7 @@ enum LocalQueries {
                      (SELECT count(*) FROM transactions r
                        WHERE r.instalment_plan_id = t.instalment_plan_id
                          AND r.deleted_at IS NULL) END AS instalment_count,
-                   a.kind AS account_kind
+                   a.kind AS account_kind, t.bank_payee
             FROM transactions t
             LEFT JOIN categories c ON c.id = t.category_id
             LEFT JOIN accounts a ON a.id = t.account_id
@@ -724,6 +724,7 @@ enum LocalQueries {
                 instalmentRank: row.int("instalment_rank"),
                 instalmentCount: row.int("instalment_count"),
                 accountKind: row.string("account_kind"),
+                bankPayee: row.string("bank_payee"),
                 transferPairId: row.string("transfer_pair_id")
             )
         }

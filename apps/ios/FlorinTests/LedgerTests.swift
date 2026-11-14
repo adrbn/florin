@@ -8450,3 +8450,72 @@ struct DuplicateTransactionTests {
         #expect(count.first?.int("n") == 1)
     }
 }
+
+/*
+ * Renommer une ligne sans perdre ce que la banque a écrit.
+ *
+ * Un don encaissé par un intermédiaire n'a sur le relevé que le nom de
+ * l'intermédiaire. Renommer le MARCHAND renommerait toutes ses lignes ; on
+ * change donc le bénéficiaire de cette ligne-là. Le libellé d'origine doit
+ * survivre à ce changement, sinon plus rien ne rattache la ligne au relevé.
+ */
+@Suite("Le libellé de la banque sous le nom donné")
+struct BankLabelTests {
+    private func store() throws -> LocalStore {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("florin-label-\(UUID().uuidString).db")
+        return try LocalStore(url: url)
+    }
+
+    private func seed(_ store: LocalStore) throws -> String {
+        let account = UUID().uuidString
+        try store.database.run(
+            """
+            INSERT INTO accounts (id, name, kind, currency, opening_balance, current_balance)
+            VALUES (?, 'Courant', 'checking', 'EUR', 0, 0)
+            """,
+            [.text(account)]
+        )
+        let id = UUID().uuidString
+        try store.database.run(
+            """
+            INSERT INTO transactions
+                (id, account_id, occurred_at, amount, currency, payee,
+                 normalized_payee, bank_payee, source, external_id, status)
+            VALUES (?, ?, '2026-03-04', 3.97, 'EUR', 'VIR INST RAIL SA',
+                    'vir inst rail sa', 'VIR INST RAIL SA', 'enable_banking',
+                    'ext-9', 'cleared')
+            """,
+            [.text(id), .text(account)]
+        )
+        return id
+    }
+
+    @Test("le bénéficiaire change, le libellé de la banque reste")
+    func renamingOneRowKeepsTheBankLabel() throws {
+        let store = try store()
+        let id = try seed(store)
+        try LocalLedger.patch(store: store, id: id, TxPatch(payee: "Mécénat"))
+
+        let row = try #require(
+            try store.database.query(
+                "SELECT payee, bank_payee FROM transactions WHERE id = ?", [.text(id)]
+            ).first
+        )
+        #expect(row.string("payee") == "Mécénat")
+        #expect(row.string("bank_payee") == "VIR INST RAIL SA")
+    }
+
+    @Test("la liste rend les deux, pour que l'un s'affiche sous l'autre")
+    func theListCarriesBoth() throws {
+        let store = try store()
+        let id = try seed(store)
+        try LocalLedger.patch(store: store, id: id, TxPatch(payee: "Mécénat"))
+
+        let found = try #require(
+            try LocalQueries.readSettled(store.database, limit: 10).first { $0.id == id }
+        )
+        #expect(found.payee == "Mécénat")
+        #expect(found.bankPayee == "VIR INST RAIL SA")
+    }
+}
