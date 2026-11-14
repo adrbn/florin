@@ -15,7 +15,7 @@ import UIKit
  */
 
 enum TxAction: String {
-    case approve, categorize, rename, refund, receipt, transfer, edit, delete
+    case approve, categorize, rename, refund, receipt, transfer, edit, duplicate, delete
 }
 
 struct TxActionRequest: Identifiable, Equatable {
@@ -94,6 +94,23 @@ extension View {
             Button { request.wrappedValue = TxActionRequest(action: .edit, tx: tx) } label: {
                 Label(t("v2.common.edit", "Modifier"), systemImage: "pencil")
             }
+            /*
+             * Deux fois le même paiement, sans rouvrir la fiche.
+             *
+             * C'est ici qu'on le cherche : la ligne est sous le pouce, et le
+             * geste qui la copie ne demande aucune décision. Pas sur un
+             * virement — ses deux jambes s'apparient, une troisième n'aurait
+             * pas de contrepartie. Voir `LocalLedger.duplicate` pour ce que la
+             * copie emporte et ce qu'elle laisse.
+             */
+            if isLocalLedger, !tx.isTransfer, !tx.isMovementOnly, !tx.isScheduled {
+                Button { request.wrappedValue = TxActionRequest(action: .duplicate, tx: tx) } label: {
+                    Label(
+                        t("v2.tx.duplicate", "Dupliquer"),
+                        systemImage: "plus.square.on.square"
+                    )
+                }
+            }
             Button {
                 UIPasteboard.general.string = Money.string(abs(tx.amount), locale: locale, currency: currency)
             } label: {
@@ -164,6 +181,18 @@ struct TransactionActionsHost: ViewModifier {
                     // Sans confirmation : la suppression est douce et la
                     // corbeille des Réglages la reprend (LocalLedger.restore).
                     Task { await onDelete(new.tx) }
+                case .duplicate:
+                    Task {
+                        guard let store = LocalStore.shared else { return }
+                        do {
+                            try LocalLedger.duplicate(store: store, id: new.tx.id)
+                            UINotificationFeedbackGenerator().notificationOccurred(.success)
+                            LedgerStamp.touch()
+                        } catch {
+                            UINotificationFeedbackGenerator().notificationOccurred(.error)
+                        }
+                        await onRefunded()
+                    }
                 case .refund:
                     Task {
                         guard let store = LocalStore.shared else { return }
@@ -229,7 +258,7 @@ struct TransactionActionsHost: ViewModifier {
             )
         case .receipt:
             ReceiptsSheet(tx: tx, locale: locale, currency: currency, t: t)
-        case .approve, .delete, .refund:
+        case .approve, .delete, .refund, .duplicate:
             EmptyView()
         }
     }
