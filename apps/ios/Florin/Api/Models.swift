@@ -400,6 +400,29 @@ struct Transaction: Decodable, Sendable, Identifiable {
     /// qui savez qu'elle viendra.
     var isInstalment: Bool { instalmentPlanId != nil }
 
+    /*
+     * Une ligne qu'on peut avoir payée deux fois.
+     *
+     * `status = 'scheduled'` ne dit pas « pas encore arrivé ». Le paiement
+     * sans contact pré-enregistré par le Raccourci s'écrit ainsi jusqu'à ce
+     * que la banque publie le sien — voir `LocalWallet.record`. Interdire
+     * « Dupliquer » sur `isScheduled`, c'était donc le retirer exactement
+     * des lignes qu'on duplique : deux tournées au même comptoir à dix
+     * minutes d'écart, que la banque n'a pas encore passées.
+     *
+     * Ce qui ne se duplique pas, c'est ce qui n'a pas eu lieu — une date à
+     * venir — et ce qui n'est pas un paiement : un virement et une
+     * mensualité ont une contrepartie, une troisième jambe n'en aurait
+     * aucune. Le seuil est celui de `isUpcoming`, pour que « à venir » ait
+     * le même sens aux deux endroits.
+     */
+    var isDuplicable: Bool {
+        guard !isTransfer, !isMovementOnly else { return false }
+        return day <= Calendar(identifier: .gregorian).startOfDay(
+            for: Date().addingTimeInterval(86_400)
+        )
+    }
+
     /// The same row, marked reviewed — for optimistic bulk approval.
     func approved() -> Transaction {
         Transaction(

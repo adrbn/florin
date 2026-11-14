@@ -8519,3 +8519,55 @@ struct BankLabelTests {
         #expect(found.bankPayee == "VIR INST RAIL SA")
     }
 }
+
+/*
+ * Qui a droit à « Dupliquer ».
+ *
+ * Le piège est dans le nom : une ligne `scheduled` n'est pas une ligne à
+ * venir. Le Raccourci sans contact écrit ses paiements ainsi en attendant
+ * que la banque publie les siens, et la garde posée sur ce drapeau retirait
+ * l'action des seules lignes qui la demandent.
+ */
+@Suite("Ce qu'on peut avoir payé deux fois")
+struct DuplicableRowTests {
+    private func row(
+        days: Double = 0,
+        isTransfer: Bool = false,
+        isScheduled: Bool = false,
+        amount: Double = -20,
+        kind: String? = nil
+    ) -> Transaction {
+        let when = ISO8601DateFormatter().string(
+            from: Date().addingTimeInterval(days * 86_400)
+        )
+        return Transaction(
+            id: "t1", date: when, amount: amount, payee: "Comptoir",
+            memo: nil, categoryName: "Bars", categoryEmoji: nil, accountName: "CCP",
+            isTransfer: isTransfer, needsReview: false,
+            isPending: isScheduled, isScheduled: isScheduled,
+            accountId: "a1", categoryId: "c1", instalmentPlanId: nil,
+            accountKind: kind
+        )
+    }
+
+    @Test("une tape sans contact du jour, pas encore passée en banque")
+    func walletTapIsDuplicable() {
+        #expect(row(isScheduled: true).isDuplicable)
+    }
+
+    @Test("une ligne ordinaire d'hier aussi")
+    func settledRowIsDuplicable() {
+        #expect(row(days: -1).isDuplicable)
+    }
+
+    @Test("ce qui n'a pas eu lieu ne se duplique pas")
+    func futureRowIsNot() {
+        #expect(!row(days: 3, isScheduled: true).isDuplicable)
+    }
+
+    @Test("un virement et une mensualité non plus : rien en face de la copie")
+    func pairedRowsAreNot() {
+        #expect(!row(isTransfer: true).isDuplicable)
+        #expect(!row(amount: 120, kind: "loan").isDuplicable)
+    }
+}

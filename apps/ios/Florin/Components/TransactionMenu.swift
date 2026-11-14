@@ -100,10 +100,11 @@ extension View {
              * C'est ici qu'on le cherche : la ligne est sous le pouce, et le
              * geste qui la copie ne demande aucune décision. Pas sur un
              * virement — ses deux jambes s'apparient, une troisième n'aurait
-             * pas de contrepartie. Voir `LocalLedger.duplicate` pour ce que la
-             * copie emporte et ce qu'elle laisse.
+             * pas de contrepartie. Voir `Transaction.isDuplicable` pour qui y
+             * a droit, et `LocalLedger.duplicate` pour ce que la copie
+             * emporte et ce qu'elle laisse.
              */
-            if isLocalLedger, !tx.isTransfer, !tx.isMovementOnly, !tx.isScheduled {
+            if isLocalLedger, tx.isDuplicable {
                 Button { request.wrappedValue = TxActionRequest(action: .duplicate, tx: tx) } label: {
                     Label(
                         t("v2.tx.duplicate", "Dupliquer"),
@@ -141,6 +142,18 @@ extension View {
              * huit points et le nom vient toucher le montant.
              */
             self
+                /*
+                 * L'entrée en scène n'a pas lieu ici.
+                 *
+                 * `EdEnter` s'arme 150 ms après son apparition puis s'en
+                 * remet à `scrollTransition` : hors d'une liste qui défile,
+                 * la phase n'est jamais l'identité et ce qui la porte tombe
+                 * à zéro. La pastille du montant en porte une à elle seule,
+                 * et elle manquait sur la carte — le nom restait, le montant
+                 * disparaissait. Le drapeau que le modificateur lit déjà
+                 * pour ne pas s'empiler le désarme ici.
+                 */
+                .environment(\.edEnterApplied, true)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
                 .frame(width: UIScreen.main.bounds.width - Florin.gutter * 2)

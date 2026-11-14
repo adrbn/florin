@@ -840,7 +840,7 @@ struct TransactionDetailSheet: View {
      * zéro.
      */
     private var canDuplicate: Bool {
-        isLocalLedger && !tx.isTransfer && !tx.isMovementOnly && !tx.isScheduled
+        isLocalLedger && tx.isDuplicable
     }
 
     private func duplicate() {
