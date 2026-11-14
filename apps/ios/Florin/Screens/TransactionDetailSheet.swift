@@ -798,6 +798,31 @@ struct TransactionDetailSheet: View {
             && !tx.isScheduled && reimbursedBy.isEmpty
     }
 
+    /*
+     * Deux fois le même paiement : la copie et ce qu'elle ne copie pas.
+     *
+     * Seulement sur le grand livre de l'appareil — en mode serveur, l'écriture
+     * ne passe pas par ici. Et pas sur un virement : ses deux jambes
+     * s'apparient, une troisième n'aurait pas de contrepartie. Voir
+     * `LocalLedger.duplicate` pour ce qui suit la copie et ce qui repart à
+     * zéro.
+     */
+    private var canDuplicate: Bool {
+        isLocalLedger && !tx.isTransfer && !tx.isMovementOnly && !tx.isScheduled
+    }
+
+    private func duplicate() {
+        guard let store = LocalStore.shared else { return }
+        do {
+            guard try LocalLedger.duplicate(store: store, id: tx.id) != nil else { return }
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            LedgerStamp.touch()
+            dismiss()
+        } catch {
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
+        }
+    }
+
     /// La même écriture que le menu d'appui long — voir `LocalWallet.recordRefund`.
     private func expectRefund() {
         guard let store = LocalStore.shared else { return }
@@ -941,6 +966,11 @@ struct TransactionDetailSheet: View {
                 edSmallAction(t("v2.common.edit", "Modifier"), "pencil") { editing = true }
             }
             edSmallAction(t("v2.review.categorize", "Catégoriser"), "tag") { picking = true }
+            if canDuplicate {
+                edSmallAction(t("v2.tx.duplicate", "Dupliquer"), "plus.square.on.square") {
+                    duplicate()
+                }
+            }
             edSmallAction(
                 t("v2.common.delete", "Supprimer"), "trash", destructive: true
             ) {
@@ -1058,6 +1088,12 @@ struct TransactionDetailSheet: View {
             }
             SheetAction(label: t("v2.review.categorize", "Catégoriser"), symbol: "tag") {
                 picking = true
+            }
+            if canDuplicate {
+                SheetAction(
+                    label: t("v2.tx.duplicate", "Dupliquer"),
+                    symbol: "plus.square.on.square"
+                ) { duplicate() }
             }
             SheetAction(
                 label: t("v2.common.delete", "Supprimer"),

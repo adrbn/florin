@@ -1,5 +1,6 @@
 {
   "en": {
+    "v2.tx.duplicate": "Duplicate",
     "v2.a11y.back": "Back",
     "v2.a11y.closeSheet": "Close",
     "v2.a11y.hidden": "Hidden",
@@ -1010,6 +1011,7 @@
     "v2.common.ok": "OK"
   },
   "fr": {
+    "v2.tx.duplicate": "Dupliquer",
     "v2.a11y.back": "Retour",
     "v2.a11y.closeSheet": "Fermer",
     "v2.a11y.hidden": "Masqué",
@@ -2020,6 +2022,7 @@
     "v2.common.ok": "OK"
   },
   "nl": {
+    "v2.tx.duplicate": "Dupliceren",
     "v2.a11y.back": "Terug",
     "v2.a11y.closeSheet": "Sluiten",
     "v2.a11y.hidden": "Verborgen",
@@ -3030,6 +3033,7 @@
     "v2.common.ok": "OK"
   },
   "it": {
+    "v2.tx.duplicate": "Duplica",
     "v2.a11y.back": "Indietro",
     "v2.a11y.closeSheet": "Chiudi",
     "v2.a11y.hidden": "Nascosto",
@@ -4040,6 +4044,7 @@
     "v2.common.ok": "OK"
   },
   "es": {
+    "v2.tx.duplicate": "Duplicar",
     "v2.a11y.back": "Atrás",
     "v2.a11y.closeSheet": "Cerrar",
     "v2.a11y.hidden": "Oculto",
@@ -5050,6 +5055,7 @@
     "v2.common.ok": "OK"
   },
   "ca": {
+    "v2.tx.duplicate": "Duplica",
     "v2.a11y.back": "Enrere",
     "v2.a11y.closeSheet": "Tanca",
     "v2.a11y.hidden": "Amagat",
@@ -6060,6 +6066,7 @@
     "v2.common.ok": "D'acord"
   },
   "de": {
+    "v2.tx.duplicate": "Duplizieren",
     "v2.a11y.back": "Zurück",
     "v2.a11y.closeSheet": "Schließen",
     "v2.a11y.hidden": "Ausgeblendet",
@@ -7070,6 +7077,7 @@
     "v2.common.ok": "OK"
   },
   "pt": {
+    "v2.tx.duplicate": "Duplicar",
     "v2.a11y.back": "Voltar",
     "v2.a11y.closeSheet": "Fechar",
     "v2.a11y.hidden": "Oculto",
@@ -8080,6 +8088,7 @@
     "v2.common.ok": "OK"
   },
   "tr": {
+    "v2.tx.duplicate": "Çoğalt",
     "v2.a11y.back": "Geri",
     "v2.a11y.closeSheet": "Kapat",
     "v2.a11y.hidden": "Gizli",

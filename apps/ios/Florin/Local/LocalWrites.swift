@@ -472,6 +472,60 @@ enum LocalLedger {
         }
     }
 
+    /*
+     * Le même paiement, une seconde fois.
+     *
+     * Deux fois la même carte au même comptoir, ça arrive. Ce qui doit suivre,
+     * c'est l'IDENTITÉ du paiement : le compte, le jour, le montant, le
+     * marchand — `bank_payee` compris, sans quoi la copie perdrait le logo et
+     * la catégorie que l'app accroche au libellé de la banque — la catégorie
+     * et la note.
+     *
+     * Ce qui ne suit PAS est tout ce qui dit d'où la ligne vient ou à quoi
+     * elle est accrochée, et c'est le fond du sujet. La copie n'a pas de
+     * numéro de banque (`external_id`), sinon l'index unique la refuserait ou
+     * la prochaine synchro l'écraserait. Elle n'est la contrepartie d'aucun
+     * virement, ne rend aucune dépense, n'appartient à aucun échéancier ni à
+     * aucune mensualité : trois liens qui désignent UN partenaire, et qui à
+     * deux lignes feraient un trio. Elle n'hérite pas non plus de la récurrence
+     * — le Plan compterait deux fois la même charge fixe.
+     *
+     * D'où un `INSERT … SELECT` qui NOMME ce qu'il copie : ce qui n'est pas
+     * nommé prend la valeur par défaut, c'est-à-dire rien.
+     *
+     * Rendu : l'identifiant de la copie, ou `nil` s'il n'y avait rien à
+     * copier.
+     */
+    @discardableResult
+    static func duplicate(store: LocalStore, id: String) throws -> String? {
+        let copy = UUID().uuidString
+        var account: String?
+        try store.database.transaction {
+            guard let row = try store.database.query(
+                "SELECT account_id FROM transactions WHERE id = ? AND deleted_at IS NULL",
+                [.text(id)]
+            ).first, let owner = row.string("account_id") else { return }
+            account = owner
+            try store.database.run(
+                """
+                INSERT INTO transactions
+                    (id, account_id, occurred_at, amount, currency, payee,
+                     normalized_payee, bank_payee, memo, category_id,
+                     source, status, is_pending, needs_review,
+                     recorded_at, created_at, updated_at)
+                SELECT ?, account_id, occurred_at, amount, currency, payee,
+                       normalized_payee, bank_payee, memo, category_id,
+                       'manual', 'cleared', 0, 0,
+                       datetime('now'), datetime('now'), datetime('now')
+                FROM transactions WHERE id = ? AND deleted_at IS NULL
+                """,
+                [.text(copy), .text(id)]
+            )
+            try recomputeBalance(store, accountId: owner)
+        }
+        return account == nil ? nil : copy
+    }
+
     static func approve(store: LocalStore, ids: [String]) throws {
         guard !ids.isEmpty else { return }
         let placeholders = Array(repeating: "?", count: ids.count).joined(separator: ",")

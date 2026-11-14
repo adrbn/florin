@@ -8322,3 +8322,131 @@ struct AccountDisplayNameTests {
         #expect(account.displayName == "Compte commun")
     }
 }
+
+/*
+ * Copier un paiement sans copier ce qui l'attache.
+ *
+ * Deux fois la même carte au même comptoir, ça arrive. La copie doit porter
+ * le même paiement — compte, jour, montant, marchand, catégorie — et AUCUN
+ * des liens qui désignent un partenaire unique : le numéro de la banque,
+ * l'autre jambe d'un virement, la dépense qu'une rentrée rembourse,
+ * l'échéancier. Chacun de ces liens, à deux lignes, fait un trio que rien ne
+ * sait dénouer.
+ */
+@Suite("Dupliquer une transaction")
+struct DuplicateTransactionTests {
+    private func store() throws -> LocalStore {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("florin-dup-\(UUID().uuidString).db")
+        return try LocalStore(url: url)
+    }
+
+    private func account(_ store: LocalStore) throws -> String {
+        let id = UUID().uuidString
+        try store.database.run(
+            """
+            INSERT INTO accounts (id, name, kind, currency, opening_balance, current_balance)
+            VALUES (?, 'Courant', 'checking', 'EUR', 0, 0)
+            """,
+            [.text(id)]
+        )
+        return id
+    }
+
+    /// Une ligne venue de la banque, accrochée de partout.
+    private func bankRow(_ store: LocalStore, _ account: String) throws -> String {
+        let id = UUID().uuidString
+        try store.database.run(
+            """
+            INSERT INTO transactions
+                (id, account_id, occurred_at, amount, currency, payee,
+                 normalized_payee, bank_payee, memo, source, external_id,
+                 status, is_pending, needs_review, transfer_pair_id,
+                 reimburses_tx_id, instalment_plan_id, recurrence_key)
+            VALUES (?, ?, '2026-03-04', -12.40, 'EUR', 'Boutique',
+                    'boutique', 'CB BOUTIQUE 0304', 'deux cafés',
+                    'enable_banking', 'ext-1', 'cleared', 1, 1,
+                    'pair-1', 'exp-1', 'plan-1', 'cle-1')
+            """,
+            [.text(id), .text(account)]
+        )
+        return id
+    }
+
+    private func read(_ store: LocalStore, _ id: String) throws -> SQLiteRow {
+        try #require(
+            try store.database.query(
+                "SELECT * FROM transactions WHERE id = ?", [.text(id)]
+            ).first
+        )
+    }
+
+    @Test("le paiement suit : compte, jour, montant, marchand, note")
+    func thePaymentFollows() throws {
+        let store = try store()
+        let account = try account(store)
+        let origin = try bankRow(store, account)
+
+        let copy = try #require(try LocalLedger.duplicate(store: store, id: origin))
+        #expect(copy != origin)
+
+        let made = try read(store, copy)
+        #expect(made.string("account_id") == account)
+        #expect(made.string("occurred_at") == "2026-03-04")
+        #expect(made.double("amount") == -12.40)
+        #expect(made.string("payee") == "Boutique")
+        #expect(made.string("memo") == "deux cafés")
+        // Le libellé de la banque suit aussi : c'est lui qui porte le logo et
+        // le renommage du marchand.
+        #expect(made.string("bank_payee") == "CB BOUTIQUE 0304")
+    }
+
+    @Test("aucun lien ne suit : la copie n'appartient à rien")
+    func noLinkFollows() throws {
+        let store = try store()
+        let account = try account(store)
+        let origin = try bankRow(store, account)
+        let copy = try #require(try LocalLedger.duplicate(store: store, id: origin))
+
+        let made = try read(store, copy)
+        #expect(made.string("external_id") == nil)
+        #expect(made.string("transfer_pair_id") == nil)
+        #expect(made.string("reimburses_tx_id") == nil)
+        #expect(made.string("instalment_plan_id") == nil)
+        #expect(made.string("recurrence_key") == nil)
+        // Et elle se présente pour ce qu'elle est : une saisie, déjà vue.
+        #expect(made.string("source") == "manual")
+        #expect(made.bool("needs_review") == false)
+        #expect(made.bool("is_pending") == false)
+    }
+
+    @Test("le solde du compte tient compte de la copie")
+    func theBalanceFollows() throws {
+        let store = try store()
+        let account = try account(store)
+        let origin = try bankRow(store, account)
+        try LocalLedger.duplicate(store: store, id: origin)
+
+        let row = try #require(
+            try store.database.query(
+                "SELECT current_balance FROM accounts WHERE id = ?", [.text(account)]
+            ).first
+        )
+        // Au centime, pas au bit : deux fois -12,40 ne fait pas -24,80 exact
+        // en binaire.
+        #expect(abs((row.double("current_balance") ?? 0) + 24.80) < 0.005)
+    }
+
+    @Test("une ligne supprimée ne se duplique pas")
+    func aDeletedRowIsNotCopied() throws {
+        let store = try store()
+        let account = try account(store)
+        let origin = try bankRow(store, account)
+        try store.database.run(
+            "UPDATE transactions SET deleted_at = datetime('now') WHERE id = ?", [.text(origin)]
+        )
+        #expect(try LocalLedger.duplicate(store: store, id: origin) == nil)
+        let count = try store.database.query("SELECT count(*) AS n FROM transactions")
+        #expect(count.first?.int("n") == 1)
+    }
+}
