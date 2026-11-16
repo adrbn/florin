@@ -96,6 +96,7 @@ enum LocalQueries {
                   AND substr(occurred_at, 1, 10) <= date('now')
                 """
             )?.int ?? 0,
+            lateRefunds: try LocalWallet.lateRefundCount(db),
             incomeIsEstimated: false,
             accounts: accounts,
             categories: categories,

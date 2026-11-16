@@ -1,5 +1,7 @@
 {
   "en": {
+    "v2.refund.lateOne": "1 refund overdue",
+    "v2.refund.lateCount": "{count} refunds overdue",
     "v2.tx.duplicate": "Duplicate",
     "v2.a11y.back": "Back",
     "v2.a11y.closeSheet": "Close",
@@ -1011,6 +1013,8 @@
     "v2.common.ok": "OK"
   },
   "fr": {
+    "v2.refund.lateOne": "1 remboursement en retard",
+    "v2.refund.lateCount": "{count} remboursements en retard",
     "v2.tx.duplicate": "Dupliquer",
     "v2.a11y.back": "Retour",
     "v2.a11y.closeSheet": "Fermer",
@@ -2022,6 +2026,8 @@
     "v2.common.ok": "OK"
   },
   "nl": {
+    "v2.refund.lateOne": "1 terugbetaling te laat",
+    "v2.refund.lateCount": "{count} terugbetalingen te laat",
     "v2.tx.duplicate": "Dupliceren",
     "v2.a11y.back": "Terug",
     "v2.a11y.closeSheet": "Sluiten",
@@ -3033,6 +3039,8 @@
     "v2.common.ok": "OK"
   },
   "it": {
+    "v2.refund.lateOne": "1 rimborso in ritardo",
+    "v2.refund.lateCount": "{count} rimborsi in ritardo",
     "v2.tx.duplicate": "Duplica",
     "v2.a11y.back": "Indietro",
     "v2.a11y.closeSheet": "Chiudi",
@@ -4044,6 +4052,8 @@
     "v2.common.ok": "OK"
   },
   "es": {
+    "v2.refund.lateOne": "1 reembolso pendiente",
+    "v2.refund.lateCount": "{count} reembolsos pendientes",
     "v2.tx.duplicate": "Duplicar",
     "v2.a11y.back": "Atrás",
     "v2.a11y.closeSheet": "Cerrar",
@@ -5055,6 +5065,8 @@
     "v2.common.ok": "OK"
   },
   "ca": {
+    "v2.refund.lateOne": "1 reemborsament pendent",
+    "v2.refund.lateCount": "{count} reemborsaments pendents",
     "v2.tx.duplicate": "Duplica",
     "v2.a11y.back": "Enrere",
     "v2.a11y.closeSheet": "Tanca",
@@ -6066,6 +6078,8 @@
     "v2.common.ok": "D'acord"
   },
   "de": {
+    "v2.refund.lateOne": "1 Erstattung überfällig",
+    "v2.refund.lateCount": "{count} Erstattungen überfällig",
     "v2.tx.duplicate": "Duplizieren",
     "v2.a11y.back": "Zurück",
     "v2.a11y.closeSheet": "Schließen",
@@ -7077,6 +7091,8 @@
     "v2.common.ok": "OK"
   },
   "pt": {
+    "v2.refund.lateOne": "1 reembolso em atraso",
+    "v2.refund.lateCount": "{count} reembolsos em atraso",
     "v2.tx.duplicate": "Duplicar",
     "v2.a11y.back": "Voltar",
     "v2.a11y.closeSheet": "Fechar",
@@ -8088,6 +8104,8 @@
     "v2.common.ok": "OK"
   },
   "tr": {
+    "v2.refund.lateOne": "1 geri ödeme gecikti",
+    "v2.refund.lateCount": "{count} geri ödeme gecikti",
     "v2.tx.duplicate": "Çoğalt",
     "v2.a11y.back": "Geri",
     "v2.a11y.closeSheet": "Kapat",

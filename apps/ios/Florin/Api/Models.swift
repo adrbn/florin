@@ -28,6 +28,14 @@ struct Overview: Decodable, Sendable {
     let allocation: Allocation
     let goal: Goal?
     let reviewCount: Int
+    /*
+     * Ce qu'on attend depuis plus d'un mois et qui n'est pas venu.
+     *
+     * Optionnel : le serveur ne connaît pas les attentes, elles ne sont
+     * écrites que sur l'appareil. Absent, le fanion ne s'allume pas — il ne
+     * ment donc jamais là où il ne peut pas savoir.
+     */
+    let lateRefunds: Int?
     /// This month's salary has not landed; the income figure is last month's. 
     let incomeIsEstimated: Bool
     let accounts: [Account]

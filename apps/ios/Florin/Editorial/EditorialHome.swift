@@ -26,6 +26,9 @@ struct EditorialHome: View {
     let onOpenAccounts: () -> Void
     /// Emmène à Activité, déjà filtré sur « À vérifier ».
     let onOpenReview: () -> Void
+    /// L'Activité telle quelle : c'est là que le volet « en prévision »
+    /// porte les attentes, et une attente n'est pas dans la file.
+    let onOpenUpcoming: () -> Void
     @ObservedObject var chrome: ChromeState
 
     /// Quelles cartes, dans quel ordre, de quelle couleur. Voir
@@ -121,6 +124,7 @@ struct EditorialHome: View {
                          * est exactement celui d'avant.
                          */
                         review(data)
+                        lateRefunds(data)
                         // Chaque bloc du premier écran sort de la vue pour son
                         // propre compte : le chiffre, la courbe et la ligne des
                         // comptes ne partent pas d'un seul tenant.
@@ -417,6 +421,39 @@ struct EditorialHome: View {
                 .buttonStyle(.edPress)
                 .padding(.top, 8)
             }
+        }
+    }
+
+
+    /*
+     * L'argent qu'on attend et qui ne vient pas.
+     *
+     * Une attente de remboursement ne s'efface plus toute seule au bout de
+     * quelques jours — elle ne peut pas, c'est elle qui reconnaîtra le
+     * crédit le jour où il arrive. Reste qu'au bout d'un mois, c'est une
+     * question : l'enseigne a oublié, ou le reçu n'est jamais parti.
+     * Personne ne va la chercher dans un volet replié, donc elle se dit
+     * ici, avec la même pastille que ce qui demande une réponse — la seule
+     * ponctuation de cet écran, et elle ne sert que pour ça.
+     */
+    @ViewBuilder
+    private func lateRefunds(_ data: Overview) -> some View {
+        if let count = data.lateRefunds, count > 0 {
+            Button(action: onOpenUpcoming) {
+                EdPill(
+                    // Deux clés plutôt qu'une : rien n'accorde le pluriel
+                    // à la place du traducteur, et « 1 remboursements » est
+                    // la faute qu'on ne voit plus au bout de trois jours.
+                    text: (count == 1
+                        ? t("v2.refund.lateOne", "1 remboursement en retard")
+                        : t("v2.refund.lateCount", "{count} remboursements en retard",
+                            ["count": count])) + " ›",
+                    tone: Florin.accent,
+                    filled: true
+                )
+            }
+            .buttonStyle(.edPress)
+            .padding(.top, 8)
         }
     }
 

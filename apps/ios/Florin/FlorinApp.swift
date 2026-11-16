@@ -733,6 +733,9 @@ struct MainTabs: View {
                             onOpenReview: {
                                 route(to: .activity, path: TabRoute.activity.rootPath + "?needsReview")
                             },
+                            onOpenUpcoming: {
+                                route(to: .activity, path: TabRoute.activity.rootPath)
+                            },
                             chrome: chrome
                         )
                     } else {

@@ -539,7 +539,20 @@ enum LocalWallet {
                     [.text(day), .text(account), .text(source), .real(amount),
                      .real(forecast ? 0.015 : 0.005), .text(day),
                      .real(byName ? (amount > 0 ? 14 : 3) : (forecast ? 4 : 0)), .text(day),
-                     .real(byName ? 7 : (forecast ? 4 : 1)), .text(day)]
+                     /*
+                      * Une attente de remboursement n'a pas d'échéance.
+                      *
+                      * Sa date est celle où on s'est mis à attendre, pas
+                      * celle où l'enseigne rendra l'argent — personne ne la
+                      * connaît. Lui opposer sept jours, c'était décider à
+                      * l'avance qu'au-delà le crédit ne serait plus le sien :
+                      * il arrivait seul, et l'attente restait à côté, le même
+                      * argent compté deux fois. Elle guette donc jusqu'à ce
+                      * qu'un crédit du même montant se présente, et c'est le
+                      * NOM qui autorise cette patience — la passe aveugle, qui
+                      * n'a que le montant, garde sa journée.
+                      */
+                     .real(byName ? (amount > 0 ? 3650 : 7) : (forecast ? 4 : 1)), .text(day)]
                 )
                 let tap = row.string("payee") ?? ""
                 for candidate in candidates
@@ -709,6 +722,37 @@ enum LocalWallet {
     static let unclaimedGrace: Double = 7
 
     /*
+     * Un remboursement attendu ne se périme pas : il s'ANNONCE.
+     *
+     * Les sept jours ci-dessus mesurent ce qu'une banque met à écrire une
+     * ligne pour un paiement déjà fait. Un remboursement n'est pas encore
+     * décidé : l'enseigne rembourse quand le colis lui revient, le port sur
+     * présentation du reçu, et trois semaines sont ordinaires. La ligne
+     * attendue mourait donc avant l'argent — et comme elle est ce qui
+     * RECONNAÎT le crédit quand il arrive, la supprimer revenait à garantir
+     * que le vrai crédit arrive orphelin.
+     *
+     * Elle ne s'efface plus toute seule. Une attente qu'aucun crédit n'a
+     * réclamée au bout d'un mois n'est pas une erreur à balayer, c'est une
+     * question à poser : l'accueil le dit, et c'est à qui attend l'argent de
+     * décider s'il relance ou s'il raye. Voir `lateRefundCount`.
+     */
+    static let lateRefundGrace: Double = 30
+
+    /// Ce qui attend depuis plus d'un mois, et que personne n'a réclamé.
+    static func lateRefundCount(_ db: SQLiteDatabase) throws -> Int {
+        try db.scalar(
+            """
+            SELECT count(*) FROM transactions
+            WHERE source = ? AND deleted_at IS NULL AND amount > 0
+              AND merge_suggested_tx_id IS NULL
+              AND julianday(substr(occurred_at, 1, 10)) <= julianday('now') - ?
+            """,
+            [.text(source), .real(lateRefundGrace)]
+        )?.int ?? 0
+    }
+
+    /*
      * Une tape que la banque n'a jamais réclamée.
      *
      * Une tape est une note provisoire : elle existe pour tenir la place
@@ -736,6 +780,9 @@ enum LocalWallet {
             SELECT t.id AS id FROM transactions t
             WHERE t.source = ? AND t.deleted_at IS NULL
               AND t.merge_suggested_tx_id IS NULL
+              -- Une SORTIE seulement : voir `lateRefundGrace`, une attente
+              -- de remboursement ne se périme pas, elle s'annonce.
+              AND t.amount < 0
               AND julianday(substr(t.occurred_at, 1, 10)) <= julianday('now') - ?
               AND EXISTS (
                 SELECT 1 FROM transactions b

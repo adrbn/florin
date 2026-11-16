@@ -3421,6 +3421,73 @@ struct WalletPaymentTests {
         #expect(try live(store, source: LocalWallet.source) == 0)
     }
 
+    /// Repose une ligne attendue à tant de jours d'ici, pour voir vieillir
+    /// ce que l'app ne fait vieillir qu'en vrai.
+    private func backdate(_ store: LocalStore, _ days: Int, credits: Bool) throws {
+        let when = Calendar(identifier: .gregorian)
+            .date(byAdding: .day, value: days, to: Date())!
+        try store.database.run(
+            """
+            UPDATE transactions SET occurred_at = ?
+            WHERE source = ? AND deleted_at IS NULL
+              AND amount \(credits ? ">" : "<") 0
+            """,
+            [
+                .text(LocalQueries.dayFormatter.string(from: when) + "T12:00:00Z"),
+                .text(LocalWallet.source),
+            ]
+        )
+    }
+
+    /*
+     * Une attente de remboursement ne se périme pas, et reconnaît son
+     * crédit quelle que soit la date.
+     *
+     * Sa date est celle où on s'est mis à attendre, pas celle où l'enseigne
+     * rendra l'argent. L'effacer au bout de quelques jours, ou lui opposer
+     * une fenêtre d'une semaine, revenait au même : le vrai crédit arrivait
+     * seul et le même argent comptait deux fois.
+     */
+    @Test("une attente de remboursement ne s'efface pas et attrape son crédit un mois plus tard")
+    func refundsWaitWithoutADeadline() throws {
+        let (store, checking, _) = try ledger()
+        try LocalWallet.recordRefund(
+            store: store, accountId: checking, amount: 89.64,
+            payee: "Boutique", categoryId: nil
+        )
+        try backdate(store, -40, credits: true)
+
+        // La banque a écrit depuis, et d'un autre montant : ce qui suffirait
+        // à retirer une tape.
+        let since = Calendar(identifier: .gregorian)
+            .date(byAdding: .day, value: -2, to: Date())!
+        _ = try bankRow(
+            store, checking, LocalQueries.dayFormatter.string(from: since), -42.00
+        )
+        #expect(try LocalWallet.expireUnclaimed(store: store) == 0)
+        #expect(try live(store, source: LocalWallet.source) == 1)
+        // Et elle se signale : un mois sans rien, c'est une question.
+        #expect(try LocalWallet.lateRefundCount(store.database) == 1)
+
+        // La tape du même jour, elle, s'en va : le délai court n'a pas bougé.
+        try LocalWallet.record(
+            store: store, amountText: "9,90", merchant: "Boutique", card: nil,
+            accountId: checking, on: Calendar(identifier: .gregorian)
+                .date(byAdding: .day, value: -40, to: Date())!
+        )
+        #expect(try LocalWallet.expireUnclaimed(store: store) == 1)
+        #expect(try live(store, source: LocalWallet.source) == 1)
+
+        // Le crédit arrive quarante jours après l'attente : il est le sien.
+        _ = try bankRow(
+            store, checking, LocalQueries.dayFormatter.string(from: since), 89.64,
+            label: "VIREMENT BOUTIQUE"
+        )
+        #expect(try LocalWallet.settle(store: store) == 1)
+        #expect(try live(store, source: LocalWallet.source) == 0)
+        #expect(try LocalWallet.lateRefundCount(store.database) == 0)
+    }
+
     /*
      * Photographier un ticket ne doit pas revenir à le perdre.
      *
