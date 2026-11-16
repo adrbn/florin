@@ -275,7 +275,8 @@ enum LocalWallet {
         try insertUpcoming(
             store: store, accountId: tx.accountId, occurredAt: tx.occurredAt,
             amount: tx.amount, payee: tx.payee, memo: tx.memo,
-            categoryId: tx.categoryId, instalmentPlanId: tx.instalmentPlanId
+            categoryId: tx.categoryId, instalmentPlanId: tx.instalmentPlanId,
+            reimburses: tx.reimburses
         )
     }
 

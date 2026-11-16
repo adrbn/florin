@@ -257,6 +257,15 @@ struct NewTransaction: Encodable, Sendable {
     /// L'échéancier dont elle fait partie. Comme `upcoming`, il ne quitte
     /// jamais l'appareil : le serveur n'a pas cette notion.
     var instalmentPlanId: String?
+    /*
+     * La dépense que cette rentrée rembourse, désignée à la saisie.
+     *
+     * Le lien ne se posait qu'APRÈS coup, sur la fiche d'une ligne déjà
+     * écrite — donc après avoir choisi une catégorie à la main, alors que
+     * c'est justement la dépense qui la donne. Désigné ici, il arrive avec
+     * elle. Comme les deux champs au-dessus, il ne quitte pas l'appareil.
+     */
+    var reimburses: String?
 
     private enum CodingKeys: String, CodingKey {
         case accountId, amount, payee, occurredAt, memo, categoryId

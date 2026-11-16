@@ -15,7 +15,8 @@ import UIKit
  */
 
 enum TxAction: String {
-    case approve, categorize, rename, refund, refundGot, receipt, transfer, edit, duplicate, delete
+    case approve, unapprove, categorize, rename, refund, refundGot, receipt
+    case transfer, edit, duplicate, delete
 }
 
 struct TxActionRequest: Identifiable, Equatable {
@@ -47,6 +48,28 @@ extension View {
             if tx.needsReview, tx.categoryName != nil || tx.isTransfer {
                 Button { request.wrappedValue = TxActionRequest(action: .approve, tx: tx) } label: {
                     Label(t("v2.review.approve", "Vérifié"), systemImage: "checkmark.circle")
+                }
+            } else if isLocalLedger, !tx.needsReview, !tx.isUpcoming {
+                /*
+                 * Se tromper de tape, et pouvoir le dire.
+                 *
+                 * « Vérifié » sort la ligne de la file, et c'était sans
+                 * retour : rien, nulle part, ne remettait une ligne à
+                 * vérifier. Une tape à côté dans la file — elles se suivent
+                 * au pouce — classait donc définitivement une opération que
+                 * personne n'avait regardée.
+                 *
+                 * Pas sur ce qui n'est pas encore arrivé : la file ne montre
+                 * que les lignes comptabilisées, et y renvoyer une ligne
+                 * annoncée serait l'envoyer là où on ne la verra pas.
+                 */
+                Button {
+                    request.wrappedValue = TxActionRequest(action: .unapprove, tx: tx)
+                } label: {
+                    Label(
+                        t("v2.review.unapprove", "À revérifier"),
+                        systemImage: "arrow.counterclockwise"
+                    )
                 }
             }
             Button { request.wrappedValue = TxActionRequest(action: .categorize, tx: tx) } label: {
@@ -233,6 +256,8 @@ struct TransactionActionsHost: ViewModifier {
                 switch new.action {
                 case .approve:
                     Task { await onPatch(new.tx, TxPatch(approve: true)) }
+                case .unapprove:
+                    Task { await onPatch(new.tx, TxPatch(approve: false)) }
                 case .delete:
                     // Sans confirmation : la suppression est douce et la
                     // corbeille des Réglages la reprend (LocalLedger.restore).
@@ -317,7 +342,7 @@ struct TransactionActionsHost: ViewModifier {
             )
         case .receipt:
             ReceiptsSheet(tx: tx, locale: locale, currency: currency, t: t)
-        case .approve, .delete, .refund, .refundGot, .duplicate:
+        case .approve, .unapprove, .delete, .refund, .refundGot, .duplicate:
             EmptyView()
         }
     }

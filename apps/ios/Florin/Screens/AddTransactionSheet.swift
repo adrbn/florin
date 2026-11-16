@@ -83,6 +83,10 @@ struct AddTransactionSheet: View {
     @State private var guessedCategory = false
     /// Le sélecteur de catégorie, ouvert en feuille.
     @State private var picking = false
+    @State private var linking = false
+    /// La dépense que cette rentrée rembourse, choisie avant d'écrire la
+    /// ligne. Voir `refundRow`.
+    @State private var reimburses: LocalReimbursements.Entry?
     @State private var saving = false
     /*
      * Le dernier compte débité, retenu d'une saisie à l'autre.
@@ -752,6 +756,8 @@ struct AddTransactionSheet: View {
              * question — groupée, cherchable, et elle porte les mêmes
              * propositions que les pastilles juste dessous.
              */
+            refundRow
+
             pickerRow(symbol: "tag", label: t("v2.add.category", "Catégorie")) {
                 Button { picking = true } label: {
                     let selected = categories.first { $0.id == categoryId }
@@ -1057,6 +1063,75 @@ struct AddTransactionSheet: View {
         .padding(.bottom, categoryHints.isEmpty ? 0 : 13)
     }
 
+    /*
+     * « Remboursement de », à la saisie et non après coup.
+     *
+     * Une rentrée qui rembourse une dépense n'a pas de catégorie à elle :
+     * elle prend celle de la dépense, sans quoi le poste ne se solde pas net.
+     * Or la feuille EXIGE une catégorie avant d'enregistrer, et le lien ne se
+     * posait que sur la fiche d'une ligne déjà écrite. Il fallait donc en
+     * choisir une au hasard, écrire la ligne, la rouvrir, lier — et la
+     * catégorie recopiée écrasait alors celle qu'on venait d'inventer.
+     *
+     * Désigner la dépense remplit la catégorie du même geste, et le bouton
+     * s'allume : la question à laquelle on sait répondre — « c'est le
+     * remboursement de quoi ? » — remplace celle à laquelle on ne sait pas.
+     *
+     * Seulement sur une rentrée neuve du grand livre de l'appareil : le lien
+     * est porté par la rentrée (voir `LocalReimbursements`), le serveur n'en
+     * a pas la notion, et une MODIFICATION a déjà sa rangée sur la fiche.
+     */
+    @ViewBuilder
+    private var refundRow: some View {
+        if isLocalLedger, !isEditing, kind == .income {
+            pickerRow(
+                symbol: "arrow.uturn.left",
+                label: t("v2.detail.reimburses", "Remboursement de")
+            ) {
+                Button { linking = true } label: {
+                    menuValue(
+                        reimburses.map { PayeeText.title($0.payee, category: nil) }
+                            ?? t("v2.detail.linkExpense", "Lier une dépense")
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+            .sheet(isPresented: $linking) {
+                ReimbursementPicker(
+                    income: provisional, t: t, locale: localeTag, currency: currency,
+                    linked: reimburses != nil, onPick: {},
+                    onChoose: { picked in
+                        reimburses = picked
+                        // La catégorie de la dépense, parce que c'est elle qui
+                        // fait que le poste se solde net. Modifiable juste en
+                        // dessous, comme n'importe quelle supposition.
+                        guard let picked else { return }
+                        categoryId = categories.first { $0.name == picked.category }?.id ?? categoryId
+                        guessedCategory = false
+                    }
+                )
+            }
+
+            Hairline()
+        }
+    }
+
+    /*
+     * La ligne telle qu'elle sera, pour que la feuille de choix ait de quoi
+     * travailler : elle ne lit que le montant, le jour et l'identifiant —
+     * qu'on lui donne vide, puisque la ligne n'existe pas encore et qu'il ne
+     * sert qu'à s'exclure soi-même de la liste.
+     */
+    private var provisional: Transaction {
+        Transaction(
+            id: "", date: ISO8601DateFormatter.florinNoFraction.string(from: noonOn(date)),
+            amount: abs(magnitude), payee: payee.trimmingCharacters(in: .whitespaces),
+            memo: nil, categoryName: nil, categoryEmoji: nil,
+            accountName: usableAccounts.first { $0.id == accountId }?.name ?? "",
+            isTransfer: false, needsReview: false, isPending: false, isScheduled: false
+        )
+    }
+
     private func pickerRow<Content: View>(
         symbol: String,
         label: String,
@@ -1163,7 +1238,8 @@ struct AddTransactionSheet: View {
                         occurredAt: ISO8601DateFormatter.florinNoFraction.string(from: noonOn(date)),
                         memo: trimmedMemo.isEmpty ? nil : trimmedMemo,
                         categoryId: categoryId.isEmpty ? nil : categoryId,
-                        upcoming: upcoming && offersUpcoming
+                        upcoming: upcoming && offersUpcoming,
+                        reimburses: reimburses?.id
                     )
                 )
                 UINotificationFeedbackGenerator().notificationOccurred(.success)

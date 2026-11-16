@@ -843,6 +843,19 @@ struct TransactionDetailSheet: View {
         isLocalLedger && tx.isDuplicable
     }
 
+    /*
+     * Défaire « Vérifié », parce qu'on tape à côté.
+     *
+     * Rien ne remettait une ligne dans la file : une tape de trop dans la
+     * revue classait pour de bon une opération que personne n'avait lue.
+     * Pas sur une ligne annoncée — la file ne montre que ce qui est
+     * comptabilisé, et l'y renvoyer serait la ranger là où on ne la voit
+     * pas. Voir le même geste dans `transactionMenu`.
+     */
+    private var canUnapprove: Bool {
+        isLocalLedger && !tx.needsReview && !tx.isUpcoming
+    }
+
     private func duplicate() {
         guard let store = LocalStore.shared else { return }
         do {
@@ -996,6 +1009,10 @@ struct TransactionDetailSheet: View {
         HStack(spacing: 10) {
             if tx.needsReview {
                 edSmallAction(t("v2.common.edit", "Modifier"), "pencil") { editing = true }
+            } else if canUnapprove {
+                edSmallAction(
+                    t("v2.review.unapprove", "À revérifier"), "arrow.counterclockwise"
+                ) { run { await onPatch(TxPatch(approve: false)) } }
             }
             edSmallAction(t("v2.review.categorize", "Catégoriser"), "tag") { picking = true }
             if canDuplicate {
@@ -1114,6 +1131,12 @@ struct TransactionDetailSheet: View {
                         run { await onPatch(TxPatch(approve: true)) }
                     }
                 }
+            }
+            if canUnapprove {
+                SheetAction(
+                    label: t("v2.review.unapprove", "À revérifier"),
+                    symbol: "arrow.counterclockwise"
+                ) { run { await onPatch(TxPatch(approve: false)) } }
             }
             SheetAction(label: t("v2.common.edit", "Modifier"), symbol: "pencil") {
                 editing = true

@@ -3188,6 +3188,29 @@ struct WalletPaymentTests {
     }
 
     /*
+     * Le remboursement désigné à la saisie, et non sur la fiche après coup.
+     *
+     * Les deux chemins l'écrivent : une rentrée qu'on attend encore, et une
+     * qu'on a déjà reçue. Sans le second, « En prévision » éteint perdait en
+     * silence la dépense qu'on venait de désigner.
+     */
+    @Test("une rentrée saisie peut désigner la dépense qu'elle rembourse")
+    func addedRowCarriesItsRefundLink() throws {
+        for upcoming in [true, false] {
+            let (store, checking, _) = try ledger()
+            try LocalLedger.add(store: store, NewTransaction(
+                accountId: checking, amount: 14, payee: "Camille",
+                occurredAt: "2026-09-11T12:00:00Z", memo: nil, categoryId: nil,
+                upcoming: upcoming, reimburses: "exp-1"
+            ))
+            let row = try #require(try store.database.query(
+                "SELECT reimburses_tx_id FROM transactions WHERE payee = 'Camille'"
+            ).first)
+            #expect(row.string("reimburses_tx_id") == "exp-1")
+        }
+    }
+
+    /*
      * Three shops in one afternoon, in the order they were paid.
      *
      * They tied on `occurred_at` — a payment used to be recorded at midnight —
@@ -8511,7 +8534,7 @@ struct DuplicateTransactionTests {
         #expect(made.string("bank_payee") == "CB BOUTIQUE 0304")
     }
 
-    @Test("aucun lien ne suit : la copie n'appartient à rien")
+    @Test("les liens à un seul partenaire ne suivent pas")
     func noLinkFollows() throws {
         let store = try store()
         let account = try account(store)
@@ -8521,13 +8544,53 @@ struct DuplicateTransactionTests {
         let made = try read(store, copy)
         #expect(made.string("external_id") == nil)
         #expect(made.string("transfer_pair_id") == nil)
-        #expect(made.string("reimburses_tx_id") == nil)
         #expect(made.string("instalment_plan_id") == nil)
         #expect(made.string("recurrence_key") == nil)
         // Et elle se présente pour ce qu'elle est : une saisie, déjà vue.
         #expect(made.string("source") == "manual")
         #expect(made.bool("needs_review") == false)
         #expect(made.bool("is_pending") == false)
+    }
+
+    @Test("le remboursement suit : une dépense peut être rendue en deux fois")
+    func theRefundLinkFollows() throws {
+        let store = try store()
+        let account = try account(store)
+        let origin = try bankRow(store, account)
+        let copy = try #require(try LocalLedger.duplicate(store: store, id: origin))
+        #expect(try read(store, copy).string("reimburses_tx_id") == "exp-1")
+    }
+
+    /*
+     * Quinze euros rendus en deux fois : on écrit l'attente, on la duplique,
+     * on corrige le montant. Comptabilisée d'office, la copie quittait la
+     * section où se trouve son modèle — et sortait du champ de `settle`.
+     */
+    @Test("ce qui attend se copie en ligne qui attend")
+    func theWaitFollows() throws {
+        let store = try store()
+        let account = try account(store)
+        let origin = UUID().uuidString
+        try store.database.run(
+            """
+            INSERT INTO transactions
+                (id, account_id, occurred_at, amount, currency, payee,
+                 normalized_payee, memo, source, status, is_pending,
+                 needs_review, reimburses_tx_id)
+            VALUES (?, ?, '2026-03-04', 14.00, 'EUR', 'Le Comptoir', 'le comptoir',
+                    'Remboursement attendu', 'ios_shortcut', 'scheduled', 1, 0,
+                    'exp-1')
+            """,
+            [.text(origin), .text(account)]
+        )
+        let copy = try #require(try LocalLedger.duplicate(store: store, id: origin))
+
+        let made = try read(store, copy)
+        #expect(made.string("source") == "ios_shortcut")
+        #expect(made.string("status") == "scheduled")
+        #expect(made.bool("is_pending") == true)
+        #expect(made.string("reimburses_tx_id") == "exp-1")
+        #expect(made.double("amount") == 14.00)
     }
 
     @Test("le solde du compte tient compte de la copie")

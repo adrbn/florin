@@ -460,14 +460,16 @@ enum LocalLedger {
                 """
                 INSERT INTO transactions
                     (id, account_id, occurred_at, amount, currency, payee,
-                     normalized_payee, memo, category_id, source, status, needs_review)
-                VALUES (?, ?, ?, ?, 'EUR', ?, ?, ?, ?, 'manual', 'cleared', 0)
+                     normalized_payee, memo, category_id, reimburses_tx_id,
+                     source, status, needs_review)
+                VALUES (?, ?, ?, ?, 'EUR', ?, ?, ?, ?, ?, 'manual', 'cleared', 0)
                 """,
                 [
                     .text(UUID().uuidString), .text(tx.accountId), .text(tx.occurredAt),
                     .real(tx.amount), .text(tx.payee), .text(normalize(tx.payee)),
                     tx.memo.map { SQLiteValue.text($0) } ?? .null,
                     tx.categoryId.map { SQLiteValue.text($0) } ?? .null,
+                    tx.reimburses.map { SQLiteValue.text($0) } ?? .null,
                 ]
             )
             try recomputeBalance(store, accountId: tx.accountId)
@@ -487,10 +489,34 @@ enum LocalLedger {
      * elle est accrochée, et c'est le fond du sujet. La copie n'a pas de
      * numéro de banque (`external_id`), sinon l'index unique la refuserait ou
      * la prochaine synchro l'écraserait. Elle n'est la contrepartie d'aucun
-     * virement, ne rend aucune dépense, n'appartient à aucun échéancier ni à
-     * aucune mensualité : trois liens qui désignent UN partenaire, et qui à
-     * deux lignes feraient un trio. Elle n'hérite pas non plus de la récurrence
-     * — le Plan compterait deux fois la même charge fixe.
+     * virement et n'appartient à aucun échéancier : deux liens qui désignent
+     * UN partenaire, et qui à deux lignes feraient un trio. Elle n'hérite pas
+     * non plus de la récurrence — le Plan compterait deux fois la même charge
+     * fixe.
+     *
+     * Le remboursement, lui, SUIT.
+     *
+     * Une dépense peut être rendue par trois personnes, et c'est le sens
+     * même de la colonne — voir `LocalReimbursements`. Quinze euros rendus
+     * en deux fois, quatorze puis un, se saisissent exactement ainsi : la
+     * première ligne, puis sa copie corrigée. Détacher la copie obligeait à
+     * refaire à la main, sur elle, le lien ET la catégorie qu'elle venait de
+     * perdre.
+     *
+     * Et ce qui ATTEND se copie en ligne qui attend.
+     *
+     * La copie se présentait toujours comme un fait : `manual`, `cleared`.
+     * Or on duplique surtout ce que la banque n'a pas encore passé — deux
+     * tournées au même comptoir, un remboursement annoncé en deux
+     * versements. Comptabilisée d'office, la copie quittait la section où
+     * se trouve son modèle : on tapait « Dupliquer » et il ne se passait
+     * rien de visible. Pire, elle n'était plus de celles que `settle`
+     * examine (`source = 'ios_shortcut'`), donc la deuxième ligne de la
+     * banque n'avait plus de tape à réclamer et s'ajoutait en troisième.
+     *
+     * Une tape en attente garde donc sa provenance et son statut ; tout le
+     * reste — ligne de banque, saisie déjà comptabilisée — se copie en
+     * saisie comptabilisée, comme avant.
      *
      * D'où un `INSERT … SELECT` qui NOMME ce qu'il copie : ce qui n'est pas
      * nommé prend la valeur par défaut, c'est-à-dire rien.
@@ -498,6 +524,11 @@ enum LocalLedger {
      * Rendu : l'identifiant de la copie, ou `nil` s'il n'y avait rien à
      * copier.
      */
+    /// Ce qui fait d'une ligne une tape encore en attente : la seule forme
+    /// que `settle` sait réclamer, et donc la seule qu'une copie peut garder
+    /// sans devenir un orphelin perpétuel.
+    private static let waiting = "source = '\(LocalWallet.source)' AND is_pending = 1"
+
     @discardableResult
     static func duplicate(store: LocalStore, id: String) throws -> String? {
         let copy = UUID().uuidString
@@ -513,11 +544,16 @@ enum LocalLedger {
                 INSERT INTO transactions
                     (id, account_id, occurred_at, amount, currency, payee,
                      normalized_payee, bank_payee, memo, category_id,
+                     reimburses_tx_id,
                      source, status, is_pending, needs_review,
                      recorded_at, created_at, updated_at)
                 SELECT ?, account_id, occurred_at, amount, currency, payee,
                        normalized_payee, bank_payee, memo, category_id,
-                       'manual', 'cleared', 0, 0,
+                       reimburses_tx_id,
+                       CASE WHEN \(waiting) THEN source ELSE 'manual' END,
+                       CASE WHEN \(waiting) THEN status ELSE 'cleared' END,
+                       CASE WHEN \(waiting) THEN 1 ELSE 0 END,
+                       0,
                        datetime('now'), datetime('now'), datetime('now')
                 FROM transactions WHERE id = ? AND deleted_at IS NULL
                 """,

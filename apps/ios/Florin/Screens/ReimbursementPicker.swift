@@ -28,6 +28,16 @@ struct ReimbursementPicker: View {
     var linked: Bool
     /// Rappelé après coup : la feuille dessous affiche encore l'ancien lien.
     var onPick: () -> Void
+    /*
+     * Choisir sans rien écrire.
+     *
+     * La feuille de saisie pose la question AVANT que la ligne existe : il
+     * n'y a pas encore d'identifiant à mettre à jour, et la catégorie
+     * reprise va dans un champ, pas dans le grand livre. Quand elle est
+     * fournie, la feuille REND le choix — `nil` voulant dire « détacher » —
+     * et ne touche à rien.
+     */
+    var onChoose: ((LocalReimbursements.Entry?) -> Void)?
 
     @Environment(\.dismiss) private var dismiss
     @StateObject private var logos = MerchantLogos.shared
@@ -71,6 +81,11 @@ struct ReimbursementPicker: View {
                 if linked {
                     ToolbarItem(placement: .primaryAction) {
                         Button(t("v2.reimburse.unlink", "Détacher"), role: .destructive) {
+                            if let onChoose {
+                                onChoose(nil)
+                                dismiss()
+                                return
+                            }
                             guard let store = LocalStore.shared else { return }
                             try? LocalReimbursements.link(
                                 store: store, income: income.id, to: nil
@@ -148,6 +163,11 @@ struct ReimbursementPicker: View {
     }
 
     private func pick(_ row: LocalReimbursements.Entry) {
+        if let onChoose {
+            onChoose(row)
+            dismiss()
+            return
+        }
         guard let store = LocalStore.shared else { return }
         try? LocalReimbursements.link(store: store, income: income.id, to: row.id)
         // La catégorie de la dépense, parce que c'est elle qui fait que le
