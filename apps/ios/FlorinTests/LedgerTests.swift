@@ -3465,6 +3465,32 @@ struct WalletPaymentTests {
      * une fenêtre d'une semaine, revenait au même : le vrai crédit arrivait
      * seul et le même argent comptait deux fois.
      */
+    /*
+     * Rendu sur-le-champ : un fait, pas une attente.
+     *
+     * La même tape écrivait les deux, toujours en prévision — il fallait
+     * rouvrir la ligne pour dire qu'on avait déjà l'argent. Comptabilisée,
+     * elle n'attend plus rien, donc elle ne peut pas être en retard.
+     */
+    @Test("un remboursement reçu s'écrit comptabilisé et n'attend rien")
+    func refundReceivedIsBooked() throws {
+        let (store, checking, _) = try ledger()
+        try LocalWallet.recordRefund(
+            store: store, accountId: checking, amount: 12.40,
+            payee: "Boutique", categoryId: nil, received: true
+        )
+        let row = try store.database.query(
+            "SELECT status, is_pending FROM transactions WHERE source = ?",
+            [.text(LocalWallet.source)]
+        ).first
+        #expect(row?.string("status") == "cleared")
+        #expect(row?.bool("is_pending") == false)
+
+        // Même vieille de deux mois, elle n'est pas « en retard » : elle est là.
+        try backdate(store, -60, credits: true)
+        #expect(try LocalWallet.lateRefundCount(store.database) == 0)
+    }
+
     @Test("une attente de remboursement ne s'efface pas et attrape son crédit un mois plus tard")
     func refundsWaitWithoutADeadline() throws {
         let (store, checking, _) = try ledger()

@@ -308,7 +308,9 @@ enum LocalWallet {
      * remboursement qui n'arriverait jamais encombre « en prévision » et ne
      * ment sur rien.
      */
-    static func recordRefund(store: LocalStore, of tx: Transaction) throws {
+    static func recordRefund(
+        store: LocalStore, of tx: Transaction, received: Bool = false
+    ) throws {
         guard let accountId = tx.accountId else { throw Failure.noAccount }
         /*
          * L'attente DÉSIGNE sa dépense.
@@ -324,7 +326,7 @@ enum LocalWallet {
          */
         try recordRefund(
             store: store, accountId: accountId, amount: abs(tx.amount),
-            payee: tx.payee, categoryId: tx.categoryId, of: tx.id
+            payee: tx.payee, categoryId: tx.categoryId, of: tx.id, received: received
         )
     }
 
@@ -340,25 +342,42 @@ enum LocalWallet {
      * que le lien dit « cette dépense-là ». Posée sur la dernière, la fiche
      * d'une mensualité de 35,00 € aurait annoncé 70,00 €.
      */
+    /*
+     * Attendu, ou déjà rendu — la différence tient dans ce seul drapeau.
+     *
+     * Une enseigne qui rembourse au comptoir ne se fait pas attendre : la
+     * date est connue, c'est aujourd'hui, et la somme est à compter dans la
+     * journée comme n'importe quelle entrée. Ce qui s'écrit alors n'est pas
+     * une attente mais un fait, et le mot sur la ligne doit le dire —
+     * « Remboursement », pas « Remboursement attendu ».
+     *
+     * Le reste ne change pas : la ligne garde `ios_shortcut`, donc le jour
+     * où la banque publie le même crédit, `settle` les fond l'un dans
+     * l'autre au lieu d'en laisser deux.
+     */
     static func recordRefund(
         store: LocalStore, accountId: String, amount: Double,
-        payee: String, categoryId: String?, of expense: String? = nil
+        payee: String, categoryId: String?, of expense: String? = nil,
+        received: Bool = false
     ) throws {
         let today = Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: Date())
             ?? Date()
-        let note = Strings.device("v2.refund.memo", "Remboursement attendu")
+        let note = received
+            ? Strings.device("v2.refund.memoGot", "Remboursement")
+            : Strings.device("v2.refund.memo", "Remboursement attendu")
         try insertUpcoming(
             store: store, accountId: accountId,
             occurredAt: ISO8601DateFormatter.florinNoFraction.string(from: today),
             amount: abs(amount), payee: payee, memo: note,
-            categoryId: categoryId, reimburses: expense
+            categoryId: categoryId, reimburses: expense, received: received
         )
     }
 
     private static func insertUpcoming(
         store: LocalStore, accountId: String, occurredAt: String,
         amount: Double, payee: String, memo: String?, categoryId: String?,
-        instalmentPlanId: String? = nil, reimburses: String? = nil
+        instalmentPlanId: String? = nil, reimburses: String? = nil,
+        received: Bool = false
     ) throws {
         try store.database.run(
             """
@@ -366,7 +385,7 @@ enum LocalWallet {
                 (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
                  memo, category_id, source, instalment_plan_id, reimburses_tx_id,
                  status, is_pending, needs_review)
-            VALUES (?, ?, ?, ?, 'EUR', ?, ?, ?, ?, ?, ?, ?, 'scheduled', 1, 0)
+            VALUES (?, ?, ?, ?, 'EUR', ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
             """,
             [
                 .text(UUID().uuidString), .text(accountId), .text(occurredAt),
@@ -374,6 +393,7 @@ enum LocalWallet {
                 memo.map { .text($0) } ?? .null, categoryId.map { .text($0) } ?? .null,
                 .text(source), instalmentPlanId.map { .text($0) } ?? .null,
                 reimburses.map { .text($0) } ?? .null,
+                .text(received ? "cleared" : "scheduled"), .integer(received ? 0 : 1),
             ]
         )
         // Filed from history straight away, so the upcoming row already says

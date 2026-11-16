@@ -15,7 +15,7 @@ import UIKit
  */
 
 enum TxAction: String {
-    case approve, categorize, rename, refund, receipt, transfer, edit, duplicate, delete
+    case approve, categorize, rename, refund, refundGot, receipt, transfer, edit, duplicate, delete
 }
 
 struct TxActionRequest: Identifiable, Equatable {
@@ -68,6 +68,26 @@ extension View {
                     Label(
                         t("v2.refund.add", "Attendre un remboursement"),
                         systemImage: "arrow.uturn.backward.circle"
+                    )
+                }
+                /*
+                 * Rendu sur-le-champ, c'est un fait, pas une attente.
+                 *
+                 * Les deux cas s'écrivaient d'une seule tape, qui supposait
+                 * toujours l'attente : il fallait rouvrir la ligne, éteindre
+                 * « En prévision » et corriger la date pour dire qu'on avait
+                 * déjà l'argent. Trois gestes pour contredire le premier.
+                 *
+                 * Deux entrées plutôt qu'un sous-menu : ce qui se décide au
+                 * moment du geste se lit sur la même liste, et le cas
+                 * ordinaire — l'attente — garde sa place en premier.
+                 */
+                Button {
+                    request.wrappedValue = TxActionRequest(action: .refundGot, tx: tx)
+                } label: {
+                    Label(
+                        t("v2.refund.addGot", "Remboursement reçu"),
+                        systemImage: "arrow.uturn.backward.circle.fill"
                     )
                 }
             }
@@ -229,11 +249,14 @@ struct TransactionActionsHost: ViewModifier {
                         }
                         await onRefunded()
                     }
-                case .refund:
+                case .refund, .refundGot:
                     Task {
                         guard let store = LocalStore.shared else { return }
                         do {
-                            try LocalWallet.recordRefund(store: store, of: new.tx)
+                            try LocalWallet.recordRefund(
+                                store: store, of: new.tx,
+                                received: new.action == .refundGot
+                            )
                             UINotificationFeedbackGenerator().notificationOccurred(.success)
                         } catch {
                             UINotificationFeedbackGenerator().notificationOccurred(.error)
@@ -294,7 +317,7 @@ struct TransactionActionsHost: ViewModifier {
             )
         case .receipt:
             ReceiptsSheet(tx: tx, locale: locale, currency: currency, t: t)
-        case .approve, .delete, .refund, .duplicate:
+        case .approve, .delete, .refund, .refundGot, .duplicate:
             EmptyView()
         }
     }
