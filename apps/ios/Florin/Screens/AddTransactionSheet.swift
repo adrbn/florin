@@ -777,7 +777,27 @@ struct AddTransactionSheet: View {
                 Hairline()
             }
 
-            pickerRow(symbol: "calendar", label: t("v2.add.date", "Date")) {
+            /*
+             * « Date » ment sur une attente de remboursement.
+             *
+             * Partout ailleurs la date est le jour où l'argent a bougé. Ici
+             * il n'a pas bougé et personne ne sait quand il bougera — ni
+             * l'enseigne, ni nous. Ce jour-là est celui où on s'est MIS À
+             * ATTENDRE, et c'est aussi lui que compte le retard : laissé
+             * sous le mot « Date », il se lisait comme une échéance, donc
+             * comme une promesse que l'app ne peut pas tenir.
+             *
+             * Le champ reste modifiable, et c'est tout son intérêt : une
+             * attente saisie dix jours après l'achat se recale sur le jour
+             * de l'achat, et le mois de patience se compte à partir de là.
+             */
+            let awaited = memo == t("v2.refund.memo", "Remboursement attendu")
+            pickerRow(
+                symbol: awaited ? "hourglass" : "calendar",
+                label: awaited
+                    ? t("v2.add.waitingSince", "Attendu depuis")
+                    : t("v2.add.date", "Date")
+            ) {
                 DatePicker("", selection: $date, displayedComponents: .date)
                     .labelsHidden()
             }
