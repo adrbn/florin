@@ -841,12 +841,38 @@ struct AddTransactionSheet: View {
                             Text(t("v2.wallet.guide.flowUpcoming", "En prévision"))
                                 .font(.system(size: 14.5))
                                 .foregroundStyle(Florin.text)
+                            /*
+                             * Sur une RENTRÉE, l'interrupteur ne dit pas ça.
+                             *
+                             * « Jusqu'à ce que la banque l'enregistre » décrit
+                             * une sortie : l'argent a quitté la main, il ne
+                             * manque que la ligne, et la journée serait fausse
+                             * sans elle — c'est pourquoi une dépense en
+                             * prévision compte quand même dans son total.
+                             *
+                             * Une entrée, non : depuis qu'une rentrée annoncée
+                             * a quitté « Aujourd'hui » et le total du jour,
+                             * l'interrupteur décide si cet argent est à vous.
+                             * Allumé, il dit « personne ne m'a encore rien
+                             * envoyé ». La phrase parlait pourtant de la
+                             * banque, donc on l'allumait sur un virement déjà
+                             * reçu — et la somme disparaissait de la journée.
+                             *
+                             * L'appariement, lui, ne dépend pas de cet
+                             * interrupteur : la ligne reste écrite par Florin,
+                             * et `settle` la reconnaît éteinte comme allumée.
+                             * Éteindre ne fabrique donc aucun doublon le jour
+                             * où la banque publie le virement.
+                             */
                             Text(
                                 forced
                                     ? t("v2.add.upcomingAlways",
                                         "Une échéance est toujours en prévision")
-                                    : t("v2.add.upcomingHint",
-                                        "Jusqu'à ce que la banque l'enregistre")
+                                    : kind == .income
+                                        ? t("v2.add.upcomingHintIn",
+                                            "L'argent n'est pas encore arrivé")
+                                        : t("v2.add.upcomingHint",
+                                            "Jusqu'à ce que la banque l'enregistre")
                             )
                             .font(.system(size: 12))
                             .foregroundStyle(Florin.text3)
