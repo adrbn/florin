@@ -510,6 +510,21 @@ struct Transaction: Decodable, Sendable, Identifiable {
 
     func isToCome(among numbers: Set<String>) -> Bool {
         if isAnnounced(among: numbers) { return true }
+        /*
+         * Ce qu'on doit est parti ; ce qu'on vous doit n'est pas arrivé.
+         *
+         * Le raisonnement ci-dessus vaut pour une SORTIE : au comptoir
+         * l'argent quitte la main, la banque n'a plus qu'à l'écrire, et la
+         * journée serait fausse sans elle. Une ENTRÉE en prévision n'a pas
+         * ce privilège — rien n'a été reçu, et c'est précisément ce que
+         * « en prévision » veut dire d'une rentrée.
+         *
+         * Une attente de remboursement le montrait à nu : datée du jour où
+         * l'on s'est mis à attendre, elle s'asseyait dans « Aujourd'hui » et
+         * poussait le total du jour à +75 € alors qu'il s'était dépensé
+         * 24,80 €. Le jour affirmait de l'argent que personne n'a touché.
+         */
+        if isPending, amount > 0 { return true }
         let calendar = Calendar(identifier: .gregorian)
         return calendar.startOfDay(for: day) > calendar.startOfDay(for: Date())
     }

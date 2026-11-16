@@ -1783,9 +1783,11 @@ struct MerchantNameTests {
 struct AnnouncedTests {
     private let mine: Set<String> = ["FR7612345678901234567890123"]
 
-    private func row(_ payee: String, on day: String, pending: Bool = false) -> Transaction {
+    private func row(
+        _ payee: String, on day: String, pending: Bool = false, amount: Double = 2_400
+    ) -> Transaction {
         Transaction(
-            id: UUID().uuidString, date: day, amount: 2_400, payee: payee, memo: nil,
+            id: UUID().uuidString, date: day, amount: amount, payee: payee, memo: nil,
             categoryName: nil, categoryEmoji: nil, accountName: "Compte courant",
             isTransfer: false, needsReview: false, isPending: pending, isScheduled: false
         )
@@ -1847,15 +1849,30 @@ struct AnnouncedTests {
      */
     @Test("a card still pending today has already been spent")
     func pendingTodayIsSpent() {
-        let charge = row("ACHAT CB SUPERETTE EXEMPLE", on: today, pending: true)
+        let charge = row("ACHAT CB SUPERETTE EXEMPLE", on: today, pending: true, amount: -24)
         #expect(charge.isUpcoming(among: mine))
         #expect(!charge.isToCome(among: mine))
     }
 
     @Test("the same charge dated tomorrow is still to come")
     func pendingTomorrowIsToCome() {
-        #expect(row("ACHAT CB SUPERETTE EXEMPLE", on: "2099-01-01", pending: true)
+        #expect(row("ACHAT CB SUPERETTE EXEMPLE", on: "2099-01-01", pending: true, amount: -24)
             .isToCome(among: mine))
+    }
+
+    /*
+     * Une entrée en prévision n'a rien apporté.
+     *
+     * Une attente de remboursement porte la date du jour où l'on s'est mis à
+     * attendre. Comptée dans la journée, elle y ajoutait un argent que
+     * personne n'a reçu — et le total du jour passait au vert un jour où
+     * l'on n'avait fait que dépenser.
+     */
+    @Test("an incoming amount still pending today has not arrived")
+    func pendingCreditTodayIsToCome() {
+        let refund = row("Boutique", on: today, pending: true, amount: 89.64)
+        #expect(refund.isUpcoming(among: mine))
+        #expect(refund.isToCome(among: mine))
     }
 
     /// L'annonce garde son exception : la date est arrivée, le mouvement non.
