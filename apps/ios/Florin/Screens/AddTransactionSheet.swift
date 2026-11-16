@@ -790,8 +790,15 @@ struct AddTransactionSheet: View {
              * Le champ reste modifiable, et c'est tout son intérêt : une
              * attente saisie dix jours après l'achat se recale sur le jour
              * de l'achat, et le mois de patience se compte à partir de là.
+             *
+             * Et seulement tant que l'attente dure. Rendu sur-le-champ, le
+             * remboursement a une date connue : « En prévision » s'éteint,
+             * la ligne redevient une entrée ordinaire de sa journée — et le
+             * mot redevient « Date », puisque c'est de nouveau le jour où
+             * l'argent a bougé. L'interrupteur qui existe déjà dit donc les
+             * deux cas, et il n'y a rien à choisir en plus.
              */
-            let awaited = memo == t("v2.refund.memo", "Remboursement attendu")
+            let awaited = upcoming && memo == t("v2.refund.memo", "Remboursement attendu")
             pickerRow(
                 symbol: awaited ? "hourglass" : "calendar",
                 label: awaited

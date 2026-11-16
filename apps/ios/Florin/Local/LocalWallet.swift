@@ -746,6 +746,9 @@ enum LocalWallet {
             SELECT count(*) FROM transactions
             WHERE source = ? AND deleted_at IS NULL AND amount > 0
               AND merge_suggested_tx_id IS NULL
+              -- Et qui attend ENCORE : rendu sur-le-champ, on éteint « en
+              -- prévision », et une ligne reçue n'est pas en retard.
+              AND is_pending = 1
               AND julianday(substr(occurred_at, 1, 10)) <= julianday('now') - ?
             """,
             [.text(source), .real(lateRefundGrace)]
