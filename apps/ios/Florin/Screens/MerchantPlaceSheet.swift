@@ -35,6 +35,10 @@ struct MerchantPlaceSheet: View {
     @State private var locating = false
     @State private var failure: String?
     @State private var confirmingRemoval = false
+    /// Sous quelle identité le point sera écrit, et combien d'opérations il
+    /// éclairera. Voir `covers`.
+    @State private var identity = ""
+    @State private var reach = 0
 
     var body: some View {
         NavigationStack {
@@ -108,6 +112,7 @@ struct MerchantPlaceSheet: View {
 
     private var controls: some View {
         VStack(spacing: 10) {
+            covers
             SheetAction(
                 label: t("v2.places.save", "Enregistrer ici"),
                 symbol: "mappin.and.ellipse", prominent: true, large: true
@@ -142,6 +147,31 @@ struct MerchantPlaceSheet: View {
         .padding(.bottom, 20)
     }
 
+    /*
+     * Dire sous quel nom le point s'écrit, parce que ce n'est pas celui du titre.
+     *
+     * Une chaîne a plusieurs boutiques, et le relevé les nomme : « Tigre -
+     * Toscan », « Tigre - Pozzet ». L'épingle appartient à CETTE identité-là,
+     * pas à l'enseigne — sinon un point posé devant une boutique
+     * prétendrait valoir pour les six autres, à des kilomètres. Le titre de
+     * la feuille, lui, porte le nom d'affichage, qui est le même pour
+     * toutes. Sans cette ligne, on pose un point en croyant couvrir tout
+     * Tigre, et on ne couvre que les relevés qui ne nomment aucune boutique.
+     */
+    @ViewBuilder
+    private var covers: some View {
+        if !identity.isEmpty {
+            Text(t(
+                "v2.places.covers", "Couvre {name} · {count} opérations",
+                ["name": identity, "count": reach]
+            ))
+            .font(.system(size: 13))
+            .foregroundStyle(Florin.text2)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
+        }
+    }
+
     // MARK: - Les gestes
 
     /// L'épingle existante si elle existe, sinon là où l'on est — et si le
@@ -150,6 +180,9 @@ struct MerchantPlaceSheet: View {
     private func start() {
         guard let store = LocalStore.shared else { return }
         pinned = LocalPlaces.pinned(store: store, payee: payee)
+        let key = MerchantNames.key(payee)
+        identity = MerchantNames.shared.name(forKey: key) ?? PayeeText.humanize(key)
+        reach = MerchantNames.shared.usage(ofKey: key)
         if let known = LocalPlaces.coordinate(store: store, payee: payee) {
             show(known)
         } else if let fix = LocalPlaces.lastKnown {

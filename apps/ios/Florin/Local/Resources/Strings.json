@@ -1026,7 +1026,8 @@
     "v2.places.offTitle": "Places are off.",
     "v2.analysis.tab.places": "Map",
     "v2.analysis.placesWindow": "Spent at pinned places",
-    "v2.analysis.placesCount": "{count} places"
+    "v2.analysis.placesCount": "{count} places",
+    "v2.places.covers": "Covers {name} · {count} transactions"
   },
   "fr": {
     "v2.refund.lateOne": "1 remboursement en retard",
@@ -2055,7 +2056,8 @@
     "v2.places.offTitle": "Les lieux sont éteints.",
     "v2.analysis.tab.places": "Carte",
     "v2.analysis.placesWindow": "Dépensé dans les lieux épinglés",
-    "v2.analysis.placesCount": "{count} lieux"
+    "v2.analysis.placesCount": "{count} lieux",
+    "v2.places.covers": "Couvre {name} · {count} opérations"
   },
   "nl": {
     "v2.refund.lateOne": "1 terugbetaling te laat",
@@ -3084,7 +3086,8 @@
     "v2.places.offTitle": "Locaties staan uit.",
     "v2.analysis.tab.places": "Kaart",
     "v2.analysis.placesWindow": "Uitgegeven op vastgezette locaties",
-    "v2.analysis.placesCount": "{count} locaties"
+    "v2.analysis.placesCount": "{count} locaties",
+    "v2.places.covers": "Geldt voor {name} · {count} transacties"
   },
   "it": {
     "v2.refund.lateOne": "1 rimborso in ritardo",
@@ -4113,7 +4116,8 @@
     "v2.places.offTitle": "I luoghi sono disattivati.",
     "v2.analysis.tab.places": "Mappa",
     "v2.analysis.placesWindow": "Speso nei luoghi segnati",
-    "v2.analysis.placesCount": "{count} luoghi"
+    "v2.analysis.placesCount": "{count} luoghi",
+    "v2.places.covers": "Vale per {name} · {count} operazioni"
   },
   "es": {
     "v2.refund.lateOne": "1 reembolso pendiente",
@@ -5142,7 +5146,8 @@
     "v2.places.offTitle": "Los lugares están desactivados.",
     "v2.analysis.tab.places": "Mapa",
     "v2.analysis.placesWindow": "Gastado en lugares marcados",
-    "v2.analysis.placesCount": "{count} lugares"
+    "v2.analysis.placesCount": "{count} lugares",
+    "v2.places.covers": "Cubre {name} · {count} operaciones"
   },
   "ca": {
     "v2.refund.lateOne": "1 reemborsament pendent",
@@ -6171,7 +6176,8 @@
     "v2.places.offTitle": "Els llocs estan desactivats.",
     "v2.analysis.tab.places": "Mapa",
     "v2.analysis.placesWindow": "Gastat als llocs marcats",
-    "v2.analysis.placesCount": "{count} llocs"
+    "v2.analysis.placesCount": "{count} llocs",
+    "v2.places.covers": "Cobreix {name} · {count} operacions"
   },
   "de": {
     "v2.refund.lateOne": "1 Erstattung überfällig",
@@ -7200,7 +7206,8 @@
     "v2.places.offTitle": "Orte sind deaktiviert.",
     "v2.analysis.tab.places": "Karte",
     "v2.analysis.placesWindow": "Ausgegeben an markierten Orten",
-    "v2.analysis.placesCount": "{count} Orte"
+    "v2.analysis.placesCount": "{count} Orte",
+    "v2.places.covers": "Gilt für {name} · {count} Buchungen"
   },
   "pt": {
     "v2.refund.lateOne": "1 reembolso em atraso",
@@ -8229,7 +8236,8 @@
     "v2.places.offTitle": "Os locais estão desativados.",
     "v2.analysis.tab.places": "Mapa",
     "v2.analysis.placesWindow": "Gasto nos locais marcados",
-    "v2.analysis.placesCount": "{count} locais"
+    "v2.analysis.placesCount": "{count} locais",
+    "v2.places.covers": "Abrange {name} · {count} operações"
   },
   "tr": {
     "v2.refund.lateOne": "1 geri ödeme gecikti",
@@ -9258,6 +9266,7 @@
     "v2.places.offTitle": "Konumlar kapalı.",
     "v2.analysis.tab.places": "Harita",
     "v2.analysis.placesWindow": "İğnelenen yerlerde harcanan",
-    "v2.analysis.placesCount": "{count} yer"
+    "v2.analysis.placesCount": "{count} yer",
+    "v2.places.covers": "{name} · {count} işlemi kapsar"
   }
 }
