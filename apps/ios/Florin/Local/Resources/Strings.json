@@ -1027,7 +1027,12 @@
     "v2.analysis.tab.places": "Map",
     "v2.analysis.placesWindow": "Spent at pinned places",
     "v2.analysis.placesCount": "{count} places",
-    "v2.places.covers": "Covers {name} · {count} transactions"
+    "v2.places.covers": "Covers {name} · {count} transactions",
+    "v2.places.firstVisit": "First visit",
+    "v2.places.lastVisit": "Last visit",
+    "v2.places.average": "Average basket",
+    "v2.places.identity": "Identity",
+    "v2.places.edit": "Edit the pin"
   },
   "fr": {
     "v2.refund.lateOne": "1 remboursement en retard",
@@ -2057,7 +2062,12 @@
     "v2.analysis.tab.places": "Carte",
     "v2.analysis.placesWindow": "Dépensé dans les lieux épinglés",
     "v2.analysis.placesCount": "{count} lieux",
-    "v2.places.covers": "Couvre {name} · {count} opérations"
+    "v2.places.covers": "Couvre {name} · {count} opérations",
+    "v2.places.firstVisit": "Première visite",
+    "v2.places.lastVisit": "Dernière visite",
+    "v2.places.average": "Panier moyen",
+    "v2.places.identity": "Identité",
+    "v2.places.edit": "Modifier l'épingle"
   },
   "nl": {
     "v2.refund.lateOne": "1 terugbetaling te laat",
@@ -3087,7 +3097,12 @@
     "v2.analysis.tab.places": "Kaart",
     "v2.analysis.placesWindow": "Uitgegeven op vastgezette locaties",
     "v2.analysis.placesCount": "{count} locaties",
-    "v2.places.covers": "Geldt voor {name} · {count} transacties"
+    "v2.places.covers": "Geldt voor {name} · {count} transacties",
+    "v2.places.firstVisit": "Eerste bezoek",
+    "v2.places.lastVisit": "Laatste bezoek",
+    "v2.places.average": "Gemiddeld bedrag",
+    "v2.places.identity": "Identiteit",
+    "v2.places.edit": "Speld bewerken"
   },
   "it": {
     "v2.refund.lateOne": "1 rimborso in ritardo",
@@ -4117,7 +4132,12 @@
     "v2.analysis.tab.places": "Mappa",
     "v2.analysis.placesWindow": "Speso nei luoghi segnati",
     "v2.analysis.placesCount": "{count} luoghi",
-    "v2.places.covers": "Vale per {name} · {count} operazioni"
+    "v2.places.covers": "Vale per {name} · {count} operazioni",
+    "v2.places.firstVisit": "Prima visita",
+    "v2.places.lastVisit": "Ultima visita",
+    "v2.places.average": "Scontrino medio",
+    "v2.places.identity": "Identità",
+    "v2.places.edit": "Modifica il segnaposto"
   },
   "es": {
     "v2.refund.lateOne": "1 reembolso pendiente",
@@ -5147,7 +5167,12 @@
     "v2.analysis.tab.places": "Mapa",
     "v2.analysis.placesWindow": "Gastado en lugares marcados",
     "v2.analysis.placesCount": "{count} lugares",
-    "v2.places.covers": "Cubre {name} · {count} operaciones"
+    "v2.places.covers": "Cubre {name} · {count} operaciones",
+    "v2.places.firstVisit": "Primera visita",
+    "v2.places.lastVisit": "Última visita",
+    "v2.places.average": "Cesta media",
+    "v2.places.identity": "Identidad",
+    "v2.places.edit": "Editar el marcador"
   },
   "ca": {
     "v2.refund.lateOne": "1 reemborsament pendent",
@@ -6177,7 +6202,12 @@
     "v2.analysis.tab.places": "Mapa",
     "v2.analysis.placesWindow": "Gastat als llocs marcats",
     "v2.analysis.placesCount": "{count} llocs",
-    "v2.places.covers": "Cobreix {name} · {count} operacions"
+    "v2.places.covers": "Cobreix {name} · {count} operacions",
+    "v2.places.firstVisit": "Primera visita",
+    "v2.places.lastVisit": "Darrera visita",
+    "v2.places.average": "Cistella mitjana",
+    "v2.places.identity": "Identitat",
+    "v2.places.edit": "Edita el marcador"
   },
   "de": {
     "v2.refund.lateOne": "1 Erstattung überfällig",
@@ -7207,7 +7237,12 @@
     "v2.analysis.tab.places": "Karte",
     "v2.analysis.placesWindow": "Ausgegeben an markierten Orten",
     "v2.analysis.placesCount": "{count} Orte",
-    "v2.places.covers": "Gilt für {name} · {count} Buchungen"
+    "v2.places.covers": "Gilt für {name} · {count} Buchungen",
+    "v2.places.firstVisit": "Erster Besuch",
+    "v2.places.lastVisit": "Letzter Besuch",
+    "v2.places.average": "Durchschnittlicher Einkauf",
+    "v2.places.identity": "Identität",
+    "v2.places.edit": "Markierung bearbeiten"
   },
   "pt": {
     "v2.refund.lateOne": "1 reembolso em atraso",
@@ -8237,7 +8272,12 @@
     "v2.analysis.tab.places": "Mapa",
     "v2.analysis.placesWindow": "Gasto nos locais marcados",
     "v2.analysis.placesCount": "{count} locais",
-    "v2.places.covers": "Abrange {name} · {count} operações"
+    "v2.places.covers": "Abrange {name} · {count} operações",
+    "v2.places.firstVisit": "Primeira visita",
+    "v2.places.lastVisit": "Última visita",
+    "v2.places.average": "Cesto médio",
+    "v2.places.identity": "Identidade",
+    "v2.places.edit": "Editar o marcador"
   },
   "tr": {
     "v2.refund.lateOne": "1 geri ödeme gecikti",
@@ -9267,6 +9307,11 @@
     "v2.analysis.tab.places": "Harita",
     "v2.analysis.placesWindow": "İğnelenen yerlerde harcanan",
     "v2.analysis.placesCount": "{count} yer",
-    "v2.places.covers": "{name} · {count} işlemi kapsar"
+    "v2.places.covers": "{name} · {count} işlemi kapsar",
+    "v2.places.firstVisit": "İlk ziyaret",
+    "v2.places.lastVisit": "Son ziyaret",
+    "v2.places.average": "Ortalama sepet",
+    "v2.places.identity": "Kimlik",
+    "v2.places.edit": "İğneyi düzenle"
   }
 }

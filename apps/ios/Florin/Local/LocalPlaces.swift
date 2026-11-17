@@ -142,6 +142,10 @@ enum LocalPlaces {
         /// Combien de passages, et combien dépensé, chez ce marchand.
         let visits: Int
         let spent: Double
+        /// La première et la dernière fois — « depuis mars dernier » dit
+        /// quelque chose qu'un total ne dit pas.
+        let first: Date?
+        let last: Date?
         var id: String { key }
     }
 
@@ -159,14 +163,36 @@ enum LocalPlaces {
             "SELECT match_key, lat, lon FROM merchant_places"
         )) ?? []
         guard !pins.isEmpty else { return [] }
+        /*
+         * On groupe par LIBELLÉ, et c'est la clé du libellé qu'on compare.
+         *
+         * Le regroupement se faisait sur `normalized_payee`, qui est le
+         * relevé entier normalisé — date, montant et numéro de carte
+         * compris. Donc un libellé par achat, et une clé de marchand qui
+         * n'y ressemblait jamais : « tigre » ne retrouvait que les quatre
+         * lignes saisies à la main sous ce nom, pas les cent vingt-cinq du
+         * relevé. La carte annonçait « 4 passages » pour un marchand qu'on
+         * visite deux fois par semaine, et « 0 passage » pour tous ceux que
+         * la banque nomme à sa façon.
+         *
+         * La clé se calcule donc en Swift, une fois par libellé distinct —
+         * comme dans `MerchantNames.usage(ofKey:)`, pour la même raison.
+         */
         let spending = (try? store.database.query(
             """
-            SELECT normalized_payee AS k, count(*) AS n, sum(amount) AS total
+            SELECT payee, count(*) AS n, sum(amount) AS total,
+                   min(occurred_at) AS first_at, max(occurred_at) AS last_at
               FROM transactions
-             WHERE deleted_at IS NULL AND amount < 0 AND normalized_payee <> ''
-             GROUP BY normalized_payee
+             WHERE deleted_at IS NULL AND amount < 0 AND payee <> ''
+             GROUP BY payee
             """
         )) ?? []
+        let folded: [(key: String, row: SQLiteRow)] = spending.compactMap { row in
+            guard let payee = row.string("payee") else { return nil }
+            let key = MerchantNames.key(payee)
+            return key.isEmpty ? nil : (key, row)
+        }
+
         let names = MerchantNames.shared
         return pins.compactMap { pin in
             guard let key = pin.string("match_key"),
@@ -174,20 +200,36 @@ enum LocalPlaces {
             let twins = names.keysNaming(key)
             var visits = 0
             var spent = 0.0
-            for row in spending {
-                guard let other = row.string("k") else { continue }
-                guard MerchantNames.sameMerchant(key, other)
-                    || twins.contains(where: { MerchantNames.sameMerchant($0, other) })
+            var first: Date?
+            var last: Date?
+            for entry in folded {
+                guard MerchantNames.sameMerchant(key, entry.key)
+                    || twins.contains(where: { MerchantNames.sameMerchant($0, entry.key) })
                 else { continue }
-                visits += row.int("n") ?? 0
-                spent += abs(row.double("total") ?? 0)
+                visits += entry.row.int("n") ?? 0
+                spent += abs(entry.row.double("total") ?? 0)
+                if let begin = entry.row.string("first_at").flatMap(day) {
+                    first = min(first ?? begin, begin)
+                }
+                if let end = entry.row.string("last_at").flatMap(day) {
+                    last = max(last ?? end, end)
+                }
             }
             return Place(
-                key: key, name: names.name(forKey: key) ?? PayeeText.humanize(key),
-                lat: lat, lon: lon, visits: visits, spent: spent
+                key: key, name: names.name(forKey: key) ?? PayeeText.bankName(key.uppercased()),
+                lat: lat, lon: lon, visits: visits, spent: spent, first: first, last: last
             )
         }
         .sorted { $0.spent > $1.spent }
+    }
+
+    /// Les dates sont stockées en ISO, parfois avec l'heure, parfois sans.
+    private static func day(_ iso: String) -> Date? {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "UTC")
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.date(from: String(iso.prefix(10)))
     }
 }
 

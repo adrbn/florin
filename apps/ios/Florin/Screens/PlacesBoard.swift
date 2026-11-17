@@ -25,6 +25,8 @@ struct PlacesBoard: View {
     @Binding var places: [LocalPlaces.Place]
 
     @State private var enabled = LocalPlaces.enabled
+    /// La fiche d'un lieu, ouverte en touchant sa ligne.
+    @State private var opened: LocalPlaces.Place?
     @State private var camera: MapCameraPosition = .automatic
     @State private var span: MKCoordinateSpan?
     @State private var focused: String?
@@ -43,6 +45,9 @@ struct PlacesBoard: View {
             }
         }
         .task { reload() }
+        .sheet(item: $opened, onDismiss: { reload() }) { place in
+            MerchantPlaceDetail(place: place, locale: locale, currency: currency, t: t)
+        }
     }
 
     private func reload() {
@@ -202,9 +207,17 @@ struct PlacesBoard: View {
         .padding(.top, 2)
     }
 
+    /*
+     * La ligne ouvre la fiche, la bulle recadre.
+     *
+     * Recadrer était tout ce que la ligne savait faire, alors que la carte
+     * juste au-dessus le fait déjà d'une tape sur le point. Ce qu'on
+     * cherche en touchant un nom, c'est ce qu'il y a derrière.
+     */
     private func row(_ place: LocalPlaces.Place) -> some View {
         Button {
             focus(Cluster(center: place.coordinate, spent: place.spent, places: [place]))
+            opened = place
         } label: {
             HStack(spacing: 12) {
                 let face = MerchantLogos.shared.face(forKey: place.key)
