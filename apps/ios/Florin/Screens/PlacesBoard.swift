@@ -108,7 +108,26 @@ struct PlacesBoard: View {
             }
         }
         .mapStyle(.standard(pointsOfInterest: .excludingAll))
+        /*
+         * La vue nourrit le regroupement, qui nourrit la vue.
+         *
+         * Les épingles sont groupées d'après l'échelle ; changer de groupes
+         * change les annotations ; changer les annotations fait bouger la
+         * carte d'un cheveu ; la carte annonce une nouvelle échelle. En
+         * feuille modale la boucle se fermait sur elle-même au bout d'un
+         * tour, dans un `ScrollView` elle ne s'arrêtait plus — l'écran
+         * gelait avant de s'afficher.
+         *
+         * On ne retient donc que les changements d'échelle RÉELS, un
+         * dixième au moins : le jeu d'un pixel ne redessine plus rien.
+         */
         .onMapCameraChange(frequency: .onEnd) { context in
+            let now = context.region.span.latitudeDelta
+            guard let before = span?.latitudeDelta else {
+                span = context.region.span
+                return
+            }
+            guard abs(now - before) > before * 0.1 else { return }
             span = context.region.span
         }
         .frame(height: 320)
@@ -255,7 +274,17 @@ struct PlacesBoard: View {
         static func group(
             _ places: [LocalPlaces.Place], span: MKCoordinateSpan?
         ) -> [Cluster] {
-            let cell = max((span?.latitudeDelta ?? 0.4) / 10, 0.00002)
+            /*
+             * Une maille par CRAN, pas par pixel.
+             *
+             * Déduite telle quelle de l'échelle, la maille changeait à
+             * chaque frémissement de la carte : les groupes se refaisaient,
+             * donc les annotations, donc la carte bougeait. La maille se
+             * cale maintenant sur la puissance de deux la plus proche, si
+             * bien qu'un zoom doit vraiment doubler pour la faire changer.
+             */
+            let raw = max((span?.latitudeDelta ?? 0.4) / 10, 0.00002)
+            let cell = pow(2, (log2(raw)).rounded())
             var bins: [String: [LocalPlaces.Place]] = [:]
             for place in places {
                 let key = "\(Int((place.lat / cell).rounded()))|\(Int((place.lon / cell).rounded()))"
