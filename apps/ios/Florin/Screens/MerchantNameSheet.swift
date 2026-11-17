@@ -37,6 +37,9 @@ struct MerchantNameSheet: View {
     @State private var picture: UIImage?
     @State private var picked: PhotosPickerItem?
     @State private var pictureChanged = false
+    /// La feuille de Contacts, ouverte à la demande. Voir `ContactPicker` :
+    /// elle ne demande aucune permission et ne rend qu'un contact.
+    @State private var pickingContact = false
     /// Une adresse d'image collée, et le téléchargement en cours.
     @State private var askingURL = false
     @State private var pastedURL = ""
@@ -206,6 +209,30 @@ struct MerchantNameSheet: View {
                              * photothèque — `setPicture` ne sait pas d'où
                              * l'image vient et n'a pas à le savoir.
                              */
+                            /*
+                             * Une personne n'a ni site ni logo : elle a une
+                             * tête, et elle est déjà dans le téléphone.
+                             *
+                             * Les lignes de gens — l'addition qu'on partage,
+                             * l'argent qu'on se rend — arrivaient sous un
+                             * prénom nu, à qui il fallait ensuite trouver une
+                             * image dans la photothèque. Le carnet en a déjà
+                             * une, et le nom avec : la feuille remplit les
+                             * deux d'un geste. Voir `ContactPicker` pour ce
+                             * qu'elle lit — ce contact-là, et rien d'autre.
+                             */
+                            Button { pickingContact = true } label: {
+                                Image(systemName: "person.crop.circle")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundStyle(Florin.text)
+                                    .frame(width: 46, height: 46)
+                                    .florinGlass(in: Circle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(
+                                t("v2.merchant.pictureContact", "Depuis mes contacts")
+                            )
+
                             Button { askingURL = true } label: {
                                 Image(systemName: fetching ? "arrow.down.circle" : "link")
                                     .font(.system(size: 15, weight: .medium))
@@ -235,6 +262,9 @@ struct MerchantNameSheet: View {
                         Text(t(
                             "v2.merchant.pictureHint",
                             "Recadrée au carré et compressée. Elle passe avant le site et l'emoji."
+                        ) + " " + t(
+                            "v2.merchant.pictureContactHint",
+                            "Un contact donne son nom et sa photo ; Florin ne lit que celui que vous choisissez."
                         ))
                         .font(.system(size: 12.5))
                         .foregroundStyle(Florin.text3)
@@ -314,6 +344,22 @@ struct MerchantNameSheet: View {
             else { return }
             picture = image
             pictureChanged = true
+        }
+        .sheet(isPresented: $pickingContact) {
+            ContactPicker { chosen, image in
+                // Le nom d'abord, et seulement s'il y en a un : un contact
+                // sans prénom ni nom ne doit pas effacer celui qu'on a tapé.
+                let clean = chosen.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !clean.isEmpty { name = clean }
+                // La photo quand le carnet en a une. Sinon le nom suffit, et
+                // la bulle garde ses initiales — c'est déjà ce qu'elle fait.
+                if let image {
+                    picture = image
+                    picked = nil
+                    pictureChanged = true
+                }
+            }
+            .ignoresSafeArea()
         }
         .alert(
             t("v2.merchant.pictureURL", "Adresse de l'image"),
