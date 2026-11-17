@@ -65,7 +65,6 @@ struct SettingsScreen: View {
     @State private var showingCategories = false
     @State private var showingMerchants = false
     @State private var showingFiling = false
-    @State private var showingPlaces = false
     @State private var placesOn = LocalPlaces.enabled
     @State private var showingTrash = false
     @State private var showingWalletGuide = false
@@ -148,13 +147,6 @@ struct SettingsScreen: View {
             .sheet(isPresented: $showingMerchants) { MerchantsScreen(t: t) }
             .sheet(isPresented: $showingFiling) {
                 FilingScreen(
-                    locale: model.overview?.localeTag ?? "fr-FR",
-                    currency: model.overview?.currency ?? "EUR",
-                    t: t
-                )
-            }
-            .sheet(isPresented: $showingPlaces) {
-                PlacesScreen(
                     locale: model.overview?.localeTag ?? "fr-FR",
                     currency: model.overview?.currency ?? "EUR",
                     t: t
@@ -1531,13 +1523,14 @@ struct SettingsScreen: View {
             )
             Hairline()
             /*
-             * Le réglage d'abord, la carte ensuite.
+             * L'interrupteur seulement — la carte est dans Analyse.
              *
-             * La carte n'a de points que si le réglage est allumé, et
-             * l'allumer sans savoir ce qu'il fait serait exactement ce que
-             * l'app promet de ne pas faire. L'interrupteur demande
-             * l'autorisation système au moment où on le bascule — pas plus
-             * tôt, parce qu'une question posée sans raison se refuse.
+             * Ce qui se regarde est un écran, pas un réglage : une carte
+             * rangée ici ne se retrouve pas, et personne ne pense à venir
+             * la chercher derrière un engrenage. Reste ici ce qui est une
+             * permission, et elle demande l'autorisation système au moment
+             * où on la bascule — pas plus tôt, parce qu'une question posée
+             * sans raison se refuse.
              */
             Toggle(isOn: Binding(
                 get: { placesOn },
@@ -1560,14 +1553,6 @@ struct SettingsScreen: View {
             .tint(Florin.control)
             .padding(.horizontal, Florin.gutter)
             .padding(.vertical, 11)
-            if placesOn {
-                Hairline()
-                SettingsRow(
-                    label: t("v2.places.title", "Carte des marchands"),
-                    symbol: "map",
-                    action: { showingPlaces = true }
-                )
-            }
             Hairline()
             if local {
                 SettingsRow(

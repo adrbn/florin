@@ -1017,7 +1017,16 @@
     "v2.places.empty": "No places yet.",
     "v2.places.emptyHint": "At a merchant, open one of its transactions and tap “I'm here”: the pin covers its whole history.",
     "v2.places.footer": "Every pin comes from this device's GPS. No merchant name is sent anywhere.",
-    "v2.common.ok": "OK"
+    "v2.common.ok": "OK",
+    "v2.places.adjust": "Drag the map: the pin is at the centre.",
+    "v2.places.save": "Save this spot",
+    "v2.places.locate": "Locate me",
+    "v2.places.remove": "Remove the pin",
+    "v2.places.enable": "Turn places on",
+    "v2.places.offTitle": "Places are off.",
+    "v2.analysis.tab.places": "Map",
+    "v2.analysis.placesWindow": "Spent at pinned places",
+    "v2.analysis.placesCount": "{count} places"
   },
   "fr": {
     "v2.refund.lateOne": "1 remboursement en retard",
@@ -2037,7 +2046,16 @@
     "v2.places.empty": "Aucun lieu encore.",
     "v2.places.emptyHint": "Chez un marchand, ouvrez son opération et touchez « J'y suis » : son point vaudra pour tout son historique.",
     "v2.places.footer": "Chaque point vient du GPS de cet appareil. Aucun nom de marchand n'est envoyé nulle part.",
-    "v2.common.ok": "OK"
+    "v2.common.ok": "OK",
+    "v2.places.adjust": "Déplacez la carte : le point est au centre.",
+    "v2.places.save": "Enregistrer ici",
+    "v2.places.locate": "Me localiser",
+    "v2.places.remove": "Retirer l'épingle",
+    "v2.places.enable": "Activer les lieux",
+    "v2.places.offTitle": "Les lieux sont éteints.",
+    "v2.analysis.tab.places": "Carte",
+    "v2.analysis.placesWindow": "Dépensé dans les lieux épinglés",
+    "v2.analysis.placesCount": "{count} lieux"
   },
   "nl": {
     "v2.refund.lateOne": "1 terugbetaling te laat",
@@ -3057,7 +3075,16 @@
     "v2.places.empty": "Nog geen locaties.",
     "v2.places.emptyHint": "Open bij een winkelier een van zijn transacties en tik op ‘Ik ben hier’: de speld geldt voor zijn hele geschiedenis.",
     "v2.places.footer": "Elke speld komt van de gps van dit apparaat. Geen enkele winkeliersnaam wordt verstuurd.",
-    "v2.common.ok": "OK"
+    "v2.common.ok": "OK",
+    "v2.places.adjust": "Versleep de kaart: de speld staat in het midden.",
+    "v2.places.save": "Hier opslaan",
+    "v2.places.locate": "Zoek mij",
+    "v2.places.remove": "Speld verwijderen",
+    "v2.places.enable": "Locaties inschakelen",
+    "v2.places.offTitle": "Locaties staan uit.",
+    "v2.analysis.tab.places": "Kaart",
+    "v2.analysis.placesWindow": "Uitgegeven op vastgezette locaties",
+    "v2.analysis.placesCount": "{count} locaties"
   },
   "it": {
     "v2.refund.lateOne": "1 rimborso in ritardo",
@@ -4077,7 +4104,16 @@
     "v2.places.empty": "Ancora nessun luogo.",
     "v2.places.emptyHint": "Da un commerciante, apri una sua operazione e tocca «Sono qui»: il punto vale per tutta la sua cronologia.",
     "v2.places.footer": "Ogni punto viene dal GPS di questo dispositivo. Nessun nome di commerciante viene inviato.",
-    "v2.common.ok": "OK"
+    "v2.common.ok": "OK",
+    "v2.places.adjust": "Trascina la mappa: il punto è al centro.",
+    "v2.places.save": "Salva qui",
+    "v2.places.locate": "Localizzami",
+    "v2.places.remove": "Togli il segnaposto",
+    "v2.places.enable": "Attiva i luoghi",
+    "v2.places.offTitle": "I luoghi sono disattivati.",
+    "v2.analysis.tab.places": "Mappa",
+    "v2.analysis.placesWindow": "Speso nei luoghi segnati",
+    "v2.analysis.placesCount": "{count} luoghi"
   },
   "es": {
     "v2.refund.lateOne": "1 reembolso pendiente",
@@ -5097,7 +5133,16 @@
     "v2.places.empty": "Aún no hay lugares.",
     "v2.places.emptyHint": "En un comercio, abre una de sus operaciones y toca «Estoy aquí»: el punto vale para todo su historial.",
     "v2.places.footer": "Cada punto viene del GPS de este dispositivo. Ningún nombre de comercio se envía a ninguna parte.",
-    "v2.common.ok": "OK"
+    "v2.common.ok": "OK",
+    "v2.places.adjust": "Mueve el mapa: el punto está en el centro.",
+    "v2.places.save": "Guardar aquí",
+    "v2.places.locate": "Localizarme",
+    "v2.places.remove": "Quitar el marcador",
+    "v2.places.enable": "Activar los lugares",
+    "v2.places.offTitle": "Los lugares están desactivados.",
+    "v2.analysis.tab.places": "Mapa",
+    "v2.analysis.placesWindow": "Gastado en lugares marcados",
+    "v2.analysis.placesCount": "{count} lugares"
   },
   "ca": {
     "v2.refund.lateOne": "1 reemborsament pendent",
@@ -6117,7 +6162,16 @@
     "v2.places.empty": "Encara cap lloc.",
     "v2.places.emptyHint": "En un comerç, obre una de les seves operacions i toca «Hi sóc»: el punt val per a tot el seu historial.",
     "v2.places.footer": "Cada punt ve del GPS d'aquest dispositiu. Cap nom de comerç s'envia enlloc.",
-    "v2.common.ok": "D'acord"
+    "v2.common.ok": "D'acord",
+    "v2.places.adjust": "Mou el mapa: el punt és al centre.",
+    "v2.places.save": "Desa-ho aquí",
+    "v2.places.locate": "Localitza'm",
+    "v2.places.remove": "Treu el marcador",
+    "v2.places.enable": "Activa els llocs",
+    "v2.places.offTitle": "Els llocs estan desactivats.",
+    "v2.analysis.tab.places": "Mapa",
+    "v2.analysis.placesWindow": "Gastat als llocs marcats",
+    "v2.analysis.placesCount": "{count} llocs"
   },
   "de": {
     "v2.refund.lateOne": "1 Erstattung überfällig",
@@ -7137,7 +7191,16 @@
     "v2.places.empty": "Noch keine Orte.",
     "v2.places.emptyHint": "Öffne bei einem Händler eine seiner Buchungen und tippe auf „Ich bin hier“: Die Markierung gilt für seine gesamte Historie.",
     "v2.places.footer": "Jede Markierung stammt vom GPS dieses Geräts. Kein Händlername wird irgendwohin gesendet.",
-    "v2.common.ok": "OK"
+    "v2.common.ok": "OK",
+    "v2.places.adjust": "Karte verschieben: der Punkt liegt in der Mitte.",
+    "v2.places.save": "Hier sichern",
+    "v2.places.locate": "Mich orten",
+    "v2.places.remove": "Markierung entfernen",
+    "v2.places.enable": "Orte aktivieren",
+    "v2.places.offTitle": "Orte sind deaktiviert.",
+    "v2.analysis.tab.places": "Karte",
+    "v2.analysis.placesWindow": "Ausgegeben an markierten Orten",
+    "v2.analysis.placesCount": "{count} Orte"
   },
   "pt": {
     "v2.refund.lateOne": "1 reembolso em atraso",
@@ -8157,7 +8220,16 @@
     "v2.places.empty": "Ainda sem locais.",
     "v2.places.emptyHint": "Num comerciante, abra uma das suas operações e toque em «Estou aqui»: o ponto vale para todo o histórico.",
     "v2.places.footer": "Cada ponto vem do GPS deste aparelho. Nenhum nome de comerciante é enviado.",
-    "v2.common.ok": "OK"
+    "v2.common.ok": "OK",
+    "v2.places.adjust": "Arraste o mapa: o ponto está no centro.",
+    "v2.places.save": "Guardar aqui",
+    "v2.places.locate": "Localizar-me",
+    "v2.places.remove": "Remover o marcador",
+    "v2.places.enable": "Ativar os locais",
+    "v2.places.offTitle": "Os locais estão desativados.",
+    "v2.analysis.tab.places": "Mapa",
+    "v2.analysis.placesWindow": "Gasto nos locais marcados",
+    "v2.analysis.placesCount": "{count} locais"
   },
   "tr": {
     "v2.refund.lateOne": "1 geri ödeme gecikti",
@@ -9177,6 +9249,15 @@
     "v2.places.empty": "Henüz konum yok.",
     "v2.places.emptyHint": "Bir satıcıdayken işlemlerinden birini açıp “Buradayım”a dokunun: iğne tüm geçmişi kapsar.",
     "v2.places.footer": "Her iğne bu cihazın GPS'inden gelir. Hiçbir satıcı adı hiçbir yere gönderilmez.",
-    "v2.common.ok": "Tamam"
+    "v2.common.ok": "Tamam",
+    "v2.places.adjust": "Haritayı kaydırın: nokta ortadadır.",
+    "v2.places.save": "Buraya kaydet",
+    "v2.places.locate": "Beni bul",
+    "v2.places.remove": "İğneyi kaldır",
+    "v2.places.enable": "Konumları aç",
+    "v2.places.offTitle": "Konumlar kapalı.",
+    "v2.analysis.tab.places": "Harita",
+    "v2.analysis.placesWindow": "İğnelenen yerlerde harcanan",
+    "v2.analysis.placesCount": "{count} yer"
   }
 }

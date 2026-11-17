@@ -63,11 +63,41 @@ enum LocalPlaces {
 
     // MARK: - Écrire
 
+    /*
+     * Sous quelle clé l'épingle de ce marchand est-elle rangée ?
+     *
+     * Celle du libellé d'aujourd'hui, ou une voisine : la caisse rallonge,
+     * la banque tronque, et `sameMerchant` tranche. Sans ce détour, poser
+     * une épingle depuis une variante du libellé en créait une DEUXIÈME
+     * pour le même marchand, et la retirer depuis la première ne retirait
+     * jamais la bonne.
+     */
+    private static func storedKey(store: LocalStore, key: String) -> String? {
+        guard !key.isEmpty else { return nil }
+        let keys = (try? store.database.query("SELECT match_key FROM merchant_places")) ?? []
+        return keys.compactMap { $0.string("match_key") }
+            .first { MerchantNames.sameMerchant($0, key) }
+    }
+
     /// Pose, ou déplace, l'épingle de ce marchand.
     @discardableResult
     static func remember(store: LocalStore, payee: String, at fix: CLLocation?) -> Bool {
-        let key = MerchantNames.key(payee)
-        guard enabled, !key.isEmpty, let fix, usable(fix) else { return false }
+        guard enabled, let fix, usable(fix) else { return false }
+        return set(
+            store: store, payee: payee,
+            lat: fix.coordinate.latitude, lon: fix.coordinate.longitude,
+            accuracy: fix.horizontalAccuracy
+        )
+    }
+
+    /// Écrit un point choisi — relevé GPS, ou ajusté à la main sur la carte.
+    @discardableResult
+    static func set(
+        store: LocalStore, payee: String, lat: Double, lon: Double, accuracy: Double
+    ) -> Bool {
+        let fresh = MerchantNames.key(payee)
+        guard enabled, !fresh.isEmpty else { return false }
+        let key = storedKey(store: store, key: fresh) ?? fresh
         try? store.database.run(
             """
             INSERT INTO merchant_places (match_key, lat, lon, accuracy, updated_at)
@@ -76,28 +106,30 @@ enum LocalPlaces {
               SET lat = excluded.lat, lon = excluded.lon,
                   accuracy = excluded.accuracy, updated_at = excluded.updated_at
             """,
-            [
-                .text(key), .real(fix.coordinate.latitude), .real(fix.coordinate.longitude),
-                .real(fix.horizontalAccuracy),
-            ]
+            [.text(key), .real(lat), .real(lon), .real(accuracy)]
         )
         return true
     }
 
     static func forget(store: LocalStore, payee: String) {
-        let key = MerchantNames.key(payee)
-        guard !key.isEmpty else { return }
+        guard let key = storedKey(store: store, key: MerchantNames.key(payee)) else { return }
         try? store.database.run("DELETE FROM merchant_places WHERE match_key = ?", [.text(key)])
+    }
+
+    /// Où est l'épingle de ce marchand, s'il en a une.
+    static func coordinate(store: LocalStore, payee: String) -> CLLocationCoordinate2D? {
+        guard let key = storedKey(store: store, key: MerchantNames.key(payee)),
+              let row = (try? store.database.query(
+                  "SELECT lat, lon FROM merchant_places WHERE match_key = ?", [.text(key)]
+              ))?.first,
+              let lat = row.double("lat"), let lon = row.double("lon")
+        else { return nil }
+        return CLLocationCoordinate2D(latitude: lat, longitude: lon)
     }
 
     /// Ce marchand a-t-il déjà une épingle ? Sous sa clé ou sous une voisine.
     static func pinned(store: LocalStore, payee: String) -> Bool {
-        let key = MerchantNames.key(payee)
-        guard !key.isEmpty else { return false }
-        let keys = (try? store.database.query("SELECT match_key FROM merchant_places")) ?? []
-        return keys.compactMap { $0.string("match_key") }.contains {
-            MerchantNames.sameMerchant($0, key)
-        }
+        storedKey(store: store, key: MerchantNames.key(payee)) != nil
     }
 
     // MARK: - Lire

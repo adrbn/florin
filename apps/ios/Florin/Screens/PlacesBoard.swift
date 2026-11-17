@@ -15,13 +15,16 @@ import SwiftUI
  * travers de l'écran, quelle que soit l'échelle — donc le regroupement se
  * défait en zoomant, sans seuil à régler.
  */
-struct PlacesScreen: View {
+struct PlacesBoard: View {
     let locale: String
     let currency: String
     let t: Strings
+    /// Le parent garde la liste : son titre en grand compte les mêmes lieux
+    /// et somme les mêmes dépenses, et deux lectures de la base donneraient
+    /// deux réponses le temps d'une épingle posée.
+    @Binding var places: [LocalPlaces.Place]
 
-    @Environment(\.dismiss) private var dismiss
-    @State private var places: [LocalPlaces.Place] = []
+    @State private var enabled = LocalPlaces.enabled
     @State private var camera: MapCameraPosition = .automatic
     @State private var span: MKCoordinateSpan?
     @State private var focused: String?
@@ -29,31 +32,67 @@ struct PlacesScreen: View {
     private var clusters: [Cluster] { Cluster.group(places, span: span) }
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                if places.isEmpty {
-                    empty
-                } else {
-                    map
-                    list
-                }
-            }
-            .navigationTitle(t("v2.places.title", "Carte des marchands"))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(t("v2.common.close", "Fermer")) { dismiss() }
-                }
+        VStack(spacing: 0) {
+            if !enabled {
+                off
+            } else if places.isEmpty {
+                empty
+            } else {
+                map
+                list
             }
         }
-        .presentationBackground { Backdrop(tint: TabRoute.settings.tint, floor: true) }
-        .presentationDetents([.large])
         .task { reload() }
     }
 
     private func reload() {
-        guard let store = LocalStore.shared else { return }
+        enabled = LocalPlaces.enabled
+        guard enabled, let store = LocalStore.shared else {
+            places = []
+            return
+        }
         places = LocalPlaces.all(store: store)
+    }
+
+    /*
+     * Éteint, l'écran dit comment l'allumer — et l'allume.
+     *
+     * Renvoyer vers les réglages pour un interrupteur qu'on vient de
+     * chercher est une porte de plus à ouvrir pour rien. La question du
+     * système se pose au moment du oui, pas avant : c'est le seul moment
+     * où elle a une raison.
+     */
+    private var off: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "mappin.slash")
+                .font(.system(size: 26, weight: .light))
+                .foregroundStyle(Florin.text3)
+            Text(t("v2.places.offTitle", "Les lieux sont éteints."))
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(Florin.text)
+            Text(t(
+                "v2.places.footer",
+                "Chaque point vient du GPS de cet appareil. Aucun nom de marchand n'est envoyé nulle part."
+            ))
+            .font(.system(size: 13))
+            .foregroundStyle(Florin.text2)
+            .multilineTextAlignment(.center)
+            SheetAction(
+                label: t("v2.places.enable", "Activer les lieux"),
+                symbol: "mappin.and.ellipse", prominent: true
+            ) {
+                LocalPlaces.setEnabled(true)
+                enabled = true
+                Task {
+                    _ = await PlaceFinder().fix()
+                    reload()
+                }
+            }
+            .padding(.top, 4)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, Florin.gutter + 12)
+        .padding(.top, 40)
     }
 
     // MARK: - La carte
@@ -123,8 +162,7 @@ struct PlacesScreen: View {
     // MARK: - La liste
 
     private var list: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 12) {
                 RowGroup {
                     ForEach(Array(places.enumerated()), id: \.element.key) { index, place in
                         if index > 0 { Hairline() }
@@ -141,10 +179,8 @@ struct PlacesScreen: View {
                 .foregroundStyle(Florin.text3)
                 .padding(.horizontal, Florin.gutter + 4)
                 .padding(.bottom, 24)
-            }
-            .padding(.top, 2)
         }
-        .scrollBounceBehavior(.basedOnSize)
+        .padding(.top, 2)
     }
 
     private func row(_ place: LocalPlaces.Place) -> some View {

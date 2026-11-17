@@ -91,7 +91,10 @@ struct AnalysisScreen: View {
         _model = StateObject(wrappedValue: AnalysisModel(base: overview.base))
     }
 
-    private enum Tab: Hashable { case where_, trends, flows, calendar, subs, basket }
+    /// Les lieux épinglés, lus par la carte et comptés par le titre.
+    @State private var places: [LocalPlaces.Place] = []
+
+    private enum Tab: Hashable { case where_, trends, flows, calendar, subs, basket, places }
 
     /*
      * Trente jours glissants, ou le mois civil — et c'est la pastille qui le dit.
@@ -321,6 +324,7 @@ struct AnalysisScreen: View {
             (.calendar, t("v2.analysis.tab.calendar", "Calendrier"), 0),
             (.subs, t("v2.analysis.tab.subs", "Abonnements"), 0),
             (.basket, t("v2.analysis.tab.basket", "Panier"), 0),
+            (.places, t("v2.analysis.tab.places", "Carte"), 0),
         ]
     }
 
@@ -410,6 +414,14 @@ struct AnalysisScreen: View {
                           "{items} articles · {receipts} tickets · {share} % des dépenses",
                           ["items": $0.items, "receipts": $0.receipts, "share": share])
                     } ?? ""
+                )
+            case .places:
+                // Ce que l'argent a visité : la somme des marchands épinglés,
+                // pas celle du mois. Un lieu vaut pour tout son historique.
+                return (
+                    t("v2.analysis.placesWindow", "Dépensé dans les lieux épinglés"),
+                    places.reduce(0) { $0 + $1.spent },
+                    t("v2.analysis.placesCount", "{count} lieux", ["count": places.count])
                 )
             case .subs:
                 let counted = SubscriptionsSection.counted(
@@ -519,6 +531,7 @@ struct AnalysisScreen: View {
             case .calendar: calendarTab(data)
             case .subs: subsTab(data)
             case .basket: basketTab()
+            case .places: PlacesBoard(locale: locale, currency: currency, t: t, places: $places)
             }
         } else if let failure = model.failure {
             VStack(spacing: 10) {
