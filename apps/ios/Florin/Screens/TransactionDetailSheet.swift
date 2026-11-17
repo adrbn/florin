@@ -498,6 +498,22 @@ struct TransactionDetailSheet: View {
         HStack(spacing: 2) {
             EdPill(text: t("v2.activity.title", "Activité"))
             Spacer(minLength: 8)
+            /*
+             * « J'y suis », ici aussi.
+             *
+             * Il n'existait que dans la barre de l'habillage classique — ce
+             * bandeau est sa barre à lui, et sans le bouton la carte des
+             * marchands ne pouvait pas recevoir un seul point : le réglage
+             * s'allume, l'écran s'ouvre, et rien ne peut jamais y être posé.
+             * Un écran qu'on ne peut pas remplir vaut un écran absent.
+             */
+            if isLocalLedger, LocalPlaces.enabled, !MerchantNames.key(tx.payee).isEmpty {
+                EdIconButton(
+                    symbol: pinned ? "mappin.circle.fill" : "mappin.and.ellipse",
+                    label: t("v2.places.here", "J'y suis"),
+                    spinning: pinning
+                ) { markPlace() }
+            }
             if isLocalLedger {
                 EdIconButton(
                     symbol: hasReceipt ? "doc.text.image" : "doc.text.viewfinder",
