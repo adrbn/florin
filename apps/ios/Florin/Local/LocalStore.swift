@@ -347,6 +347,7 @@ final class LocalStore {
         // hachage du nom qui décide, comme avant.
         try addColumn("categories", "display_color", "TEXT")
         try rekeyMerchantNames()
+        try dropOrphanPlaces()
         try healSettledRefundLinks()
         try healExpiredInstalments()
         // `settings` is exactly (key, value) in this schema — no timestamps.
@@ -523,6 +524,46 @@ final class LocalStore {
                 WHERE id = ? AND reimburses_tx_id IS NULL
                 """,
                 [.text(alive), .text(heir)]
+            )
+        }
+    }
+
+    /*
+     * Les épingles que plus aucune ligne ne nomme.
+     *
+     * Une épingle naît TOUJOURS attachée à une opération : l'automatisation
+     * la pose au moment du paiement, la feuille ne s'ouvre que depuis une
+     * ligne. Une épingle qu'aucune opération ne rejoint est donc un lien
+     * cassé, pas un lieu — et jusqu'ici l'appariement en fabriquait : la tape
+     * s'effaçait quand la banque comptabilisait, le nom et la vignette
+     * passaient sur la clé de la banque, l'épingle restait sur celle de la
+     * tape. Un nom mal entendu par Siri lui donnait même un endroit à elle
+     * seule, à zéro passage.
+     *
+     * L'appariement les emporte désormais (voir `LocalWallet.adoptIdentity`).
+     * Celles d'avant s'en vont ici, comme une clé devenue vide juste au-dessus
+     * : laissée en table, elle encombre la carte d'un point qui ne décrit
+     * personne.
+     *
+     * Toutes les lignes comptent, remboursement compris — la question est
+     * « ce nom existe-t-il encore », pas « a-t-on dépensé là ».
+     */
+    func dropOrphanPlaces() throws {
+        let pins = try database.query("SELECT match_key FROM merchant_places")
+        guard !pins.isEmpty else { return }
+        let labels = try database.query(
+            "SELECT DISTINCT payee FROM transactions WHERE deleted_at IS NULL AND payee <> ''"
+        )
+        let known = Set(
+            labels.compactMap { $0.string("payee") }
+                .map(MerchantNames.key)
+                .filter { !$0.isEmpty }
+        )
+        for row in pins {
+            guard let key = row.string("match_key") else { continue }
+            if known.contains(where: { MerchantNames.sameMerchant($0, key) }) { continue }
+            try database.run(
+                "DELETE FROM merchant_places WHERE match_key = ?", [.text(key)]
             )
         }
     }

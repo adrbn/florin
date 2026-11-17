@@ -638,6 +638,11 @@ enum LocalLedger {
         let previousAccount = patch.accountId == nil ? nil : try store.database.scalar(
             "SELECT account_id FROM transactions WHERE id = ?", [.text(id)]
         )?.string
+        // De même pour le libellé : son épingle est posée sous l'ancien nom,
+        // et c'est ce nom-là qu'il faut connaître pour la retrouver.
+        let previousPayee = patch.payee == nil ? nil : try store.database.scalar(
+            "SELECT payee FROM transactions WHERE id = ?", [.text(id)]
+        )?.string
 
         try store.database.transaction {
             try store.database.run(
@@ -649,6 +654,12 @@ enum LocalLedger {
             }
             try recomputeAffectedBalance(store, transactionId: id)
             try syncLoanMirror(store, transactionId: id)
+        }
+        // Un nom corrigé dans la minute qui suit le paiement emmène le point
+        // posé à la caisse — voir `LocalPlaces.follow` pour la seule
+        // condition : que l'ancien nom n'ait nommé que cette ligne.
+        if let previousPayee, let payee = patch.payee {
+            LocalPlaces.follow(store: store, from: previousPayee, to: payee, excluding: id)
         }
     }
 

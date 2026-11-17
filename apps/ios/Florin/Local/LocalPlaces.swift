@@ -111,6 +111,50 @@ enum LocalPlaces {
         return true
     }
 
+    /*
+     * Le libellé corrigé emmène son épingle.
+     *
+     * L'automatisation écrit l'épingle à la caisse, sous le nom DICTÉ : c'est
+     * le seul instant où l'appareil est au bon endroit. Siri entend parfois
+     * autre chose — « Lumière » pour « Lumio » — et la correction suit dans
+     * minute, sur la ligne. Le libellé changeait, l'épingle restait sur le
+     * la minute, sur la ligne. Le libellé changeait, l'épingle restait sur
+     * commerçant réel sans point alors qu'on venait d'y être.
+     *
+     * Elle ne part QUE si l'ancien nom n'était que celui de cette ligne.
+     * Reclasser une ligne d'une enseigne vers une autre ne dit rien du lieu
+     * de la première — ses cent autres lignes le disent encore — et déplacer
+     * son épingle poserait la seconde là où elle n'a jamais été. Un nom né
+     * d'une seule ligne, lui, n'a pas d'autre sens que cette ligne-là.
+     */
+    static func follow(store: LocalStore, from old: String, to new: String, excluding id: String) {
+        let before = MerchantNames.key(old), after = MerchantNames.key(new)
+        guard enabled, !before.isEmpty, !after.isEmpty, before != after,
+              let source = storedKey(store: store, key: before) else { return }
+        let others = (try? store.database.query(
+            """
+            SELECT DISTINCT payee FROM transactions
+             WHERE deleted_at IS NULL AND payee <> '' AND id <> ?
+            """,
+            [.text(id)]
+        )) ?? []
+        let stillNamed = others.compactMap { $0.string("payee") }
+            .contains { MerchantNames.sameMerchant(MerchantNames.key($0), before) }
+        guard !stillNamed else { return }
+        try? store.database.run(
+            """
+            INSERT INTO merchant_places (match_key, lat, lon, accuracy, updated_at)
+            SELECT ?, lat, lon, accuracy, updated_at
+              FROM merchant_places WHERE match_key = ?
+            ON CONFLICT(match_key) DO NOTHING
+            """,
+            [.text(after), .text(source)]
+        )
+        try? store.database.run(
+            "DELETE FROM merchant_places WHERE match_key = ?", [.text(source)]
+        )
+    }
+
     static func forget(store: LocalStore, payee: String) {
         guard let key = storedKey(store: store, key: MerchantNames.key(payee)) else { return }
         try? store.database.run("DELETE FROM merchant_places WHERE match_key = ?", [.text(key)])

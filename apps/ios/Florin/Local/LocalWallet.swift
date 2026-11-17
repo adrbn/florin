@@ -996,6 +996,32 @@ enum LocalWallet {
             """,
             [.text(bankKey), .text(tapKey)]
         )
+        /*
+         * Et l'épingle, qui est le membre de l'identité posé le plus tôt.
+         *
+         * Elle est écrite À LA CAISSE, sous le nom dicté — le seul instant où
+         * l'appareil est au bon endroit. Des heures plus tard la banque
+         * comptabilise, la tape s'efface, et sa clé ne nomme plus personne :
+         * l'épingle restait là, sur une identité morte, à zéro passage. Pire,
+         * un nom mal entendu par Siri lui donnait un lieu à lui tout seul,
+         * invisible depuis le commerçant qu'elle décrit.
+         *
+         * Le nom, la vignette et la catégorie passaient déjà. Elle passe avec
+         * eux, et quitte la clé de la tape : deux points pour un seul endroit
+         * se lisent comme deux endroits.
+         */
+        try store.database.run(
+            """
+            INSERT INTO merchant_places (match_key, lat, lon, accuracy, updated_at)
+            SELECT ?, lat, lon, accuracy, updated_at
+              FROM merchant_places WHERE match_key = ?
+            ON CONFLICT(match_key) DO NOTHING
+            """,
+            [.text(bankKey), .text(tapKey)]
+        )
+        try store.database.run(
+            "DELETE FROM merchant_places WHERE match_key = ?", [.text(tapKey)]
+        )
     }
 
     private static func isAlreadySettling(_ store: LocalStore, _ bankId: String) -> Bool {

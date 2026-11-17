@@ -3555,6 +3555,129 @@ struct WalletPaymentTests {
         )?.string == "lumio.fr")
     }
 
+    /*
+     * Et l'épingle, posée à la caisse sous le nom dicté.
+     *
+     * Elle est le membre de l'identité écrit le PLUS TÔT — au moment où
+     * l'appareil est au bon endroit — et la clé qui la portait meurt quand la
+     * banque comptabilise. Restée là, elle décrivait un commerçant que plus
+     * aucune ligne ne nomme : zéro passage sur la carte.
+     */
+    @Test("the pin placed at the till passes to the bank's row")
+    func carriesTheMerchantPlace() throws {
+        let (store, checking, _) = try ledger()
+        try LocalWallet.record(
+            store: store, amountText: "12,00", merchant: "Lumio", card: nil,
+            accountId: checking, on: day("2026-09-07")
+        )
+        let tapKey = MerchantNames.key("Lumio")
+        try store.database.run(
+            "INSERT INTO payee_aliases (id, match_key, display_name) VALUES (?, ?, ?)",
+            [.text(UUID().uuidString), .text(tapKey), .text("Lumio")]
+        )
+        try store.database.run(
+            """
+            INSERT INTO merchant_places (match_key, lat, lon, accuracy, updated_at)
+              VALUES (?, ?, ?, ?, datetime('now'))
+            """,
+            [.text(tapKey), .real(48.8566), .real(2.3522), .real(12)]
+        )
+        _ = try bankRow(store, checking, "2026-09-07", -12.00, label: "ACHAT CB LUMIO.FR 07.09.26")
+        #expect(try LocalWallet.settle(store: store) == 1)
+
+        let bankKey = MerchantNames.key("ACHAT CB LUMIO.FR 07.09.26")
+        #expect(bankKey != tapKey)
+        #expect(try store.database.scalar(
+            "SELECT lat FROM merchant_places WHERE match_key = ?", [.text(bankKey)]
+        )?.double == 48.8566)
+        // Et elle quitte la clé de la tape : un endroit, un point.
+        #expect(try store.database.scalar(
+            "SELECT 1 FROM merchant_places WHERE match_key = ?", [.text(tapKey)]
+        ) == nil)
+    }
+
+    /*
+     * Et celles d'avant la correction s'en vont à l'ouverture.
+     *
+     * Une épingle qu'aucun libellé vivant ne rejoint ne décrit personne : la
+     * garder, c'est un point à zéro passage sur la carte. Celle qui a bien
+     * une ligne reste, évidemment.
+     */
+    /*
+     * Siri a mal entendu, la correction suit dans la minute, l'épingle avec.
+     *
+     * Le point est posé à la caisse sous le nom dicté : c'est le seul moment
+     * où l'appareil est au bon endroit. Corriger le nom mal entendu laissait
+     * le point sur le mot que Siri avait cru entendre.
+     */
+    @Test("correcting a misheard label takes its pin along")
+    func pinFollowsACorrectedLabel() throws {
+        let (store, checking, _) = try ledger()
+        LocalPlaces.setEnabled(true)
+        defer { LocalPlaces.setEnabled(false) }
+        try LocalWallet.record(
+            store: store, amountText: "10,18", merchant: "Lumière", card: nil,
+            accountId: checking, on: day("2026-09-07")
+        )
+        let id = try store.database.scalar(
+            "SELECT id FROM transactions WHERE payee = ?", [.text("Lumière")]
+        )?.string
+        #expect(LocalPlaces.set(store: store, payee: "Lumière", lat: 48.85, lon: 2.35, accuracy: 15))
+
+        try LocalLedger.patch(store: store, id: #require(id), TxPatch(payee: "Lumio"))
+        #expect(LocalPlaces.coordinate(store: store, payee: "Lumio") != nil)
+        #expect(LocalPlaces.coordinate(store: store, payee: "Lumière") == nil)
+    }
+
+    /*
+     * Mais reclasser une ligne ne déplace pas le lieu d'un marchand établi.
+     *
+     * Ses autres lignes disent encore où il est ; emporter son épingle
+     * poserait le nouveau nom là où il n'a jamais été.
+     */
+    @Test("refiling one row leaves an established merchant's pin where it is")
+    func pinStaysWhenTheOldNameStillHasRows() throws {
+        let (store, checking, _) = try ledger()
+        LocalPlaces.setEnabled(true)
+        defer { LocalPlaces.setEnabled(false) }
+        for dayString in ["2026-09-07", "2026-09-08"] {
+            try LocalWallet.record(
+                store: store, amountText: "9,00", merchant: "Lumio", card: nil,
+                accountId: checking, on: day(dayString)
+            )
+        }
+        let id = try store.database.query(
+            "SELECT id FROM transactions WHERE payee = ? LIMIT 1", [.text("Lumio")]
+        ).first?.string("id")
+        #expect(LocalPlaces.set(store: store, payee: "Lumio", lat: 48.85, lon: 2.35, accuracy: 15))
+
+        try LocalLedger.patch(store: store, id: #require(id), TxPatch(payee: "Bastide"))
+        #expect(LocalPlaces.coordinate(store: store, payee: "Lumio") != nil)
+        #expect(LocalPlaces.coordinate(store: store, payee: "Bastide") == nil)
+    }
+
+    @Test("a pin no live label reaches is dropped when the ledger opens")
+    func dropsOrphanPlaces() throws {
+        let (store, checking, _) = try ledger()
+        try LocalWallet.record(
+            store: store, amountText: "9,00", merchant: "Lumio", card: nil,
+            accountId: checking, on: day("2026-09-07")
+        )
+        for key in [MerchantNames.key("Lumio"), "lumiere"] {
+            try store.database.run(
+                """
+                INSERT INTO merchant_places (match_key, lat, lon, accuracy, updated_at)
+                  VALUES (?, ?, ?, ?, datetime('now'))
+                """,
+                [.text(key), .real(48.85), .real(2.35), .real(12)]
+            )
+        }
+        try store.dropOrphanPlaces()
+        let left = try store.database.query("SELECT match_key FROM merchant_places")
+            .compactMap { $0.string("match_key") }
+        #expect(left == [MerchantNames.key("Lumio")])
+    }
+
     @Test("one bank row settles one payment, even across syncs")
     func oneToOne() throws {
         let (store, checking, _) = try ledger()
