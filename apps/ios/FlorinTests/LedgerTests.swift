@@ -1232,20 +1232,23 @@ struct RelabelledDuplicateTests {
     @discardableResult
     private func row(
         _ store: LocalStore, on account: String, amount: Double, payee: String,
-        externalId: String, pair: String? = nil, day: String = "2026-08-31"
+        externalId: String, pair: String? = nil, day: String = "2026-08-31",
+        bank: String? = nil, link: String? = nil
     ) throws -> String {
         let id = UUID().uuidString
         try store.database.run(
             """
             INSERT INTO transactions
                 (id, account_id, occurred_at, amount, currency, payee, normalized_payee,
-                 source, external_id, status, needs_review, transfer_pair_id)
-            VALUES (?, ?, ?, ?, 'EUR', ?, ?, 'enable_banking', ?, 'cleared', 0, ?)
+                 bank_payee, source, external_id, status, needs_review, transfer_pair_id,
+                 reimburses_tx_id)
+            VALUES (?, ?, ?, ?, 'EUR', ?, ?, ?, 'enable_banking', ?, 'cleared', 0, ?, ?)
             """,
             [
                 .text(id), .text(account), .text(day), .real(amount), .text(payee),
-                .text(payee.lowercased()), .text(externalId),
+                .text(payee.lowercased()), .text(bank ?? payee), .text(externalId),
                 pair.map { SQLiteValue.text($0) } ?? .null,
+                link.map { SQLiteValue.text($0) } ?? .null,
             ]
         )
         return id
@@ -1356,6 +1359,141 @@ struct RelabelledDuplicateTests {
         )
 
         #expect(try BankingSync.collapseRelabelledDuplicates(store: store) == 0)
+        #expect(live(store, on: account) == 2)
+    }
+
+    @Test("un libellé qui n'est que les mots du rail ne nomme personne")
+    func recognisesAnAnnouncement() {
+        #expect(LocalLedger.saysNothing("VIREMENT INSTANTANE CREDIT"))
+        #expect(LocalLedger.saysNothing("VIREMENT INSTANTANE DEBIT"))
+        #expect(LocalLedger.saysNothing("PRELEVEMENT SEPA"))
+        // Une enseigne de trois lettres ne produit aucun mot significatif et
+        // n'est pourtant pas une annonce : il reste le numéro de carte, la
+        // date, le montant. Un achat dit toujours quelque chose.
+        #expect(!LocalLedger.saysNothing(
+            "ACHAT CB XYZ S.R.L.     01.01.26 EUR          5,00 CARTE NO  000"
+        ))
+        #expect(!LocalLedger.saysNothing("VIREMENT INSTANTANE WERO DE MME CAMILLE"))
+        #expect(!LocalLedger.saysNothing(""))
+    }
+
+    @Test("l'annonce reste, et prend le libellé qui nomme enfin quelqu'un")
+    func collapsesTheAnnouncedTwin() throws {
+        let (store, account) = try ledger()
+        let ghost = try row(
+            store, on: account, amount: 25.30, payee: "VIREMENT INSTANTANE CREDIT",
+            externalId: "uid:2026-08-31T00:00:00Z:25.3:VIREMENT INSTANTANE CREDIT",
+            day: "2026-08-31", bank: "VIREMENT INSTANTANE CREDIT"
+        )
+        let detail = try row(
+            store, on: account, amount: 25.30,
+            payee: "VIREMENT INSTANTANE WERO DE MME CAMILLE",
+            externalId: "uid:2026-09-01T00:00:00Z:25.3:WERO CAMILLE",
+            day: "2026-09-01", bank: "VIREMENT INSTANTANE WERO DE MME CAMILLE"
+        )
+
+        #expect(try BankingSync.collapseAnnouncedTransfers(store: store) == 1)
+        #expect(live(store, on: account) == 1)
+
+        let kept = try store.database.query(
+            "SELECT payee, external_id, deleted_at FROM transactions WHERE id = ?",
+            [.text(ghost)]
+        ).first
+        #expect(kept?.string("deleted_at") == nil)
+        #expect(kept?.string("payee") == "VIREMENT INSTANTANE WERO DE MME CAMILLE")
+
+        // Chaque clé bancaire reste sur sa ligne : la supprimée garde la
+        // sienne, et c'est ce qui empêche le relevé suivant de la réécrire.
+        #expect(kept?.string("external_id")
+            == "uid:2026-08-31T00:00:00Z:25.3:VIREMENT INSTANTANE CREDIT")
+        let gone = try store.database.query(
+            """
+            SELECT external_id, deleted_at, merge_suggested_tx_id
+            FROM transactions WHERE id = ?
+            """,
+            [.text(detail)]
+        ).first
+        #expect(gone?.string("deleted_at") != nil)
+        #expect(gone?.string("merge_suggested_tx_id") == ghost)
+        #expect(gone?.string("external_id") == "uid:2026-09-01T00:00:00Z:25.3:WERO CAMILLE")
+    }
+
+    @Test("une annonce déjà nommée à la main garde son nom et son lien")
+    func keepsTheHandGivenName() throws {
+        let (store, account) = try ledger()
+        let expense = try row(
+            store, on: account, amount: -58.70, payee: "Le Comptoir",
+            externalId: "uid:dinner", day: "2026-08-30"
+        )
+        let ghost = try row(
+            store, on: account, amount: 25.30, payee: "Camille",
+            externalId: "uid:annonce", day: "2026-08-31",
+            bank: "VIREMENT INSTANTANE CREDIT", link: expense
+        )
+        try row(
+            store, on: account, amount: 25.30,
+            payee: "VIREMENT INSTANTANE WERO DE MME CAMILLE",
+            externalId: "uid:detail", day: "2026-09-01",
+            bank: "VIREMENT INSTANTANE WERO DE MME CAMILLE"
+        )
+
+        #expect(try BankingSync.collapseAnnouncedTransfers(store: store) == 1)
+        let kept = try store.database.query(
+            "SELECT payee, bank_payee, reimburses_tx_id FROM transactions WHERE id = ?",
+            [.text(ghost)]
+        ).first
+        #expect(kept?.string("payee") == "Camille")
+        #expect(kept?.string("reimburses_tx_id") == expense)
+        // Le libellé de la banque, lui, est repris : c'est sa vérité à elle.
+        #expect(kept?.string("bank_payee") == "VIREMENT INSTANTANE WERO DE MME CAMILLE")
+    }
+
+    @Test("deux virements nommés du même montant restent deux virements")
+    func leavesNamedTransfersAlone() throws {
+        let (store, account) = try ledger()
+        try row(
+            store, on: account, amount: 22.00, payee: "VIREMENT INSTANTANE DE CAMILLE",
+            externalId: "uid:un", day: "2026-08-31",
+            bank: "VIREMENT INSTANTANE DE CAMILLE"
+        )
+        try row(
+            store, on: account, amount: 22.00, payee: "VIREMENT INSTANTANE DE CAMILLE",
+            externalId: "uid:deux", day: "2026-09-01",
+            bank: "VIREMENT INSTANTANE DE CAMILLE"
+        )
+        // Et deux cafés italiens du même prix, dont le libellé ne produit
+        // aucun mot significatif, ne sont pas une annonce suivie d'une ligne.
+        try row(
+            store, on: account, amount: -5.00, payee: "ACHAT CB XYZ S.R.L.",
+            externalId: "uid:cafe-un", day: "2026-08-31",
+            bank: "ACHAT CB XYZ S.R.L. 01.01.26 EUR 5,00 CARTE NO 000"
+        )
+        try row(
+            store, on: account, amount: -5.00, payee: "ACHAT CB AB 12 S.R.L.",
+            externalId: "uid:cafe-deux", day: "2026-09-01",
+            bank: "ACHAT CB AB 12 S.R.L. 02.01.26 EUR 5,00 CARTE NO 000"
+        )
+
+        #expect(try BankingSync.collapseAnnouncedTransfers(store: store) == 0)
+        #expect(live(store, on: account) == 4)
+    }
+
+    @Test("une annonce arrivée après la ligne détaillée n'en efface pas le nom")
+    func refusesTheWrongDirection() throws {
+        let (store, account) = try ledger()
+        try row(
+            store, on: account, amount: 25.30,
+            payee: "VIREMENT INSTANTANE WERO DE MME CAMILLE",
+            externalId: "uid:detail", day: "2026-08-31",
+            bank: "VIREMENT INSTANTANE WERO DE MME CAMILLE"
+        )
+        try row(
+            store, on: account, amount: 25.30, payee: "VIREMENT INSTANTANE CREDIT",
+            externalId: "uid:annonce", day: "2026-09-01",
+            bank: "VIREMENT INSTANTANE CREDIT"
+        )
+
+        #expect(try BankingSync.collapseAnnouncedTransfers(store: store) == 0)
         #expect(live(store, on: account) == 2)
     }
 }

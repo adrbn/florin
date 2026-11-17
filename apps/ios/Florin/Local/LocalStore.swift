@@ -1017,6 +1017,11 @@ extension LocalStore {
                 log.notice("dropped \(relabelled, privacy: .public) relabelled duplicates")
             }
 
+            let announced = try BankingSync.collapseAnnouncedTransfers(store: store)
+            if announced > 0 {
+                log.notice("dropped \(announced, privacy: .public) announced transfer duplicates")
+            }
+
             /*
              * Repayments filed before the mirror existed, given their
              * counterpart. Runs before the categoriser so a row it files this

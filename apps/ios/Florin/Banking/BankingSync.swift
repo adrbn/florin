@@ -762,6 +762,29 @@ enum BankingSync {
                 return false
             }
             if (row.double("drift") ?? 1) < 0.5 { return true }
+            /*
+             * L'annonce, puis la ligne qui nomme enfin quelqu'un.
+             *
+             * La Banque Postale publie un virement instantané sous un libellé
+             * qui n'est que les mots du rail — « VIREMENT INSTANTANE CREDIT »,
+             * ni nom ni référence — puis le réécrit un ou deux jours plus tard
+             * avec l'expéditeur. La clé porte la date ET le libellé : les deux
+             * changent, donc la seconde arrivait en étrangère. Neuf paires de
+             * ce genre dans un grand livre, dont un remboursement reçu compté
+             * deux fois le jour même où on le cherchait.
+             *
+             * Le test de nom ci-dessous ne peut pas les rapprocher : il
+             * demande qu'un libellé contienne l'autre, et « VIREMENT INSTANTANE
+             * CREDIT » n'est pas dans « VIREMENT INSTANTANE WERO DE MME … ».
+             * Mais un libellé qui ne dit rien ne contredit rien : c'est une
+             * place tenue, et la ligne détaillée est ce qu'elle attendait.
+             *
+             * Dans ce sens seulement. Une annonce qui arriverait APRÈS la ligne
+             * détaillée écraserait son nom par le vide, puisque l'adoption
+             * écrit le libellé entrant.
+             */
+            if LocalLedger.saysNothing(bankWord(row)),
+               !LocalLedger.saysNothing(transaction.counterparty) { return true }
             let payee = LocalLedger.normalize(bankWord(row))
             guard !needle.isEmpty, !payee.isEmpty else { return false }
             return payee.contains(needle) || needle.contains(payee)
@@ -1261,5 +1284,124 @@ extension BankingSync {
             try recomputeBalanceFromOpening(store: store, accountId: account)
         }
         return removed
+    }
+
+    /*
+     * L'annonce et la ligne, déjà écrites toutes les deux.
+     *
+     * La garde posée dans l'adoption empêche la prochaine ; celle-ci reprend
+     * les dix que la banque a déjà fait entrer deux fois — 75,42 € de crédits
+     * et 26 € de virements sortants comptés en double, dont un remboursement
+     * de 25,30 € reçu la veille et cherché le lendemain.
+     *
+     * Celle qui survit est l'ANNONCE, pas la ligne détaillée : c'est elle qui
+     * est là depuis un jour ou deux, elle qui porte le nom qu'on lui a donné,
+     * la catégorie, le lien vers la dépense remboursée. Elle n'hérite donc de
+     * rien — il n'y a qu'à lui passer le libellé détaillé, et le nom avec si
+     * personne ne l'avait renommée.
+     *
+     * Chaque clé bancaire reste sur sa ligne, celle qui est effacée comprise :
+     * un relevé rendu en entier à chaque synchro republie les deux, et une
+     * ligne supprimée en douceur les reconnaît aussi bien qu'une vivante.
+     * Déplacer la clé demandait de l'ôter d'abord à l'autre, et l'index unique
+     * voyait passer deux lignes sur la même.
+     */
+    static func collapseAnnouncedTransfers(store: LocalStore) throws -> Int {
+        let pairs = try store.database.query(
+            """
+            SELECT ghost.id AS ghost_id,
+                   ghost.bank_payee AS ghost_label, ghost.payee AS ghost_payee,
+                   ghost.transfer_pair_id AS ghost_pair,
+                   ghost.reimburses_tx_id AS ghost_link,
+                   ghost.account_id AS account_id,
+                   detail.id AS detail_id, detail.bank_payee AS detail_label,
+                   detail.transfer_pair_id AS detail_pair,
+                   detail.reimburses_tx_id AS detail_link
+            FROM transactions ghost
+            JOIN transactions detail
+              ON detail.account_id = ghost.account_id
+             AND detail.id <> ghost.id
+             AND detail.deleted_at IS NULL
+             AND detail.source = 'enable_banking'
+             AND abs(detail.amount - ghost.amount) < 0.005
+             -- La ligne détaillée arrive APRÈS l'annonce, jamais avant.
+             AND julianday(substr(detail.occurred_at, 1, 10))
+                 - julianday(substr(ghost.occurred_at, 1, 10)) BETWEEN 0 AND 3
+            WHERE ghost.deleted_at IS NULL
+              AND ghost.source = 'enable_banking'
+              AND ghost.bank_payee IS NOT NULL
+            ORDER BY ghost.created_at
+            """
+        )
+
+        var spent: Set<String> = []
+        var touchedAccounts: Set<String> = []
+        var collapsed = 0
+        for pair in pairs {
+            guard let ghostId = pair.string("ghost_id"),
+                  let detailId = pair.string("detail_id"),
+                  !spent.contains(ghostId), !spent.contains(detailId),
+                  let ghostLabel = pair.string("ghost_label"),
+                  let detailLabel = pair.string("detail_label"),
+                  LocalLedger.saysNothing(ghostLabel),
+                  !LocalLedger.saysNothing(detailLabel)
+            else { continue }
+            spent.insert(ghostId)
+            spent.insert(detailId)
+
+            // Renommée à la main, elle garde son nom ; restée telle que la
+            // banque l'a posée, elle prend enfin celui qui veut dire quelque
+            // chose. La catégorie déjà choisie ne bouge pas, dans les deux cas.
+            let untouched = pair.string("ghost_payee") == ghostLabel
+            let name = untouched ? detailLabel : (pair.string("ghost_payee") ?? detailLabel)
+            try store.database.run(
+                """
+                UPDATE transactions
+                SET bank_payee = ?, payee = ?, normalized_payee = ?,
+                    reimburses_tx_id = coalesce(reimburses_tx_id, ?),
+                    updated_at = datetime('now')
+                WHERE id = ?
+                """,
+                [
+                    .text(detailLabel), .text(name), .text(LocalLedger.normalize(name)),
+                    pair.string("detail_link").map { SQLiteValue.text($0) } ?? .null,
+                    .text(ghostId),
+                ]
+            )
+
+            // L'appariement qui veut encore dire quelque chose suit, sinon la
+            // contrepartie resterait accrochée à une ligne effacée.
+            if let inherited = pair.string("detail_pair"),
+               try counterpartExists(store, pair: inherited, excluding: detailId),
+               try !counterpartExists(
+                   store, pair: pair.string("ghost_pair") ?? "", excluding: ghostId
+               ) {
+                try store.database.run(
+                    "UPDATE transactions SET transfer_pair_id = ? WHERE id = ?",
+                    [.text(inherited), .text(ghostId)]
+                )
+            }
+
+            // Ce qu'une rentrée disait rembourser pointe sur celle qui reste.
+            try store.database.run(
+                "UPDATE transactions SET reimburses_tx_id = ? WHERE reimburses_tx_id = ?",
+                [.text(ghostId), .text(detailId)]
+            )
+            try store.database.run(
+                """
+                UPDATE transactions
+                SET deleted_at = datetime('now'), merge_suggested_tx_id = ?,
+                    updated_at = datetime('now')
+                WHERE id = ?
+                """,
+                [.text(ghostId), .text(detailId)]
+            )
+            if let account = pair.string("account_id") { touchedAccounts.insert(account) }
+            collapsed += 1
+        }
+        for account in touchedAccounts {
+            try recomputeBalanceFromOpening(store: store, accountId: account)
+        }
+        return collapsed
     }
 }

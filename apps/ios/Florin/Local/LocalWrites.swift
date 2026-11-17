@@ -1162,6 +1162,26 @@ enum LocalLedger {
         "from", "vers", "faveur", "paiement", "europeen", "permanent",
     ]
 
+    /*
+     * Un libellé qui n'est QUE les mots du rail : une annonce, pas une ligne.
+     *
+     * « VIREMENT INSTANTANE CREDIT » ne nomme personne, ne porte ni date ni
+     * montant ni référence : il dit seulement qu'un virement instantané a eu
+     * lieu, et la banque le réécrira un ou deux jours plus tard avec
+     * l'expéditeur. C'est une place tenue en attendant le détail.
+     *
+     * Ce n'est pas la même chose qu'un libellé sans mot significatif. « ACHAT
+     * CB XYZ SRL 01.01.26 EUR 7,37 CARTE NO 000 » n'en a aucun non plus — les
+     * enseignes italiennes tiennent en trois lettres — et c'est pourtant un
+     * achat bien réel, qui nomme son commerçant comme il peut. Ce qui
+     * distingue l'annonce, c'est qu'il ne reste RIEN quand on retire les mots
+     * du rail : pas un chiffre, pas un fragment, rien.
+     */
+    static func saysNothing(_ label: String) -> Bool {
+        let words = normalize(label).lowercased().split(separator: " ")
+        return !words.isEmpty && words.allSatisfy { boilerplate.contains($0) }
+    }
+
     private static func significantWords(_ label: String) -> Set<Substring> {
         Set(normalize(label).lowercased().split(separator: " ").filter {
             $0.count >= 4 && !$0.allSatisfy(\.isNumber) && !boilerplate.contains($0)
