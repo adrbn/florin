@@ -144,6 +144,8 @@ struct EditorialActivity: View {
     private var upcoming: [Transaction] { model.upcoming }
     private var instalments: [Transaction] { model.instalments }
     private var pending: [Transaction] { model.pending }
+    /// Faux tant que l'onglet n'a pas déjà été quitté une fois.
+    @State private var visited = false
     private var days: [(day: Date, rows: [Transaction])] { model.days }
 
     var body: some View {
@@ -237,6 +239,28 @@ struct EditorialActivity: View {
             if model.rows.isEmpty { await model.reload() }
         }
         .reloadsOnLedgerChange { await model.reload() }
+        /*
+         * Revenir sur un filtre qui ne montre plus rien.
+         *
+         * On vérifie la dernière ligne de la file, l'écran se vide, et « À
+         * vérifier » reste accroché : au retour sur l'onglet, « Aucune
+         * opération » sous un filtre qu'on ne se rappelle plus avoir posé.
+         * C'est un cul-de-sac, et il ment — le grand livre n'est pas vide,
+         * c'est la file qui l'est.
+         *
+         * Jamais à la première venue : un lien profond pose le filtre et la
+         * page n'a encore rien chargé, donc un compte à zéro n'y veut rien
+         * dire. Et jamais tant qu'une ligne reste à l'écran — se défiltrer
+         * sous le doigt de qui range sa file lui retirerait le moment où elle
+         * se vide, qui est justement celui qu'il cherchait.
+         */
+        .onAppear {
+            defer { visited = true }
+            guard visited, model.filter.needsReview,
+                  model.reviewCount == 0, pending.isEmpty else { return }
+            model.filter.needsReview = false
+            Task { await model.reload() }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .florinFocusSearch)) { _ in
             withAnimation(EdMotion.spring) { searching = true }
             searchFocused = true
