@@ -4096,6 +4096,10 @@ struct MerchantLogoTests {
         ("paypal netflix", "netflix.com"),
         ("paypal ikea", "ikea.com"),
         ("sumup decathlon", "decathlon.com"),
+        // Tronqué à six lettres par la caisse : le préfixe suffit.
+        ("paypal flixbu", "flixbus.com"),
+        ("paypal trenit", "trenitalia.com"),
+        ("paypal decath", "decathlon.com"),
     ])
     func behindTheRail(_ key: String, _ domain: String) {
         #expect(KnownMerchants.domain(forKey: key) == domain)

@@ -18,8 +18,31 @@ enum KnownMerchants {
     static func domain(forKey key: String) -> String? {
         let words = normalize(key)
         guard !words.isEmpty else { return nil }
-        if let own = match(withoutRails(words)) { return own }
+        let behind = withoutRails(words)
+        if let own = match(behind) ?? truncated(behind) { return own }
         return match(words)
+    }
+
+    /*
+     * Six lettres, c'est tout ce que la caisse laisse au marchand.
+     *
+     * Derrière l'encaisseur, le relevé tronque : « *FLIXBU », « *TRENIT »,
+     * « *UBERPA ». Aucun de ces mots-là n'est une marque connue, donc la
+     * recherche par mots entiers ne rendait rien — et la clé entière, elle,
+     * rendait l'encaisseur. Le préfixe suffit à les reconnaître, à partir de
+     * quatre lettres : en deçà, « eni » ou « h m » attraperaient n'importe
+     * quel nom qui commence pareil.
+     *
+     * Ne sert qu'à ce qui suit un rail, jamais à une clé ordinaire : un
+     * marchand qui se nomme en entier n'a pas besoin qu'on devine.
+     */
+    private static func truncated(_ words: String) -> String? {
+        guard words.count >= 4 else { return nil }
+        for (pattern, domain) in entries where pattern.count >= 4
+            && (pattern.hasPrefix(words) || words.hasPrefix(pattern)) {
+            return domain
+        }
+        return nil
     }
 
     private static func match(_ words: String) -> String? {
