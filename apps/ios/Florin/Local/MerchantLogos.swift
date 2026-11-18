@@ -490,7 +490,7 @@ enum LogoFetcher {
                   pattern: "([a-zA-Z-]+)\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s>]+))"
               ) else { return [] }
         let range = NSRange(html.startIndex..., in: html)
-        var found: [(url: URL, score: Int)] = []
+        var found: [(url: URL, score: Int, family: String)] = []
         for match in tag.matches(in: html, range: range) {
             guard let tagRange = Range(match.range, in: html) else { continue }
             let text = String(html[tagRange])
@@ -512,9 +512,22 @@ enum LogoFetcher {
                 .flatMap { $0.lowercased().split(separator: "x").first }
                 .flatMap { Int($0) } ?? 0
             let touch = rel.contains("apple-touch-icon") ? 1000 : 0
-            found.append((url, touch + size))
+            found.append((url, touch + size, touch == 0 ? "icon" : "touch"))
         }
-        return found.sorted { $0.score > $1.score }.map(\.url)
+        /*
+         * Deux par famille, pas douze.
+         *
+         * Un site peut declarer la meme famille en douze tailles ; quand ces
+         * douze adresses repondent toutes 403, elles epuisent a elles seules
+         * le budget d'essais de `fetch` et la famille suivante — celle qui
+         * aurait repondu — n'est jamais demandee. On garde les deux meilleures
+         * de chaque famille : un echec ne coute plus que sa famille.
+         */
+        var kept: [String: Int] = [:]
+        return found.sorted { $0.score > $1.score }.filter { link in
+            kept[link.family, default: 0] += 1
+            return kept[link.family, default: 0] <= 2
+        }.map(\.url)
     }
 
     private static func image(at url: URL) async -> UIImage? {

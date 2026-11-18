@@ -88,7 +88,19 @@ struct MerchantNameSheet: View {
     private var markChanged: Bool {
         domain != existingMark?.domain || (emoji.isEmpty ? nil : emoji) != existingMark?.emoji
     }
-    private var canSave: Bool { siteIsValid && (nameChanged || markChanged || pictureChanged) }
+    /*
+     * Le meme site, retape expres, vaut un nouvel essai.
+     *
+     * Une adresse qui n'a pas donne d'icone est retenue comme un echec, et
+     * seul un enregistrement l'oublie. Or `markChanged` est faux quand on
+     * retape la meme : le bouton se grisait precisement dans le cas ou il
+     * faudrait reessayer — et « https://www.site.fr/de » se normalise en
+     * « site.fr », donc l'ecran semblait ignorer une adresse differente.
+     */
+    private var retryable: Bool { domain != nil && domain == existingMark?.domain }
+    private var canSave: Bool {
+        siteIsValid && (nameChanged || markChanged || pictureChanged || retryable)
+    }
 
     var body: some View {
         NavigationStack {
@@ -164,9 +176,11 @@ struct MerchantNameSheet: View {
                                     if kept != new { emoji = kept }
                                 }
                         }
-                        Text(siteIsValid
-                            ? t("v2.merchant.logoHint", "Le logo vient de ce site, sauf si vous choisissez un emoji")
-                            : t("v2.merchant.badSite", "Ce n'est pas une adresse de site"))
+                        Text(!siteIsValid
+                            ? t("v2.merchant.badSite", "Ce n'est pas une adresse de site")
+                            : retryable
+                            ? t("v2.merchant.sameSite", "Même site : « Enregistrer » redemande l'icône")
+                            : t("v2.merchant.logoHint", "Le logo vient de ce site, sauf si vous choisissez un emoji"))
                             .font(.system(size: 12.5))
                             .foregroundStyle(siteIsValid ? Florin.text3 : Florin.negative)
                     }
@@ -470,7 +484,9 @@ struct MerchantNameSheet: View {
         let newName = reset ?? trimmed
         do {
             if newName != (existing ?? "") { try MerchantNames.shared.rename(key: key, to: newName) }
-            if markChanged {
+            if markChanged || retryable {
+                // `setMark` oublie l'echec retenu pour ce domaine : reecrire
+                // la meme valeur est ce qui relance la recherche d'icone.
                 try logos.setMark(key: key, domain: domain, emoji: emoji.isEmpty ? nil : emoji)
             }
             if pictureChanged { try logos.setPicture(key: key, image: picture) }

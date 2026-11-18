@@ -4199,6 +4199,28 @@ struct MerchantLogoTests {
         ])
     }
 
+    @Test("a family declared twelve times keeps two, so the next one is reached")
+    func iconFamiliesAreCapped() throws {
+        let sizes = [57, 60, 72, 76, 114, 120, 144, 152, 180]
+        let touch = sizes
+            .map { "<link rel=\"apple-touch-icon\" sizes=\"\($0)x\($0)\" href=\"/touch-\($0).png\">" }
+            .joined(separator: "\n")
+        let html = """
+        <head>
+        \(touch)
+          <link rel="icon" href="/chrome-192.png" sizes="192x192">
+          <link rel="icon" href="/favicon-32.png" sizes="32x32">
+        </head>
+        """
+        let base = try #require(URL(string: "https://www.example.org/"))
+        #expect(LogoFetcher.iconLinks(in: html, base: base).map(\.absoluteString) == [
+            "https://www.example.org/touch-180.png",
+            "https://www.example.org/touch-152.png",
+            "https://www.example.org/chrome-192.png",
+            "https://www.example.org/favicon-32.png",
+        ])
+    }
+
     @Test("the emoji field keeps pictographs, not digits or signs", arguments: [
         ("🥐", true), ("❤️", true), ("🇮🇹", true), ("1", false), ("#", false), ("a", false),
     ])
