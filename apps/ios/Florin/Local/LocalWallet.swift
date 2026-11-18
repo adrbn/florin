@@ -612,9 +612,30 @@ enum LocalWallet {
                  * `DO NOTHING` : ce qui a déjà été décidé sur la clé de la
                  * banque est une décision, et ne se laisse pas écraser.
                  */
-                try adoptIdentity(
-                    store, tap: row.string("payee") ?? "", bank: match.string("payee") ?? ""
-                )
+                let tapName = row.string("payee") ?? ""
+                let bankName = match.string("payee") ?? ""
+                /*
+                 * Et quand la clé refuse le nom, il se pose sur la LIGNE.
+                 *
+                 * `adoptIdentity` a raison de ne pas écraser une identité
+                 * déjà décidée : la clé d'un encaisseur (« paypal ») porte un
+                 * nom qui vaut pour TOUS ses marchands, et la lui reprendre
+                 * rebaptiserait d'un coup des virements qui n'ont rien à voir.
+                 *
+                 * Mais il s'arrêtait là, et le nom n'allait alors nulle part.
+                 * La ligne restait sous « VIREMENT INSTANTANE DE PAYPAL
+                 * 2611… » alors que la tape nommait le versant trois
+                 * secondes plus tôt — et il fallait le réécrire à la main,
+                 * chaque fois, pour un encaissement qui revient chaque semaine.
+                 *
+                 * Le nom descend donc d'un cran : pas l'identité de
+                 * l'encaisseur, mais le libellé de CETTE ligne-là. Le libellé
+                 * brut reste dessous dans `bank_payee` — l'un dit ce que
+                 * c'était, l'autre d'où ça vient, comme pour la note.
+                 */
+                if try !adoptIdentity(store, tap: tapName, bank: bankName) {
+                    try nameTheRow(store, id: bankId, tap: tapName, bank: bankName)
+                }
                 /*
                  * Et la note écrite à la main, qui est la seule irremplaçable.
                  *
@@ -950,16 +971,19 @@ enum LocalWallet {
     /// replace another.
     /// Le nom et la vignette d'une tape, posés sur la clé de la ligne que la
     /// banque vient d'écrire. Voir l'appel, dans `settle`.
-    private static func adoptIdentity(_ store: LocalStore, tap: String, bank: String) throws {
+    /// `true` quand la clé de la banque porte désormais le nom de la tape —
+    /// ou le portait déjà, ce qui revient au même pour l'écran.
+    @discardableResult
+    private static func adoptIdentity(_ store: LocalStore, tap: String, bank: String) throws -> Bool {
         let tapKey = MerchantNames.key(tap), bankKey = MerchantNames.key(bank)
-        guard !tapKey.isEmpty, !bankKey.isEmpty, tapKey != bankKey else { return }
+        guard !tapKey.isEmpty, !bankKey.isEmpty, tapKey != bankKey else { return true }
         // Le nom montré pour la tape : son renommage s'il en a un, sinon ce
         // qui a été tapé — c'est déjà un nom, pas une ligne de relevé.
         let shown = (try? store.database.scalar(
             "SELECT display_name FROM payee_aliases WHERE match_key = ?", [.text(tapKey)]
         )?.string) ?? nil
         let display = shown ?? tap.trimmingCharacters(in: .whitespaces)
-        guard !display.isEmpty else { return }
+        guard !display.isEmpty else { return true }
         try store.database.run(
             """
             INSERT INTO payee_aliases (id, match_key, display_name) VALUES (?, ?, ?)
@@ -987,7 +1011,7 @@ enum LocalWallet {
         let settled = (try? store.database.scalar(
             "SELECT display_name FROM payee_aliases WHERE match_key = ?", [.text(bankKey)]
         )?.string) ?? nil
-        guard settled == display else { return }
+        guard settled == display else { return false }
         try store.database.run(
             """
             INSERT INTO merchant_marks (match_key, domain, emoji, image)
@@ -1021,6 +1045,32 @@ enum LocalWallet {
         )
         try store.database.run(
             "DELETE FROM merchant_places WHERE match_key = ?", [.text(tapKey)]
+        )
+        return true
+    }
+
+    /*
+     * Le nom de la tape, posé sur la ligne de la banque elle-même.
+     *
+     * Dernier recours, quand l'identité ne peut pas le porter. Le libellé
+     * brut est mis à l'abri dans `bank_payee` s'il n'y était pas déjà :
+     * l'écran le montre sous le nom, et rien de ce que la banque a dit n'est
+     * perdu.
+     */
+    private static func nameTheRow(
+        _ store: LocalStore, id: String, tap: String, bank: String
+    ) throws {
+        let display = tap.trimmingCharacters(in: .whitespaces)
+        guard !display.isEmpty, display != bank else { return }
+        try store.database.run(
+            """
+            UPDATE transactions
+               SET bank_payee = CASE
+                     WHEN coalesce(bank_payee, '') = '' THEN payee ELSE bank_payee END,
+                   payee = ?, normalized_payee = ?, updated_at = datetime('now')
+             WHERE id = ?
+            """,
+            [.text(display), .text(LocalLedger.normalize(display)), .text(id)]
         )
     }
 

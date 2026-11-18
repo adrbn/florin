@@ -3563,6 +3563,50 @@ struct WalletPaymentTests {
      * banque comptabilise. Restée là, elle décrivait un commerçant que plus
      * aucune ligne ne nomme : zéro passage sur la carte.
      */
+    /*
+     * Quand la clé de l'encaisseur refuse le nom, la LIGNE le prend.
+     *
+     * Un encaissement arrive sous « VIREMENT INSTANTANE DE PAYPAL 2611… » :
+     * l'identité est celle de PayPal, qui porte déjà un nom valable pour tous
+     * ses marchands et ne doit PAS être rebaptisée. Le nom donné à la tape
+     * n'allait alors nulle part, et il fallait le réécrire à la main à chaque
+     * encaissement.
+     */
+    @Test("when the acquirer's key refuses the name, the row takes it")
+    func namesTheRowWhenTheKeyIsTaken() throws {
+        let (store, checking, _) = try ledger()
+        let raw = "VIREMENT INSTANTANE DE PAYPAL 10000000000000000 INSTANT TRANSFER"
+        // L'identité de l'encaisseur porte déjà son nom à elle.
+        try store.database.run(
+            "INSERT INTO payee_aliases (id, match_key, display_name) VALUES (?, ?, ?)",
+            [.text(UUID().uuidString), .text(MerchantNames.key(raw)), .text("PayPal")]
+        )
+        try LocalWallet.record(
+            store: store, amountText: "17,10", merchant: "Mécénat", card: nil,
+            accountId: checking, on: day("2026-09-07")
+        )
+        // Un encaissement : le signe de la tape ne décide pas de celui-ci.
+        try store.database.run(
+            "UPDATE transactions SET amount = 17.10 WHERE source = ?",
+            [.text(LocalWallet.source)]
+        )
+        _ = try bankRow(store, checking, "2026-09-07", 17.10, label: raw)
+        #expect(try LocalWallet.settle(store: store) == 1)
+
+        let row = try #require(try store.database.query(
+            "SELECT payee, bank_payee FROM transactions WHERE source <> ? AND deleted_at IS NULL",
+            [.text(LocalWallet.source)]
+        ).first)
+        #expect(row.string("payee") == "Mécénat")
+        // Rien de ce que la banque a dit n'est perdu.
+        #expect(row.string("bank_payee") == raw)
+        // Et l'identité de l'encaisseur n'a pas bougé.
+        #expect(try store.database.scalar(
+            "SELECT display_name FROM payee_aliases WHERE match_key = ?",
+            [.text(MerchantNames.key(raw))]
+        )?.string == "PayPal")
+    }
+
     @Test("the pin placed at the till passes to the bank's row")
     func carriesTheMerchantPlace() throws {
         let (store, checking, _) = try ledger()
