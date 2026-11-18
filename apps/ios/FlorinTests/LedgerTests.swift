@@ -6092,6 +6092,50 @@ struct AwaitedRefundTests {
     }
 
     /*
+     * Deux articles commandés ensemble, un seul renvoyé.
+     *
+     * L'enseigne rend 41,45 € sur 60,30 €, puis le reste quand le second
+     * colis arrive. Une attente du montant entier annonçait alors 101,75 € de
+     * retour sur un achat de 60,30 € — et le Plan comptait la différence.
+     */
+    @Test("elle n'annonce que ce qui reste à rendre")
+    func announcesOnlyWhatIsLeft() throws {
+        let (store, account) = try ledger()
+        let expense = spending(account, amount: -60.30)
+        try store.database.run(
+            """
+            INSERT INTO transactions (id, account_id, occurred_at, amount, payee,
+                normalized_payee, source, status, is_pending, reimburses_tx_id)
+            VALUES (?, ?, '2026-09-05T12:00:00Z', 41.45, 'Le Comptoir', 'le comptoir',
+                    'enable_banking', 'cleared', 0, ?)
+            """,
+            [.text(UUID().uuidString), .text(account), .text(expense.id)]
+        )
+
+        try LocalWallet.recordRefund(store: store, of: expense)
+        let announced = try store.database.query(
+            "SELECT amount FROM transactions WHERE status = 'scheduled' AND deleted_at IS NULL"
+        )
+        #expect(announced.count == 1)
+        // En centimes : 60,30 − 41,45 n'est pas 18,85 en virgule flottante.
+        #expect(Int(((announced.first?.double("amount") ?? 0) * 100).rounded()) == 1885)
+
+        /*
+         * Et une fois tout attendu, il n'y a plus rien à annoncer.
+         *
+         * C'est le cas qui s'était écrit pour de vrai : la fiche proposait
+         * encore « Attendre un remboursement » sur une dépense déjà rendue,
+         * et chaque tape ajoutait une ligne.
+         */
+        #expect(throws: (any Error).self) {
+            try LocalWallet.recordRefund(store: store, of: expense)
+        }
+        #expect(try store.database.query(
+            "SELECT id FROM transactions WHERE status = 'scheduled' AND deleted_at IS NULL"
+        ).count == 1)
+    }
+
+    /*
      * Le crédit de la banque est souvent *antérieur* à l'annonce : on
      * s'aperçoit du remboursement en lisant son relevé. `settle` le sait et
      * accepte quinze jours en arrière pour un crédit — ce test est là pour que

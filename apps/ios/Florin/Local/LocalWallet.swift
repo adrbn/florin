@@ -24,6 +24,8 @@ enum LocalWallet {
         case noAccount
         case serverMode
         case badAmount(String)
+        /// Tout ce qu'on avait avancé est déjà revenu, ou déjà attendu.
+        case nothingLeftToRefund
 
         var errorDescription: String? {
             switch self {
@@ -36,6 +38,11 @@ enum LocalWallet {
             case .badAmount(let text):
                 Strings.device("v2.wallet.badAmount", "Montant illisible : {amount}")
                     .replacingOccurrences(of: "{amount}", with: text)
+            case .nothingLeftToRefund:
+                Strings.device(
+                    "v2.refund.nothingLeft",
+                    "Cette dépense est déjà entièrement remboursée."
+                )
             }
         }
     }
@@ -325,8 +332,34 @@ enum LocalWallet {
          * `settle` reporte déjà le lien sur la ligne de la banque le jour où
          * elle passe — voir son commentaire.
          */
+        /*
+         * Elle ne porte que ce qui RESTE à rendre.
+         *
+         * La phrase ci-dessus — « le montant est celui de la dépense, donc
+         * rien ne peut dépasser ce qui a été avancé » — est fausse dès qu'une
+         * partie est revenue. Deux articles commandés ensemble, un seul
+         * renvoyé : l'enseigne crédite 41,45 € sur 60,30 €, et une attente du
+         * montant ENTIER annonçait 101,75 € de retour sur un achat de 60,30 €.
+         * Le Plan comptait de l'argent qui n'arriverait jamais.
+         *
+         * Tout ce qui pointe déjà vers la dépense est retiré, attendu comme
+         * encaissé : les deux sont de l'argent qu'on ne peut pas attendre
+         * deux fois. Et quand il ne reste rien, il n'y a rien à annoncer —
+         * c'est un refus, pas une ligne de zéro.
+         */
+        let back = try store.database.query(
+            """
+            SELECT coalesce(sum(amount), 0) AS back FROM transactions
+             WHERE reimburses_tx_id = ? AND deleted_at IS NULL
+            """,
+            [.text(tx.id)]
+        ).first?.double("back") ?? 0
+        // Arrondi au centime : 60,30 − 41,45 vaut 18,849999999999994 en
+        // machine, et c'est ce nombre-là qui serait écrit au grand livre.
+        let left = ((abs(tx.amount) - back) * 100).rounded() / 100
+        guard left > 0.005 else { throw Failure.nothingLeftToRefund }
         try recordRefund(
-            store: store, accountId: accountId, amount: abs(tx.amount),
+            store: store, accountId: accountId, amount: left,
             payee: tx.payee, categoryId: tx.categoryId, of: tx.id, received: received
         )
     }

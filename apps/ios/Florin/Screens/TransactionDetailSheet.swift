@@ -272,6 +272,24 @@ struct TransactionDetailSheet: View {
         shell
         .task { countReceipts() }
         .task { readPin() }
+        /*
+         * Le lien de remboursement n'était lu qu'APRÈS avoir été écrit.
+         *
+         * `readLinks` ne partait que d'une tape — poser une attente, choisir
+         * une dépense — et jamais à l'ouverture. Donc une fiche s'ouvrait
+         * toujours en disant qu'il n'y avait rien : une dépense déjà
+         * remboursée de 41,45 € sur 60,30 € proposait encore « Attendre un
+         * remboursement », et la taper écrivait une SECONDE attente, du
+         * montant entier cette fois, pour un retour déjà encaissé ; en face,
+         * la rentrée qui désignait cette dépense depuis une semaine affichait
+         * « Lier une dépense », comme si personne ne l'avait jamais liée.
+         *
+         * Les deux lignes qu'on lit ici ne sont pas dans la `Transaction`
+         * qu'on nous passe : elles vivent dans deux autres lignes du grand
+         * livre, qui bougent sans elle. Elles se relisent donc, comme les
+         * tickets et l'épingle juste au-dessus.
+         */
+        .task { readLinks() }
         .sheet(isPresented: $placing, onDismiss: { readPin() }) {
             MerchantPlaceSheet(
                 payee: tx.payee,
