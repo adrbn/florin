@@ -606,12 +606,40 @@ enum LocalWallet {
                       * NOM qui autorise cette patience — la passe aveugle, qui
                       * n'a que le montant, garde sa journée.
                       */
-                     .real(byName ? (amount > 0 ? 3650 : 7) : (forecast ? 4 : 1)), .text(day)]
+                     .real(byName ? (amount > 0 ? 3650 : 7) : (forecast ? 4 : 7)), .text(day)]
                 )
                 let tap = row.string("payee") ?? ""
-                for candidate in candidates
-                where !byName || namesAgree(tap, candidate.string("normalized_payee") ?? "") {
-                    pairs.append((row, candidate, candidate.double("drift") ?? 99))
+                for candidate in candidates {
+                    let drift = candidate.double("drift") ?? 99
+                    if byName {
+                        guard namesAgree(tap, candidate.string("normalized_payee") ?? "")
+                        else { continue }
+                    } else if drift > 1, !forecast,
+                              !KnownMerchants.namesARail(candidate.string("payee") ?? "") {
+                        /*
+                         * L'encaisseur débite quand il veut, et sous son nom.
+                         *
+                         * La journée que garde la passe aveugle vient de la
+                         * carte : la banque date une ligne de carte du jour de
+                         * l'achat, et un jour de jeu suffisait pour
+                         * l'intermédiaire qui débite le lendemain. PayPal ne
+                         * tient pas ce calendrier — il prélève un à trois
+                         * jours plus tard, un week-end allonge encore — et le
+                         * nom ne peut pas rattraper le retard : le libellé
+                         * porte « PAYPAL », ou le marchand tronqué à six
+                         * lettres, jamais le nom qu'on a tapé. Une tape de
+                         * billet de train payée par PayPal ne rencontrait donc
+                         * jamais son débit, et le voyage comptait deux fois.
+                         *
+                         * Une semaine, mais pour ces libellés seulement —
+                         * ceux dont on sait que le nom ne parlera pas. Pour
+                         * les autres, sans nom pour corroborer, le même
+                         * montant quelques jours plus tard reste un autre
+                         * café.
+                         */
+                        continue
+                    }
+                    pairs.append((row, candidate, drift))
                 }
             }
             pairs.sort { $0.drift < $1.drift }

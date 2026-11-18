@@ -85,6 +85,21 @@ enum KnownMerchants {
         return !words.isEmpty && words.allSatisfy { rails.contains($0) }
     }
 
+    /*
+     * Vrai quand un libellé PASSE par un encaisseur, qu'il nomme le marchand
+     * derrière ou non : « ACHAT CB PAYPAL *LECOMP », « PRLV PAYPAL ».
+     *
+     * Ce n'est pas la même question que `isRailAlone`, qui demande si le
+     * libellé ne nomme QUE l'encaisseur. Celle-ci sert à savoir si le nom
+     * d'une ligne peut s'accorder avec celui d'une tape : derrière un
+     * encaisseur, il ne peut pas — le marchand y est tronqué à six lettres,
+     * ou absent. C'est ce qui justifie d'attendre cette ligne plus longtemps
+     * que la journée que la passe aveugle accorde d'ordinaire.
+     */
+    static func namesARail(_ label: String) -> Bool {
+        normalize(label).split(separator: " ").contains { rails.contains($0) }
+    }
+
     /// Lowercase, no accents, letters and digits only: "H&M" → "h m",
     /// "Amazon.fr" → "amazon fr", "McDonald's" → "mcdonald s".
     static func normalize(_ text: String) -> String {

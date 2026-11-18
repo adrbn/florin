@@ -240,6 +240,27 @@ struct EditorialActivity: View {
         }
         .reloadsOnLedgerChange { await model.reload() }
         /*
+         * Chercher replie ce qu'on avait déplié.
+         *
+         * Les deux volets gardent leur état entre deux listes : ouverts pour
+         * parcourir « 21 à venir », ils le restaient pendant la recherche
+         * suivante. On tapait trois lettres et la réponse s'ouvrait DERRIÈRE
+         * vingt échéances dépliées, à deux écrans de défilement du haut — la
+         * liste répondait, et on ne voyait pas qu'elle avait répondu.
+         *
+         * Une question posée remet donc les volets à plat : chacun redevient
+         * une ligne qui dit combien elle contient, et les journées remontent
+         * sous le champ. Replié, pas caché — le compte du volet ne parle plus
+         * que des réponses, et il s'ouvre d'une tape.
+         */
+        .onChange(of: model.filter.search) { _, text in
+            guard !text.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+            withAnimation(EdMotion.spring) {
+                upcomingOpen = false
+                instalmentsOpen = false
+            }
+        }
+        /*
          * Revenir sur un filtre qui ne montre plus rien.
          *
          * On vérifie la dernière ligne de la file, l'écran se vide, et « À

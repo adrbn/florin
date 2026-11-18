@@ -3020,6 +3020,62 @@ struct WalletPaymentTests {
     }
 
     /*
+     * Un achat payé par un intermédiaire est débité des jours plus tard.
+     *
+     * La tape est écrite le jour de l'achat pour que le prévisionnel soit
+     * juste tout de suite ; l'encaisseur, lui, prélève un à trois jours après,
+     * sous son propre nom. La passe aveugle n'accordait qu'une journée et le
+     * nom ne pouvait pas rattraper : le débit arrivait seul et le même achat
+     * comptait deux fois.
+     */
+    @Test("une tape payée par un encaisseur attend son débit une semaine")
+    func settlesOntoALaterRailDebit() throws {
+        let (store, checking, _) = try ledger()
+        try LocalWallet.record(
+            store: store, amountText: "14,00", merchant: "Le Comptoir",
+            card: nil, accountId: checking, on: day("2026-09-13")
+        )
+        let rail = try bankRow(
+            store, checking, "2026-09-16", -14,
+            label: "ACHAT CB PAYPAL *LECOMP 16.09.26 CARTE NUMERO 469"
+        )
+
+        #expect(try LocalWallet.settle(store: store) == 1)
+        let link = try store.database.scalar(
+            "SELECT merge_suggested_tx_id FROM transactions WHERE source = ?",
+            [.text(LocalWallet.source)]
+        )?.string
+        #expect(link == rail)
+        /*
+         * Et le nom tapé passe sur la clé de la banque, pas sur la ligne :
+         * « paypal lecomp » nomme ce marchand-là chez l'encaisseur, donc
+         * l'écran dira « Le Comptoir » pour tous ses débits suivants. Voir
+         * `adoptIdentity`.
+         */
+        #expect(try store.database.scalar(
+            "SELECT display_name FROM payee_aliases WHERE match_key = ?",
+            [.text(MerchantNames.key("ACHAT CB PAYPAL *LECOMP 16.09.26 CARTE NUMERO 469"))]
+        )?.string == "Le Comptoir")
+    }
+
+    /*
+     * Sans encaisseur au libellé, la journée reste la règle : le même montant
+     * trois jours plus tard est une autre dépense, et la prendre laisserait
+     * sa propre tape orpheline pour toujours.
+     */
+    @Test("un libellé ordinaire trois jours plus tard ne prend pas la tape")
+    func leavesALaterStrangerAlone() throws {
+        let (store, checking, _) = try ledger()
+        try LocalWallet.record(
+            store: store, amountText: "14,00", merchant: "Le Comptoir",
+            card: nil, accountId: checking, on: day("2026-09-13")
+        )
+        _ = try bankRow(store, checking, "2026-09-16", -14, label: "ACHAT CB CHEZ ROSA 16.09.26")
+
+        #expect(try LocalWallet.settle(store: store) == 0)
+    }
+
+    /*
      * A tap an earlier sync adopted is put back as settling would have left
      * it: booked, under the bank's own label.
      */

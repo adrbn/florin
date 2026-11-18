@@ -349,6 +349,15 @@ struct TransactionList<Banner: View>: View {
             }
         }
         .reloadsOnLedgerChange { await model.reload() }
+        // Une question posée replie les deux volets d'attente : voir
+        // `EditorialActivity`, qui porte les mêmes et pour la même raison.
+        .onChange(of: model.filter.search) { _, text in
+            guard !text.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+            withAnimation(.snappy(duration: 0.2)) {
+                upcomingExpanded = false
+                instalmentsExpanded = false
+            }
+        }
         .onChange(of: searchRequest) { _, _ in searchFocused = true }
         /*
          * Revenir sur un filtre qui ne montre plus rien.
