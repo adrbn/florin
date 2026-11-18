@@ -18,11 +18,48 @@ enum KnownMerchants {
     static func domain(forKey key: String) -> String? {
         let words = normalize(key)
         guard !words.isEmpty else { return nil }
+        if let own = match(withoutRails(words)) { return own }
+        return match(words)
+    }
+
+    private static func match(_ words: String) -> String? {
+        guard !words.isEmpty else { return nil }
         let padded = " \(words) "
         for (pattern, domain) in entries where padded.contains(" \(pattern) ") {
             return domain
         }
         return nil
+    }
+
+    /*
+     * L'encaisseur n'est pas le marchand.
+     *
+     * Le relevé d'une carte passée par PayPal s'écrit « ACHAT CB PAYPAL
+     * *ENSEIGNE », donc la clé porte deux marques — et la liste rend la
+     * première qu'elle croise dans son propre ordre, pas la plus précise.
+     * « paypal » étant écrit bien avant la plupart des enseignes, l'achat
+     * s'affichait sous le logo de PayPal, nom corrigé à la main compris,
+     * puisque le nom et l'icône ne viennent pas du même endroit.
+     *
+     * Les mots de rail sont donc retirés d'abord, et la clé entière n'est
+     * essayée qu'ensuite : « paypal + enseigne » rend l'enseigne, « paypal » tout seul
+     * rend toujours PayPal, et « paypal paieme » ne rend rien — ce qui laisse
+     * parler la marque posée à la main sur ce libellé-là.
+     */
+    private static func withoutRails(_ words: String) -> String {
+        let kept = words.split(separator: " ").filter { !rails.contains($0) }
+        return kept.count == words.split(separator: " ").count ? "" : kept.joined(separator: " ")
+    }
+
+    private static let rails: Set<Substring> = [
+        "paypal", "sumup", "revolut", "satispay", "klarna", "scalapay",
+    ]
+
+    /// Vrai quand une clé ne nomme QUE l'encaisseur : « paypal »,
+    /// « sumup ». Un tel libellé ne peut nommer personne d'autre.
+    static func isRailAlone(_ key: String) -> Bool {
+        let words = normalize(key).split(separator: " ")
+        return !words.isEmpty && words.allSatisfy { rails.contains($0) }
     }
 
     /// Lowercase, no accents, letters and digits only: "H&M" → "h m",

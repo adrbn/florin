@@ -3722,6 +3722,67 @@ struct WalletPaymentTests {
         #expect(left == [MerchantNames.key("Lumio")])
     }
 
+    /*
+     * Un versement reçu par un rail garde le nom de celui qui a payé.
+     *
+     * Le libellé ne nomme que l'encaisseur, et son nom à lui était déjà
+     * décidé : le report de nom était refusé, la ligne saisie partait, et
+     * l'écran annonçait l'encaisseur. Le nom donné se reprend donc, puisque
+     * ce libellé-là ne peut nommer personne d'autre.
+     */
+    @Test("a payout through a rail gets back the name of whoever paid")
+    func restoresTheNameARailAte() throws {
+        let (store, checking, _) = try ledger()
+        let label = "VIREMENT INSTANTANE DE PAYPAL 10000000000000000 INSTANT TRANSFER"
+        #expect(KnownMerchants.isRailAlone(MerchantNames.key(label)))
+
+        let bank = try bankRow(store, checking, "2026-09-08", 17.10, label: label)
+        let given = try bankRow(store, checking, "2026-09-08", 17.10, label: "Mécénat")
+        try store.database.run(
+            """
+            UPDATE transactions
+               SET source = ?, deleted_at = datetime('now'), merge_suggested_tx_id = ?
+             WHERE id = ?
+            """,
+            [.text(LocalWallet.source), .text(bank), .text(given)]
+        )
+
+        try store.restoreNamesEatenByRails()
+        let after = try store.database.query(
+            "SELECT payee, bank_payee FROM transactions WHERE id = ?", [.text(bank)]
+        ).first
+        #expect(after?.string("payee") == "Mécénat")
+        #expect(after?.string("bank_payee") == label)
+
+        // Point fixe : une deuxième passe ne la revoit pas.
+        try store.restoreNamesEatenByRails()
+        #expect(try store.database.query(
+            "SELECT payee FROM transactions WHERE id = ?", [.text(bank)]
+        ).first?.string("payee") == "Mécénat")
+    }
+
+    /// Un marchand nommé par son propre libellé n'est pas un rail : son nom
+    /// vient de lui, et la passe ne doit pas le réécrire ligne à ligne.
+    @Test("a real merchant's own label is left alone")
+    func leavesARealMerchantAlone() throws {
+        let (store, checking, _) = try ledger()
+        let label = "ACHAT CB BASTIDE 08.09.26 EUR 4,10"
+        let bank = try bankRow(store, checking, "2026-09-08", -4.10, label: label)
+        let given = try bankRow(store, checking, "2026-09-08", -4.10, label: "Bastide")
+        try store.database.run(
+            """
+            UPDATE transactions
+               SET source = ?, deleted_at = datetime('now'), merge_suggested_tx_id = ?
+             WHERE id = ?
+            """,
+            [.text(LocalWallet.source), .text(bank), .text(given)]
+        )
+        try store.restoreNamesEatenByRails()
+        #expect(try store.database.query(
+            "SELECT payee FROM transactions WHERE id = ?", [.text(bank)]
+        ).first?.string("payee") == label)
+    }
+
     @Test("one bank row settles one payment, even across syncs")
     func oneToOne() throws {
         let (store, checking, _) = try ledger()
@@ -4027,6 +4088,26 @@ struct MerchantLogoTests {
     ])
     func unknown(_ key: String) {
         #expect(KnownMerchants.domain(forKey: key) == nil)
+    }
+
+    /// Deux marques dans une même clé, et c'est celle du marchand qui
+    /// compte, pas celle du rail qui encaisse pour lui.
+    @Test("the merchant behind the rail keeps its own logo", arguments: [
+        ("paypal netflix", "netflix.com"),
+        ("paypal ikea", "ikea.com"),
+        ("sumup decathlon", "decathlon.com"),
+    ])
+    func behindTheRail(_ key: String, _ domain: String) {
+        #expect(KnownMerchants.domain(forKey: key) == domain)
+    }
+
+    /// Le rail reste le rail quand aucune autre marque ne se nomme derrière
+    /// lui : « paieme » n'est pas un marchand, ce 4x EST PayPal.
+    @Test("a rail on its own is still itself")
+    func railAlone() {
+        #expect(KnownMerchants.domain(forKey: "paypal") == "paypal.com")
+        #expect(KnownMerchants.domain(forKey: "paypal europe") == "paypal.com")
+        #expect(KnownMerchants.domain(forKey: "paypal paieme") == "paypal.com")
     }
 
     @Test("a typed address comes down to the site's name")

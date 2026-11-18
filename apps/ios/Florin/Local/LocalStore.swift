@@ -348,6 +348,7 @@ final class LocalStore {
         try addColumn("categories", "display_color", "TEXT")
         try rekeyMerchantNames()
         try dropOrphanPlaces()
+        try restoreNamesEatenByRails()
         try healSettledRefundLinks()
         try healExpiredInstalments()
         // `settings` is exactly (key, value) in this schema — no timestamps.
@@ -564,6 +565,56 @@ final class LocalStore {
             if known.contains(where: { MerchantNames.sameMerchant($0, key) }) { continue }
             try database.run(
                 "DELETE FROM merchant_places WHERE match_key = ?", [.text(key)]
+            )
+        }
+    }
+
+    /*
+     * Le nom qu'un encaissement avait emporté avec lui.
+     *
+     * `LocalWallet.settle` retire la ligne saisie à la main quand celle de la
+     * banque arrive. Jusqu'ici elle ne reportait son nom que sur la CLÉ du
+     * marchand, jamais sur la ligne : quand cette clé portait déjà un nom
+     * décidé, le report était refusé, et le nom tapé à la caisse partait avec
+     * la ligne retirée.
+     *
+     * Là où ça mentait franchement, c'est sur la clé d'un rail. « VIREMENT
+     * INSTANTANE DE PAYPAL <référence> » ne nomme que PayPal — jamais celui
+     * qui a payé, dont le nom n'est nulle part dans le libellé. Le versement
+     * reçu s'affichait donc sous « PayPal » alors que la ligne saisie disait
+     * de qui il venait. Un libellé qui ne nomme que l'encaisseur ne peut pas
+     * nommer le payeur : reprendre le nom donné ne risque rien.
+     *
+     * Les autres refus restent tels quels : le nom affiché y vient du
+     * marchand lui-même, et le réécrire ligne à ligne ne serait que du bruit.
+     *
+     * Le calcul est un point fixe — une fois le nom écrit, `payee` n'est plus
+     * le libellé de la banque, donc la passe ne revoit pas cette ligne.
+     */
+    func restoreNamesEatenByRails() throws {
+        let rows = try database.query(
+            """
+            SELECT b.id AS id, b.payee AS label, t.payee AS given
+              FROM transactions t JOIN transactions b ON b.id = t.merge_suggested_tx_id
+             WHERE t.deleted_at IS NOT NULL AND b.deleted_at IS NULL
+               AND trim(t.payee) <> '' AND trim(b.payee) <> ''
+               AND b.payee = coalesce(nullif(b.bank_payee, ''), b.payee)
+            """
+        )
+        for row in rows {
+            guard let id = row.string("id"), let label = row.string("label"),
+                  let given = row.string("given"), given != label,
+                  KnownMerchants.isRailAlone(MerchantNames.key(label))
+            else { continue }
+            try database.run(
+                """
+                UPDATE transactions
+                   SET bank_payee = CASE
+                         WHEN coalesce(bank_payee, '') = '' THEN payee ELSE bank_payee END,
+                       payee = ?, normalized_payee = ?, updated_at = datetime('now')
+                 WHERE id = ?
+                """,
+                [.text(given), .text(LocalLedger.normalize(given)), .text(id)]
             )
         }
     }
