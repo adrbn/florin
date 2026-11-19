@@ -102,8 +102,11 @@ enum LocalReimbursements {
      * Remonter tout le grand livre donnerait une liste où l'on cherche au
      * lieu de reconnaître. Ce qu'on se fait rembourser est récent — on avance
      * l'argent, on le récupère dans la quinzaine — et c'est forcément une
-     * dépense d'au moins le montant rendu : personne ne vous rend trente
-     * euros sur une addition de douze.
+     * dépense d'au moins le montant rendu, à l'arrondi près : personne ne vous
+     * rend trente euros sur une addition de douze, mais on vous rend bel et
+     * bien 28 € pour 27,99, ou 30 pour 27,99 — arrondir vers le haut est le
+     * geste normal quand c'est un proche qui tape le virement. Au centime
+     * près, la dépense qu'on cherche était justement écartée de la liste.
      *
      * Quatre-vingt-dix jours en arrière à partir du jour de la rentrée, et
      * quelques-uns en avant, parce que la banque publie les deux lignes dans
@@ -119,8 +122,10 @@ enum LocalReimbursements {
         let filter = words.map { _ in
             "AND (lower(t.normalized_payee) LIKE ? OR lower(COALESCE(t.memo,'')) LIKE ?)"
         }.joined(separator: " ")
+        let rounding = max(1, abs(income.amount) * 0.1)
         var values: [SQLiteValue] = [
-            .real(-abs(income.amount)), .text(day), .text(day), .text(income.id),
+            .real(-(abs(income.amount) - rounding)), .text(day), .text(day),
+            .text(income.id),
         ]
         for word in words { values.append(.text(word)); values.append(.text(word)) }
         return try store.database.query(

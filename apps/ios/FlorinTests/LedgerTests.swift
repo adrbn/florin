@@ -8851,6 +8851,27 @@ struct RefundMatchTests {
         )?.string
     }
 
+    /// Un proche qui rembourse tape un montant rond : 28 € pour 27,99. Le
+    /// plafond au centime près écartait de la liste la seule dépense qu'on
+    /// cherchait, et aucun autre chemin de l'app ne pose ce lien.
+    @Test("un virement arrondi au-dessus propose quand même sa dépense")
+    func roundedTransferStillListsItsExpense() throws {
+        let store = try store()
+        let account = try account(store)
+        let expense = try row(store, account, -27.99, "Boutique", daysAgo: 6, review: false)
+        try row(store, account, -4.20, "Café", daysAgo: 5, review: false)
+        let credit = try row(store, account, 28.00, "VIREMENT RECU", daysAgo: 1)
+        let income = LocalLedger.transaction(from: try #require(
+            store.database.query("SELECT * FROM transactions WHERE id = ?", [.text(credit)]).first
+        ))
+
+        let listed = try LocalReimbursements.candidates(store: store, for: income, search: "")
+        #expect(listed.contains { $0.id == expense })
+        // Le garde tient toujours : on ne propose pas une addition de 4,20 €
+        // pour un virement de 28 €.
+        #expect(listed.count == 1)
+    }
+
     @Test("une seule dépense au même centime : le lien est posé, la catégorie suit")
     func singleMatchLinksAndFiles() throws {
         let store = try store()
