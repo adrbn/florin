@@ -98,6 +98,42 @@ struct MerchantNameSheet: View {
      * « site.fr », donc l'ecran semblait ignorer une adresse differente.
      */
     private var retryable: Bool { domain != nil && domain == existingMark?.domain }
+
+    /*
+     * La phrase sous le champ dit où on en est, pas seulement ce qu'on peut.
+     *
+     * Une adresse tapée partait chercher son icône en silence : la bulle
+     * restait vide, et rien ne disait si c'était en cours, si le site n'en
+     * avait pas, ou si l'adresse était à refaire. Les trois se disent ici,
+     * et la recherche l'emporte sur les conseils — c'est ce qu'on regarde
+     * quand on vient de taper.
+     */
+    private var logoNote: String {
+        guard siteIsValid else { return t("v2.merchant.badSite", "Ce n'est pas une adresse de site") }
+        if picture == nil, emoji.isEmpty, logos.enabled, let domain = previewSite {
+            switch logos.outcome(domain: domain) {
+            case .searching: return t("v2.merchant.logoSearching", "Recherche de l'icône…")
+            case .found: return t("v2.merchant.logoFound", "Icône trouvée")
+            case .missing:
+                return t(
+                    "v2.merchant.logoMissing",
+                    "Ce site ne livre pas d'icône. Un emoji ou une image fera l'affaire."
+                )
+            }
+        }
+        return retryable
+            ? t("v2.merchant.sameSite", "Même site : « Enregistrer » redemande l'icône")
+            : t("v2.merchant.logoHint", "Le logo vient de ce site, sauf si vous choisissez un emoji")
+    }
+
+    private var logoNoteTone: Color {
+        guard siteIsValid else { return Florin.negative }
+        if picture == nil, emoji.isEmpty, logos.enabled, let domain = previewSite,
+           case .found = logos.outcome(domain: domain) {
+            return Florin.positive
+        }
+        return Florin.text3
+    }
     private var canSave: Bool {
         siteIsValid && (nameChanged || markChanged || pictureChanged || retryable)
     }
@@ -176,13 +212,9 @@ struct MerchantNameSheet: View {
                                     if kept != new { emoji = kept }
                                 }
                         }
-                        Text(!siteIsValid
-                            ? t("v2.merchant.badSite", "Ce n'est pas une adresse de site")
-                            : retryable
-                            ? t("v2.merchant.sameSite", "Même site : « Enregistrer » redemande l'icône")
-                            : t("v2.merchant.logoHint", "Le logo vient de ce site, sauf si vous choisissez un emoji"))
+                        Text(logoNote)
                             .font(.system(size: 12.5))
-                            .foregroundStyle(siteIsValid ? Florin.text3 : Florin.negative)
+                            .foregroundStyle(logoNoteTone)
                     }
 
                     /*

@@ -4199,6 +4199,19 @@ struct MerchantLogoTests {
         ])
     }
 
+    /// L'annuaire ne doit servir qu'en dernier et nommer le domaine, rien
+    /// d'autre : c'est tout ce qui sort du téléphone, et l'ordre place
+    /// d'abord celui qui ne trace pas.
+    @Test("l'annuaire d'icônes demande le domaine, et lui seul")
+    func directoryAsksForTheDomainOnly() throws {
+        let urls = LogoFetcher.directory("exemple.fr").map(\.absoluteString)
+        #expect(urls == [
+            "https://icons.duckduckgo.com/ip3/exemple.fr.ico",
+            "https://www.google.com/s2/favicons?domain=exemple.fr&sz=256",
+        ])
+        #expect(!urls.contains { $0.contains("€") || $0.contains("amount") })
+    }
+
     @Test("a family declared twelve times keeps two, so the next one is reached")
     func iconFamiliesAreCapped() throws {
         let sizes = [57, 60, 72, 76, 114, 120, 144, 152, 180]
@@ -5879,6 +5892,20 @@ struct UnfiledSpendingTests {
              .text(pending ? "scheduled" : "cleared"), .integer(pending ? 1 : 0),
              category.map { SQLiteValue.text($0) } ?? .null]
         )
+    }
+
+    /// La note sous le total promet que les entrées ne comptent pas : une
+    /// journée dont la seule ligne est un remboursement rangé dans une
+    /// catégorie de dépense annonçait pourtant son montant comme dépensé.
+    @Test("une journée sans dépense n'en annonce aucune")
+    func refundOnlyDaySpendsNothing() throws {
+        let (store, account, category) = try ledger()
+        try row(store, account, 7.40, category: category, pending: true)
+
+        let day = try LocalDay.detail(store: store, day: "2026-09-25")
+        #expect(day.spent == 0)
+        #expect(day.categories.isEmpty)
+        #expect(day.transactions.count == 1)
     }
 
     @Test("money that left without a category is still money that left")

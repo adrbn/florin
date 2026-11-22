@@ -24,6 +24,22 @@ final class MerchantLogos: ObservableObject {
     @Published private(set) var revision = 0
 
     static let enabledKey = "florin.merchantLogos"
+    /*
+     * Le repli par annuaire, éteint tant qu'on ne l'allume pas.
+     *
+     * Un grand site peut refuser tout ce qui n'est pas un navigateur : il
+     * répond sa page anti-robot — 200, du HTML — à la place de son icône, à
+     * toutes les adresses, et aucune insistance de notre côté n'y changera
+     * rien. Un annuaire d'icônes, lui, l'a déjà vue.
+     *
+     * Le prix est clair et c'est pourquoi l'interrupteur existe : demander
+     * l'icône de `exemple.fr` à un annuaire, c'est dire à ce tiers que ce
+     * marchand nous intéresse. Un seul nom de domaine par marchand, une
+     * seule fois, jamais un montant ni une date — mais c'est le premier
+     * octet de ce grand livre qui sort du téléphone, alors il sort sur
+     * décision, pas par défaut.
+     */
+    static let directoryKey = "florin.merchantLogos.directory"
 
     struct Mark: Equatable {
         var domain: String?
@@ -56,6 +72,10 @@ final class MerchantLogos: ObservableObject {
 
     var enabled: Bool {
         UserDefaults.standard.object(forKey: Self.enabledKey) as? Bool ?? true
+    }
+
+    var directoryEnabled: Bool {
+        UserDefaults.standard.bool(forKey: Self.directoryKey)
     }
 
     // MARK: - Reading
@@ -294,6 +314,25 @@ final class MerchantLogos: ObservableObject {
         return nil
     }
 
+    /*
+     * Où en est la recherche d'icône, pour le dire à l'écran.
+     *
+     * `logo(domain:)` rend `nil` dans deux situations opposées — on cherche
+     * encore, ou on a cherché et il n'y a rien — et la fiche marchand les
+     * affichait pareil : une bulle vide, sans un mot. On attendait devant un
+     * écran qui ne promettait rien.
+     */
+    enum Outcome {
+        case searching
+        case found(UIImage)
+        case missing
+    }
+
+    func outcome(domain: String) -> Outcome {
+        if let hit = logo(domain: domain) { return .found(hit) }
+        return missed.contains(domain) ? .missing : .searching
+    }
+
     /// The key is computed per distinct label, not per row per redraw.
     private func key(_ payee: String) -> String {
         if let hit = keys[payee] { return hit }
@@ -345,6 +384,17 @@ final class MerchantLogos: ObservableObject {
     }
 
     /// Turning logos back on retries the sites that failed while offline.
+    func setDirectoryEnabled(_ on: Bool) {
+        UserDefaults.standard.set(on, forKey: Self.directoryKey)
+        // Les domaines qui avaient échoué méritent l'essai qu'on vient
+        // d'autoriser — sinon le réglage ne changerait rien avant une semaine.
+        if on {
+            missed.removeAll()
+            LogoCache.forgetMisses()
+        }
+        invalidate()
+    }
+
     func setEnabled(_ on: Bool) {
         UserDefaults.standard.set(on, forKey: Self.enabledKey)
         missed.removeAll()
@@ -479,8 +529,37 @@ enum LogoFetcher {
             if pixels(image) > pixels(best) { best = image }
             if pixels(image) >= crisp { break }
         }
-        guard let best, pixels(best) >= 16 else { return nil }
-        return downscaled(best, to: 180)
+        if let best, pixels(best) >= 16 { return downscaled(best, to: 180) }
+        guard UserDefaults.standard.bool(forKey: MerchantLogos.directoryKey),
+              let found = await fromDirectory(domain)
+        else { return nil }
+        return downscaled(found, to: 180)
+    }
+
+    /*
+     * Ce que le site refuse de donner, l'annuaire l'a déjà.
+     *
+     * Deux annuaires publics, dans cet ordre : celui qui ne trace pas
+     * d'abord, l'autre ensuite, et seulement si le premier n'a rien ou rend
+     * une vignette trop petite pour la bulle. On ne les appelle qu'après
+     * l'échec complet du site lui-même : tant qu'une icône vient de chez le
+     * marchand, rien ne sort du téléphone.
+     */
+    static func directory(_ domain: String) -> [URL] {
+        [
+            URL(string: "https://icons.duckduckgo.com/ip3/\(domain).ico"),
+            URL(string: "https://www.google.com/s2/favicons?domain=\(domain)&sz=256"),
+        ].compactMap { $0 }
+    }
+
+    private static func fromDirectory(_ domain: String) async -> UIImage? {
+        var best: UIImage?
+        for url in directory(domain) {
+            guard let image = await image(at: url) else { continue }
+            if pixels(image) > pixels(best) { best = image }
+            if pixels(image) >= crisp { break }
+        }
+        return pixels(best) >= 16 ? best : nil
     }
 
     /// The icons a page declares, the most suitable first.
@@ -599,5 +678,18 @@ enum LogoCache {
     static func forgetMiss(_ domain: String) {
         guard let url = file(domain, "miss") else { return }
         try? FileManager.default.removeItem(at: url)
+    }
+
+    /// Tous les échecs d'un coup : un nouveau chemin d'icône vient de
+    /// s'ouvrir, et aucun domaine n'a plus de raison d'être écarté d'avance.
+    static func forgetMisses() {
+        guard let folder,
+              let files = try? FileManager.default.contentsOfDirectory(
+                  at: folder, includingPropertiesForKeys: nil
+              )
+        else { return }
+        for url in files where url.pathExtension == "miss" {
+            try? FileManager.default.removeItem(at: url)
+        }
     }
 }

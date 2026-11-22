@@ -57,6 +57,7 @@ struct SettingsScreen: View {
     @AppStorage(Greeting.key) private var firstName = ""
     @AppStorage(AppLock.key) private var lockOn = false
     @AppStorage("florin.merchantLogos") private var logosOn = true
+    @AppStorage("florin.merchantLogos.directory") private var logoDirectoryOn = false
 
     private var t: Strings { model.overview?.t ?? .empty }
     @AppStorage("florin.notifications") private var notificationsOn = false
@@ -1582,6 +1583,48 @@ struct SettingsScreen: View {
             .tint(Florin.control)
             .padding(.horizontal, Florin.gutter)
             .padding(.vertical, 11)
+            /*
+             * Le seul réglage qui fait sortir quelque chose du téléphone.
+             *
+             * Il est en retrait sous les logos parce qu'il n'existe que pour
+             * eux, et sa phrase dit ce qui part : le nom de domaine, à un
+             * annuaire, et rien d'autre. Éteint tant qu'on ne l'allume pas —
+             * voir `MerchantLogos.directoryKey`.
+             */
+            if logosOn {
+                Hairline()
+                Toggle(isOn: Binding(
+                    get: { logoDirectoryOn },
+                    set: { on in
+                        logoDirectoryOn = on
+                        MerchantLogos.shared.setDirectoryEnabled(on)
+                    }
+                )) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack(spacing: 11) {
+                            Image(systemName: "globe")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundStyle(Florin.accent)
+                                .frame(width: 20)
+                            Text(t("v2.settings.logoDirectory", "Annuaire d'icônes"))
+                                .font(.system(size: 15.5))
+                                .foregroundStyle(Florin.text)
+                        }
+                        Text(t(
+                            "v2.settings.logoDirectoryHint",
+                            "Pour les sites qui refusent de livrer leur icône. "
+                                + "Leur nom de domaine est alors demandé à un annuaire extérieur "
+                                + "— jamais un montant ni une date."
+                        ))
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(Florin.text3)
+                        .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .tint(Florin.control)
+                .padding(.horizontal, Florin.gutter)
+                .padding(.vertical, 11)
+            }
         }
     }
 

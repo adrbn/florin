@@ -108,7 +108,20 @@ enum LocalDay {
             """ + exclusion("c.id", hidden),
             [.text(day)] + bindings(hidden)
         )?.double ?? 0
-        return round2(-total)
+        /*
+         * Une journée ne dépense jamais moins que rien.
+         *
+         * La somme est NETTE : un remboursement rangé dans une catégorie de
+         * dépense vient en déduction, ce qui est juste tant qu'il reste une
+         * dépense dessous. Le jour où la seule ligne est une rentrée rangée
+         * là — un remboursement de marchand, en attente — la somme devient
+         * positive et `-total` affichait son opposé : « Dépensé 7,40 € » sur
+         * une journée où 7,40 € sont RENTRÉS, juste au-dessus d'une note qui
+         * promet que les entrées ne comptent pas. La liste des catégories
+         * écarte déjà ses tranches négatives ; le total le fait maintenant
+         * aussi.
+         */
+        return round2(max(0, -total))
     }
 
     // MARK: - Where it went
