@@ -1,3 +1,4 @@
+import AppIntents
 import SwiftUI
 import WidgetKit
 
@@ -48,6 +49,22 @@ struct FlorinApp: App {
         // later is never called, and the app is simply never woken again.
         BackgroundRefresh.register()
         BackgroundRefresh.schedule()
+        /*
+         * Redire au système que nos actions existent, à chaque lancement.
+         *
+         * Remplacer l'app réécrit son binaire, et l'index des actions que
+         * Raccourcis tient de son côté devient périmé : une automatisation
+         * qui en contient une ne part plus du tout — pas son action à nous,
+         * l'automatisation ENTIÈRE, au point que ses premières actions, un
+         * simple ajout de ligne dans un fichier, ne s'exécutent pas non plus.
+         * Vu de l'extérieur, la détection des paiements s'arrête à chaque
+         * mise à jour, et ouvrir le scénario une fois la remet en marche :
+         * cette ouverture est précisément ce qui force la ré-indexation.
+         *
+         * C'est donc l'app qui la demande, au lancement, puisqu'elle sait
+         * mieux que l'utilisateur qu'elle vient d'être remplacée.
+         */
+        FlorinShortcuts.updateAppShortcutParameters()
     }
 
     @Environment(\.scenePhase) private var scenePhase
