@@ -111,6 +111,16 @@ enum LocalReimbursements {
      * Quatre-vingt-dix jours en arrière à partir du jour de la rentrée, et
      * quelques-uns en avant, parce que la banque publie les deux lignes dans
      * l'ordre qu'elle veut.
+     *
+     * Sauf qu'on cherche : alors la fenêtre s'ouvre.
+     *
+     * Le garde ci-dessus protège une liste qu'on PARCOURT — trois mille
+     * lignes où reconnaître la bonne est impossible. Taper un mot renverse
+     * la situation : on sait déjà ce qu'on veut, et c'est précisément la
+     * dépense ancienne qu'on ne retrouve pas en faisant défiler. La liste
+     * s'arrêtait au quatre-vingt-dixième jour sans le dire, donc une
+     * recherche sur un marchand de l'an dernier ne rendait rien, et rien
+     * à l'écran n'expliquait pourquoi.
      */
     static func candidates(
         store: LocalStore, for income: Transaction, search: String
@@ -123,9 +133,10 @@ enum LocalReimbursements {
             "AND (lower(t.normalized_payee) LIKE ? OR lower(COALESCE(t.memo,'')) LIKE ?)"
         }.joined(separator: " ")
         let rounding = max(1, abs(income.amount) * 0.1)
+        let back = words.isEmpty ? 90 : 1095
         var values: [SQLiteValue] = [
-            .real(-(abs(income.amount) - rounding)), .text(day), .text(day),
-            .text(income.id),
+            .real(-(abs(income.amount) - rounding)), .text(day), .real(Double(back)),
+            .text(day), .text(income.id),
         ]
         for word in words { values.append(.text(word)); values.append(.text(word)) }
         return try store.database.query(
@@ -136,7 +147,7 @@ enum LocalReimbursements {
             LEFT JOIN categories c ON c.id = t.category_id
             WHERE t.deleted_at IS NULL AND t.amount <= ?
               AND t.transfer_pair_id IS NULL
-              AND julianday(substr(t.occurred_at, 1, 10)) BETWEEN julianday(?) - 90
+              AND julianday(substr(t.occurred_at, 1, 10)) BETWEEN julianday(?) - ?
                                                               AND julianday(?) + 7
               AND t.id <> ?
               \(filter)

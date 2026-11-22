@@ -8872,6 +8872,27 @@ struct RefundMatchTests {
         #expect(listed.count == 1)
     }
 
+    /// Faire défiler, c'est reconnaître : trois mois suffisent. Taper un mot,
+    /// c'est savoir — et ce qu'on ne retrouve pas en défilant est justement
+    /// la dépense ancienne.
+    @Test("chercher ouvre la fenêtre que le défilement garde à trois mois")
+    func searchingReachesBeyondTheWindow() throws {
+        let store = try store()
+        let account = try account(store)
+        let old = try row(store, account, -62.40, "Boutique", daysAgo: 200, review: false)
+        let credit = try row(store, account, 62.40, "VIREMENT RECU", daysAgo: 1)
+        let income = LocalLedger.transaction(from: try #require(
+            store.database.query("SELECT * FROM transactions WHERE id = ?", [.text(credit)]).first
+        ))
+
+        let browsed = try LocalReimbursements.candidates(store: store, for: income, search: "")
+        #expect(browsed.isEmpty)
+        let searched = try LocalReimbursements.candidates(
+            store: store, for: income, search: "boutique"
+        )
+        #expect(searched.map(\.id) == [old])
+    }
+
     @Test("une seule dépense au même centime : le lien est posé, la catégorie suit")
     func singleMatchLinksAndFiles() throws {
         let store = try store()
