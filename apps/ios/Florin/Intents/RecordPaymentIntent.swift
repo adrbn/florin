@@ -41,7 +41,7 @@ struct RecordPaymentIntent: AppIntent {
             "intent.payment.askAmount", defaultValue: "How much?", table: "Intents"
         ))
     )
-    var amount: String?
+    var amount: String
 
     @Parameter(
         title: LocalizedStringResource("intent.payment.merchant", defaultValue: "Merchant", table: "Intents"),
@@ -49,24 +49,7 @@ struct RecordPaymentIntent: AppIntent {
             "intent.payment.askMerchant", defaultValue: "Who did you pay?", table: "Intents"
         ))
     )
-    /*
-     * Facultatifs, pour que l'action DÉMARRE toujours.
-     *
-     * Un paramètre obligatoire assorti d'une phrase de demande est un piège
-     * pour une automatisation : quand la valeur arrive vide, Raccourcis ne
-     * renonce pas, il POSE la question — et une automatisation qui tourne
-     * téléphone verrouillé n'a personne pour répondre. Elle meurt alors
-     * pendant la résolution des paramètres, c'est-à-dire AVANT `perform()`,
-     * donc sans tentative au journal, sans notification, sans rien : de
-     * l'extérieur la détection s'est simplement arrêtée, et il n'y a aucun
-     * moyen de savoir pourquoi.
-     *
-     * Facultatifs, la résolution ne bloque plus jamais : l'action entre,
-     * inscrit sa tentative, et échoue bruyamment si le montant manque. Siri
-     * continue de poser la question, lui, puisqu'il demande explicitement
-     * les valeurs manquantes.
-     */
-    var merchant: String?
+    var merchant: String
 
     /// Ce que l'action affiche dans Raccourcis, une fois remplie.
     static var parameterSummary: some ParameterSummary {
@@ -104,7 +87,7 @@ struct RecordPaymentIntent: AppIntent {
          */
         let ledger = LocalStore.realLedger
         let attempt = ledger.map {
-            WalletLog.begin(store: $0, amountText: amount ?? "", merchant: merchant ?? "", card: card)
+            WalletLog.begin(store: $0, amountText: amount, merchant: merchant, card: card)
         }
         func close(_ outcome: WalletLog.Outcome, _ detail: String? = nil) {
             guard let ledger, let attempt else { return }
@@ -152,10 +135,10 @@ struct RecordPaymentIntent: AppIntent {
          * reprend à l'heure de la carte.
          */
         guard let store = ledger else {
-            WalletQueue.hold(amountText: amount ?? "", merchant: merchant ?? "", card: card)
+            WalletQueue.hold(amountText: amount, merchant: merchant, card: card)
             let held = Strings.device(
                 "v2.wallet.heldBody", "{merchant} — ajouté à la prochaine ouverture de Florin",
-                ["merchant": merchant ?? ""]
+                ["merchant": merchant]
             )
             await Self.notify(
                 title: Strings.device("v2.wallet.notifyHeld", "Paiement mis en attente"),
@@ -165,8 +148,8 @@ struct RecordPaymentIntent: AppIntent {
         }
         let recorded = try LocalWallet.record(
             store: store,
-            amountText: amount ?? "",
-            merchant: merchant ?? "",
+            amountText: amount,
+            merchant: merchant,
             card: card,
             accountId: account?.id
         )
