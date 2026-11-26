@@ -29,6 +29,7 @@
 		187569791E2C90645F27493E /* LocalInstalments.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C54A8FE0AA745036059FFDD /* LocalInstalments.swift */; };
 		19DA625C08C8A4A12689A4ED /* LocalImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5F276D31E91FBE8D753978A /* LocalImport.swift */; };
 		1A857813EE96447B68DBA4E0 /* TransactionMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4642F3C7EF8D098B7163D639 /* TransactionMenu.swift */; };
+		1B3418FEC7B407AEE70806DA /* Paper.metal in Sources */ = {isa = PBXBuildFile; fileRef = E2DF4EB50BB85EE68070B485 /* Paper.metal */; };
 		1E83F30A9B7BE5AF6FE7D110 /* WidgetFace.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A014AEF341CF6BBB1C57A04 /* WidgetFace.swift */; };
 		203AA8AE726E3B764F651B36 /* EditorialActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6D115E6ACF2AAEDEBA8B274 /* EditorialActivity.swift */; };
 		20A3BBC6162F6CBA9229CD80 /* AddTransactionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94411516F56A17BA12CD1C5F /* AddTransactionSheet.swift */; };
@@ -369,6 +370,7 @@
 		DEA94E1C0A6307106C6B8EAB /* Florin.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Florin.entitlements; sourceTree = "<group>"; };
 		DF9632D2BADE2A1BA9B98E7D /* Rows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Rows.swift; sourceTree = "<group>"; };
 		E1DD2E38FDF8F23D07715D59 /* BottomScrim.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BottomScrim.swift; sourceTree = "<group>"; };
+		E2DF4EB50BB85EE68070B485 /* Paper.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Paper.metal; sourceTree = "<group>"; };
 		E3527CE69DFA3185EE1A26AE /* FlorinWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlorinWidgets.swift; sourceTree = "<group>"; };
 		E5992709F9137A0FAABD05EB /* AnalysisScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalysisScreen.swift; sourceTree = "<group>"; };
 		E6252CEC5BF6CA2A47F805B2 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -444,6 +446,7 @@
 				60BAF879368733AE7877D7B5 /* Backdrop.swift */,
 				D01218C78CF2722622A51E5B /* Brand.swift */,
 				0D4A3DFFE4F3A4DCC92464BA /* Palette.swift */,
+				E2DF4EB50BB85EE68070B485 /* Paper.metal */,
 				053C4FF9EB60FEF2D22C6F7A /* Privacy.swift */,
 				ACE82E4B69A59D03EC43D3F2 /* Scaffold.swift */,
 				4A9330BF5ABD331BDB86CCA7 /* SlotAmount.swift */,
@@ -920,6 +923,7 @@
 				E4D2995C390903037F10DDB7 /* OverviewScreen.swift in Sources */,
 				9216C90004CCCCC085D856E1 /* OwnAccounts.swift in Sources */,
 				D160FFCDEF913CD06DD8BE6F /* Palette.swift in Sources */,
+				1B3418FEC7B407AEE70806DA /* Paper.metal in Sources */,
 				DAF2EFF410AA95A9C7C431AA /* PlacesBoard.swift in Sources */,
 				F08D86FB9DC99E6E39A3FBFC /* PlanCopySheet.swift in Sources */,
 				0BD9FE3CFA72A3F04F4ED9F8 /* PlanModel.swift in Sources */,

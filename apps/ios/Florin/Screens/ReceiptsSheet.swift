@@ -73,6 +73,9 @@ struct ReceiptsSheet: View {
     /// La tuyauterie des deux : le chargement, la photo en grand, le scanner.
     private func plumbed(_ shell: some View) -> some View {
         shell
+            // Le gyroscope tourne tant qu'un ticket est à l'écran, et pas
+            // une seconde de plus.
+            .litByTilt()
             .presentationDetents([.large])
             .task { load() }
             .fullScreenCover(item: $viewing) { photo in
@@ -240,31 +243,52 @@ struct ReceiptsSheet: View {
             if let image = photos[receipt.id], let path = receipt.imagePath {
                 edPhoto(receipt: receipt, image: image, path: path)
             }
-            if receipt.items.isEmpty {
-                Text(t("v2.receipts.nothingRead", "Aucun article lu sur cette photo."))
-                    .font(.system(size: 15))
-                    .foregroundStyle(Florin.text2)
-                    .padding(.horizontal, Ed.gutter)
-                    .padding(.vertical, 12)
-            } else {
-                EdRule()
-                ForEach(receipt.items) { item in
-                    edItem(item)
-                    EdRule()
+            /*
+             * Ce que la caisse a imprimé est sur du papier ; le reste non.
+             *
+             * La photo au-dessus est ce qu'on a pris, les deux boutons en
+             * dessous sont à l'application. Entre les deux, les lignes lues
+             * sont la seule chose qui existait sur le ticket, et c'est à
+             * elles seules que la feuille est donnée — une bande qui
+             * engloberait aussi « Supprimer ce ticket » dirait que la caisse
+             * l'a imprimé.
+             */
+            ReceiptPaper(seed: Double(abs(receipt.id.hashValue % 97))) {
+                VStack(alignment: .leading, spacing: 0) {
+                    if receipt.items.isEmpty {
+                        Text(t("v2.receipts.nothingRead", "Aucun article lu sur cette photo."))
+                            .font(.system(size: 15))
+                            .foregroundStyle(Florin.text2)
+                            .padding(.horizontal, Ed.gutter)
+                            .padding(.vertical, 12)
+                    } else {
+                        ForEach(receipt.items) { item in
+                            edItem(item)
+                            ReceiptRule().padding(.horizontal, Ed.gutter)
+                        }
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Text(t("v2.receipts.receiptTotal", "Total du ticket"))
+                                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                                .tracking(1.2)
+                                .textCase(.uppercase)
+                                .foregroundStyle(Florin.text2)
+                            ReceiptLeader()
+                            AmountText(
+                                value: receipt.total, locale: locale, currency: currency,
+                                tone: .muted, size: 14
+                            )
+                        }
+                        .padding(.horizontal, Ed.gutter)
+                        .padding(.vertical, 12)
+                    }
                 }
-                HStack {
-                    Text(t("v2.receipts.receiptTotal", "Total du ticket"))
-                        .font(.system(size: 14))
-                        .foregroundStyle(Florin.text2)
-                    Spacer(minLength: 8)
-                    AmountText(
-                        value: receipt.total, locale: locale, currency: currency,
-                        tone: .muted, size: 14
-                    )
-                }
-                .padding(.horizontal, Ed.gutter)
-                .padding(.vertical, 12)
+                // Le haut et le bas sont déchirés : le texte s'en écarte, ou
+                // la découpe lui mange une ligne.
+                .padding(.vertical, 16)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .padding(.horizontal, 10)
+            .padding(.bottom, 4)
             /*
              * Au pied du ticket, et pas pleine largeur.
              *
@@ -568,7 +592,7 @@ struct ReceiptsSheet: View {
      */
     private func card(_ receipt: LocalReceipts.Receipt) -> some View {
         VStack(spacing: 10) {
-            ReceiptPaper(sweep: receipt.id) {
+            ReceiptPaper(seed: Double(abs(receipt.id.hashValue % 97))) {
                 VStack(spacing: 0) {
                     paperHead(receipt)
                     ReceiptRule().padding(.horizontal, Florin.gutter)

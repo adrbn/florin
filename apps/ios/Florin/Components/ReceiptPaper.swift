@@ -1,154 +1,140 @@
+import CoreMotion
 import SwiftUI
 
 /*
- * Un ticket de caisse a une forme, et c'est la moitié de ce qu'il dit.
+ * Le papier d'un ticket de caisse, et la lumière qui tombe dessus.
  *
- * Les articles tenaient dans une carte arrondie comme toutes les autres
- * cartes de l'app : juste, lisible, et impossible à distinguer d'une liste
- * d'opérations. Or un ticket n'est pas une liste — c'est une bande de papier
- * thermique, déchirée en haut et en bas, dont les prix sont alignés au
- * millimètre parce qu'une caisse imprime en chasse fixe. Lui rendre cette
- * forme ne décore rien : on reconnaît ce qu'on regarde avant de l'avoir lu.
+ * Un rectangle gris avec une dent de scie dessinée au vecteur se lit comme
+ * une icône de ticket, jamais comme un ticket : il n'a ni fibre, ni creux,
+ * ni reflet, et rien n'y bouge quand la main bouge. La matière est donc
+ * calculée par pixel dans `Paper.metal`, et la seule chose que SwiftUI a
+ * encore à faire ici est de lui donner sa taille et son ton.
  *
- * Le papier prend la couleur du thème plutôt qu'un beige dessiné à la main.
- * Les cinq palettes de Florin n'ont pas le même fond, et un ticket crème sur
- * l'Ardoise serait une tache ; ce qui fait le papier ici, c'est la découpe et
- * la chasse fixe, pas la teinte.
+ * Partagé par les deux habillages. La version précédente n'avait été câblée
+ * que dans l'habillage classique : sur le thème Éditorial, le seul morceau
+ * qui atteignait l'écran était l'écran de chargement, d'où un ticket déchiré
+ * pendant la lecture suivi d'une liste plate. Un composant qu'un seul des
+ * deux chemins appelle n'est pas un composant, c'est une branche morte.
  */
 struct ReceiptPaper<Content: View>: View {
-    /// Rejoué quand cette valeur change : un ticket qui vient d'être lu
-    /// reçoit son éclat, les autres restent tranquilles.
-    var sweep: AnyHashable?
+    /// À 0 la feuille est plate : c'est ce qu'il faut derrière une vignette
+    /// photo, où une ombre de pli passerait pour une tache sur l'image.
+    var bend: Double = 1
+    /// Change la découpe sans changer le reste : deux tickets l'un sous
+    /// l'autre déchirés au même endroit se voient immédiatement.
+    var seed: Double = 0
     @ViewBuilder var content: Content
 
-    var body: some View {
-        content
-            .background(Florin.surface, in: ReceiptEdge())
-            .overlay(ReceiptEdge().stroke(Florin.text.opacity(0.07), lineWidth: 1))
-            .modifier(PaperSweep(trigger: sweep))
-            // Le reflet est un `blendMode`, et un fondu sans groupe de
-            // composition se mélange à tout ce qui est DERRIÈRE la feuille,
-            // pas au seul papier : la bande claire passerait sur le fond de
-            // l'écran, les cartes voisines et la barre d'onglets.
-            .compositingGroup()
-            .clipShape(ReceiptEdge())
-    }
-}
-
-/*
- * La déchirure, en haut et en bas seulement.
- *
- * Les côtés d'un ticket sont nets — c'est la bobine qui les coupe — et seuls
- * les bords arrachés sont dentelés. Dentelés aux deux bouts, pas à un seul :
- * un ticket détaché d'un rouleau l'est en haut comme en bas, et n'en denteler
- * qu'un donne un morceau de papier à en-tête.
- *
- * Le nombre de dents se déduit de la largeur, jamais fixé : à nombre constant
- * elles s'étirent avec l'écran et un iPad affiche des créneaux.
- */
-struct ReceiptEdge: Shape {
-    var tooth: CGFloat = 12
-    var depth: CGFloat = 5
-
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        let count = max(2, Int((rect.width / tooth).rounded()))
-        let step = rect.width / CGFloat(count)
-        path.move(to: CGPoint(x: rect.minX, y: rect.minY + depth))
-        for notch in 0 ..< count {
-            path.addLine(to: CGPoint(x: rect.minX + step * (CGFloat(notch) + 0.5), y: rect.minY))
-            path.addLine(to: CGPoint(x: rect.minX + step * CGFloat(notch + 1), y: rect.minY + depth))
-        }
-        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - depth))
-        for notch in stride(from: count - 1, through: 0, by: -1) {
-            path.addLine(to: CGPoint(x: rect.minX + step * (CGFloat(notch) + 0.5), y: rect.maxY))
-            path.addLine(to: CGPoint(x: rect.minX + step * CGFloat(notch), y: rect.maxY - depth))
-        }
-        path.closeSubpath()
-        return path
-    }
-}
-
-/*
- * Un éclat qui passe une fois, et ne revient pas.
- *
- * Une bande claire en biais qui traverse le papier : c'est le reflet d'une
- * vitre qu'on incline, et il dit « ceci vient d'arriver » sans une ligne de
- * texte. Une seule fois — un reflet qui boucle devient une animation de
- * chargement, et l'écran se met à clignoter pendant qu'on lit des prix.
- *
- * Clair sur fond sombre, sombre sur fond clair : `plusLighter` sur du blanc
- * ne fait rien du tout, et la Papier n'aurait jamais eu son reflet.
- */
-private struct PaperSweep: ViewModifier {
-    let trigger: AnyHashable?
     @Environment(\.colorScheme) private var scheme
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var phase: CGFloat = -0.6
 
-    func body(content: Content) -> some View {
-        content.overlay {
-            GeometryReader { geo in
-                let width = geo.size.width
-                let band = max(70, width * 0.3)
-                Rectangle()
-                    .fill(
-                        LinearGradient(
-                            colors: [.clear, glint, .clear],
-                            startPoint: .leading, endPoint: .trailing
-                        )
-                    )
-                    .frame(width: band, height: geo.size.height * 2.2)
-                    .rotationEffect(.degrees(18))
-                    .blendMode(scheme == .dark ? .plusLighter : .multiply)
-                    .offset(x: phase * (width + band) - band / 2)
-                    .frame(width: width, height: geo.size.height, alignment: .leading)
-                    .clipped()
-            }
-            .allowsHitTesting(false)
-        }
-        .task(id: trigger) {
-            guard trigger != nil, !reduceMotion else { return }
-            phase = -0.6
-            withAnimation(.easeOut(duration: 0.95)) { phase = 1.6 }
-        }
+    /// Le ton du papier, pris sur la palette et poussé d'un cran hors du fond.
+    ///
+    /// Jamais un beige écrit en dur : les cinq palettes de Florin n'ont pas le
+    /// même fond et une feuille crème sur l'Ardoise serait une tache. Ce qui
+    /// fait le papier est la fibre et le creux, pas la teinte.
+    private var tone: Color {
+        Florin.surface
     }
 
-    private var glint: Color {
-        scheme == .dark ? .white.opacity(0.22) : .black.opacity(0.06)
+    var body: some View {
+        content.background {
+            GeometryReader { geo in
+                Rectangle()
+                    .fill(ShaderLibrary.thermalPaper(
+                        .float2(geo.size.width, geo.size.height),
+                        .color(tone),
+                        .float(Float(PaperLight.shared.position)),
+                        .float(Float(bend))
+                    ))
+                    .colorEffect(ShaderLibrary.tornEdge(
+                        .float2(geo.size.width, geo.size.height),
+                        .float(10),
+                        .float(Float(seed))
+                    ))
+                    /*
+                     * Deux ombres, pas une.
+                     *
+                     * Une seule ombre large fait flotter la feuille à dix
+                     * centimètres au-dessus de l'écran. Ce qui pose un objet
+                     * sur une surface, c'est la ligne noire et serrée juste
+                     * sous lui ; la grande ne fait que la profondeur.
+                     */
+                    .shadow(color: .black.opacity(scheme == .dark ? 0.55 : 0.16), radius: 12, y: 6)
+                    .shadow(color: .black.opacity(scheme == .dark ? 0.40 : 0.10), radius: 1.5, y: 1)
+            }
+        }
     }
 }
 
 /*
- * Les pointillés qui mènent le nom jusqu'à son prix.
+ * D'où vient la lumière, d'après l'appareil lui-même.
  *
- * Sur un ticket c'est la chasse fixe qui tient la colonne ; à l'écran les
- * noms n'ont pas tous la même longueur et l'œil perd la ligne entre « thé
- * vert bio » et son montant. Les points font le pont, et c'est la convention
- * qu'on lit sur un menu depuis toujours.
+ * Un reflet qui traverse tout seul est une animation : on la voit une fois,
+ * on la reconnaît la deuxième, elle gêne la troisième. Un reflet qui suit
+ * l'inclinaison du téléphone n'est pas une animation du tout — c'est une
+ * surface, et c'est la seule façon qu'a un écran plat de faire croire à une
+ * matière. Le coût tient dans la ligne : le gyroscope à 30 Hz et une valeur
+ * publiée seulement quand elle a bougé d'un centième.
  */
+@MainActor
+@Observable
+final class PaperLight {
+    static let shared = PaperLight()
+
+    /// De 0 (reflet au bord gauche) à 1 (au bord droit).
+    private(set) var position: Double = 0.5
+
+    @ObservationIgnored private let motion = CMMotionManager()
+    @ObservationIgnored private var watchers = 0
+
+    private init() {}
+
+    /// Compté, parce que plusieurs tickets sont à l'écran en même temps et
+    /// que le dernier qui disparaît doit pouvoir éteindre le gyroscope.
+    func watch() {
+        watchers += 1
+        guard watchers == 1, motion.isDeviceMotionAvailable else { return }
+        motion.deviceMotionUpdateInterval = 1.0 / 30.0
+        motion.startDeviceMotionUpdates(to: .main) { [weak self] data, _ in
+            guard let self, let roll = data?.attitude.roll else { return }
+            // Un quart de tour de chaque côté couvre toute la largeur : au
+            // delà, personne ne regarde plus son téléphone.
+            let next = min(1, max(0, 0.5 + roll / (.pi / 2)))
+            guard abs(next - self.position) > 0.01 else { return }
+            self.position = next
+        }
+    }
+
+    func release() {
+        watchers = max(0, watchers - 1)
+        if watchers == 0 { motion.stopDeviceMotionUpdates() }
+    }
+}
+
+extension View {
+    /// À poser sur l'écran qui montre des tickets, pas sur chaque ticket.
+    func litByTilt() -> some View {
+        onAppear { PaperLight.shared.watch() }
+            .onDisappear { PaperLight.shared.release() }
+    }
+}
+
+/// Les pointillés entre un article et son prix.
 struct ReceiptLeader: View {
     var body: some View {
         Rule()
-            .stroke(
-                Florin.text3.opacity(0.7),
-                style: StrokeStyle(lineWidth: 1, lineCap: .round, dash: [1.6, 3.4])
-            )
+            .stroke(style: StrokeStyle(lineWidth: 1, dash: [1.6, 3.4]))
+            .foregroundStyle(Florin.text.opacity(0.22))
             .frame(height: 1)
-            .frame(minWidth: 10)
-            .padding(.bottom, 3)
     }
 }
 
-/// Un filet en tirets : ce que la caisse imprime entre les articles et le
-/// total. Plus long que les points d'un guide, pour qu'on les distingue.
+/// Le trait de séparation imprimé par la caisse.
 struct ReceiptRule: View {
     var body: some View {
         Rule()
-            .stroke(
-                Florin.text.opacity(0.18),
-                style: StrokeStyle(lineWidth: 1, dash: [4, 4])
-            )
+            .stroke(style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+            .foregroundStyle(Florin.text.opacity(0.18))
             .frame(height: 1)
     }
 }
@@ -163,67 +149,33 @@ struct Rule: Shape {
 }
 
 /*
- * Le papier qui sort de la caisse pendant qu'on lit la photo.
+ * Pendant que ça lit.
  *
- * La lecture prend deux ou trois secondes — l'analyse de mise en page, puis
- * le modèle — et un rond qui tourne ne dit pas ce qui se passe. Une bande qui
- * se remplit de lignes grises sous une ligne de balayage dit « on est en
- * train de lire ce papier », ce qui est exactement le cas.
+ * La version précédente posait cinq barres grises et une ligne de balayage
+ * fluo sur du papier déchiré — un écran de chargement plus chargé que le
+ * résultat qu'il annonce, et le seul morceau de tout ce travail qui soit
+ * arrivé sur l'écran du thème Éditorial. Il ne reste que ce qu'une caisse
+ * fait vraiment : une bande qui sort, et son mot.
  */
 struct ReceiptPrinting: View {
     let label: String
-    @State private var scan: CGFloat = 0
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var out = false
 
     var body: some View {
-        ReceiptPaper {
-            VStack(alignment: .leading, spacing: 11) {
-                Text(label)
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .tracking(1.4)
-                    .foregroundStyle(Florin.text2)
-                    .textCase(.uppercase)
-                ForEach(0 ..< 5, id: \.self) { row in
-                    HStack(spacing: 10) {
-                        bar(width: [0.52, 0.38, 0.61, 0.3, 0.45][row])
-                        Spacer(minLength: 0)
-                        bar(width: 0.14)
-                    }
-                }
-            }
-            .padding(.horizontal, Florin.gutter)
-            .padding(.vertical, 18)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .overlay(alignment: .top) { scanline }
+        ReceiptPaper(bend: 0.6) {
+            Text(label)
+                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                .tracking(1.4)
+                .foregroundStyle(Florin.text2)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 22)
         }
-        .task {
-            guard !reduceMotion else { return }
-            withAnimation(.easeInOut(duration: 1.3).repeatForever(autoreverses: true)) {
-                scan = 1
-            }
-        }
-    }
-
-    private func bar(width: CGFloat) -> some View {
-        GeometryReader { geo in
-            Capsule()
-                .fill(Florin.text.opacity(0.1))
-                .frame(width: geo.size.width * width, height: 9)
-        }
-        .frame(height: 9)
-    }
-
-    /// Sous la ligne, le papier est « lu » : c'est le dégradé qui le dit,
-    /// pas un trait seul, qui ressemblerait à une rayure.
-    private var scanline: some View {
-        GeometryReader { geo in
-            LinearGradient(
-                colors: [Florin.accent.opacity(0), Florin.accent.opacity(0.35)],
-                startPoint: .top, endPoint: .bottom
-            )
-            .frame(height: 46)
-            .offset(y: scan * max(0, geo.size.height - 46))
-        }
-        .allowsHitTesting(false)
+        // La bande sort de la fente. `scaleEffect` plutôt qu'une hauteur
+        // animée : une hauteur qui part de zéro fait sauter tout ce qui est
+        // en dessous à chaque image, et on n'anime pas vers `nil`.
+        .scaleEffect(y: out ? 1 : 0.04, anchor: .top)
+        .opacity(out ? 1 : 0)
+        .task { withAnimation(.easeOut(duration: 0.45)) { out = true } }
     }
 }
