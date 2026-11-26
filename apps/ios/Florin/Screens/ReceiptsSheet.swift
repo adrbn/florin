@@ -56,6 +56,21 @@ struct ReceiptsSheet: View {
         LocalReceipts.unexplained(total: tx.amount, items: items)
     }
 
+    /*
+     * Un reste négatif n'est pas un reste.
+     *
+     * C'est un ticket qui dépasse l'opération — l'addition de 7,20 € prise
+     * en photo et attachée au paiement de 4,95 € d'à côté. La ligne disait
+     * « Reste à détailler −2,25 € », qui demande de détailler une somme
+     * qui n'existe pas, et laisse croire à une erreur de lecture alors que
+     * c'est la photo qui est sur la mauvaise ligne.
+     */
+    private var remainderLabel: String {
+        remainder < 0
+            ? t("v2.receipts.overshoot", "Le ticket dépasse l'opération")
+            : t("v2.receipts.remainder", "Reste à détailler")
+    }
+
     private var editorial: Bool { FlorinPalette.selected == .editorial }
 
     /*
@@ -434,12 +449,12 @@ struct ReceiptsSheet: View {
     /// manque, ou une ligne que la photo n'a pas rendue.
     private var edRemainder: some View {
         HStack(spacing: 8) {
-            Text(t("v2.receipts.remainder", "Reste à détailler"))
+            Text(remainderLabel)
                 .font(.system(size: 14))
                 .foregroundStyle(Florin.text2)
             Spacer(minLength: 8)
             AmountText(
-                value: remainder, locale: locale, currency: currency,
+                value: abs(remainder), locale: locale, currency: currency,
                 tone: .muted, size: 14
             )
         }
@@ -791,12 +806,12 @@ struct ReceiptsSheet: View {
     /// manque, ou une ligne que la photo n'a pas rendue.
     private var unexplained: some View {
         HStack(spacing: 8) {
-            Text(t("v2.receipts.remainder", "Reste à détailler"))
+            Text(remainderLabel)
                 .font(.system(size: 14))
                 .foregroundStyle(Florin.text2)
             Spacer(minLength: 8)
             AmountText(
-                value: remainder, locale: locale, currency: currency,
+                value: abs(remainder), locale: locale, currency: currency,
                 tone: .muted, size: 14
             )
         }
