@@ -121,6 +121,7 @@
 		A636000FF8D12DAA4D6FF8BC /* LoanSettingsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCA4B188AFA3350AE1C4604E /* LoanSettingsSheet.swift */; };
 		A6534357A58B3944CAAB747B /* ServerImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E9EB2FEBA4192B0854EB8D1 /* ServerImport.swift */; };
 		A72703AD04324329F7E13BAD /* Intents.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 20032485ADB9B3A5B1DD7938 /* Intents.xcstrings */; };
+		A7E1C791E0D8ED7F2AFBD409 /* ReceiptReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD76CB37F53AF83621249AC5 /* ReceiptReader.swift */; };
 		A7E771BF25C8C09D6D3DB941 /* SQLite.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB06E854E34FEC85DF405946 /* SQLite.swift */; };
 		A957B15150966C7A23D70AB5 /* LocalBootstrap.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFAEC9BA74039A089559CADF /* LocalBootstrap.swift */; };
 		AAEE5302652636D18DE67F1D /* ThemeSwatch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99BEFCEC178A8E4D0ABDD364 /* ThemeSwatch.swift */; };
@@ -162,6 +163,7 @@
 		E4D2995C390903037F10DDB7 /* OverviewScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CF3F5843E841E89E60775AB /* OverviewScreen.swift */; };
 		E6EDD1F8D6A3563A3B9726DB /* AnalysisModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6987D1BE572CB37E2BDA92EB /* AnalysisModel.swift */; };
 		EEB484F10F89B2DA71DD8A12 /* ActivityScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57359F03A6215282B0FBF364 /* ActivityScreen.swift */; };
+		EFA5FA7CC60CE9274404D47A /* ReceiptPaper.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD8120D6FD092C90E84EFD60 /* ReceiptPaper.swift */; };
 		F06E9AA0DD0E0EFB69EF51C6 /* Strings.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF64507C596294E339B78F6E /* Strings.swift */; };
 		F08D86FB9DC99E6E39A3FBFC /* PlanCopySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB3F998CC237E7B9ECD2FEF8 /* PlanCopySheet.swift */; };
 		F0E9D6A42524894D40D4FE68 /* FilterSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B9D688258E231DAD13B47A2 /* FilterSheet.swift */; };
@@ -333,6 +335,7 @@
 		B9A820FC9213E4493C163519 /* ActivityModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityModel.swift; sourceTree = "<group>"; };
 		BA4AF8D808EF26C00D0B5A1C /* MerchantLogos.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MerchantLogos.swift; sourceTree = "<group>"; };
 		BD488D5981E2C55AFE21DBAA /* LocalBasket.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalBasket.swift; sourceTree = "<group>"; };
+		BD8120D6FD092C90E84EFD60 /* ReceiptPaper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptPaper.swift; sourceTree = "<group>"; };
 		BD8D00CFBF99A69C1BC612F8 /* LocalHoldings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalHoldings.swift; sourceTree = "<group>"; };
 		BEA17A0E3DE53B5E3A78DD42 /* FlorinTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = FlorinTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		BF64507C596294E339B78F6E /* Strings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Strings.swift; sourceTree = "<group>"; };
@@ -345,6 +348,7 @@
 		CA781686F48030D4E2610C3F /* SetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupView.swift; sourceTree = "<group>"; };
 		CB06E854E34FEC85DF405946 /* SQLite.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SQLite.swift; sourceTree = "<group>"; };
 		CBE8CAD1297A4EAF97189D6B /* BankAccountMapping.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankAccountMapping.swift; sourceTree = "<group>"; };
+		CD76CB37F53AF83621249AC5 /* ReceiptReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptReader.swift; sourceTree = "<group>"; };
 		CDF4A709768A421F61F9223E /* TransactionDetailSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionDetailSheet.swift; sourceTree = "<group>"; };
 		CF76048AF929B992877341B9 /* SyncLogScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncLogScreen.swift; sourceTree = "<group>"; };
 		D01218C78CF2722622A51E5B /* Brand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Brand.swift; sourceTree = "<group>"; };
@@ -546,6 +550,7 @@
 				86665E5949173D99AC181418 /* EmptyStart.swift */,
 				263DE84037C85CC838A30F67 /* FloatingTabBar.swift */,
 				71F6A5D199B6FCCED78975D2 /* NetWorthChart.swift */,
+				BD8120D6FD092C90E84EFD60 /* ReceiptPaper.swift */,
 				38AC79471B6BE2996514EEDD /* ReceiptScanner.swift */,
 				DF9632D2BADE2A1BA9B98E7D /* Rows.swift */,
 				0E01B8AD2CC1890283839B9C /* ServerFields.swift */,
@@ -620,6 +625,7 @@
 				340A343358DF4D1F494B24EB /* OwnAccounts.swift */,
 				C817EE35E708179DA13C49D8 /* ProductNames.swift */,
 				F5378D6C5F5ED9C6CD9C5D73 /* ReceiptParser.swift */,
+				CD76CB37F53AF83621249AC5 /* ReceiptReader.swift */,
 				8E9EB2FEBA4192B0854EB8D1 /* ServerImport.swift */,
 				CB06E854E34FEC85DF405946 /* SQLite.swift */,
 				26287A1F7C976E83B6DDBF26 /* SQLiteValue.swift */,
@@ -922,7 +928,9 @@
 				A245B073A9F74D0CF883D13D /* Privacy.swift in Sources */,
 				D54AEBA180187C6F00BD7E69 /* ProductNames.swift in Sources */,
 				378E13284CB5ABEB3C6AE3D9 /* Reachability.swift in Sources */,
+				EFA5FA7CC60CE9274404D47A /* ReceiptPaper.swift in Sources */,
 				20B72E013FAA2738BA482F4A /* ReceiptParser.swift in Sources */,
+				A7E1C791E0D8ED7F2AFBD409 /* ReceiptReader.swift in Sources */,
 				39B41517C339F61660E65501 /* ReceiptScanner.swift in Sources */,
 				A4E880D341778B721BADC441 /* ReceiptsSheet.swift in Sources */,
 				8AA369E3069804A986597C94 /* RecordPaymentIntent.swift in Sources */,
@@ -1014,7 +1022,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Florin/Florin.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 724;
+				CURRENT_PROJECT_VERSION = 725;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Florin/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;
@@ -1035,7 +1043,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = FlorinWidgets/FlorinWidgets.entitlements;
-				CURRENT_PROJECT_VERSION = 724;
+				CURRENT_PROJECT_VERSION = 725;
 				INFOPLIST_FILE = FlorinWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1140,7 +1148,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = FlorinWidgets/FlorinWidgets.entitlements;
-				CURRENT_PROJECT_VERSION = 724;
+				CURRENT_PROJECT_VERSION = 725;
 				INFOPLIST_FILE = FlorinWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1223,7 +1231,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Florin/Florin.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 724;
+				CURRENT_PROJECT_VERSION = 725;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Florin/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Florin;

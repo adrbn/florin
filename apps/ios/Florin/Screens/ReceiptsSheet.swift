@@ -532,14 +532,7 @@ struct ReceiptsSheet: View {
     }
 
     private var progress: some View {
-        HStack(spacing: 10) {
-            ProgressView()
-            Text(t("v2.receipts.reading", "Lecture du ticket…"))
-                .font(.system(size: 14))
-                .foregroundStyle(Florin.text2)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.vertical, 6)
+        ReceiptPrinting(label: t("v2.receipts.reading", "Lecture du ticket…"))
     }
 
     private var empty: some View {
@@ -556,16 +549,67 @@ struct ReceiptsSheet: View {
         }
     }
 
+    /*
+     * Le ticket tel qu'il sort de la caisse.
+     *
+     * L'en-tête nomme le marchand et la date, les articles sont menés à leur
+     * prix par des pointillés, un filet en tirets sépare le total — c'est la
+     * disposition qu'une caisse imprime depuis cinquante ans, et c'est pour
+     * ça qu'elle se lit sans légende.
+     *
+     * La photo ne s'étale plus sur toute la largeur : elle est devenue une
+     * vignette dans l'en-tête. Elle servait à vérifier une ligne douteuse,
+     * pas à être regardée — et en pleine largeur elle poussait les articles,
+     * qui sont le sujet, sous la ligne de flottaison.
+     *
+     * Relire et supprimer sortent du papier. Ce sont des actions de l'app,
+     * pas des lignes du ticket, et les laisser dedans faisait lire
+     * « Supprimer ce ticket » comme un article à 0 €.
+     */
     private func card(_ receipt: LocalReceipts.Receipt) -> some View {
-        RowGroup {
-            /*
-             * La photo, et pas seulement ce qu'on en a lu.
-             *
-             * Elle était gardée depuis le début — redressée et compressée par
-             * `ReceiptOCR.thumbnail` — mais rien ne la montrait : une ligne
-             * mal lue ne se vérifiait donc contre rien. Elle ouvre en grand,
-             * d'où elle se partage et s'enregistre.
-             */
+        VStack(spacing: 10) {
+            ReceiptPaper(sweep: receipt.id) {
+                VStack(spacing: 0) {
+                    paperHead(receipt)
+                    ReceiptRule().padding(.horizontal, Florin.gutter)
+                    if receipt.items.isEmpty {
+                        Text(t("v2.receipts.nothingRead", "Aucun article lu sur cette photo."))
+                            .font(.system(size: 13))
+                            .foregroundStyle(Florin.text2)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, Florin.gutter)
+                            .padding(.vertical, 14)
+                    } else {
+                        VStack(spacing: 9) {
+                            ForEach(receipt.items) { item in itemLine(item) }
+                        }
+                        .padding(.horizontal, Florin.gutter)
+                        .padding(.vertical, 13)
+                        ReceiptRule().padding(.horizontal, Florin.gutter)
+                        paperTotal(receipt)
+                    }
+                }
+                .padding(.vertical, 15)
+            }
+            paperActions(receipt)
+        }
+    }
+
+    /// Le marchand, la date, et la photo en vignette.
+    private func paperHead(_ receipt: LocalReceipts.Receipt) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(PayeeText.humanize(tx.payee))
+                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                    .tracking(1.2)
+                    .textCase(.uppercase)
+                    .foregroundStyle(Florin.text)
+                    .lineLimit(1)
+                Text(stamp)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(Florin.text3)
+            }
+            Spacer(minLength: 8)
             if let image = photos[receipt.id], let path = receipt.imagePath {
                 Button {
                     viewing = Photo(id: receipt.id, image: image, path: path)
@@ -573,71 +617,75 @@ struct ReceiptsSheet: View {
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFill()
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 148)
-                        .clipped()
-                        .overlay(alignment: .bottomTrailing) {
-                            Image(systemName: "arrow.up.left.and.arrow.down.right")
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(.white)
-                                .padding(7)
-                                .background(.black.opacity(0.45), in: Circle())
-                                .padding(8)
-                        }
+                        .frame(width: 40, height: 46)
+                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .stroke(Florin.text.opacity(0.12), lineWidth: 1)
+                        )
                 }
                 .buttonStyle(.plain)
-                Hairline()
+                .accessibilityLabel(t("v2.receipts.photo", "Voir la photo du ticket"))
             }
-            if receipt.items.isEmpty {
-                line(t("v2.receipts.nothingRead", "Aucun article lu sur cette photo."), nil)
-            } else {
-                ForEach(Array(receipt.items.enumerated()), id: \.element.id) { index, item in
-                    if index > 0 { Hairline() }
-                    itemLine(item)
-                }
-                Hairline()
-                HStack {
-                    Text(t("v2.receipts.receiptTotal", "Total du ticket"))
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(Florin.text2)
-                    Spacer(minLength: 8)
-                    AmountText(
-                        value: receipt.total, locale: locale, currency: currency,
-                        tone: .muted, size: 14
-                    )
-                }
-                .padding(.horizontal, Florin.gutter)
-                .padding(.vertical, 11)
-            }
-            Hairline()
+        }
+        .padding(.horizontal, Florin.gutter)
+        .padding(.bottom, 12)
+    }
+
+    /// `2026-11-26` tel qu'une caisse l'imprimerait. Découpé plutôt que
+    /// formaté : la date vient déjà normalisée de la base, et un formateur
+    /// par ligne de ticket coûte plus que ce qu'il rend.
+    private var stamp: String {
+        let day = String(tx.date.prefix(10))
+        let parts = day.split(separator: "-")
+        guard parts.count == 3 else { return day }
+        return "\(parts[2])/\(parts[1])/\(parts[0])"
+    }
+
+    private func paperTotal(_ receipt: LocalReceipts.Receipt) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(t("v2.receipts.receiptTotal", "Total du ticket"))
+                .font(.system(size: 12.5, weight: .semibold, design: .monospaced))
+                .tracking(1)
+                .textCase(.uppercase)
+                .foregroundStyle(Florin.text)
+            ReceiptLeader()
+            AmountText(
+                value: receipt.total, locale: locale, currency: currency,
+                tone: .neutral, size: 15
+            )
+        }
+        .padding(.horizontal, Florin.gutter)
+        .padding(.top, 12)
+    }
+
+    private func paperActions(_ receipt: LocalReceipts.Receipt) -> some View {
+        HStack(spacing: 18) {
             Button {
                 guard let store = LocalStore.shared else { return }
                 try? LocalReceipts.reread(store: store, receiptId: receipt.id)
                 load()
                 onChanged?()
             } label: {
-                Text(t("v2.receipts.reread", "Relire le ticket"))
-                    .font(.system(size: 14))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, Florin.gutter)
-                    .padding(.vertical, 12)
+                Label(t("v2.receipts.reread", "Relire le ticket"), systemImage: "arrow.clockwise")
+                    .font(.system(size: 13))
             }
             .tint(Florin.text2)
-            Hairline()
+            Spacer(minLength: 0)
             Button(role: .destructive) {
                 guard let store = LocalStore.shared else { return }
                 try? LocalReceipts.delete(store: store, receiptId: receipt.id)
                 load()
                 onChanged?()
             } label: {
-                Text(t("v2.receipts.delete", "Supprimer ce ticket"))
-                    .font(.system(size: 14))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, Florin.gutter)
-                    .padding(.vertical, 12)
+                Label(t("v2.receipts.delete", "Supprimer ce ticket"), systemImage: "trash")
+                    .font(.system(size: 13))
+                    .labelStyle(.iconOnly)
             }
             .tint(Florin.negative)
+            .accessibilityLabel(t("v2.receipts.delete", "Supprimer ce ticket"))
         }
+        .padding(.horizontal, Florin.gutter)
     }
 
     /*
@@ -650,7 +698,7 @@ struct ReceiptsSheet: View {
      */
     private func itemLine(_ item: LocalReceipts.Item) -> some View {
         let reading = meanings[ProductNames.key(item.label)]
-        return HStack(spacing: 8) {
+        return HStack(alignment: .firstTextBaseline, spacing: 8) {
             VStack(alignment: .leading, spacing: 2) {
                 if editing == item.label {
                     TextField("", text: $draft)
@@ -674,11 +722,9 @@ struct ReceiptsSheet: View {
                         .lineLimit(1)
                 }
             }
-            Spacer(minLength: 8)
+            ReceiptLeader()
             AmountText(value: item.amount, locale: locale, currency: currency)
         }
-        .padding(.horizontal, Florin.gutter)
-        .padding(.vertical, 11)
     }
 
     /// Déchiffrer les libellés qui résistent. Discret et facultatif : sans
@@ -930,14 +976,11 @@ struct ReceiptsSheet: View {
     private func read(_ images: [UIImage]) {
         guard !images.isEmpty else { return }
         reading = true
+        let total = tx.amount
         Task.detached(priority: .userInitiated) {
-            let pages = images.map { image -> (Data?, String, [ReceiptParser.Item]) in
-                let lines = (try? ReceiptOCR.lines(from: image)) ?? []
-                return (
-                    ReceiptOCR.thumbnail(image),
-                    lines.joined(separator: "\n"),
-                    ReceiptParser.items(from: lines, total: tx.amount)
-                )
+            var pages: [ReceiptReading.Page] = []
+            for image in images {
+                pages.append(await ReceiptReading.read(image, total: total))
             }
             await MainActor.run {
                 reading = false
@@ -950,7 +993,7 @@ struct ReceiptsSheet: View {
                     for page in pages {
                         try LocalReceipts.save(
                             store: store, transactionId: tx.id,
-                            image: page.0, text: page.1, items: page.2
+                            image: page.thumbnail, text: page.text, items: page.items
                         )
                     }
                     UINotificationFeedbackGenerator().notificationOccurred(.success)

@@ -6288,6 +6288,39 @@ struct AwaitedRefundTests {
  */
 @Suite("Un ticket de caisse")
 struct ReceiptTests {
+    /*
+     * Le modèle embarqué ne passe pas par le découpage, mais il passe par
+     * le même arbitre.
+     *
+     * `ReceiptReading` fait lire le ticket par le modèle d'Apple quand
+     * l'appareil en a un, et ce qu'il rend ne sort pas de `items(from:)` :
+     * aucune des gardes du découpage ne l'a vu. Celle qui compte reste donc
+     * branchée — une ligne qui répète la somme de celles du dessus est un
+     * total, quelle que soit la main qui l'a trouvée, et deux articles au
+     * même prix ne doivent pas en être victimes.
+     */
+    @Test("une lecture par le modèle passe par le même contrôle arithmétique")
+    func reconcilesModelReading() {
+        let read: [ReceiptParser.Item] = [
+            .init(label: "Focaccia", amount: 3.50),
+            .init(label: "Spremuta", amount: 4.00),
+            .init(label: "TOTALE", amount: 7.50),
+        ]
+        #expect(ReceiptParser.reconciled(read, total: -7.50) == [
+            .init(label: "Focaccia", amount: 3.50),
+            .init(label: "Spremuta", amount: 4.00),
+        ])
+        // Deux cafés au même prix : le second répète le premier sans être un
+        // total, et l'écart au débit le dit — il reste.
+        let twice: [ReceiptParser.Item] = [
+            .init(label: "Caffè", amount: 1.50),
+            .init(label: "Caffè", amount: 1.50),
+        ]
+        #expect(ReceiptParser.reconciled(twice, total: -3.00) == twice)
+        // Sans montant de la banque il n'y a pas d'arbitre : on ne retire rien.
+        #expect(ReceiptParser.reconciled(read, total: nil) == read)
+    }
+
     @Test("un nom suivi d'un prix est un achat")
     func readsPurchases() {
         let items = ReceiptParser.items(from: [

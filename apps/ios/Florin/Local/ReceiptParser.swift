@@ -183,6 +183,19 @@ enum ReceiptParser {
         return kept
     }
 
+    /*
+     * Le même arbitre, pour une lecture qui n'est pas venue d'ici.
+     *
+     * `ReceiptReading` fait lire le ticket par le modèle embarqué, qui rend
+     * des articles sans passer par le découpage. L'arithmétique, elle, vaut
+     * pour les deux lectures : une ligne qui répète la somme de celles du
+     * dessus n'est pas un achat, quelle que soit la main qui l'a trouvée.
+     */
+    static func reconciled(_ items: [Item], total: Double?) -> [Item] {
+        guard let total else { return items }
+        return keeping(items, against: abs(total))
+    }
+
     static func item(from rawLine: String) -> Item? {
         if case let .purchase(item) = read(rawLine) { return item }
         return nil
