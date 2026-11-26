@@ -978,10 +978,18 @@ struct ReceiptsSheet: View {
         reading = true
         let total = tx.amount
         Task.detached(priority: .userInitiated) {
-            var pages: [ReceiptReading.Page] = []
+            // Les pages sont relues en série et non en parallèle : la
+            // reconnaissance et le modèle tiennent tous deux le moteur
+            // neuronal, et deux tickets lancés ensemble se gênent au lieu
+            // d'aller deux fois plus vite.
+            var read: [ReceiptReading.Page] = []
             for image in images {
-                pages.append(await ReceiptReading.read(image, total: total))
+                read.append(await ReceiptReading.read(image, total: total))
             }
+            // Figée avant la traversée vers l'acteur principal : une variable
+            // capturée de part et d'autre d'une frontière de concurrence est
+            // une erreur en Swift 6, et ici il n'y a plus rien à y ajouter.
+            let pages = read
             await MainActor.run {
                 reading = false
                 guard let store = LocalStore.shared else {
