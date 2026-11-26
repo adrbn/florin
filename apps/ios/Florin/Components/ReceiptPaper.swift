@@ -26,6 +26,11 @@ struct ReceiptPaper<Content: View>: View {
             .background(Florin.surface, in: ReceiptEdge())
             .overlay(ReceiptEdge().stroke(Florin.text.opacity(0.07), lineWidth: 1))
             .modifier(PaperSweep(trigger: sweep))
+            // Le reflet est un `blendMode`, et un fondu sans groupe de
+            // composition se mélange à tout ce qui est DERRIÈRE la feuille,
+            // pas au seul papier : la bande claire passerait sur le fond de
+            // l'écran, les cartes voisines et la barre d'onglets.
+            .compositingGroup()
             .clipShape(ReceiptEdge())
     }
 }
