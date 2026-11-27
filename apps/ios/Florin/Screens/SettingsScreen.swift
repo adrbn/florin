@@ -1789,6 +1789,7 @@ struct SettingsScreen: View {
                 }
             )
             lastSyncRow
+            consentRow
             syncRow
         }
     }
@@ -1846,6 +1847,42 @@ struct SettingsScreen: View {
                 Text(last, format: .relative(presentation: .named))
                     .font(.system(size: 15))
                     .foregroundStyle(Florin.text2)
+            }
+        }
+    }
+
+    /*
+     * L'échéance, dite avant qu'elle tombe.
+     *
+     * La DSP2 plafonne un accord à quatre-vingt-dix jours et la date est
+     * dans la base depuis la connexion. Sans cette ligne, la seule façon
+     * d'apprendre qu'il a expiré était que la synchro échoue — et comme
+     * rien ne distingue cet échec d'une panne de la banque, la réaction
+     * naturelle est de réessayer, ce qui ne peut pas marcher.
+     *
+     * Toujours affichée, pas seulement à l'approche : une date qu'on voit
+     * chaque fois qu'on ouvre l'écran n'est jamais une surprise, et c'est
+     * exactement l'écran où se trouve le bouton qui la repousse.
+     */
+    @ViewBuilder
+    private var consentRow: some View {
+        if let store = LocalStore.shared, let until = BankingFlow.consentExpiry(store) {
+            let days = Calendar.current.dateComponents([.day], from: Date(), to: until).day ?? 0
+            Hairline()
+            SettingsRow(
+                label: t("v2.account.consent", "Accord bancaire"),
+                symbol: "hand.raised"
+            ) {
+                Text(
+                    days < 0
+                        ? t("v2.account.consentExpired", "Expiré — reconnecte ta banque")
+                        : t("v2.account.consentLeft", "Encore {count} jours", ["count": days])
+                )
+                .font(.system(size: 15))
+                // Sept jours est le seuil : de quoi tomber sur l'écran sans
+                // le chercher, et refaire l'authentification sans urgence.
+                .foregroundStyle(days < 7 ? Florin.negative : Florin.text2)
+                .multilineTextAlignment(.trailing)
             }
         }
     }

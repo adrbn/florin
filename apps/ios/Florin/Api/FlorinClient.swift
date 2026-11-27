@@ -483,7 +483,29 @@ final class OverviewModel: ObservableObject {
             let result = try await client.sync()
             await load(showSpinner: false)
             let inserted = result.transactionsInserted
-            if (announce && (inserted > 0 || confirmCurrent)) || (announceOnlyIfNew && inserted > 0) {
+            /*
+             * Un echec rendu n'est pas un echec lance, et le `catch` ne l'a
+             * jamais vu.
+             *
+             * Sur l'appareil, `sync()` RETOURNE la panne dans `error` ; le
+             * chemin serveur, lui, la LANCE. Le `catch` en dessous ne se
+             * declenchait donc jamais en local, et le code tombait dans la
+             * branche du succes : zero operation inseree, donc « A jour ».
+             * Un consentement bancaire perime depuis la veille s'annoncait
+             * ainsi comme une synchronisation reussie, sur l'accueil comme
+             * sur le tire-pour-rafraichir — la seule trace restante etant le
+             * journal, qu'il faut penser a ouvrir.
+             *
+             * Teste ici plutot qu'en lancant depuis `sync()` : une passe
+             * partielle a vraiment insere des lignes, et les lancer ferait
+             * sauter le `load` au-dessus, laissant l'ecran sur des chiffres
+             * perimes alors que la base, elle, a bouge.
+             */
+            if let failure = result.error, !result.ok {
+                if announce {
+                    toast = ToastMessage(text: failure, kind: .failure)
+                }
+            } else if (announce && (inserted > 0 || confirmCurrent)) || (announceOnlyIfNew && inserted > 0) {
                 toast = ToastMessage(
                     text: inserted > 0
                         ? overview?.t(

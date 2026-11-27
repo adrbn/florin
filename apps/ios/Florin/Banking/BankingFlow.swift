@@ -109,6 +109,42 @@ final class BankingFlow: NSObject, ObservableObject {
         EnableBanking.forgetToken()
     }
 
+    /*
+     * Quand l'accord donné à la banque cesse de valoir.
+     *
+     * La date est écrite depuis le premier jour — `valid_until`, rendue par
+     * Enable Banking à l'ouverture de la session — et personne ne l'a jamais
+     * relue. Elle était donc connue, posée dans la base, pendant les quatre-
+     * vingt-dix jours qu'a duré l'accord, et la coupure s'est quand même
+     * découverte par un 401 à trois heures du matin. Une échéance qu'on a
+     * sous la main et qu'on ne montre pas est une panne qu'on a choisi de
+     * subir.
+     *
+     * La plus proche, pas la plus lointaine : c'est celle-là qui coupera.
+     */
+    nonisolated static func consentExpiry(_ store: LocalStore) -> Date? {
+        guard let value = try? store.database.scalar(
+            """
+            SELECT min(valid_until) FROM bank_connections
+            WHERE status = 'active' AND valid_until <> ''
+            """
+        ) else { return nil }
+        guard let text = value.string else { return nil }
+        if let date = Timestamp.parse(text) { return date }
+        /*
+         * Et la date seule, qu'aucun des deux lecteurs n'accepte — vérifié.
+         *
+         * Enable Banking rend un horodatage complet, mais la ligne qui en
+         * dépend disparaît en silence s'il arrive un jour sous une autre
+         * forme. Or c'est précisément le silence qu'on retire ici.
+         */
+        let day = DateFormatter()
+        day.locale = Locale(identifier: "en_US_POSIX")
+        day.timeZone = TimeZone(identifier: "UTC")
+        day.dateFormat = "yyyy-MM-dd"
+        return day.date(from: String(text.prefix(10)))
+    }
+
     nonisolated static func config(_ store: LocalStore) throws -> EnableBanking.Config {
         guard let appId = appId(store) else { throw EnableBanking.Failure.notConfigured }
         return EnableBanking.Config(appId: appId, redirectURL: redirectURL)
