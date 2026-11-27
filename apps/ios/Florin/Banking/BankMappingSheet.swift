@@ -98,14 +98,24 @@ struct BankMappingSheet: View {
             )
 
             ForEach(candidates) { candidate in
+                // Le compte que la banque a déjà synchronisé ne se « rattache »
+                // pas : il REPREND. Le mot compte, c'est la seule ligne qui dit
+                // qu'on ne perd rien en continuant.
+                let resumes = candidate.iban != nil
+                    && candidate.iban == account.wrappedValue.iban
                 choice(
                     account: account,
                     target: candidate.id,
                     title: candidate.name,
-                    detail: Strings.device(
-                        "v2.connect.mappingLink",
-                        "Rattacher — l'historique déjà là est conservé."
-                    )
+                    detail: resumes
+                        ? Strings.device(
+                            "v2.connect.mappingResume",
+                            "Reprend là où la dernière synchronisation s'est arrêtée."
+                        )
+                        : Strings.device(
+                            "v2.connect.mappingLink",
+                            "Rattacher — l'historique déjà là est conservé."
+                        )
                 )
             }
         }

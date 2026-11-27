@@ -34,6 +34,8 @@ struct MappingCandidate: Identifiable, Equatable {
     let name: String
     let kind: String
     let balance: Double
+    /// Celui de la banque, quand ce compte en a déjà vu un.
+    let iban: String?
 }
 
 extension BankingSync {
@@ -44,6 +46,11 @@ extension BankingSync {
         sessionId: String
     ) async throws -> [DiscoveredAccount] {
         let session = try await EnableBanking.session(config, id: sessionId)
+        // L'IBAN est le compte, quel que soit l'uid du jour.
+        var known: [String: String] = [:]
+        for candidate in (try? candidates(store: store)) ?? [] {
+            if let iban = candidate.iban, !iban.isEmpty { known[iban] = candidate.id }
+        }
         var found: [DiscoveredAccount] = []
         for uid in session.accounts ?? [] {
             let details = try await EnableBanking.accountDetails(config, uid: uid)
@@ -55,24 +62,44 @@ extension BankingSync {
                     iban: details.accountId?.iban,
                     balance: balance ?? 0,
                     currency: details.currency ?? "EUR",
-                    target: nil
+                    /*
+                     * Déjà répondu, quand l'IBAN le dit.
+                     *
+                     * C'est exactement la reprise que la synchro ferait
+                     * d'elle-même un peu plus loin ; la poser ici la rend
+                     * VISIBLE, cochée, avant qu'on appuie. Un écran qui
+                     * connaît la réponse ne doit pas la garder pour lui.
+                     */
+                    target: known[details.accountId?.iban ?? ""]
                 )
             )
         }
         return found
     }
 
-    /// Accounts already here that no bank is syncing yet.
-    ///
-    /// Anything already tied to a bank uid is left out: it is somebody else's
-    /// account and offering it would invite attaching two banks to one row.
+    /*
+     * Tous les comptes, y compris ceux qu'une banque a déjà touchés.
+     *
+     * La requête écartait `sync_external_id` non nul, au motif qu'un compte
+     * déjà bancarisé appartient à quelqu'un d'autre. Mais le cas de loin le
+     * plus fréquent n'est pas une deuxième banque : c'est la MÊME, revenue
+     * au bout de quatre-vingt-dix jours parce que la DSP2 périme l'accord.
+     * L'uid d'Enable Banking étant lié à la session, le compte revient sous
+     * un autre identifiant — et le seul compte auquel on veuille le
+     * rattacher était justement celui que le filtre cachait.
+     *
+     * L'écran demandait donc « ce compte existe-t-il déjà ici ? » en
+     * masquant la bonne réponse, ne laissant que « Nouveau compte », qui a
+     * tout l'air de promettre un doublon. La reprise par l'IBAN rendait la
+     * chose inoffensive, mais une sécurité invisible ne rassure personne :
+     * elle demande de faire confiance à un écran qui vient de mentir.
+     */
     static func candidates(store: LocalStore) throws -> [MappingCandidate] {
         try store.database.query(
             """
-            SELECT id, name, kind, current_balance
+            SELECT id, name, kind, current_balance, iban
             FROM accounts
             WHERE is_archived = 0
-              AND (sync_external_id IS NULL OR sync_external_id LIKE 'server:%')
             ORDER BY display_order, name
             """
         ).map { row in
@@ -80,7 +107,8 @@ extension BankingSync {
                 id: row.string("id") ?? "",
                 name: row.string("name") ?? "",
                 kind: row.string("kind") ?? "checking",
-                balance: row.double("current_balance") ?? 0
+                balance: row.double("current_balance") ?? 0,
+                iban: row.string("iban")
             )
         }
     }
