@@ -76,6 +76,29 @@ enum EnableBanking {
          * illisible que traduite de travers.
          */
         static func describe(code: Int, body: String) -> String {
+            /*
+             * L'accord a une date de péremption, et ce n'est pas une panne.
+             *
+             * La DSP2 limite un consentement à quatre-vingt-dix jours : passé
+             * ce délai Enable Banking ferme la session et répond 401
+             * CLOSED_SESSION à tout. Le journal l'écrivait tel quel —
+             *
+             *     Enable Banking: {"code":401,"message":"Session is closed",
+             *     "error":"CLOSED_SESSION","detail":null}
+             *
+             * — et comme rien ne distingue cette ligne d'une panne passagère,
+             * la seule réaction possible était de réessayer : sept fois en
+             * seize heures, dont une à trois heures du matin, toutes vouées à
+             * échouer parce qu'il n'y a plus de session à rouvrir. C'est la
+             * seule erreur de cette liste qui demande une action précise, et
+             * elle est la seule à ne pas l'avoir dite.
+             */
+            if body.contains("CLOSED_SESSION") {
+                return Strings.device(
+                    "v2.connect.consentExpired",
+                    "L'accord donné à ta banque a expiré — la loi le limite à 90 jours. Reconnecte ta banque dans les Réglages : réessayer ne servira à rien."
+                )
+            }
             if body.contains("ASPSP_ERROR") {
                 return Strings.device(
                     "v2.connect.bankRefused",
